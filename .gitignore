@@ -1,0 +1,22 @@
+# Whitelist approach: ignore everything at root, then allow specific items.
+# Once a directory is unignored, its contents are auto-included.
+/*
+
+# Allowed top-level items
+!/.gitignore
+!/CLAUDE.md
+!/agents/
+!/commands/
+!/skills/
+!/scripts/
+!/statusline.js
+!/subagent-statusline.js
+
+# Belt-and-suspenders: never push these even if the whitelist is changed by mistake.
+.credentials.json
+settings.json
+settings.local.json
+history.jsonl
+*.bak
+*.bak.*
+tmp_*
