@@ -10,7 +10,7 @@ Windows 에서 사용하는 `%USERPROFILE%\.claude\` 의 사용자 글로벌 설
 
 - **Node.js** (LTS 권장) — `statusline.js`, `subagent-statusline.js`, `codex-quota-refresh.js` 가 Node 로 실행. `node --version` 으로 확인.
 - **Claude Code** 설치 — `~/.claude/` 위치를 자동으로 읽음. 설치 후 한 번이라도 실행하여 디렉토리 생성.
-- **Git** + **Git Bash** — Claude Code 가 일부 명령을 Git Bash 로 실행. statusline 의 `~` expansion 도 Git Bash 가 처리.
+- **Git** + **Git Bash** — Claude Code 가 statusLine command 를 Windows 에서 Git Bash 로 spawn (없으면 PowerShell fallback). PowerShell 도 PATH 에 있어야 — settings.json 의 statusLine command 가 `powershell` wrapper.
 - **(선택) Codex CLI** — statusline 의 Codex quota 표시용. 없으면 해당 부분만 빠지고 나머지는 정상 동작 (silent fail).
 - **(선택) PowerShell ExecutionPolicy** — 후크가 `.ps1` 스크립트를 호출하므로 `Restricted` 면 실행 안 됨. 아래 Install 참고.
 
@@ -25,14 +25,17 @@ Windows 에서 사용하는 `%USERPROFILE%\.claude\` 의 사용자 글로벌 설
 cd $env:USERPROFILE
 git clone <this-repo-url> .claude
 
-# 2. 실제 settings.json 생성 (example 복사)
-Copy-Item .claude\settings.example.json .claude\settings.json
-
-# 3. (필요 시) PowerShell ExecutionPolicy — 후크가 .ps1 호출하므로
+# 2. (필요 시) PowerShell ExecutionPolicy
 Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+
+# 3. Pre-commit / pre-push 가드 설치 (settings.json 의 secret leak 차단)
+cd $env:USERPROFILE\.claude
+.\scripts\install-hooks.ps1
 
 # 4. Claude Code 재시작
 ```
+
+`settings.json` 은 tracked — clone 한 그대로 동작 (별도 복사 단계 없음).
 
 ### B. 이미 `~/.claude/` 가 있는 머신 — 기존 데이터 보존
 
@@ -41,7 +44,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ```powershell
 cd $env:USERPROFILE\.claude
 
-# 1) 백업 디렉토리 명시 생성 (-Force 는 이미 있어도 통과)
+# 1) 백업 디렉토리 명시 생성
 New-Item -ItemType Directory -Path ..\claude-backup -Force | Out-Null
 
 # 2) 개인 데이터 백업 (없는 파일은 SilentlyContinue 로 무시)
@@ -55,25 +58,58 @@ git remote add origin <this-repo-url>
 git fetch origin
 
 # 4) `-f` 없이 checkout — repo 와 동명의 untracked 파일이 있으면 git 이 멈춤.
-#    그래야 사용자가 자체 수정한 statusline.js, CLAUDE.md, agents/*.md 같은 파일이
-#    무음 덮어쓰기 당하지 않는다. git 출력에 표시된 충돌 파일을 backup 으로 옮긴 뒤 재시도.
+#    settings.json 도 이제 tracked 라 충돌하면 멈춤 — 백업한 값에서 머신별 부분은
+#    settings.local.json 으로 옮길지, settings.json 을 덮어쓸지 본인이 판단.
 git checkout origin/main -b main
 
-# 5) settings.json 차단되어 있으므로 example 에서 복사 (없을 때만)
-if (-not (Test-Path settings.json)) {
-  Copy-Item settings.example.json settings.json
-}
+# 5) hooks 설치
+.\scripts\install-hooks.ps1
 ```
 
 `.gitignore` 가 화이트리스트 방식이라 `.credentials.json`, `settings.local.json`, `history.jsonl`, `projects/`, `sessions/`, `cache/` 등 기존 개인 데이터는 git 이 건드리지 않음.
 
-### C. settings.json 커스터마이즈
+### C. 머신별 / 민감 정보 — `settings.local.json` 으로
 
-기본 `settings.example.json` 그대로 복사하면 거의 모든 기능 동작. 머신별로 다음을 추가:
+`settings.json` 은 tracked → repo 의 base 설정. 머신별 차이나 민감 정보는 `~/.claude/settings.local.json` (gitignored) 에 둠. Claude Code 가 자동으로 deep merge 하고 `.local` 이 우선.
 
-- **MCP 서버**: `mcpServers` 키
-- **추가 allow list**: `permissions.allow` — `settings.local.json` 에 두는 게 안전 (git 차단됨)
-- **개인 hook**: 예를 들어 특정 repo 의 pre-push hook 같은 머신별 후크는 `settings.local.json` 에 두거나, 해당 repo 의 `.claude/settings.json` 에 두는 것을 권장 (글로벌 설정 오염 방지)
+예시:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test:*)",
+      "Bash(git log:*)"
+    ]
+  },
+  "env": {
+    "ANTHROPIC_LOG": "warn"
+  }
+}
+```
+
+**들어가야 하는 항목**:
+- 머신별 `permissions.allow` (cwd 절대경로 박힌 것 등)
+- 머신별 hook
+- 개발 시 임시 env var
+- (참고) MCP 서버는 `settings.local.json` 이 아니라 `~/.claude.json` 에 자동 저장됨. `claude mcp add --scope user` 사용.
+
+**경고 — Issue [#19487](https://github.com/anthropics/claude-code/issues/19487)**: project-level `.claude/settings.local.json` 이 존재하면 user-level `~/.claude/settings.local.json` 전체가 무시됨 (closed as not planned). project 별 local 사용 시 user-level 도 사용하면 충돌.
+
+### D. Pre-commit / Pre-push 가드
+
+`scripts/pre-commit-check.ps1` 가 staged/HEAD `settings.json` 을 검사해서 다음을 차단:
+- 금지 키: `mcpServers`, `apiKeyHelper`, `awsCredentialExport`, `awsAuthRefresh`
+- 토큰 패턴: Anthropic / OpenAI / GitHub / GitLab / AWS / GCP / Slack / JWT / PEM
+
+설치 한 번:
+```powershell
+.\scripts\install-hooks.ps1
+```
+
+`.git/hooks/` 는 머신별 → clone 후 매번 실행 필요.
+
+`--no-verify` 우회 가능 — 본인 규율 의존. push 직전엔 가급적 `/push-review` 사용.
 
 ---
 
@@ -101,6 +137,9 @@ claude 53%(20:30) | codex 60%(18:45) | ctx 12% | main
 
 ### 4. Subagent statusline
 `Agent` 도구로 subagent 호출 시 subagent 의 statusline 에 `running | 1.2k tok | 0m 5s` 같은 한 줄이 나와야 함.
+
+### 5. Pre-commit guard
+`.\scripts\install-hooks.ps1` 실행 후 일반 `git commit` 은 무동작 (정상). 의도적으로 settings.json 에 `"mcpServers": {}` 박고 commit 시도 → `[BLOCKED]` 출력 + exit 1 이어야 함.
 
 ---
 
@@ -201,23 +240,37 @@ Toast 알림 + 시스템 사운드 + 윈도우 flash. 우선순위: WinRT ToastN
 
 debug log: `$env:CLAUDE_NOTIFY_DEBUG = '1'` 설정 시에만 `%TEMP%\claude-notify-debug.json` 에 매 호출마다 덮어씀. cwd, sessionId 포함되므로 디버깅 후 환경변수 해제 권장. 기본값은 off (privacy footprint 최소화).
 
-### settings.example.json — 설정 템플릿
+#### `pre-commit-check.ps1`
+staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json` 을 검사. 금지 키 (`mcpServers`, `apiKeyHelper`, `awsCredentialExport`, `awsAuthRefresh`) 또는 토큰 패턴 (Anthropic/OpenAI/GitHub/GitLab/AWS/GCP/Slack/JWT/PEM) 검출 시 exit 1.
 
-clone 후 `settings.json` 으로 복사해서 사용. 본 파일 자체는 git tracked, 실제 `settings.json` 은 belt-and-suspenders 차단 (`gitignore`).
+`.git/hooks/` 에 직접 두지 않고 별도 파일 → repo 에 tracked. `install-hooks.ps1` 가 `.git/hooks/{pre-commit,pre-push}` sh wrapper 를 생성해서 이 스크립트로 위임.
 
-핵심 키:
-- `theme`, `effortLevel`, `preferredNotifChannel` — Claude Code UI 설정
+#### `install-hooks.ps1`
+`.git/hooks/pre-commit`, `.git/hooks/pre-push` sh wrapper 생성. UTF-8 (no BOM) + LF endings — Git Bash 가 인식. idempotent — 재실행 시 덮어쓰기. 새 머신 setup 시 1회 실행.
+
+### settings.json — 살아있는 설정 (tracked)
+
+머신 간 sync 의 source of truth. 핵심 키:
+- `theme`, `preferredNotifChannel` — Claude Code UI 설정
 - `permissions.deny` — `git push origin main/master` 직접 푸시 차단
 - `permissions.ask` — 일반 `git push` 는 확인 후 실행
-- `statusLine`, `subagentStatusLine` — 위 statusline 스크립트 등록
+- `statusLine`, `subagentStatusLine` — statusline 스크립트 등록 (PowerShell wrapper 로 `$env:USERPROFILE` expansion)
+- `env.CLAUDE_CODE_EFFORT_LEVEL` — Opus 4.7 effort level (`xhigh`). docs 명시 값: `low|medium|high|xhigh`. env 가 `effortLevel` 키를 override 하므로 settings 키는 제거.
 - `hooks.Stop` / `hooks.Notification` — 응답 완료 / 입력 대기 시 PowerShell 후크 호출
 - `enabledPlugins`, `extraKnownMarketplaces` — Pyright LSP plugin + OpenAI Codex marketplace
 
 Path 표기:
-- statusLine command: `node "~/.claude/statusline.js"` — Claude Code 가 Git Bash 로 spawn, `~` expansion 처리
-- Hook command: `& "$env:USERPROFILE\.claude\scripts\notify-hook.ps1"` — `shell: powershell` 이라 PowerShell 의 `$env:USERPROFILE` automatic variable 사용
+- statusLine command: `powershell -NoProfile -Command 'node "$env:USERPROFILE\.claude\statusline.js"'` — outer single quote 가 Git Bash / PowerShell 양쪽에서 그대로 PowerShell 에 전달되고, inner PowerShell 이 `$env:USERPROFILE` expand.
+- Hook command: `& "$env:USERPROFILE\.claude\scripts\notify-hook.ps1"` — `shell: powershell` 옵션이라 PowerShell expansion 직접.
 
-머신별 추가 (allow list 보강, MCP 서버, 개인 hook 등) 는 `settings.local.json` 에 두는 것을 권장 (git 차단).
+**Claude Code 가 자동 수정하는 키 (push 전 `git diff` 검토 권장)**:
+- `/config` (theme, verbose 등) → user-level settings.json (v2.1.119+)
+- `/statusline` → settings.json
+- `/effort` → settings.json (effortLevel 키 추가)
+- `/plugin` enable/disable → enabledPlugins
+- "Always allow" Bash prompt → project `.claude/settings.local.json` (이 repo 와 무관)
+
+머신별 / 민감 정보는 [`settings.local.json`](#c-머신별--민감-정보--settingslocaljson-으로) 으로.
 
 ---
 
@@ -228,10 +281,10 @@ Path 표기:
 | 항목 | 사유 |
 |---|---|
 | `.credentials.json` | Claude / Anthropic OAuth 토큰. 절대 commit 금지. |
-| `settings.json` | 살아있는 실제 설정. 향후 MCP server config / API key 추가 시 자동 commit 위험 차단. `settings.example.json` 에서 복사해 사용. |
-| `settings.local.json` | 머신별 allow list (이전 세션에서 채워진 경로 다수). 다른 머신에 의미 없음. |
+| `~/.claude.json` | MCP server config + OAuth session. `claude mcp add --scope user` 가 여기 박음. 절대 commit 금지. `~/.claude/` 외부 (홈 디렉토리 직속) 라 본 repo 와 별도 파일. |
+| `settings.local.json` | 머신별 allow list, 머신별 hook, 임시 env. Claude Code 가 자동 deep merge 하며 `.local` 우선. |
 | `history.jsonl` | 명령 입력 히스토리. 개인 데이터. |
-| `projects/`, `sessions/`, `tasks/`, `cache/`, `paste-cache/`, `shell-snapshots/`, `file-history/`, `backups/`, `plugins/` | runtime cache, 세션 로그, 붙여넣기 캐시 등 머신·세션별 데이터 |
+| `projects/`, `sessions/`, `tasks/`, `cache/`, `paste-cache/`, `shell-snapshots/`, `file-history/`, `backups/`, `plugins/`, `plans/` | runtime cache, 세션 로그, 붙여넣기 캐시, plan 핸드오프 등 머신·세션별 데이터 |
 | `mcp-needs-auth-cache.json` | MCP 인증 캐시 |
 | `*.bak`, `*.bak.*`, `tmp_*` | 임시 백업 |
 | `CLAUDE.md.bak.*` | CLAUDE.md 이전 버전 백업 |
@@ -241,7 +294,7 @@ Path 표기:
 ## Customization
 
 ### 사용자명이 다른 머신
-`settings.example.json` 의 path 가 모두 `~` 또는 `$env:USERPROFILE` 로 추상화돼 있어 사용자명 무관 동작. Git Bash 와 PowerShell 양쪽에서 자동 expansion.
+settings.json 의 statusLine / hook command 모두 `$env:USERPROFILE` 로 추상화돼 있어 사용자명 무관 동작. statusLine 은 PowerShell wrapper 가 expand 처리 (`powershell -NoProfile -Command 'node "$env:USERPROFILE\.claude\statusline.js"'`).
 
 ### Codex CLI 없는 머신
 설치 안 해도 statusline 의 `codex NN%(HH:MM)` 부분만 빠지고 나머지는 정상. 설치하려면 `npm install -g @openai/codex` 후 `codex login`.
@@ -251,19 +304,15 @@ Path 표기:
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ```
-또는 settings 의 hook command 를 다음으로 교체:
-```
-"command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$env:USERPROFILE\\.claude\\scripts\\notify-hook.ps1\" -Event Stop -Sound Asterisk"
-```
 
 ### Notify 알림 끄기
-`settings.json` 의 `hooks.Stop` / `hooks.Notification` 블록 제거. `preferredNotifChannel` 도 `"none"` 으로 변경.
+`settings.json` 의 `hooks.Stop` / `hooks.Notification` 블록을 본인 `settings.local.json` 에서 override 하거나, settings.json 에서 직접 제거 후 commit. `preferredNotifChannel` 도 `"none"` 으로 변경.
 
 ### Permission prompt 자주 뜨는 경우
-Claude Code 내장 skill `/fewer-permission-prompts` 호출 시 최근 transcript 의 read-only Bash·MCP 호출을 분석해 `.claude/settings.json` 의 `permissions.allow` 에 자동 추가. 머신별 차이는 `settings.local.json` 에 두는 게 안전.
+Claude Code 내장 skill `/fewer-permission-prompts` 호출 시 최근 transcript 의 read-only Bash·MCP 호출을 분석해 `permissions.allow` 에 자동 추가. 머신별 차이는 `settings.local.json` 에 두는 게 안전.
 
 ### Commit 전 식별자 leak 점검
-다른 머신용 username·내부 repo 이름·이메일 등이 staged 파일에 새어 들어갔는지 commit 전 직접 검사. CI 가 자동 처리하지 않는 이유는 패턴 자체가 leak 표면이 될 수 있어서.
+pre-commit guard 가 settings.json 의 토큰 패턴은 잡지만, 다른 파일의 머신 식별자 (username·내부 repo 이름·이메일 등) 는 본인이 확인. CI 가 자동 처리하지 않는 이유는 패턴 자체가 leak 표면이 될 수 있어서.
 ```powershell
 git diff --staged | Select-String -Pattern '본인_username|내부_repo_이름|이메일도메인'
 ```
@@ -275,31 +324,28 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 
 ---
 
-## Troubleshooting
+## Rollback / Incident Response
 
-### Statusline 미표시
-1. Claude Code 재시작 후에도 안 보이면 직접 실행해 stdout 확인:
-   - Git Bash: `node "~/.claude/statusline.js" < /dev/null`
-   - cmd / PowerShell: `node "$env:USERPROFILE\.claude\statusline.js" < NUL` (cmd 는 `~` expansion 안 함)
-2. `~` expansion 이 안 되는 환경이면 settings.json 의 path 를 `$env:USERPROFILE` 또는 절대경로로 교체
-3. Node 가 PATH 에 없으면 `node --version` 으로 확인
+### Settings 변경 되돌리기
+가벼운 변경 — `git revert <commit>`. 다른 머신은 다음 pull 시 반영. 머신마다 settings.json 자동 수정 (Claude Code 가 박는 변경) 이 있으면 머지 충돌 가능 — 본인이 어느 쪽 살릴지 결정.
 
-### Hook 미실행 (notify 안 됨)
-1. `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` 한 번 실행
-2. `powershell -File "$env:USERPROFILE\.claude\scripts\notify-hook.ps1" -Event Stop -DryRun` 로 직접 호출 — JSON 출력 나오는지
-3. 디버그 로그 사용: `$env:CLAUDE_NOTIFY_DEBUG = '1'` 설정 후 재현 → `%TEMP%\claude-notify-debug.json` 확인 (후크 invoke 흔적). 확인 후 `Remove-Item Env:\CLAUDE_NOTIFY_DEBUG` 로 해제.
+### Secret 실수로 commit/push 한 경우
 
-### Codex quota 미표시
-1. `codex --version` 으로 CLI 존재 확인
-2. `codex login` 인증 상태 확인
-3. `cache/codex-quota.json` 의 `error` 필드 확인 — 마지막 실패 사유 기록
-4. 수동 refresh: `node "$env:USERPROFILE\.claude\codex-quota-refresh.js"` 직접 실행 후 cache 갱신 확인
+**즉시 수행 (시간 순)**:
+1. **token 회수** — 노출된 키/토큰 즉시 revoke + rotate (Anthropic console, GitHub settings, AWS IAM 등). 이게 가장 시급.
+2. **GitHub secret scanning alert 확인** — repo Settings > Security > Secret scanning. 자동 detect 됐을 가능성.
+3. **history rewrite** — `git filter-repo` 로 secret 들어간 commit 제거 후 force push.
+   ```bash
+   pip install git-filter-repo
+   # replace.txt 형식: <literal>==><replacement>   (==> 없으면 git-filter-repo 거부)
+   echo "leaked-secret-string==>***REMOVED***" > replace.txt
+   git filter-repo --replace-text replace.txt
+   git push --force-with-lease origin main
+   ```
+4. **다른 머신 pull 상태 정리** — 이미 pull 한 머신은 `git fetch && git reset --hard origin/main`. 노출된 secret 이 다른 머신 local 에도 있을 수 있음 — `git log` / `git stash list` / `git reflog` 도 점검.
+5. **remote cache 점검** — PR diff, GitHub Actions log, CI artifact, 검색엔진 cache 도 표면. 가능하면 PR delete + admin contact.
 
-### Hook 이 다른 repo 의 스크립트를 찾음 (예: `pre-push-review.sh`)
-`settings.example.json` 에는 그런 hook 이 없음. 본인 `settings.json` 에 추가됐다면 머신별 차이 — 필요시 제거하거나 `settings.local.json` 으로 이동.
-
-### `commands/push-review` 가 `Error: hooks 가 설치되지 않았습니다`
-프로젝트 `.claude/hooks/` 에 `active-plan.sh`, `resolve-range.sh`, `run-codex-review.sh`, `review-codex.sh`, `clear-review.sh` 가 없어서 발생. 기존 프로젝트의 `.claude/hooks/*.sh` 를 복사해 `chmod +x` 후 재시도. 글로벌 `.claude/` 가 아닌 **각 프로젝트** 의 `.claude/hooks/` 에 둬야 함.
+참고: `permissions.deny` 는 Claude Code (assistant) 가 명령 실행할 때만 차단. 사용자가 직접 터미널에서 `git push --force-with-lease` 실행하는 것은 영향 없음 — incident response 는 본인이 직접 터미널에서 진행.
 
 ---
 
@@ -309,18 +355,8 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 현재는 Windows-only 가정으로 출발. portable 한 부분과 분기 필요한 부분 정리:
 - `statusline.js`, `subagent-statusline.js`, `codex-quota-refresh.js` — `os.homedir()` 기반, **이미 portable**.
 - `CLAUDE.md`, `agents/*.md`, `commands/*.md`, `skills/wt/SKILL.md` — 텍스트 가이드, **OS 무관**.
-- `scripts/notify-hook.ps1`, `scripts/notify.ps1` — **PowerShell 전용**. macOS 는 `osascript -e 'display notification ...'` 또는 `terminal-notifier`, Linux 는 `notify-send` 로 분기 필요.
-- `settings.example.json` — hook command 가 PowerShell 의존. OS 별 분기 또는 멀티 OS 호환 wrapper script 로 통합.
-
-### 단일 실행 파일 install (`install.ps1`)
-`settings.example.json` → `settings.json` 복사, ExecutionPolicy 설정, 자동 verify 까지 한 번에. 흐름:
-1. 기존 `~/.claude/` backup (있으면)
-2. `git clone` 또는 `git init + fetch + checkout` (기존 dir 처리)
-3. `Copy-Item settings.example.json settings.json` (덮어쓰지 않음)
-4. `Set-ExecutionPolicy CurrentUser RemoteSigned` (사용자 동의 후)
-5. Statusline / notify hook / Codex quota 각각 1회 직접 호출 → stdout 검증
-6. 실패 시 Troubleshooting 섹션의 어느 단락으로 가야 하는지 안내
-- macOS / Linux 지원 시 `install.sh` 같은 인터페이스로 제공.
+- `scripts/notify-hook.ps1`, `scripts/notify.ps1`, `scripts/pre-commit-check.ps1`, `scripts/install-hooks.ps1` — **PowerShell 전용**. macOS 는 `osascript -e 'display notification ...'` 또는 `terminal-notifier`, Linux 는 `notify-send`. pre-commit guard 는 `sh` / `python` 재작성.
+- `settings.json` — hook / statusLine command 가 PowerShell 의존. OS 별 분기 또는 멀티 OS 호환 wrapper.
 
 ---
 
@@ -331,9 +367,8 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 ├── CLAUDE.md                       # 전역 작업 규칙 (자동 로드)
 ├── README.md                       # 본 파일
 ├── .gitignore                      # whitelist 방식 + belt-and-suspenders
-├── settings.example.json           # 설정 템플릿
-├── settings.json                   # 실제 설정 (git 차단, example 에서 복사)
-├── settings.local.json             # 머신별 allow list 등 (git 차단)
+├── settings.json                   # 살아있는 설정 (tracked)
+├── settings.local.json             # 머신별 / 민감 정보 (gitignored)
 ├── statusline.js                   # 메인 statusline
 ├── subagent-statusline.js          # subagent statusline
 ├── codex-quota-refresh.js          # Codex quota fetcher
@@ -349,7 +384,39 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 ├── skills/
 │   └── wt/
 │       └── SKILL.md                # /wt — git worktree 관리
-└── scripts/
-    ├── notify.ps1                  # Toast + 사운드 + flash
-    └── notify-hook.ps1             # Stop / Notification 후크 entry
+├── scripts/
+│   ├── notify.ps1                  # Toast + 사운드 + flash
+│   ├── notify-hook.ps1             # Stop / Notification 후크 entry
+│   ├── pre-commit-check.ps1        # settings.json secret guard (pre-commit + pre-push)
+│   └── install-hooks.ps1           # .git/hooks/{pre-commit,pre-push} wrapper 생성
+└── plans/                          # 핸드오프 plan 파일 (gitignored)
 ```
+
+---
+
+## Troubleshooting
+
+### Statusline 미표시
+1. Claude Code 재시작 후에도 안 보이면 직접 실행해 stdout 확인:
+   - PowerShell: `powershell -NoProfile -Command 'node "$env:USERPROFILE\.claude\statusline.js"' < NUL`
+   - Git Bash: `node "$HOME/.claude/statusline.js" < /dev/null`
+2. PowerShell wrapper 가 `~` 대신 `$env:USERPROFILE` 사용. expansion 안 되는 환경이면 absolute path 임시 박고 원인 파악.
+3. Node 가 PATH 에 없으면 `node --version` 으로 확인.
+4. Workspace trust dialog 거부 시 statusline 미실행. `statusline skipped · restart to fix` 표시면 trust accept 후 재시작.
+
+### Hook 미실행 (notify 안 됨)
+1. `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` 한 번 실행
+2. `powershell -File "$env:USERPROFILE\.claude\scripts\notify-hook.ps1" -Event Stop -DryRun` 로 직접 호출 — JSON 출력 나오는지
+3. 디버그 로그 사용: `$env:CLAUDE_NOTIFY_DEBUG = '1'` 설정 후 재현 → `%TEMP%\claude-notify-debug.json` 확인. 확인 후 `Remove-Item Env:\CLAUDE_NOTIFY_DEBUG` 로 해제.
+
+### Codex quota 미표시
+1. `codex --version` 으로 CLI 존재 확인
+2. `codex login` 인증 상태 확인
+3. `cache/codex-quota.json` 의 `error` 필드 확인 — 마지막 실패 사유 기록
+4. 수동 refresh: `node "$env:USERPROFILE\.claude\codex-quota-refresh.js"` 직접 실행 후 cache 갱신 확인
+
+### Pre-commit guard 가 정상 변경을 차단
+`scripts/pre-commit-check.ps1` 의 토큰 패턴이 settings.json 의 정상 값과 충돌하는 경우. 패턴 수정이 정답. 정말 통과 필요하면 `git commit --no-verify` — 단 한 번도 안 보고 통과시키지 말 것.
+
+### `commands/push-review` 가 `Error: hooks 가 설치되지 않았습니다`
+프로젝트 `.claude/hooks/` 에 `active-plan.sh`, `resolve-range.sh`, `run-codex-review.sh`, `review-codex.sh`, `clear-review.sh` 가 없어서 발생. 기존 프로젝트의 `.claude/hooks/*.sh` 를 복사해 `chmod +x` 후 재시도. 글로벌 `.claude/` 가 아닌 **각 프로젝트** 의 `.claude/hooks/` 에 둬야 함.

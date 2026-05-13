@@ -13,14 +13,13 @@
 !/codex-quota-refresh.js
 !/commands/
 !/scripts/
-!/settings.example.json
+!/settings.json
 !/skills/
 !/statusline.js
 !/subagent-statusline.js
 
 # Belt-and-suspenders: never push these even if the whitelist is changed by mistake.
 .credentials.json
-settings.json
 settings.local.json
 history.jsonl
 *.bak
