@@ -3,12 +3,18 @@
 /*
 
 # Allowed top-level items
+!/.editorconfig
+!/.github/
 !/.gitignore
 !/CLAUDE.md
+!/LICENSE
+!/README.md
 !/agents/
+!/codex-quota-refresh.js
 !/commands/
-!/skills/
 !/scripts/
+!/settings.example.json
+!/skills/
 !/statusline.js
 !/subagent-statusline.js
 

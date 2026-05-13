@@ -1,0 +1,69 @@
+{
+  "enabledPlugins": {
+    "pyright-lsp@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "openai-codex": {
+      "source": {
+        "source": "github",
+        "repo": "openai/codex-plugin-cc"
+      }
+    }
+  },
+  "theme": "dark",
+  "effortLevel": "xhigh",
+  "preferredNotifChannel": "terminal_bell",
+  "permissions": {
+    "deny": [
+      "Bash(git push origin main)",
+      "Bash(git push origin main *)",
+      "Bash(git push origin main:*)",
+      "Bash(git push origin HEAD:main)",
+      "Bash(git push origin HEAD:main *)",
+      "Bash(git push origin master)",
+      "Bash(git push origin master *)",
+      "Bash(git push origin master:*)",
+      "Bash(git push origin HEAD:master)",
+      "Bash(git push origin HEAD:master *)"
+    ],
+    "ask": [
+      "Bash(git push)",
+      "Bash(git push *)"
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "node \"~/.claude/statusline.js\"",
+    "refreshInterval": 2
+  },
+  "subagentStatusLine": {
+    "type": "command",
+    "command": "node \"~/.claude/subagent-statusline.js\""
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "async": true,
+            "command": "& \"$env:USERPROFILE\\.claude\\scripts\\notify-hook.ps1\" -Event Stop -Sound Asterisk"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "async": true,
+            "command": "& \"$env:USERPROFILE\\.claude\\scripts\\notify-hook.ps1\" -Event Notification -Sound Exclamation"
+          }
+        ]
+      }
+    ]
+  }
+}
