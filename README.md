@@ -1,8 +1,11 @@
-# Claude Code Global Config (Windows)
+# Claude Code Global Config (Windows / macOS)
 
-Windows 에서 사용하는 `%USERPROFILE%\.claude\` 의 사용자 글로벌 설정·에이전트·명령·스킬·후크·스크립트·스테이터스라인을 한 레포에 모은 것. 다른 Windows 머신에서 동일한 작업 환경을 빠르게 재현하기 위함.
+Windows 에서 사용하는 `%USERPROFILE%\.claude\` 또는 macOS 에서 사용하는 `~/.claude/` 의 사용자 글로벌 설정·에이전트·명령·스킬·후크·스크립트·스테이터스라인을 한 레포에 모은 것. 다른 머신에서 동일한 작업 환경을 빠르게 재현하기 위함.
 
 대상: Claude Code 를 깊이 사용하는 본인. 일반 공개 가이드 아님. 본인 워크플로우와 기존 자동화에 종속된 컴포넌트가 일부 있음 (특히 `commands/push-review`).
+
+- **Windows 사용자**: 기본 `settings.json` (PowerShell 후크·statusLine wrapper) 와 `scripts/*.ps1` 사용.
+- **macOS 사용자**: clone 후 `settings.macos.json` 을 `settings.json` 으로 복사. `scripts/*.sh` 사용. 아래 "Install (macOS)" 참고.
 
 ---
 
@@ -110,6 +113,71 @@ git checkout origin/main -b main
 `.git/hooks/` 는 머신별 → clone 후 매번 실행 필요.
 
 `--no-verify` 우회 가능 — 본인 규율 의존. push 직전엔 가급적 `/push-review` 사용.
+
+---
+
+## Install (macOS)
+
+macOS 는 PowerShell 대신 `bash` + `osascript` (알림) + `afplay` (사운드) 사용. 추가 의존성 없음 (system built-in).
+
+### A. 새 macOS 머신 — `~/.claude/` 가 없거나 비어있을 때
+
+```bash
+# 1. clone
+cd ~
+git clone <this-repo-url> .claude
+
+# 2. macOS 용 settings.json 적용 (Windows 기본을 macOS 버전으로 교체)
+cd ~/.claude
+mv settings.json settings.windows.json   # 백업
+cp settings.macos.json settings.json
+
+# 3. (optional) pre-commit / pre-push 가드 설치
+./scripts/install-hooks.sh
+
+# 4. Claude Code 재시작
+```
+
+### B. 이미 `~/.claude/` 가 있는 macOS 머신 — 기존 데이터 보존
+
+```bash
+cd ~/.claude
+
+# 1) 개인 데이터 백업
+mkdir -p ../claude-backup
+cp -R settings.json settings.local.json .credentials.json ../claude-backup/ 2>/dev/null
+
+# 2) git 초기화 + fetch
+git init
+git remote add origin <this-repo-url>
+git fetch origin
+
+# 3) checkout — repo 와 동명의 untracked 파일이 있으면 git 이 멈춤.
+git checkout origin/main -b main
+
+# 4) macOS 용 settings.json 적용
+cp settings.macos.json settings.json   # 또는 백업한 값과 머지
+
+# 5) hooks 설치
+./scripts/install-hooks.sh
+```
+
+### C. macOS 알림 권한
+
+`osascript` 첫 호출 시 시스템 설정 → 알림 → 터미널 (혹은 Claude Code 실행 중인 앱) 권한 허용 요청 뜸. 허용해야 토스트 알림 표시.
+
+사운드는 `/System/Library/Sounds/*.aiff` 에서 선택 (`Glass`, `Ping`, `Hero`, `Funk` 등). `settings.json` 의 `notify-hook.sh` 인자 두 번째에서 변경.
+
+### D. Pre-commit / Pre-push 가드 (macOS)
+
+`scripts/pre-commit-check.sh` 가 Windows `.ps1` 버전과 동일한 규칙으로 staged/HEAD `settings.json` 을 검사. 동일하게 금지 키 + 토큰 패턴 차단.
+
+설치:
+```bash
+./scripts/install-hooks.sh
+```
+
+`.git/hooks/` 머신별이라 clone 한 프로젝트마다 매번 실행 필요.
 
 ---
 
