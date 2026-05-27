@@ -148,8 +148,14 @@
 
 ### 동작
 - **시작**: 매칭 plan 있으면 read 후 컨텍스트 복원, 없으면 새로 생성 (`status: in_progress`).
-- **턴 종료**: `Progress`/`Next` 갱신, frontmatter `updated:` 오늘.
+- **진행 중 동기화 (필수)**: plan 내용과 다른 결정/방향/스코프 변경이 발생하는 **즉시** plan 업데이트. 턴 종료까지 미루지 않는다. 갱신 대상:
+  - 스코프 추가/축소·접근 방식 변경·아키텍처 선택 변경·새 제약 발견 → `# Decisions` 에 변경 사항 + **이유** 기록 (기존 결정은 지우지 말고 "~로 변경 (이유: …)" 형태로 덮어쓰기/추가).
+  - 작업 진행으로 `# Next` 가 더 이상 다음 액션이 아니게 되면 → 즉시 다음 액션으로 교체.
+  - 막힘 발생 → `# Blockers` 추가 + `status: blocked`.
+  - 핵심 파일 추가/이동 → `# Key Files` 동기화.
+- **턴 종료**: `# Progress` 에 오늘 진행 한 줄 추가, frontmatter `updated:` 오늘. 진행 중 동기화를 빼먹은 게 있으면 여기서 보강.
 - **완료**: `status: done`. **블로커**: `status: blocked` + `# Blockers` 섹션.
+- **원칙**: plan 은 "현재 상태의 단일 진실 소스". 대화에서 합의된 내용이 plan 에 없으면, 다음 세션/도구가 그 합의를 모른다 — 항상 plan 우선 반영.
 
 ### frontmatter (필수)
 ```yaml
@@ -170,6 +176,12 @@ updated: YYYY-MM-DD
 6. `# Blockers` — 막힌 것 + 풀려면 필요한 것
 
 push 직전 `/push-review` 권장 — **codex 가용 시** bg + local 5관점 parallel → 통합 리포트. 리뷰 산출물은 `.claude/plans/<dir>/reviews/<YYYY-MM-DDTHHMM>-<sha7>/` 에 저장.
+
+### pre-push hook codex 리뷰 처리
+pre-push hook 이 codex 리뷰를 띄워 push 를 차단하면, 리뷰 항목을 **본문 그대로** (분류 라벨 + `파일:라인` + 요지) 사용자에게 노출한 뒤 분기한다. "MEDIUM 1건, clear 후 push" 식 한 줄 요약 금지 — 사용자가 항목을 보고 fix·티켓 분리·무시 결정을 내릴 기회를 가린다.
+- CRITICAL/HIGH 1개 이상: 코드 수정 + 재커밋, 사용자에게 "수정 완료, 다시 push" 안내.
+- MEDIUM/LOW 만: 항목 노출 → `bash .claude/hooks/clear-review.sh <대상 파일>` → 다시 push. 노출은 clear/push 직전에 수행.
+- push 후 보고에 같은 항목을 한 번 더 적어도 좋지만, **사전 노출이 우선**.
 
 ### 적용 범위
 티켓 또는 명확한 작업 컨텍스트만. 단순 질문/탐색/한 턴짜리 명령은 제외.
