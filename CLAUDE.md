@@ -119,7 +119,7 @@
 ## 8. Git / 보안
 
 - `git reset --hard`, `git clean -fd`, 강제 checkout, force push 는 명시 요청 없으면 금지.
-- 작업은 별도 브랜치에서 (main/master 직접 commit 금지; main push 는 deny 로 차단). commit 은 작업 단위로 자유롭게 한다 — 논리적으로 무관한 변경을 한 commit·브랜치에 섞지 않는다. push·branch 생성은 사용자 요청 시만.
+- 작업은 main/master 직접 말고 별도 브랜치/worktree 에서 한다 (main push 는 deny 로 차단). commit 은 그 작업의 plan 에 맞는 브랜치에서 작업 단위로 자유롭게 한다. **현재 브랜치/worktree 의 plan 과 무관한 작업이면 별도 브랜치나 worktree(`/wt`) 를 만들어 분리** — 무관한 변경을 한 브랜치에 섞지 않는다. push 는 사용자 요청 시만.
 - generated file / lock file 변경은 필요할 때만 포함, 이유 설명.
 - `.env`/private key/token/password/인증서 원문을 답변·로그·테스트 fixture·snapshot 에 출력 금지.
 - 인증/인가/암호화 코드는 기존 보안 패턴 먼저 확인. 임시 우회·hardcoded credential·TLS 검증 비활성화 금지.
