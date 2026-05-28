@@ -62,6 +62,16 @@ try {
     [void][Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
     [void][Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime]
 
+    # WinRT silently drops toasts from an unregistered AppUserModelID. Register the
+    # AppID once under HKCU (no admin needed) so Windows accepts and displays it.
+    $appId = 'Claude.Code'
+    $appKey = "HKCU:\Software\Classes\AppUserModelId\$appId"
+    if (-not (Test-Path $appKey)) {
+        New-Item -Path $appKey -Force | Out-Null
+        New-ItemProperty -Path $appKey -Name 'DisplayName' -Value 'Claude Code' -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $appKey -Name 'ShowInSettings' -Value 1 -PropertyType DWord -Force | Out-Null
+    }
+
     $titleEsc   = [System.Security.SecurityElement]::Escape($Title)
     $messageEsc = [System.Security.SecurityElement]::Escape($Message)
 
@@ -74,11 +84,12 @@ try {
       <text>$messageEsc</text>
     </binding>
   </visual>
+  <audio silent="true"/>
 </toast>
 "@)
 
     $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
-    [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Microsoft.PowerShell').Show($toast)
+    [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appId).Show($toast)
     return
 } catch {}
 

@@ -1,6 +1,6 @@
 {
   "env": {
-    "CLAUDE_CODE_EFFORT_LEVEL": "xhigh"
+    "CLAUDE_CODE_EFFORT_LEVEL": "max"
   },
   "permissions": {
     "deny": [
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "& \"$env:USERPROFILE\\.claude\\scripts\\notify-hook.ps1\" -Event Stop -Sound Asterisk",
+            "command": "powershell.exe -NoProfile -File \"$env:USERPROFILE\\.claude\\scripts\\notify-hook.ps1\" -Event Stop -Sound Asterisk",
             "shell": "powershell",
             "async": true
           }
@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "& \"$env:USERPROFILE\\.claude\\scripts\\notify-hook.ps1\" -Event Notification -Sound Exclamation",
+            "command": "powershell.exe -NoProfile -File \"$env:USERPROFILE\\.claude\\scripts\\notify-hook.ps1\" -Event Notification -Sound Exclamation",
             "shell": "powershell",
             "async": true
           }
@@ -67,6 +67,6 @@
     }
   },
   "theme": "dark",
-  "preferredNotifChannel": "terminal_bell",
+  "preferredNotifChannel": "notifications_disabled",
   "skipAutoPermissionPrompt": true
 }
