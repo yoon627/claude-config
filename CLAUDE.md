@@ -45,6 +45,8 @@
 5. **Verify** — lint/typecheck/test 실행. 변경 함수/클래스 호출부를 `rg` (없으면 `grep -R`) 로 확인. 미실행은 "미검증" 명시.
 6. **Report** — 변경 요약 / 수정 파일 / 검증 결과 / 영향 범위 / 남은 리스크.
 
+> **문서 동기화 (작업 내내)**: 변경이 README 에 문서화된 컴포넌트(스크립트·설정·skill·agent 등)에 영향 주면 README 도 같은 브랜치에서 갱신. plan 은 §10 진행 중 동기화 규약을 따른다.
+
 ### Plan 단계에서 subagent 병렬화
 독립 단계는 subagent 분배 (가용 환경 한정). **파일 소유권 분리 필수** — 각 subagent 의 수정 범위를 spawn 시점에 명시, 겹치면 순차 실행. 통합·병합은 항상 메인 책임.
 
@@ -117,7 +119,7 @@
 ## 8. Git / 보안
 
 - `git reset --hard`, `git clean -fd`, 강제 checkout, force push 는 명시 요청 없으면 금지.
-- commit/push/branch 생성은 사용자 요청 시만.
+- 작업은 main/master 직접 말고 별도 브랜치/worktree 에서 한다 (main push 는 deny 로 차단). commit 은 그 작업의 plan 에 맞는 브랜치에서 작업 단위로 자유롭게 한다. **현재 브랜치/worktree 의 plan 과 무관한 작업이면 별도 브랜치나 worktree(`/wt`) 를 만들어 분리** — 무관한 변경을 한 브랜치에 섞지 않는다. push 는 사용자 요청 시만.
 - generated file / lock file 변경은 필요할 때만 포함, 이유 설명.
 - `.env`/private key/token/password/인증서 원문을 답변·로그·테스트 fixture·snapshot 에 출력 금지.
 - 인증/인가/암호화 코드는 기존 보안 패턴 먼저 확인. 임시 우회·hardcoded credential·TLS 검증 비활성화 금지.
