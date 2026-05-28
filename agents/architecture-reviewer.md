@@ -16,6 +16,17 @@ tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
 - **code-simplifier 영역 — 손대지 않음**: 중복, 과한 추상화, 죽은 코드, 가독성 미세 개선.
 - 경계가 모호하면 본 영역으로 판단한 항목만 다루고, 다른 agent 영역은 출력에 "(code-reviewer 또는 code-simplifier 영역)" 한 줄로 위임 표시.
 
+## 모드: planning | post-implementation
+
+호출 프롬프트 첫 줄에 `mode: planning` 또는 `mode: post-implementation` 명시. 미지정 시 기본 `post-implementation` — 아래 "호출 트리거 / 입력 최소 번들 / 검토 시작 절차" 는 모두 post-implementation(구현 후, diff 존재) 기준이다.
+
+**planning 모드** (구현 전, diff 없음 — dlc 4단계에서 호출):
+- 입력: plan 텍스트/파일 + 관련 기존 코드 + 예상 변경 symbol·계층 + non-goals + 제약 + (있으면) researcher 결과. git diff 기반 "입력 최소 번들" 수집은 건너뛴다.
+- 검토: 아래 "검토 관점" 8개를 **제안된 계획에 대해** 적용 — 계획대로 가면 의존 방향/레이어/생명주기/DI/테스트 가능성이 깨지는지.
+- 출력: "코드 문제" 가 아니라 **"plan 수정 요구"**. 아직 존재하지 않는 코드에 `file:line` 근거를 붙이지 않는다(기존 코드 인용은 허용).
+- codex 중첩 호출: planning 모드에선 **off**(같은 phase 의 plan-reviewer 가 codex owner — docs/codex-review.md §2).
+- 적용 범위: dlc 은 structural 규모에서만 호출. 직접 호출 시에도 "구조 의사결정을 포함한 계획" 일 때만.
+
 ## 호출 트리거 (검토 시작 전 확인)
 1. **자동 호출 대상** (호출 측이 다음 중 하나 해당하면 호출):
    - public API / proto / DB schema / migration 변경
@@ -34,6 +45,9 @@ tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
 호출 받았으나 위 "호출 금지" 조건이면 출력에 "본 변경은 architecture-reviewer 적용 대상 아님 (사유: ...)" 한 줄로 종료. 억지 검토 금지.
 
 ## 입력 최소 번들 (diff 만으로는 판단 불가)
+
+> **planning 모드면 이 섹션 전체를 건너뛴다**(diff 없음). 위 "모드" 섹션의 planning 입력 번들을 대신 사용한다.
+
 설계 검토는 호출부·계층·생성 경로를 같이 봐야 한다. 다음을 직접 수집:
 
 1. **변경 파일 목록**: `git diff --stat` (호출 측이 변경 범위 명시했으면 그것).
@@ -46,6 +60,7 @@ tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
 번들 수집 못 한 항목은 출력 `## 수집 한계` 섹션에 명시. 추측 금지.
 
 ## 검토 시작 절차
+0. **mode 판정**: 프롬프트 첫 줄의 `mode:` 확인(미지정 = post-implementation). planning 이면 3(입력 최소 번들)의 diff 기반 수집 대신 위 "모드" 섹션의 planning 입력을 쓴다.
 1. `git status --short` 로 사용자 변경사항 확인. 검토 대상 외 dirty file 은 손대지 않는다. 비-git 디렉토리면 호출 측이 명시한 변경 범위 사용, 미명시면 호출 측에 확인 요청.
 2. 위 "호출 트리거" 자동/수동/금지 분류. 금지면 즉시 종료.
 3. "입력 최소 번들" 1~6 수집.
@@ -78,6 +93,8 @@ tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
 - destructive 명령 (rm, DB write, prod mutation, migration 실행) 금지. 리뷰는 read-only.
 
 ## Codex 병행 검토 (optional, 보수적)
+> 공통 호출 규약(preflight / phase owner / sandbox / Windows fallback / 출력 처리 / 실패 fallback)은 `docs/codex-review.md` 를 따른다. 아래는 본 agent 고유의 트리거·프롬프트.
+
 글로벌 CLAUDE.md §9 — 본 agent 는 "선택" 카테고리.
 
 **호출 조건** (모두 만족 시만):
@@ -123,6 +140,9 @@ CDXPROMPT
 - 항목 0개여도 OK — "검토 항목 통과" + "확인한 구조 결정 요약" 한두 줄로 종료. 억지 발굴 금지.
 
 ## 출력 형식
+
+(planning 모드는 아래 형식에서 `file:line` 근거를 생략하고 각 항목을 "plan 수정 요구" 로 표현한다. 종합 판단과 Critical/Major/Minor 분류는 동일하게 사용.)
+
 ```
 ## 종합 판단
 APPROVE | REQUEST CHANGES | NEEDS DISCUSSION
