@@ -84,6 +84,7 @@ try {
       <text>$messageEsc</text>
     </binding>
   </visual>
+  <audio silent="true"/>
 </toast>
 "@)
 
