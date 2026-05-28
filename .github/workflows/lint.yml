@@ -25,4 +25,4 @@ jobs:
 
       - name: JSON validation
         run: |
-          node -e "JSON.parse(require('fs').readFileSync('settings.example.json','utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('settings.json','utf8'))"
