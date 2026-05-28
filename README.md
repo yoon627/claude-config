@@ -301,7 +301,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 ### scripts/
 
 #### `notify.ps1`
-Toast 알림 + 시스템 사운드 + 윈도우 flash. 우선순위: WinRT ToastNotification → System.Windows.Forms NotifyIcon. PowerShell 7 / Windows PowerShell 5 둘 다 지원.
+Toast 알림 + 시스템 사운드 + 윈도우 flash. 우선순위: WinRT ToastNotification → System.Windows.Forms NotifyIcon. WinRT toast 는 Windows PowerShell 5.1 전용 (PS7 은 WinRT 어셈블리 미포함) — hook 이 `powershell.exe` 로 5.1 고정 실행. toast 표시 전 `HKCU\Software\Classes\AppUserModelId\Claude.Code` 에 AppID 자가 등록 (미등록 AppID 는 Windows 가 toast 를 조용히 버림).
 
 #### `notify-hook.ps1`
 `Stop` / `Notification` 후크가 호출. stdin 으로 들어온 Claude Code JSON 에서 `cwd`, `session_id` 추출, 부모 프로세스 트리에서 WindowsTerminal 의 tab 제목 추출 → `notify.ps1` 에 title/message 전달.
@@ -323,13 +323,13 @@ staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json`
 - `permissions.deny` — `git push origin main/master` 직접 푸시 차단
 - `permissions.ask` — 일반 `git push` 는 확인 후 실행
 - `statusLine`, `subagentStatusLine` — statusline 스크립트 등록 (PowerShell wrapper 로 `$env:USERPROFILE` expansion)
-- `env.CLAUDE_CODE_EFFORT_LEVEL` — Opus 4.7 effort level (`xhigh`). docs 명시 값: `low|medium|high|xhigh`. env 가 `effortLevel` 키를 override 하므로 settings 키는 제거.
+- `env.CLAUDE_CODE_EFFORT_LEVEL` — Opus 4.7 effort level (`max`). docs 명시 값: `low|medium|high|xhigh|max` (Opus 4.7 기준). `max` 는 `/effort` 나 `effortLevel` 키로는 세션 한정이지만 **env 변수로 설정할 때만 영구 적용**되므로 이 키로 둔다. env 가 `effortLevel` 키를 override.
 - `hooks.Stop` / `hooks.Notification` — 응답 완료 / 입력 대기 시 PowerShell 후크 호출
 - `enabledPlugins`, `extraKnownMarketplaces` — Pyright LSP plugin + OpenAI Codex marketplace
 
 Path 표기:
 - statusLine command: `powershell -NoProfile -Command 'node "$env:USERPROFILE\.claude\statusline.js"'` — outer single quote 가 Git Bash / PowerShell 양쪽에서 그대로 PowerShell 에 전달되고, inner PowerShell 이 `$env:USERPROFILE` expand.
-- Hook command: `& "$env:USERPROFILE\.claude\scripts\notify-hook.ps1"` — `shell: powershell` 옵션이라 PowerShell expansion 직접.
+- Hook command: `powershell.exe -NoProfile -File "$env:USERPROFILE\.claude\scripts\notify-hook.ps1"` — `shell: powershell` 가 `$env:USERPROFILE` 를 expand, 명시적 `powershell.exe` 가 WinRT toast 동작하는 Windows PowerShell 5.1 로 실행 고정 (pwsh 설치 머신에서도 일관).
 
 **Claude Code 가 자동 수정하는 키 (push 전 `git diff` 검토 권장)**:
 - `/config` (theme, verbose 등) → user-level settings.json (v2.1.119+)
