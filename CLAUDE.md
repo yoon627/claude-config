@@ -147,6 +147,7 @@
 ### slug & 매칭
 - slug: `<TICKET>-<short-desc>` 또는 `<short-desc>`. 디렉토리 prefix 는 시작일 (불변, rename 금지).
 - 매칭: 현재 git branch 가 slug 에 포함된 dir → 그 안의 `*-plan.md` 1개.
+- **active plan 추적 (매칭 실패 대비 — 중요)**: branch 가 어떤 plan slug 와도 매칭 안 되더라도(작업 브랜치명이 plan dir 와 다른 흔한 경우), 세션에서 진행 중이던 plan 을 active 로 **계속 추적**한다. branch 매칭은 plan 을 *처음 찾는* 수단일 뿐 — 한번 active 가 된 plan 은 branch 를 바꾸거나(다른 작업 브랜치로 이동) 작업이 plan 범위 밖으로 확산돼도 동기화 대상에서 빠지지 않는다. (실패 사례: 한 plan 작업 중 여러 브랜치로 옮겨다니다 branch≠slug 라 plan 을 잊고 완료 시점에야 갱신.)
 
 ### 동작
 - **시작**: 매칭 plan 있으면 read 후 컨텍스트 복원, 없으면 새로 생성 (`status: in_progress`).
@@ -156,7 +157,7 @@
   - 막힘 발생 → `# Blockers` 추가 + `status: blocked`.
   - 핵심 파일 추가/이동 → `# Key Files` 동기화.
 - **턴 종료**: `# Progress` 에 오늘 진행 한 줄 추가, frontmatter `updated:` 오늘. 진행 중 동기화를 빼먹은 게 있으면 여기서 보강.
-- **완료**: `status: done`. **블로커**: `status: blocked` + `# Blockers` 섹션.
+- **완료**: 작업이 끝나는(머지·배포·승인) **그 시점에 즉시** `status: done` — "나중에/턴 종료에" 미루지 않는다. **블로커**: `status: blocked` + `# Blockers` 섹션.
 - **원칙**: plan 은 "현재 상태의 단일 진실 소스". 대화에서 합의된 내용이 plan 에 없으면, 다음 세션/도구가 그 합의를 모른다 — 항상 plan 우선 반영.
 
 ### frontmatter (필수)
