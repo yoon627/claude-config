@@ -291,6 +291,14 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 **Per-repo hook 의존**: `active-plan.sh`, `resolve-range.sh`, `run-codex-review.sh`, `review-codex.sh`, `clear-review.sh` (5개) 필요. 없으면 안내 후 종료. 프로젝트별로 `.claude/hooks/` 에 설치해야 함.
 
+### skills/dlc/ — 자동 개발 사이클
+
+`/dlc` 명시 호출 또는 비자명한 코드 변경 시 적용하는 개발 사이클 오케스트레이션. 규모 (trivial / small / medium / structural) 를 판정해 단계를 gate — 오타 1줄은 즉시 통과, structural 변경은 explore → plan → 리뷰 → TDD → 구현 → 리뷰 → simplify → 검증 전체를 돈다.
+- 메인이 hub, 리뷰/검토만 격리 subagent (plan-reviewer, architecture-reviewer, code-reviewer). 구현·통합·최종 판단은 메인.
+- code-simplifier 는 `Edit` 권한이 있어 격리 mutating 단계 — 메인이 diff 흡수 + targeted 재검증.
+- `.claude/plans/<slug>-plan.md` 가 subagent 간 단일 공유 채널 (메인만 write).
+- codex 병행 검토 호출 규약은 `docs/codex-review.md` (phase 당 codex owner 1개 지정으로 중복 호출 방지, Windows/PowerShell fallback 포함).
+
 ### skills/wt/ — Git worktree 빠른 관리
 
 `/wt`, `/wt list`, `/wt switch <X>`, `/wt new <X>`, `/wt remove <X>` 로 worktree 관리. 컨벤션:
@@ -449,7 +457,11 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 ├── commands/
 │   ├── local-review.md             # /local-review (per-repo hook 필요)
 │   └── push-review.md              # /push-review (per-repo hook 필요)
+├── docs/
+│   └── codex-review.md             # codex 병행 검토 공유 규약
 ├── skills/
+│   ├── dlc/
+│   │   └── SKILL.md                # /dlc — 자동 개발 사이클
 │   └── wt/
 │       └── SKILL.md                # /wt — git worktree 관리
 ├── scripts/
