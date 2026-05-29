@@ -1,6 +1,6 @@
 {
   "env": {
-    "CLAUDE_CODE_EFFORT_LEVEL": "max"
+    "CLAUDE_CODE_EFFORT_LEVEL": "xhigh"
   },
   "permissions": {
     "deny": [
@@ -26,8 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell.exe -NoProfile -File \"$env:USERPROFILE\\.claude\\scripts\\notify-hook.ps1\" -Event Stop -Sound Asterisk",
-            "shell": "powershell",
+            "command": "node ~/.claude/scripts/notify-hook.js Stop",
             "async": true
           }
         ]
@@ -38,8 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell.exe -NoProfile -File \"$env:USERPROFILE\\.claude\\scripts\\notify-hook.ps1\" -Event Notification -Sound Exclamation",
-            "shell": "powershell",
+            "command": "node ~/.claude/scripts/notify-hook.js Notification",
             "async": true
           }
         ]
@@ -48,12 +46,12 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "powershell -NoProfile -Command 'node \"$env:USERPROFILE\\.claude\\statusline.js\"'",
+    "command": "node ~/.claude/statusline.js",
     "refreshInterval": 2
   },
   "subagentStatusLine": {
     "type": "command",
-    "command": "powershell -NoProfile -Command 'node \"$env:USERPROFILE\\.claude\\subagent-statusline.js\"'"
+    "command": "node ~/.claude/subagent-statusline.js"
   },
   "enabledPlugins": {
     "pyright-lsp@claude-plugins-official": true
@@ -67,6 +65,5 @@
     }
   },
   "theme": "dark",
-  "preferredNotifChannel": "notifications_disabled",
-  "skipAutoPermissionPrompt": true
+  "preferredNotifChannel": "terminal_bell"
 }
