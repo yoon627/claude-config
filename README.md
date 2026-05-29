@@ -329,6 +329,7 @@ staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json`
 - `permissions.ask` — 일반 `git push` 는 확인 후 실행
 - `statusLine`, `subagentStatusLine` — statusline 스크립트 등록 (`node ~/.claude/statusline.js`)
 - `env.CLAUDE_CODE_EFFORT_LEVEL` — Opus effort level (`xhigh`). docs 명시 값: `low|medium|high|xhigh|max`. `/effort` 나 `effortLevel` 키로는 세션 한정이지만 **env 변수로 설정할 때만 영구 적용**되므로 이 키로 둔다. env 가 `effortLevel` 키를 override.
+- `hooks.SessionStart` — 세션 시작 시 `~/.claude` 가 `main` 브랜치 + 클린 트리이면 `git pull --ff-only origin main` 으로 origin/main 자동 동기화 (async·ff-only·실패 무음; `~` 확장 위해 sh/Git Bash 필요). pull 내용은 **다음 세션부터** 적용. dirty/분기/다른 브랜치면 가드에 걸려 skip.
 - `hooks.Stop` / `hooks.Notification` — 응답 완료 / 입력 대기 시 `node ~/.claude/scripts/notify-hook.js` 호출 (cross-platform)
 - `enabledPlugins`, `extraKnownMarketplaces` — Pyright LSP plugin + OpenAI Codex marketplace
 
@@ -381,6 +382,9 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 ### Notify 알림 끄기
 `settings.json` 의 `hooks.Stop` / `hooks.Notification` 블록을 직접 제거 후 commit. (hooks 는 스코프 간 **누적 실행** 이라 `settings.local.json` 으론 끄지 못하고 추가만 됨 — override 불가.) `preferredNotifChannel` 도 `"notifications_disabled"` 로 변경 가능.
+
+### 자동 동기화(auto-pull) 끄기
+`settings.json` 의 `hooks.SessionStart` 블록(`git pull --ff-only`)을 제거 후 commit 하면 전 머신에서 꺼짐. hooks 는 스코프 간 누적 실행이라 `settings.local.json` 으로 특정 머신만 끄지는 못함 — 한 머신만 끄려면 그 머신에서 블록을 임시로 비우거나(트리 drift 발생) `disableAllHooks` 사용(단 notify·statusline 도 같이 꺼짐).
 
 ### Permission prompt 자주 뜨는 경우
 Claude Code 내장 skill `/fewer-permission-prompts` 호출 시 최근 transcript 의 read-only Bash·MCP 호출을 분석해 `permissions.allow` 에 자동 추가. 머신별 차이는 `settings.local.json` 에 두는 게 안전.
