@@ -15,7 +15,6 @@
 !/docs/
 !/scripts/
 !/settings.json
-!/settings.macos.json
 !/skills/
 !/statusline.js
 !/subagent-statusline.js
