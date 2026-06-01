@@ -1,6 +1,6 @@
 {
   "env": {
-    "CLAUDE_CODE_EFFORT_LEVEL": "xhigh"
+    "CLAUDE_CODE_EFFORT_LEVEL": "max"
   },
   "permissions": {
     "deny": [
