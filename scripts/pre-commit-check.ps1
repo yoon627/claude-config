@@ -5,11 +5,11 @@ $ErrorActionPreference = 'Stop'
 if ($Mode -eq 'pre-commit') {
     $staged = git diff --cached --name-only --diff-filter=ACMR
     if ($staged -notcontains 'settings.json') { exit 0 }
-    $content = git show ":settings.json"
+    $content = (git show ":settings.json") -join "`n"
 } else {
     $tracked = git ls-tree --name-only HEAD 2>$null
     if ($LASTEXITCODE -ne 0 -or $tracked -notcontains 'settings.json') { exit 0 }
-    $content = git show HEAD:settings.json
+    $content = (git show HEAD:settings.json) -join "`n"
 }
 
 $violations = @()

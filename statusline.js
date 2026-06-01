@@ -103,20 +103,22 @@ process.stdin.on('end', () => {
   // 3. Git branch + worktree indicator from workspace.current_dir
   const cwd = (input.workspace && input.workspace.current_dir) || (input.cwd || '');
   if (cwd) {
-    const { execSync } = require('child_process');
-    const gitCmd = (args) => execSync('git -C "' + cwd + '" --no-optional-locks ' + args, {
+    const { execFileSync } = require('child_process');
+    // execFileSync (no shell): cwd is passed as a literal argv element, so a
+    // directory name containing shell metacharacters cannot inject commands.
+    const gitCmd = (argv) => execFileSync('git', ['-C', cwd, '--no-optional-locks', ...argv], {
       stdio: ['ignore', 'pipe', 'ignore'],
       timeout: 2000
     }).toString().trim();
     try {
-      const branch = gitCmd('rev-parse --abbrev-ref HEAD');
+      const branch = gitCmd(['rev-parse', '--abbrev-ref', 'HEAD']);
       if (branch && branch !== 'HEAD') {
         let label = branch;
         // worktree 판별: --show-toplevel(현재 worktree root) vs
         // dirname(--git-common-dir)(main repo root) 비교.
         try {
-          const toplevel = gitCmd('rev-parse --show-toplevel');
-          const commonDir = gitCmd('rev-parse --path-format=absolute --git-common-dir');
+          const toplevel = gitCmd(['rev-parse', '--show-toplevel']);
+          const commonDir = gitCmd(['rev-parse', '--path-format=absolute', '--git-common-dir']);
           const mainRoot = path.dirname(commonDir);
           const norm = (p) => p.replace(/\\/g, '/').replace(/\/$/, '').toLowerCase();
           if (norm(toplevel) !== norm(mainRoot)) {
