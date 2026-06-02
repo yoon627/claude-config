@@ -291,6 +291,13 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - `.claude/plans/<slug>-plan.md` 가 subagent 간 단일 공유 채널 (메인만 write).
 - codex 병행 검토 호출 규약은 `docs/codex-review.md` (phase 당 codex owner 1개 지정으로 중복 호출 방지, Windows/PowerShell fallback 포함).
 
+### skills/pc/ — plan 이어가기
+
+`/pc` 로 현재 worktree/repo 의 진행 중인 plan(§10)을 찾아 **남은 작업 + plan↔실제(git/코드) sync 상태**를 진단하고, 어긋나면 plan 을 보정한 뒤 다음 액션을 제시.
+- branch→plan dir 매칭(§10), 실패 시 `in_progress`/`blocked` plan 목록 제시 후 사용자 선택 (추측 자동선택 안 함).
+- `plans/` 가 gitignored & worktree별 독립이라 현재 repo + main worktree 양쪽 `plans/` 를 탐색.
+- 확인·sync 진단·plan 보정까지 수행하되 **다음 액션은 제시만** (자동 실행 안 함). plan 이 없으면 새로 만들지 않음 — 신규 plan 생성은 dlc 몫.
+
 ### skills/wt/ — Git worktree 빠른 관리
 
 `/wt`, `/wt list`, `/wt switch <X>`, `/wt new <X>`, `/wt remove <X>` 로 worktree 관리. 컨벤션:
@@ -465,6 +472,8 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 ├── skills/
 │   ├── dlc/
 │   │   └── SKILL.md                # /dlc — 자동 개발 사이클
+│   ├── pc/
+│   │   └── SKILL.md                # /pc — plan 이어가기
 │   └── wt/
 │       └── SKILL.md                # /wt — git worktree 관리
 ├── scripts/
