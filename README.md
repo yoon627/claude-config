@@ -348,7 +348,7 @@ staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json`
 - `permissions.deny` — `git push origin main/master` 직접 푸시 차단
 - `permissions.ask` — 일반 `git push` 는 확인 후 실행
 - `statusLine`, `subagentStatusLine` — statusline 스크립트 등록 (`node ~/.claude/statusline.js`)
-- `env.CLAUDE_CODE_EFFORT_LEVEL` — Opus effort level (`xhigh`). docs 명시 값: `low|medium|high|xhigh|max`. `/effort` 나 `effortLevel` 키로는 세션 한정이지만 **env 변수로 설정할 때만 영구 적용**되므로 이 키로 둔다. env 가 `effortLevel` 키를 override.
+- `env.CLAUDE_CODE_EFFORT_LEVEL` — Opus effort level (`max`). docs 명시 값: `low|medium|high|xhigh|max`. `/effort` 나 `effortLevel` 키로는 세션 한정이지만 **env 변수로 설정할 때만 영구 적용**되므로 이 키로 둔다. env 가 `effortLevel` 키를 override.
 - `hooks.SessionStart` — 두 command (둘 다 async):
   1. `~/.claude` 가 `main` 브랜치 + 클린 트리이면 `git pull --ff-only origin main` 으로 origin/main 자동 동기화 (ff-only·실패 무음; `~` 확장 위해 sh/Git Bash 필요). pull 내용은 **다음 세션부터** 적용. dirty/분기/다른 브랜치면 가드에 걸려 skip.
   2. (Windows) `pwsh` 가 PATH 에 있으면 `install-gwl.ps1` 실행 → `gwl` 을 PS7 `$PROFILE` 에 멱등 등록. 매 세션 돌지만 marker 있으면 즉시 종료, `pwsh` 없으면(macOS·미설치) skip. 경로는 pwsh 의 `$HOME` 으로 해석(Git Bash 의 MSYS 경로 회피). `-ExecutionPolicy Bypass` 는 쓰지 않으므로 `Restricted` 머신에선 조용히 skip — 그 경우 한 번 `Set-ExecutionPolicy RemoteSigned` 후 수동으로 `install-gwl.ps1`.
