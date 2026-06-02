@@ -34,7 +34,10 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 cd $env:USERPROFILE\.claude
 .\scripts\install-hooks.ps1
 
-# 4. Claude Code 재시작
+# 4. (선택) PowerShell `gwl` 명령 설치 — worktree list 단축키
+.\scripts\install-gwl.ps1
+
+# 5. Claude Code 재시작
 ```
 
 `settings.json` 은 tracked — clone 한 그대로 동작 (별도 복사 단계 없음).
@@ -328,6 +331,15 @@ staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json`
 #### `install-hooks.ps1`
 `.git/hooks/pre-commit`, `.git/hooks/pre-push` sh wrapper 생성. UTF-8 (no BOM) + LF endings — Git Bash 가 인식. idempotent — 재실행 시 덮어쓰기. 새 머신 setup 시 1회 실행.
 
+#### `prompt-gwl.py`
+프롬프트에 정확히 `gwl` 만 입력하면 가로채서 `git worktree list` 를 현재 위치 `→` 마커와 함께 출력하는 UserPromptSubmit 훅 (모델 왕복 없음). `--porcelain` 기반이라 공백 포함 경로·bare·detached worktree 도 정확히 파싱. 글로벌 `settings.json` 엔 미등록 — 프로젝트별 `.claude/settings.json` 에 hook 으로 등록해 사용.
+
+#### `gwl.ps1` (Windows / PowerShell)
+`prompt-gwl.py` 와 같은 목적의 PowerShell 단축 함수 — `git worktree list` 를 출력하되 현재 디렉토리를 포함하는 worktree 앞에 `→` 마커. `$PROFILE` 에서 dot-source 해 명령처럼 사용 (모델 왕복 없음). 임의 프로젝트용으로 `--porcelain` 을 쓰는 `prompt-gwl.py` 와 달리, 개인 worktree(`.claude/worktrees/<name>` 규약상 경로 무공백) 전용이라 단순 `git worktree list` split. `→` 가 Windows PowerShell 5.1(BOM 없는 UTF-8 을 ANSI 로 해석)에서 깨지지 않도록 **UTF-8 BOM** 으로 저장 (PS 7 은 양쪽 모두 읽음).
+
+#### `install-gwl.ps1` (Windows / PowerShell)
+`$PROFILE` (CurrentUserCurrentHost) 에 `. "$HOME/.claude/scripts/gwl.ps1"` 한 줄을 marker 블록(begin/end)으로 멱등 추가 — 두 marker 다 있으면 skip, 한쪽만 있으면(손상) 에러, 없으면 추가. 기존 inline `function gwl` 발견 시 경고. dot-source 대상은 항상 `~/.claude/scripts/gwl.ps1`(문서상 clone 위치)이라 레포가 다른 곳이면 경고만 하고 그대로 진행. 이후 `git pull` 로 `gwl.ps1` 갱신 시 profile 수정 없이 반영. `~/.claude` 에서 1회 실행.
+
 ### settings.json — 살아있는 설정 (tracked)
 
 머신 간 sync 의 source of truth. 핵심 키:
@@ -482,7 +494,9 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   ├── notify-hook.ps1             # (Windows) notify-hook.js 가 spawn
 │   ├── pre-commit-check.sh / .ps1  # settings.json secret guard (pre-commit + pre-push)
 │   ├── install-hooks.sh / .ps1     # .git/hooks/{pre-commit,pre-push} wrapper 생성
-│   └── prompt-gwl.py               # UserPromptSubmit 훅 (프로젝트별 사용)
+│   ├── prompt-gwl.py               # UserPromptSubmit 훅 (프로젝트별 사용)
+│   ├── gwl.ps1                     # (Windows) PowerShell `gwl` — worktree list + 현재 위치 →
+│   └── install-gwl.ps1             # gwl.ps1 을 $PROFILE 에 dot-source 등록 (멱등)
 └── plans/                          # 핸드오프 plan 파일 (gitignored)
 ```
 
