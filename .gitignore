@@ -26,3 +26,7 @@ history.jsonl
 *.bak
 *.bak.*
 tmp_*
+
+# Python bytecode cache inside whitelisted dirs (e.g. scripts/)
+__pycache__/
+*.pyc
