@@ -30,6 +30,13 @@
             "timeout": 30,
             "statusMessage": "Syncing ~/.claude to origin/main",
             "async": true
+          },
+          {
+            "type": "command",
+            "command": "command -v pwsh >/dev/null 2>&1 && pwsh -NoProfile -Command '& \"$HOME/.claude/scripts/install-gwl.ps1\"' >/dev/null 2>&1 || true",
+            "timeout": 30,
+            "statusMessage": "Ensuring gwl in PowerShell profile",
+            "async": true
           }
         ]
       }
