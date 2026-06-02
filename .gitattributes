@@ -1,0 +1,5 @@
+# Normalize line endings: Git stores LF, checks out per-platform.
+* text=auto
+
+# Shell scripts must stay LF (executed via /bin/sh, Git Bash).
+*.sh text eol=lf

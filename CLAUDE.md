@@ -80,6 +80,7 @@
 - **researcher** — §4 검색 신호 해당 시. 어느 단계에서든.
 - **code-reviewer** — 구현 후. 버그·보안·테스트 누락·예외 처리·성능·backward compatibility.
 - **code-simplifier** — code-reviewer 통과 후 **항상 실행**. 중복·과한 추상화·불필요한 복잡도 제거. 코드 변경했으면 검증 재실행.
+- **architecture-reviewer** — 트리거 기반(자동 호출 아님). public API/DB schema/auth 변경, 신규 service·repository·client, DI 변경, 2개 이상 레이어 변경, 또는 설계 의문 명시 시.
 
 표준 순서: `plan-reviewer → 구현 → code-reviewer → code-simplifier → 최종 검증`.
 

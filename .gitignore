@@ -4,6 +4,7 @@
 
 # Allowed top-level items
 !/.editorconfig
+!/.gitattributes
 !/.github/
 !/.gitignore
 !/CLAUDE.md
