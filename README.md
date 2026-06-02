@@ -302,6 +302,13 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - `plans/` 가 gitignored & worktree별 독립이라 현재 repo + main worktree 양쪽 `plans/` 를 탐색.
 - 확인·sync 진단·plan 보정까지 수행하되 **다음 액션은 제시만** (자동 실행 안 함). plan 이 없으면 새로 만들지 않음 — 신규 plan 생성은 dlc 몫.
 
+### skills/pe/ — plan 마무리
+
+`/pe` 로 진행 중이던 plan(§10)을 **실제 git/코드 상태로 동기화 기록**하고 작업을 마무리. pc(이어가기)의 대칭.
+- uncommitted 변경은 작업 브랜치에 **임시(WIP) 커밋**으로 보존 — `main`/`master` 직접 커밋·push 는 안 함(§8), `.env`·key 등 위험 파일은 커밋 보류 후 확인.
+- `# Progress`/`# Next`/`# Decisions`/`status`/`updated` 를 사실 기반으로 갱신 → 다음 세션이 `/pc` 로 곧장 이어받음.
+- done 자동 전환 안 함 (확정 완료 신호 + 사용자 확인 시만, 기본 `in_progress` 체크포인트). plan 없으면 새로 만들지 않음 — 임시 커밋 + 보고만.
+
 ### skills/wt/ — Git worktree 빠른 관리
 
 `/wt`, `/wt list`, `/wt switch <X>`, `/wt new <X>`, `/wt remove <X>` 로 worktree 관리. 컨벤션:
@@ -489,6 +496,8 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   │   └── SKILL.md                # /dlc — 자동 개발 사이클
 │   ├── pc/
 │   │   └── SKILL.md                # /pc — plan 이어가기
+│   ├── pe/
+│   │   └── SKILL.md                # /pe — plan 마무리 (임시 커밋 + 동기화)
 │   └── wt/
 │       └── SKILL.md                # /wt — git worktree 관리
 ├── scripts/
