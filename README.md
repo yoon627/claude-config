@@ -35,6 +35,7 @@ cd $env:USERPROFILE\.claude
 .\scripts\install-hooks.ps1
 
 # 4. (선택) PowerShell `gwl` 명령 설치 — worktree list 단축키
+#    SessionStart hook 이 pwsh 있으면 매 세션 자동 등록하므로, 다음 세션을 안 기다리고 즉시 쓰려는 경우에만.
 .\scripts\install-gwl.ps1
 
 # 5. Claude Code 재시작
@@ -338,7 +339,7 @@ staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json`
 `prompt-gwl.py` 와 같은 목적의 PowerShell 단축 함수 — `git worktree list` 를 출력하되 현재 디렉토리를 포함하는 worktree 앞에 `→` 마커. `$PROFILE` 에서 dot-source 해 명령처럼 사용 (모델 왕복 없음). 임의 프로젝트용으로 `--porcelain` 을 쓰는 `prompt-gwl.py` 와 달리, 개인 worktree(`.claude/worktrees/<name>` 규약상 경로 무공백) 전용이라 단순 `git worktree list` split. `→` 가 Windows PowerShell 5.1(BOM 없는 UTF-8 을 ANSI 로 해석)에서 깨지지 않도록 **UTF-8 BOM** 으로 저장 (PS 7 은 양쪽 모두 읽음).
 
 #### `install-gwl.ps1` (Windows / PowerShell)
-`$PROFILE` (CurrentUserCurrentHost) 에 `. "$HOME/.claude/scripts/gwl.ps1"` 한 줄을 marker 블록(begin/end)으로 멱등 추가 — 두 marker 다 있으면 skip, 한쪽만 있으면(손상) 에러, 없으면 추가. 기존 inline `function gwl` 발견 시 경고. dot-source 대상은 항상 `~/.claude/scripts/gwl.ps1`(문서상 clone 위치)이라 레포가 다른 곳이면 경고만 하고 그대로 진행. 이후 `git pull` 로 `gwl.ps1` 갱신 시 profile 수정 없이 반영. `~/.claude` 에서 1회 실행.
+`$PROFILE` (CurrentUserCurrentHost) 에 `. "$HOME/.claude/scripts/gwl.ps1"` 한 줄을 marker 블록(begin/end)으로 멱등 추가 — 두 marker 다 있으면 skip, 한쪽만 있으면(손상) 에러, 없으면 추가. 기존 inline `function gwl` 발견 시 경고. dot-source 대상은 항상 `~/.claude/scripts/gwl.ps1`(문서상 clone 위치)이라 레포가 다른 곳이면 경고만 하고 그대로 진행. 이후 `git pull` 로 `gwl.ps1` 갱신 시 profile 수정 없이 반영. **`hooks.SessionStart` 2번 command 가 매 세션 자동 실행**(pwsh 있을 때)하므로 보통 수동 실행 불필요 — 새 머신 첫 도입이나 즉시 사용 시에만 `~/.claude` 에서 1회 실행.
 
 ### settings.json — 살아있는 설정 (tracked)
 
@@ -348,7 +349,9 @@ staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json`
 - `permissions.ask` — 일반 `git push` 는 확인 후 실행
 - `statusLine`, `subagentStatusLine` — statusline 스크립트 등록 (`node ~/.claude/statusline.js`)
 - `env.CLAUDE_CODE_EFFORT_LEVEL` — Opus effort level (`xhigh`). docs 명시 값: `low|medium|high|xhigh|max`. `/effort` 나 `effortLevel` 키로는 세션 한정이지만 **env 변수로 설정할 때만 영구 적용**되므로 이 키로 둔다. env 가 `effortLevel` 키를 override.
-- `hooks.SessionStart` — 세션 시작 시 `~/.claude` 가 `main` 브랜치 + 클린 트리이면 `git pull --ff-only origin main` 으로 origin/main 자동 동기화 (async·ff-only·실패 무음; `~` 확장 위해 sh/Git Bash 필요). pull 내용은 **다음 세션부터** 적용. dirty/분기/다른 브랜치면 가드에 걸려 skip.
+- `hooks.SessionStart` — 두 command (둘 다 async):
+  1. `~/.claude` 가 `main` 브랜치 + 클린 트리이면 `git pull --ff-only origin main` 으로 origin/main 자동 동기화 (ff-only·실패 무음; `~` 확장 위해 sh/Git Bash 필요). pull 내용은 **다음 세션부터** 적용. dirty/분기/다른 브랜치면 가드에 걸려 skip.
+  2. (Windows) `pwsh` 가 PATH 에 있으면 `install-gwl.ps1` 실행 → `gwl` 을 PS7 `$PROFILE` 에 멱등 등록. 매 세션 돌지만 marker 있으면 즉시 종료, `pwsh` 없으면(macOS·미설치) skip. 경로는 pwsh 의 `$HOME` 으로 해석(Git Bash 의 MSYS 경로 회피). `-ExecutionPolicy Bypass` 는 쓰지 않으므로 `Restricted` 머신에선 조용히 skip — 그 경우 한 번 `Set-ExecutionPolicy RemoteSigned` 후 수동으로 `install-gwl.ps1`.
 - `hooks.Stop` / `hooks.Notification` — 응답 완료 / 입력 대기 시 `node ~/.claude/scripts/notify-hook.js` 호출 (cross-platform)
 - `enabledPlugins`, `extraKnownMarketplaces` — Pyright LSP plugin + OpenAI Codex marketplace
 
