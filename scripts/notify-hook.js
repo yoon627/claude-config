@@ -80,13 +80,24 @@ function parse(raw) {
         ? SOUND_OVERRIDE
         : (EVENT === 'Notification' ? 'Exclamation' : 'Asterisk');
       const ps1 = path.join(__dirname, 'notify-hook.ps1');
+      // Why no detached/unref here: a detached child only survives the parent's
+      // exit when its stdio is also detached from the parent (Node docs). We must
+      // keep stdin as a 'pipe' to forward the hook JSON to the .ps1, so the old
+      // detached:true + unref() combo could NOT keep the child alive — Node exited
+      // and the child died before showing the toast. Instead we let the event loop
+      // stay alive until powershell exits; the hook is registered async:true, so
+      // Claude Code does not block on it. A watchdog caps the wait so a hung
+      // powershell (e.g. a stalled WMI/CIM query) can't keep Node alive for long.
       const child = spawn('powershell.exe',
         ['-NoProfile', '-File', ps1, '-Event', EVENT, '-Sound', winSound],
-        { stdio: ['pipe', 'ignore', 'ignore'], detached: true, windowsHide: true });
+        { stdio: ['pipe', 'ignore', 'ignore'], windowsHide: true });
       child.on('error', () => {});
+      child.stdin.on('error', () => {}); // swallow async EPIPE if the child exits early
       // Forward the original hook JSON so the .ps1 can extract cwd / session / tab title.
       try { child.stdin.end(raw); } catch {}
-      child.unref();
+      const killer = setTimeout(() => { try { child.kill(); } catch {} }, 10000);
+      killer.unref();
+      child.on('exit', () => clearTimeout(killer));
     } else {
       const child = spawn('notify-send', [title, msg], { stdio: 'ignore', detached: true });
       child.on('error', () => {});
