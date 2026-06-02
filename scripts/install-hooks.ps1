@@ -11,6 +11,15 @@ if (-not (Test-Path $hookDir)) {
     New-Item -ItemType Directory -Path $hookDir -Force | Out-Null
 }
 
+# Guard lives in ~/.claude (guards settings.json), regardless of which repo the
+# hooks are installed into — mirrors install-hooks.sh.
+$guard = Join-Path $HOME '.claude\scripts\pre-commit-check.ps1'
+if (-not (Test-Path $guard)) {
+    Write-Error "Guard script not found: $guard"
+    exit 1
+}
+$guardForHook = ($guard -replace '\\', '/')
+
 function Write-LfFile {
     param([string]$Path, [string]$Content)
     $normalized = $Content -replace "`r`n", "`n"
@@ -25,15 +34,15 @@ function Write-LfFile {
     [System.IO.File]::WriteAllBytes($Path, $bytes)
 }
 
-$preCommit = @'
+$preCommit = @"
 #!/bin/sh
-exec powershell -NoProfile -ExecutionPolicy Bypass -File "$(git rev-parse --show-toplevel)/scripts/pre-commit-check.ps1" -Mode pre-commit
-'@
+exec powershell -NoProfile -ExecutionPolicy Bypass -File "$guardForHook" -Mode pre-commit
+"@
 
-$prePush = @'
+$prePush = @"
 #!/bin/sh
-exec powershell -NoProfile -ExecutionPolicy Bypass -File "$(git rev-parse --show-toplevel)/scripts/pre-commit-check.ps1" -Mode pre-push
-'@
+exec powershell -NoProfile -ExecutionPolicy Bypass -File "$guardForHook" -Mode pre-push
+"@
 
 Write-LfFile -Path (Join-Path $hookDir 'pre-commit') -Content $preCommit
 Write-LfFile -Path (Join-Path $hookDir 'pre-push')   -Content $prePush
