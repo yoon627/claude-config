@@ -27,9 +27,9 @@
           {
             "type": "command",
             "command": "git -C ~/.claude rev-parse --abbrev-ref HEAD 2>/dev/null | grep -qx main && git -C ~/.claude diff --quiet 2>/dev/null && git -C ~/.claude diff --cached --quiet 2>/dev/null && git -C ~/.claude pull --ff-only --quiet origin main >/dev/null 2>&1 || true",
-            "async": true,
             "timeout": 30,
-            "statusMessage": "Syncing ~/.claude to origin/main"
+            "statusMessage": "Syncing ~/.claude to origin/main",
+            "async": true
           }
         ]
       }
@@ -77,6 +77,7 @@
       }
     }
   },
+  "skipWorkflowUsageWarning": true,
   "theme": "dark",
   "preferredNotifChannel": "terminal_bell"
 }
