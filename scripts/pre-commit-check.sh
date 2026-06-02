@@ -11,6 +11,17 @@ if [ "$MODE" = "pre-commit" ]; then
   echo "$staged" | grep -qx 'settings.json' || exit 0
   content="$(git show :settings.json 2>/dev/null || true)"
 else
+  # Block direct push to protected branches. pre-push receives
+  # "<local ref> <local sha> <remote ref> <remote sha>" lines on stdin.
+  while read -r _lref _lsha rref _rsha; do
+    case "$rref" in
+      refs/heads/main|refs/heads/master)
+        printf '\n\033[31m[BLOCKED] Direct push to %s is not allowed. Open a PR instead.\033[0m\n' "$rref" >&2
+        printf '\033[90mBypass once (NOT recommended): git push --no-verify\033[0m\n' >&2
+        exit 1
+        ;;
+    esac
+  done
   tracked="$(git ls-tree --name-only HEAD 2>/dev/null || true)"
   echo "$tracked" | grep -qx 'settings.json' || exit 0
   content="$(git show HEAD:settings.json 2>/dev/null || true)"
@@ -45,7 +56,7 @@ patterns=(
 for entry in "${patterns[@]}"; do
   name="${entry%%|*}"
   rx="${entry#*|}"
-  match="$(printf '%s' "$content" | grep -Eo "$rx" | head -n 1 || true)"
+  match="$(printf '%s' "$content" | grep -Eo -e "$rx" | head -n 1 || true)"
   if [ -n "$match" ]; then
     sample="$match"
     [ ${#sample} -gt 30 ] && sample="${sample:0:30}..."
