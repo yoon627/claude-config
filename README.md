@@ -2,7 +2,7 @@
 
 Windows 에서 사용하는 `%USERPROFILE%\.claude\` 또는 macOS 에서 사용하는 `~/.claude/` 의 사용자 글로벌 설정·에이전트·명령·스킬·후크·스크립트·스테이터스라인을 한 레포에 모은 것. 다른 머신에서 동일한 작업 환경을 빠르게 재현하기 위함.
 
-대상: Claude Code 를 깊이 사용하는 본인. 일반 공개 가이드 아님. 본인 워크플로우와 기존 자동화에 종속된 컴포넌트가 일부 있음 (특히 `commands/push-review`).
+대상: Claude Code 를 깊이 사용하는 본인. 일반 공개 가이드 아님. 본인 워크플로우와 기존 자동화에 종속된 컴포넌트가 일부 있음 (특히 per-repo hook 에 의존하는 `commands/local-review`).
 
 `settings.json` 은 **단일 cross-platform** — Windows·macOS 모두 clone 한 그대로 동작 (OS별 복사 단계 없음). statusline·notify 는 `node ~/.claude/...` 형태로 통일했고 (`~` 는 Git Bash·sh 양쪽에서 홈으로 확장), OS 분기는 호출되는 스크립트 내부에서 처리 (`scripts/notify-hook.js` 의 `process.platform`). Windows 의 toast·flash 만 `scripts/notify.ps1` / `notify-hook.ps1` 로 위임.
 
@@ -115,7 +115,7 @@ git checkout origin/main -b main
 
 `.git/hooks/` 는 머신별 → clone 후 매번 실행 필요.
 
-`--no-verify` 우회 가능 — 본인 규율 의존. push 직전엔 가급적 `/push-review` 사용.
+`--no-verify` 우회 가능 — 본인 규율 의존.
 
 ---
 
@@ -225,7 +225,6 @@ claude 53%(20:30) | codex 60%(18:45) | ctx 12% | main
 8. Git / 보안 — destructive 명령 금지, 시크릿 출력 금지
 9. Claude ↔ Codex 협업 — `.claude/plans/` 핸드오프 채널
 10. `.claude/plans/` 핸드오프 규약 — slug, frontmatter, 6개 섹션
-11. 실수 기록 — `docs/lessons.md` 형식
 
 세션 시작 시점 자동 적용. 프로젝트별 추가 규칙은 per-repo `CLAUDE.md` 에 둘 수 있고, 글로벌 + 프로젝트 둘 다 로드됨.
 
@@ -281,12 +280,6 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 **Per-repo hook 의존**: `local-review` 는 프로젝트 `.claude/hooks/active-plan.sh`, `resolve-range.sh` 가 있어야 동작. 글로벌 설정만으론 미작동 — 프로젝트 setup 시 hook 별도 설치 필요.
 
-#### `push-review` (`/push-review [base-ref]`)
-
-`local-review` + **Codex 백그라운드 리뷰** 를 동시 실행 → 통합 리포트 (`combined.md`) 작성. 자동 push 안 함, recommendation (`PROCEED` / `FIX_REQUIRED` / `REVIEW_NEEDED`) 만 출력. 사용자가 직접 `git push`.
-
-**Per-repo hook 의존**: `active-plan.sh`, `resolve-range.sh`, `run-codex-review.sh`, `review-codex.sh`, `clear-review.sh` (5개) 필요. 없으면 안내 후 종료. 프로젝트별로 `.claude/hooks/` 에 설치해야 함.
-
 ### skills/dlc/ — 자동 개발 사이클
 
 `/dlc` 명시 호출 또는 비자명한 코드 변경 시 적용하는 개발 사이클 오케스트레이션. 규모 (trivial / small / medium / structural) 를 판정해 단계를 gate — 오타 1줄은 즉시 통과, structural 변경은 explore → plan → 리뷰 → TDD → 구현 → 리뷰 → simplify → 검증 전체를 돈다.
@@ -308,6 +301,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - uncommitted 변경은 작업 브랜치에 **임시(WIP) 커밋**으로 보존 — `main`/`master` 직접 커밋·push 는 안 함(§8), `.env`·key 등 위험 파일은 커밋 보류 후 확인.
 - `# Progress`/`# Next`/`# Decisions`/`status`/`updated` 를 사실 기반으로 갱신 → 다음 세션이 `/c` 로 곧장 이어받음.
 - done 자동 전환 안 함 (확정 완료 신호 + 사용자 확인 시만, 기본 `in_progress` 체크포인트). plan 없으면 새로 만들지 않음 — 임시 커밋 + 보고만.
+- worktree 에서 작업이 `done`·clean·pushed 이고 내부에 잃을 ignored 산출물(plan·`.env`)이 없으면 **worktree 삭제도 제안** (AskUserQuestion; worktree만/+브랜치/유지). 삭제 시 main 으로 빠져나간 뒤 `git worktree remove`, `--force`·`branch -D` 는 추가 확인.
 
 ### skills/wt/ — Git worktree 빠른 관리
 
@@ -486,8 +480,7 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   ├── plan-reviewer.md
 │   └── researcher.md
 ├── commands/
-│   ├── local-review.md             # /local-review (per-repo hook 필요)
-│   └── push-review.md              # /push-review (per-repo hook 필요)
+│   └── local-review.md             # /local-review (per-repo hook 필요)
 ├── docs/
 │   └── codex-review.md             # codex 병행 검토 공유 규약
 ├── skills/
@@ -536,6 +529,3 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 
 ### Pre-commit guard 가 정상 변경을 차단
 `scripts/pre-commit-check.ps1` 의 토큰 패턴이 settings.json 의 정상 값과 충돌하는 경우. 패턴 수정이 정답. 정말 통과 필요하면 `git commit --no-verify` — 단 한 번도 안 보고 통과시키지 말 것.
-
-### `commands/push-review` 가 `Error: hooks 가 설치되지 않았습니다`
-프로젝트 `.claude/hooks/` 에 `active-plan.sh`, `resolve-range.sh`, `run-codex-review.sh`, `review-codex.sh`, `clear-review.sh` 가 없어서 발생. 기존 프로젝트의 `.claude/hooks/*.sh` 를 복사해 `chmod +x` 후 재시도. 글로벌 `.claude/` 가 아닌 **각 프로젝트** 의 `.claude/hooks/` 에 둬야 함.
