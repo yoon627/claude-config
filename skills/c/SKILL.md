@@ -1,14 +1,14 @@
 ---
-name: pc
-description: 현재 worktree/repo 의 진행 중인 plan(CLAUDE.md §10)을 찾아 남은 작업과 plan↔실제(git/코드) sync 상태를 진단하고, 어긋나면 plan 을 보정한 뒤 다음 액션을 제시하는 plan 이어가기(plan-continue) 오케스트레이션. `/pc` 명시 호출 또는 "진행하던 작업 이어가자"류 요청 시 사용. branch→plan dir 매칭, 실패 시 in_progress 목록 제시. 확인·sync 진단은 항상 수행하되 다음 액션은 제시만 하고 자동 실행하지 않는다. 단순 질문·탐색·신규 작업 시작에는 쓰지 않는다(새 plan 생성은 dlc 몫).
+name: c
+description: 현재 worktree/repo 의 진행 중인 plan(CLAUDE.md §10)을 찾아 남은 작업과 plan↔실제(git/코드) sync 상태를 진단하고, 어긋나면 plan 을 보정한 뒤 다음 액션을 제시하는 plan 이어가기(plan-continue) 오케스트레이션. `/c` 명시 호출 또는 "진행하던 작업 이어가자"류 요청 시 사용. branch→plan dir 매칭, 실패 시 in_progress 목록 제시. 확인·sync 진단은 항상 수행하되 다음 액션은 제시만 하고 자동 실행하지 않는다. 단순 질문·탐색·신규 작업 시작에는 쓰지 않는다(새 plan 생성은 dlc 몫).
 ---
 
-# pc — plan 이어가기 (plan continue)
+# c — plan 이어가기 (plan continue)
 
 진행 중이던 §10 plan 을 찾아 **남은 작업 + sync 상태**를 진단하고, 어긋난 plan 을 실제 상태로 보정한 뒤 다음 액션을 제시한다. CLAUDE.md §10 "시작: 매칭 plan read 후 컨텍스트 복원 / 진행 중 동기화"의 자동화 버전 — **충돌 시 CLAUDE.md 우선**.
 
 ## 적용
-- `/pc` 명시 호출, 또는 진행하던 plan 을 이어가려 할 때.
+- `/c` 명시 호출, 또는 진행하던 plan 을 이어가려 할 때.
 - 단순 질문·탐색·읽기 전용·신규 작업 시작은 제외. **plan 이 없으면 새로 만들지 않는다** (그건 dlc/작업 시작의 몫).
 
 ## 동작 (3단계: 찾기 → 진단 → 보정·제시)
