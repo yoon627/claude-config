@@ -64,9 +64,11 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
 
 ## worktree 정리 규칙
 5단계에서 사용자가 삭제를 택했을 때만 수행. **cwd 가 삭제 대상 worktree 안이라 순서가 중요.**
-- **이동 전 값 캡처**: `target_path`(대상 절대경로)·`target_branch`·`main_path`(`git worktree list --porcelain` 첫 worktree)를 **EnterWorktree 전에** 고정한다. 이동 후 `--show-toplevel`/`HEAD` 를 재계산하면 main 기준으로 바뀌어 엉뚱한 대상(또는 main 자신)을 가리킨다.
-- **main 으로 이동**: `EnterWorktree(path: <main_path>)`. 대상 worktree 안에서는 자기 자신을 remove 할 수 없다. **이동 실패 시 중단 + 보고**(remove 진행 금지).
-- **제거**: 대상이 여전히 `git worktree list --porcelain` 에 있으면 `git worktree remove <target_path>`. "modified or untracked files" 류로 실패하면 `--force` 는 **별도 AskUserQuestion 확인 후에만**(§8 — 묻지 않고 강제 금지). ignored 산출물 손실 경고는 5단계에서 이미 처리.
+- **이동 전 값 캡처**: `target_path`(대상 절대경로)·`target_branch`·`main_path`(`git worktree list --porcelain` 첫 worktree)를 **세션을 옮기기 전에** 고정한다. 이동 후 `--show-toplevel`/`HEAD` 를 재계산하면 엉뚱한 대상(또는 main 자신)을 가리킨다.
+- **worktree 밖으로 이동**: `ExitWorktree(action: keep)` 로 세션을 원래 디렉토리(보통 main)로 되돌린다 — 대상 worktree 안에서는 자기 자신을 remove 할 수 없다(cwd 점유). ⚠️ **`EnterWorktree(path: <main_path>)` 는 쓰지 않는다** — 메인 워킹트리는 linked worktree 가 아니라 `EnterWorktree` 가 거부한다(검증됨).
+  - **`ExitWorktree` 가 no-op 인 경우**(harness 가 worktree 에서 바로 시작해 `EnterWorktree` 를 거치지 않은 세션): 세션이 그 worktree 에 묶여 in-session 으로 못 빠져나온다. 폴백 — (a) 다른 **linked** worktree 가 있으면 `EnterWorktree(path: <other>)` 로 이동 후 대상 remove, (b) 없으면 remove 를 **생략하고 보고**("세션 종료 시 정리 — 종료하면 harness 가 worktree 를 놓는다" + 수동 `git worktree remove`/디렉토리 삭제 안내). 강제 진행 금지.
+  - 이동(또는 폴백) 실패로 cwd 가 여전히 대상 안이면 **중단 + 보고**(remove 진행 금지).
+- **제거**: cwd 가 대상 밖임을 확인한 뒤, 대상이 `git worktree list --porcelain` 에 있으면 `git worktree remove <target_path>`. "modified or untracked files" 류로 실패하면 `--force` 는 **별도 AskUserQuestion 확인 후에만**(§8 — 묻지 않고 강제 금지). 디렉토리 삭제가 OS 제약(Windows long-path·점유 등)으로 실패하면 git 등록만 빠지고 디렉토리가 잔존할 수 있으니, 잔존 시 `git worktree prune` + 대상 디렉토리 수동 삭제로 마무리. ignored 산출물 손실 경고는 5단계에서 이미 처리.
 - **브랜치 (옵션 ② 일 때만)**: `git branch -d <target_branch>`. 미머지로 `-d` 가 거부하면 `-D` 는 **별도 AskUserQuestion 확인 후에만**(§8, wt 주의 승계).
 - **push 안 함** — pushed 가 이미 제안 조건이라 추가 push 없음.
 - 한 줄 보고: 제거한 worktree·브랜치(또는 유지 사유).
