@@ -134,7 +134,7 @@
 사용자는 Claude 와 Codex 양쪽을 사용. 둘 다 같은 `.claude/plans/` 핸드오프 채널을 공유.
 
 - **역할**: Claude 는 plan 생성/갱신·메인 구현·통합. Codex 는 리뷰·보조 구현·검증. 최종 통합 책임은 항상 **현재 메인 에이전트**.
-- **호출 조건**: 설치 확인은 `codex --version` 등. 사용량/실행 실패 시 Claude 단독 진행하고 사유 명시.
+- **호출 조건**: 설치 확인은 `codex --version`. **`codex exec` 는 PROMPT 인자가 있어도 stdin 을 추가로 읽어서, PowerShell 도구로 호출하면 stdin 이 안 닫혀 `Reading additional input from stdin...` 에서 무한 hang 한다(재현). → codex 는 반드시 Bash 도구로 호출한다(검증됨): `codex exec --sandbox read-only "<프롬프트>"`. 무거운 작업 전 짧은 smoke test(≤60s)로 응답부터 확인하고, hang/사용량 초과 시 즉시 중단 후 Claude 단독 진행 + 사유 명시.** (외부 CLI 는 동작 검증 후 사용. 원인은 재현으로 확정한 뒤 단정한다 — 이번에 PowerShell hang 을 'codex 불가'로 과일반화한 전례 있음.)
 - **리뷰 매트릭스**:
   - `plan-reviewer` / `code-reviewer` = **Claude subagent 필수 + Codex 가용 시 병행**. Codex 미가용이면 생략 사유를 Report 또는 plan `# Progress` 에 남긴다.
   - `researcher` / `code-simplifier` / 보조 구현 = 가용성·비용 대비 이득이 있을 때 선택.
