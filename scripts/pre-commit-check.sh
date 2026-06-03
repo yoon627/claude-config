@@ -13,7 +13,7 @@ if [ "$MODE" = "pre-commit" ]; then
 else
   # Block direct push to protected branches. pre-push receives
   # "<local ref> <local sha> <remote ref> <remote sha>" lines on stdin.
-  while read -r _lref _lsha rref _rsha; do
+  while read -r _lref _lsha rref _rsha || [ -n "$rref" ]; do
     case "$rref" in
       refs/heads/main|refs/heads/master)
         printf '\n\033[31m[BLOCKED] Direct push to %s is not allowed. Open a PR instead.\033[0m\n' "$rref" >&2
