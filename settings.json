@@ -91,5 +91,5 @@
   },
   "skipWorkflowUsageWarning": true,
   "theme": "dark",
-  "preferredNotifChannel": "terminal_bell"
+  "preferredNotifChannel": "notifications_disabled"
 }
