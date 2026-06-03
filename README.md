@@ -311,10 +311,11 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 ### skills/wt/ — Git worktree 빠른 관리
 
-`/wt` (목록) · `/wt <N>` (N번째 worktree 로 이동) · `/wt <name>` (정확일치 있으면 이동, 없으면 신규 생성) · `/wt rm <name>` (제거) 로 worktree 관리. 컨벤션:
+`/wt` (목록) · `/wt <N>` (N번째 worktree 로 이동) · `/wt <기존이름>` (정확일치 worktree 로 이동) · `/wt <요청사항>` (slug 확인 후 worktree 신규 생성 → 그 안에서 `dlc` 로 작업) · `/wt rm <name>` (제거) 로 worktree 관리. 컨벤션:
 - worktree path: `.claude/worktrees/<name>` (현재 repo 기준)
 - 브랜치 이름 = worktree 이름 (1:1)
 - `EnterWorktree(path: <abs>)` 로 진입 — `name` 인자 사용 금지 (Claude Code 의 `worktree-` prefix 자동 부착 회피)
+- 정수·`rm`·기존 worktree 정확일치가 아닌 텍스트는 **요청사항**으로 간주 → 영문 kebab-case slug 파생 → AskUserQuestion 으로 확인 후 생성 → 요청사항 원문을 `dlc` task 로 전달 (dlc 없는 빈 worktree 단순 생성은 폐지)
 
 ### scripts/
 
