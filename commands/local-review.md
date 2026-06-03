@@ -23,7 +23,7 @@ for f in active-plan.sh resolve-range.sh; do
   [ -x ".claude/hooks/$f" ] || missing+=("$f")
 done
 if [ ${#missing[@]} -gt 0 ]; then
-  echo "Error: 이 프로젝트에 push-review hooks 가 설치되지 않았습니다."
+  echo "Error: 이 프로젝트에 리뷰 hooks (active-plan.sh, resolve-range.sh) 가 설치되지 않았습니다."
   echo "필요: ${missing[*]}"
   echo ""
   echo "설치 방법: 기존 프로젝트에서 .claude/hooks/*.sh 복사 + chmod +x"

@@ -38,7 +38,7 @@
 
 ## 3. 작업 흐름
 
-1. **Setup** (코드 변경/리뷰/레포 작업 시작 시) — `git status --short`. `docs/lessons.md` 있으면 훑기. 프로젝트 컨텍스트는 per-repo `CLAUDE.md` 또는 `<repo>/.claude/CLAUDE.md` 에 명시 (없으면 비어 있다고 판단). `.env`/key/token/cert 원문 출력 금지.
+1. **Setup** (코드 변경/리뷰/레포 작업 시작 시) — `git status --short`. 프로젝트 컨텍스트는 per-repo `CLAUDE.md` 또는 `<repo>/.claude/CLAUDE.md` 에 명시 (없으면 비어 있다고 판단). `.env`/key/token/cert 원문 출력 금지.
 2. **Explore** — 모호하면 질문 먼저. 관련 파일 + 호출부 read. 동일 디렉토리·같은 레이어 기존 파일 스타일 확인.
 3. **Plan** — 큰 변경(50줄 초과, 다중 파일, public API, DB schema, migration, 아키텍처/보안 영향)은 계획 먼저 제시하고 승인 후 진행. 작은 변경(오타, 로그 한 줄)은 즉시.
 4. **Implement** — 작은 단계로. 요청 범위 밖 "지나가는 김에" 수정 금지. 단, 빌드/테스트를 깨는 직접 원인이면 수정하고 이유 명시.
@@ -120,7 +120,8 @@
 ## 8. Git / 보안
 
 - `git reset --hard`, `git clean -fd`, 강제 checkout, force push 는 명시 요청 없으면 금지.
-- 작업은 main/master 직접 말고 별도 브랜치/worktree 에서 한다 (main push 는 deny 로 차단). commit 은 그 작업의 plan 에 맞는 브랜치에서 작업 단위로 자유롭게 한다. **현재 브랜치/worktree 의 plan 과 무관한 작업이면 별도 브랜치나 worktree(`/wt`) 를 만들어 분리** — 무관한 변경을 한 브랜치에 섞지 않는다. push 는 사용자 요청 시만.
+- 작업은 main/master 직접 말고 별도 브랜치/worktree 에서 한다 (main push 는 deny 로 차단). commit 은 그 작업의 plan 에 맞는 브랜치에서 작업 단위로 자유롭게 한다. **trivial(오타·로그 1줄 등 금방 끝나는 것)이 아닌 작업은 — 무관 여부와 별개로 — 시작 시 별도 worktree(`/wt <요청사항>`)에서 한다.** 진행 중인 worktree 에 새 작업을 얹지 않는다 (base·체크아웃 충돌, 변경 혼입, 같은 파일 동시 편집 위험). 무관한 변경을 한 브랜치에 섞지 않는다. push 는 사용자 요청 시만.
+- **worktree 삭제 주의**: `git worktree remove` 는 gitignored 파일(`plans/`·`.env` 등 — whitelist `.gitignore` 라 `git status` 에 안 보임)을 **무경고 동반 삭제**한다. 삭제 전 `git status --porcelain --ignored` 로 점검 (상세는 `skills/e/SKILL.md` 의 worktree 정리 단계).
 - generated file / lock file 변경은 필요할 때만 포함, 이유 설명.
 - `.env`/private key/token/password/인증서 원문을 답변·로그·테스트 fixture·snapshot 에 출력 금지.
 - 인증/인가/암호화 코드는 기존 보안 패턴 먼저 확인. 임시 우회·hardcoded credential·TLS 검증 비활성화 금지.
@@ -179,26 +180,7 @@ updated: YYYY-MM-DD
 5. `# Key Files` — 핵심 파일 + 한 줄 메모
 6. `# Blockers` — 막힌 것 + 풀려면 필요한 것
 
-push 직전 `/push-review` 권장 — **codex 가용 시** bg + local 5관점 parallel → 통합 리포트. 리뷰 산출물은 `.claude/plans/<dir>/reviews/<YYYY-MM-DDTHHMM>-<sha7>/` 에 저장.
-
-### pre-push hook codex 리뷰 처리
-pre-push hook 이 codex 리뷰를 띄워 push 를 차단하면, 리뷰 항목을 **본문 그대로** (분류 라벨 + `파일:라인` + 요지) 사용자에게 노출한 뒤 분기한다. "MEDIUM 1건, clear 후 push" 식 한 줄 요약 금지 — 사용자가 항목을 보고 fix·티켓 분리·무시 결정을 내릴 기회를 가린다.
-- CRITICAL/HIGH 1개 이상: 코드 수정 + 재커밋, 사용자에게 "수정 완료, 다시 push" 안내.
-- MEDIUM/LOW 만: 항목 노출 → `bash .claude/hooks/clear-review.sh <대상 파일>` → 다시 push. 노출은 clear/push 직전에 수행.
-- push 후 보고에 같은 항목을 한 번 더 적어도 좋지만, **사전 노출이 우선**.
+리뷰는 dlc 의 중간 단계(구현 직후 code-reviewer + codex 병행, §9)가 담당한다 — push 직전 별도 codex 리뷰는 두지 않는다. 로컬 다관점 점검이 따로 필요하면 `/local-review` 를 수동 사용.
 
 ### 적용 범위
 티켓 또는 명확한 작업 컨텍스트만. 단순 질문/탐색/한 턴짜리 명령은 제외.
-
----
-
-## 11. 실수 기록
-
-`docs/lessons.md` 있으면 세션 시작 시 훑기. 재발 가능성 높고 비자명한 함정만 한 줄 추가:
-
-```
-- [YYYY-MM-DD] 증상 → 원인 → 해결 (관련 파일/커밋)
-```
-
-- 단순 오타·일회성 환경 문제·README 에 이미 있는 내용은 제외.
-- 사용자 요청 없이 새로 만들지 않는다.
