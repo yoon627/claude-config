@@ -295,26 +295,27 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - `.claude/plans/<slug>-plan.md` 가 subagent 간 단일 공유 채널 (메인만 write).
 - codex 병행 검토 호출 규약은 `docs/codex-review.md` (phase 당 codex owner 1개 지정으로 중복 호출 방지, Windows/PowerShell fallback 포함).
 
-### skills/pc/ — plan 이어가기
+### skills/c/ — plan 이어가기
 
-`/pc` 로 현재 worktree/repo 의 진행 중인 plan(§10)을 찾아 **남은 작업 + plan↔실제(git/코드) sync 상태**를 진단하고, 어긋나면 plan 을 보정한 뒤 다음 액션을 제시.
+`/c` 로 현재 worktree/repo 의 진행 중인 plan(§10)을 찾아 **남은 작업 + plan↔실제(git/코드) sync 상태**를 진단하고, 어긋나면 plan 을 보정한 뒤 다음 액션을 제시.
 - branch→plan dir 매칭(§10), 실패 시 `in_progress`/`blocked` plan 목록 제시 후 사용자 선택 (추측 자동선택 안 함).
 - `plans/` 가 gitignored & worktree별 독립이라 현재 repo + main worktree 양쪽 `plans/` 를 탐색.
 - 확인·sync 진단·plan 보정까지 수행하되 **다음 액션은 제시만** (자동 실행 안 함). plan 이 없으면 새로 만들지 않음 — 신규 plan 생성은 dlc 몫.
 
-### skills/pe/ — plan 마무리
+### skills/e/ — plan 마무리
 
-`/pe` 로 진행 중이던 plan(§10)을 **실제 git/코드 상태로 동기화 기록**하고 작업을 마무리. pc(이어가기)의 대칭.
+`/e` 로 진행 중이던 plan(§10)을 **실제 git/코드 상태로 동기화 기록**하고 작업을 마무리. c(이어가기)의 대칭.
 - uncommitted 변경은 작업 브랜치에 **임시(WIP) 커밋**으로 보존 — `main`/`master` 직접 커밋·push 는 안 함(§8), `.env`·key 등 위험 파일은 커밋 보류 후 확인.
-- `# Progress`/`# Next`/`# Decisions`/`status`/`updated` 를 사실 기반으로 갱신 → 다음 세션이 `/pc` 로 곧장 이어받음.
+- `# Progress`/`# Next`/`# Decisions`/`status`/`updated` 를 사실 기반으로 갱신 → 다음 세션이 `/c` 로 곧장 이어받음.
 - done 자동 전환 안 함 (확정 완료 신호 + 사용자 확인 시만, 기본 `in_progress` 체크포인트). plan 없으면 새로 만들지 않음 — 임시 커밋 + 보고만.
 
 ### skills/wt/ — Git worktree 빠른 관리
 
-`/wt` (목록) · `/wt <N>` (N번째 worktree 로 이동) · `/wt <name>` (정확일치 있으면 이동, 없으면 신규 생성) · `/wt rm <name>` (제거) 로 worktree 관리. 컨벤션:
+`/wt` (목록) · `/wt <N>` (N번째 worktree 로 이동) · `/wt <기존이름>` (정확일치 worktree 로 이동) · `/wt <요청사항>` (slug 확인 후 worktree 신규 생성 → 그 안에서 `dlc` 로 작업) · `/wt rm <name>` (제거) 로 worktree 관리. 컨벤션:
 - worktree path: `.claude/worktrees/<name>` (현재 repo 기준)
 - 브랜치 이름 = worktree 이름 (1:1)
 - `EnterWorktree(path: <abs>)` 로 진입 — `name` 인자 사용 금지 (Claude Code 의 `worktree-` prefix 자동 부착 회피)
+- 정수·`rm`·기존 worktree 정확일치가 아닌 텍스트는 **요청사항**으로 간주 → 영문 kebab-case slug 파생 → AskUserQuestion 으로 확인 후 생성 → 요청사항 원문을 `dlc` task 로 전달 (dlc 없는 빈 worktree 단순 생성은 폐지)
 
 ### scripts/
 
@@ -492,10 +493,10 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 ├── skills/
 │   ├── dlc/
 │   │   └── SKILL.md                # /dlc — 자동 개발 사이클
-│   ├── pc/
-│   │   └── SKILL.md                # /pc — plan 이어가기
-│   ├── pe/
-│   │   └── SKILL.md                # /pe — plan 마무리 (임시 커밋 + 동기화)
+│   ├── c/
+│   │   └── SKILL.md                # /c — plan 이어가기
+│   ├── e/
+│   │   └── SKILL.md                # /e — plan 마무리 (임시 커밋 + 동기화)
 │   └── wt/
 │       └── SKILL.md                # /wt — git worktree 관리
 ├── scripts/
