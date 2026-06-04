@@ -301,7 +301,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - uncommitted 변경은 작업 브랜치에 **임시(WIP) 커밋**으로 보존 — `main`/`master` 직접 커밋·push 는 안 함(§8), `.env`·key 등 위험 파일은 커밋 보류 후 확인.
 - `# Progress`/`# Next`/`# Decisions`/`status`/`updated` 를 사실 기반으로 갱신 → 다음 세션이 `/c` 로 곧장 이어받음.
 - done 자동 전환 안 함 (확정 완료 신호 + 사용자 확인 시만, 기본 `in_progress` 체크포인트). plan 없으면 새로 만들지 않음 — 임시 커밋 + 보고만.
-- worktree 에서 작업이 `done`·clean·pushed 이고 내부에 잃을 ignored 산출물(plan·`.env`)이 없으면 **worktree 삭제도 제안** (AskUserQuestion; worktree만/+브랜치/유지). 삭제 시 main 으로 빠져나간 뒤 `git worktree remove`, `--force`·`branch -D` 는 추가 확인.
+- worktree 에서 작업이 `done`·clean·pushed·merged(base 통합)이고 내부에 잃을 ignored 산출물(plan·`.env`)이 없으면 **worktree 삭제도 제안** (AskUserQuestion; worktree만/+브랜치/유지). 삭제 시 main 으로 빠져나간 뒤 `git worktree remove`, `--force`·`branch -D` 는 추가 확인.
 
 ### skills/wt/ — Git worktree 빠른 관리
 
