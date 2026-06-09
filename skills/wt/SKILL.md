@@ -1,6 +1,6 @@
 ---
 name: wt
-description: Git worktree 빠른 관리 — 목록/이동/생성+dlc/제거. `/wt <N>` 또는 기존 worktree 이름은 그 worktree 로 이동, 그 외 텍스트(요청사항)는 slug 확인 후 worktree 를 새로 만들고 그 안에서 `dlc` 로 작업. 신규 생성 시 ignored `.env` 파일을 main worktree 에서 동일 상대경로로 자동 복사. `.claude/worktrees/<name>/` 에 prefix 없는 브랜치(`<name>`)로 생성하여 EnterWorktree 도구의 `worktree-` prefix 문제를 회피. 사용자가 `/wt`, `/wt <N>`, `/wt <기존이름>`, `/wt <요청사항>`, `/wt rm <name>` 형태로 호출할 때만 사용.
+description: Git worktree 빠른 관리 — 목록/이동/생성+dlc/제거. `/wt <N>` 또는 기존 worktree 이름은 그 worktree 로 이동, 그 외 텍스트(요청사항)는 slug 확인 후 worktree 를 새로 만들고 그 안에서 `dlc` 로 작업. 접두 `?`(`/wt ? <막연한 설명>`)는 질문 모드 — AskUserQuestion 으로 요구사항을 구체화한 뒤 같은 생성 경로로 합류. 신규 생성 시 ignored `.env` 파일을 main worktree 에서 동일 상대경로로 자동 복사. `.claude/worktrees/<name>/` 에 prefix 없는 브랜치(`<name>`)로 생성하여 EnterWorktree 도구의 `worktree-` prefix 문제를 회피. 사용자가 `/wt`, `/wt <N>`, `/wt <기존이름>`, `/wt <요청사항>`, `/wt ? <막연한 설명>`, `/wt rm <name>` 형태로 호출할 때만 사용.
 ---
 
 # wt — Git Worktree 관리
@@ -15,9 +15,10 @@ description: Git worktree 빠른 관리 — 목록/이동/생성+dlc/제거. `/w
 | `<정수 N>` | N번째 worktree 로 switch |
 | `rm <name>` | remove |
 | 기존 worktree branch 와 **정확일치** | 그 worktree 로 switch |
+| 접두 `?` (`? <막연한 설명>`) | 질문 모드 — AskUserQuestion 으로 요구사항 구체화 후 '요청사항' 경로로 합류 |
 | 그 외 모든 텍스트 (요청사항) | slug 파생 → 확인 → worktree 생성 → 그 안에서 `dlc` 로 작업 |
 
-- **해석 순서**: ① 빈 인자 → list. ② 첫 토큰 `rm` → remove (worktree 이름으로 `rm` 사용 금지). ③ 인자 전체가 정수 → switch (범위 밖이면 안내 + list). ④ 인자 전체가 기존 worktree branch 와 정확일치 → switch. ⑤ 그 외 전부 → **요청사항**으로 간주 (request 섹션).
+- **해석 순서** (위에서부터 평가, **첫 매치에서 확정** 후 이후 규칙은 보지 않는다 — 표 행 순서가 아니라 이 순서가 우선순위의 단일 소스): ① 빈 인자 → list. ② 첫 토큰 `rm` → remove (worktree 이름으로 `rm` 사용 금지). ②.5 첫 비공백 문자가 `?` → **질문 모드** (ask 섹션 — `?` 제거한 나머지를 seed 로 구체화 후 request 합류). `?rm foo`·`?123` 등 첫 문자가 `?` 면 토큰/정수/정확일치 여부와 무관하게 질문 모드. ③ 인자 전체가 정수 → switch (범위 밖이면 안내 + list). ④ 인자 전체가 기존 worktree branch 와 정확일치 → switch. ⑤ 그 외 전부 → **요청사항**으로 간주 (request 섹션).
 - `rm` 뒤 인자 누락 등 형식 이상 → 위 표 출력 후 종료.
 - **dlc 없는 단순 생성(빈 worktree 만 만들기)은 없다** — 정확일치하지 않는 텍스트는 항상 요청사항으로 처리된다.
 
@@ -76,6 +77,22 @@ description: Git worktree 빠른 관리 — 목록/이동/생성+dlc/제거. `/w
 ### 5. dlc 작업
 - 생성·진입 완료 후, 새 worktree(현재 cwd)에서 **`dlc` Skill 을 요청사항 원문을 인자로 invoke** (Skill 도구, `skill: dlc`, `args: <요청사항 원문>`). 이후는 dlc 가 규모 gate 부터 파이프라인까지 진행한다.
 - dlc 시작 직전 한 줄 보고: "신규 생성: `<slug>`" + `.env: N copied, M skipped` (둘 다 0 이면 생략) + bootstrap skip/실패 + "→ dlc 시작: <요청사항>".
+
+## 질문 모드 (`?` 접두 → 구체화 → request)
+
+요청이 막연해 바로 slug 로 굳히기 이른 경우, 접두 `?` 로 **요구사항을 먼저 대화로 좁힌 뒤** request 경로에 합류시킨다. 접미 `?` 는 쓰지 않는다 (일반 의문형 요청과 충돌하므로 접두만 트리거).
+
+### 1. seed 추출
+- `args` 에서 맨 앞 `?` 와 뒤따르는 공백을 제거한 나머지를 seed(막연한 설명)로 본다. `/wt ?` 처럼 seed 가 비어도 된다.
+
+### 2. 구체화 (AskUserQuestion)
+- seed 를 바탕으로 **무엇을 / 어디를 / 어떤 결과로** 끝낼지 좁히는 질문을 한다. seed 가 비면 "무엇을 하려는지"부터 묻는다.
+- 한 번에 안 좁혀지면 추가로 물어 작업 범위·대상·완료 기준을 확정한다. `?` 를 붙였다는 것 자체가 "대화로 좁히고 싶다"는 신호이므로 최소 1회는 묻는다.
+- 사용자가 취소/거부하면 아무것도 만들지 않고 종료.
+- 추가로 물어도 범위·대상·완료 기준이 확정되지 않으면 request 로 넘기지 않는다 — 더 묻거나 종료한다 (모호한 채 §3 으로 넘기면 slug 파생·dlc task 가 부실해진다).
+
+### 3. request 합류
+- 확정된 요구사항을 **요청사항 원문으로 삼아** 위 request 섹션 §1(slug 파생) → §5(dlc) 를 그대로 수행한다. 질문 모드는 이 앞단(요구사항 확정)만 더할 뿐, slug·충돌검사·생성·`.env` 복사·dlc 로직은 재사용한다.
 
 ## rm `<name>`
 
