@@ -483,7 +483,6 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 ├── commands/
 │   └── local-review.md             # /local-review (per-repo hook 필요)
 ├── docs/
-│   ├── codex-agents.md             # codex 전용 슬림 지침 (~/.codex/AGENTS.md 심링크 대상)
 │   └── codex-review.md             # codex 병행 검토 공유 규약
 ├── skills/
 │   ├── dlc/
