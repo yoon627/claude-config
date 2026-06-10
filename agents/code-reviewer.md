@@ -48,9 +48,9 @@ tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
 - 보안 / public API / DB schema / migration / 비즈니스 로직 변경
 - `codex --version` 가용성 확인 성공
 
-**호출 명령**:
+**호출 명령** (effort 기준은 `docs/codex-review.md` §3 — 본 agent 호출 조건이 보안/비즈니스 로직이라 보통 `high`):
 ```bash
-codex exec --sandbox read-only --skip-git-repo-check - <<'CDXPROMPT'
+codex exec --sandbox read-only --skip-git-repo-check --ephemeral -c 'model_reasoning_effort="high"' -c hide_agent_reasoning=true - <<'CDXPROMPT'
 다음 변경을 비판적으로 검토하라.
 
 변경 파일: <git diff --stat 결과 또는 명시된 파일 목록>

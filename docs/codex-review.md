@@ -16,11 +16,11 @@ reviewer subagent(plan-reviewer / code-reviewer / architecture-reviewer)와 dlc 
 
 ## 3. 호출 명령 (Bash 도구 — 1차 경로)
 
-read-only sandbox, ephemeral, git repo 체크 skip. effort 기본 `high`.
+read-only sandbox, ephemeral, git repo 체크 skip. **effort 는 작업 난이도별 차등**(아래 표). reasoning 로그 노이즈는 `-c hide_agent_reasoning=true` 로 억제(출력에서 결론 추출이 쉬워진다).
 
 ```bash
 cd "<repo-root>" && codex exec --sandbox read-only --skip-git-repo-check --ephemeral \
-  -c 'model_reasoning_effort="high"' - > /tmp/codex-review.txt 2>&1 <<'CDXPROMPT'
+  -c 'model_reasoning_effort="medium"' -c hide_agent_reasoning=true - > /tmp/codex-review.txt 2>&1 <<'CDXPROMPT'
 <도메인 특화 프롬프트>
 - 변경 파일: <git diff --stat 또는 명시 범위>
 - 입력 번들: <호출부 / 생성 경로 / 의존 방향 / 테스트 fixture 요약>
@@ -29,7 +29,19 @@ cd "<repo-root>" && codex exec --sandbox read-only --skip-git-repo-check --ephem
 CDXPROMPT
 ```
 
-- **effort**: 기본 `high`. 심층 검토가 필요할 때만 `xhigh` — 단 `xhigh` 는 지원 모델(gpt-5.1-codex-max / gpt-5.2-codex / gpt-5.5 등) 한정. 미지원 모델은 자동 폴백되지 않으니 호출 전 모델 확인.
+- **effort 차등** (호출 측이 phase 난이도로 지정):
+
+  | 작업 | effort |
+  |---|---|
+  | 논의·질의·소규모 diff·문서·설정 검토 | `low` |
+  | 일반 코드 리뷰 · plan 리뷰 | `medium` |
+  | 보안·동시성·복잡 버그·대규모 구조 검토 | `high` |
+  | 최심층 (지원 모델 한정) | `xhigh` |
+
+- **effort 는 항상 `-c model_reasoning_effort=...` 로 명시한다.** 생략하면 `~/.codex/config.toml` 기본값(현재 `xhigh`)이 적용돼 토큰이 최대로 샌다.
+- `minimal` 은 일부 모델(gpt-5.5 등)에서 `web_search`/`image_gen` 툴과 충돌(400)하니 실질 최저는 `low`.
+- `xhigh` 는 지원 모델(gpt-5.1-codex-max / gpt-5.2-codex / gpt-5.5 등) 한정. 미지원 모델은 자동 폴백되지 않으니 호출 전 모델 확인.
+- `hide_agent_reasoning=true` 는 **출력 노이즈 억제용** — reasoning 토큰 자체는 줄지 않는다(과금 동일). 실제 토큰 절감은 effort 차등과 글로벌 AGENTS.md 슬림화 두 축뿐이다. 일부 codex 버전에서 무시될 수 있어(openai/codex#7090) 결론 추출은 §5 의 grep/tail 로 보장한다.
 - **background 금지**: 항상 foreground 로 호출. background 실행은 메인 대화의 thinking block 을 손상시켜 `thinking blocks ... cannot be modified` API 400 을 유발한 전례가 있다.
 - 도메인 특화 유지: 범용 "이 변경을 검토하라" 대신 해당 agent 의 검토 관점을 프롬프트에 박는다(codex 가 경고한 handoff drift 회피).
 
