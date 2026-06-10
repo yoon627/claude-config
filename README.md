@@ -182,9 +182,9 @@ git checkout origin/main -b main
 설치 후 다음으로 동작 확인:
 
 ### 1. Statusline 표시
-Claude Code 실행 후 화면 하단에 한 줄이 나와야 함. 예시:
+Claude Code 실행 후 화면 하단에 한 줄이 나와야 함. claude/codex 조각의 앞 레이블은 각각 현재 모델명으로 표시됨 (claude = 세션 모델 `model.display_name`, codex = `~/.codex/config.toml` 의 기본 `model`). 예시:
 ```
-claude 53%(20:30) | codex 60%(18:45) | ctx 12% | main
+Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 ```
 
 표시 안 되면 → Troubleshooting 의 "statusline 미표시".
@@ -195,7 +195,7 @@ claude 53%(20:30) | codex 60%(18:45) | ctx 12% | main
 사운드/알림이 없으면 → "hook 미실행".
 
 ### 3. Codex quota 표시 (선택)
-`codex --version` 으로 Codex CLI 설치 확인 후, statusline 에 `codex NN%(HH:MM)` 가 나타나야 함. 첫 표시는 캐시 채워질 때까지 최대 20초.
+`codex --version` 으로 Codex CLI 설치 확인 후, statusline 에 `<codex 모델명> NN%(HH:MM)` (예: `gpt-5.4 60%(18:45)`) 가 나타나야 함. 모델명은 `~/.codex/config.toml` 의 `model`, 못 읽으면 `codex` 로 폴백. 첫 표시는 캐시 채워질 때까지 최대 20초.
 
 표시 안 되면 → "codex quota 미표시".
 
