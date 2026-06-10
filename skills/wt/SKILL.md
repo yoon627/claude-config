@@ -72,11 +72,14 @@ description: Git worktree 빠른 관리 — 목록/이동/생성+dlc/제거. `/w
    - 각 후보를 동일 상대경로로 `.claude/worktrees/<slug>/` 안에 복사. 부모 디렉토리 없으면 mkdir. **이미 같은 경로에 파일 존재하면 skip (덮어쓰지 않음)**.
    - 복사 실패 (권한 등) 는 경고만 출력하고 worktree 는 유지.
 5. `EnterWorktree(path: <repo-root>/.claude/worktrees/<slug>)`.
-6. 새 cwd 에서 `tools/bootstrap/bootstrap.py` 가 있으면 `uv run tools/bootstrap/bootstrap.py` 실행 (없으면 skip — 다른 프로젝트 무영향). 실패해도 worktree 는 유지하고 에러를 사용자에게 그대로 보고 (사용자가 원인 보고 수동 재실행 결정).
+6. 새 cwd 에서 환경 셋업 (순서대로):
+   - **submodule self-heal init**: `uv run --no-project python "${CLAUDE_SKILL_DIR}/heal_submodules.py"` 실행. 중단됐던 submodule clone(objects 불완전 → "Unable to find current revision")을 자동 복구한 뒤 init 한다. `.gitmodules` 없는 레포는 no-op 이라 무해. **bootstrap 보다 먼저** — bootstrap 의 submodule update 가 중단 corrupt 로 죽어 이후 단계(uv sync 등)가 안 도는 걸 방지.
+   - `tools/bootstrap/bootstrap.py` 가 있으면 `uv run tools/bootstrap/bootstrap.py` 실행 (없으면 skip — 다른 프로젝트 무영향).
+   둘 중 무엇이 실패해도 worktree 는 유지하고 에러를 사용자에게 그대로 보고 (사용자가 원인 보고 수동 재실행 결정).
 
 ### 5. dlc 작업
 - 생성·진입 완료 후, 새 worktree(현재 cwd)에서 **`dlc` Skill 을 요청사항 원문을 인자로 invoke** (Skill 도구, `skill: dlc`, `args: <요청사항 원문>`). 이후는 dlc 가 규모 gate 부터 파이프라인까지 진행한다.
-- dlc 시작 직전 한 줄 보고: "신규 생성: `<slug>`" + `.env: N copied, M skipped` (둘 다 0 이면 생략) + bootstrap skip/실패 + "→ dlc 시작: <요청사항>".
+- dlc 시작 직전 한 줄 보고: "신규 생성: `<slug>`" + `.env: N copied, M skipped` (둘 다 0 이면 생략) + heal/bootstrap skip/실패 + "→ dlc 시작: <요청사항>".
 
 ## 질문 모드 (`?` 접두 → 구체화 → request)
 
