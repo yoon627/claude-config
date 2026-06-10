@@ -5,6 +5,22 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+// Codex 의 설정 기본 모델을 ~/.codex/config.toml 의 top-level `model` 에서 읽는다.
+// codex 세션의 /model 변경은 config 에 안 써져 어긋날 수 있으나, statusline 에서
+// 읽을 수 있는 유일한 출처다. 읽기 실패·부재 시 null → 호출부에서 'codex' 로 폴백.
+function readCodexModel() {
+  try {
+    const cfg = fs.readFileSync(path.join(os.homedir(), '.codex', 'config.toml'), 'utf8');
+    // top-level(첫 [table] 헤더 이전) 영역에서만 찾는다 — `/m` 의 ^ 는 줄 시작일 뿐
+    // 파일/섹션 시작이 아니라, 제한 없으면 [profiles.x] 안의 model 도 오매칭한다.
+    const topLevel = cfg.split(/^\s*\[/m)[0];
+    const m = topLevel.match(/^\s*model\s*=\s*["']([^"']+)["']/m);
+    return m ? m[1] : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 const chunks = [];
 process.stdin.on('data', d => chunks.push(d));
 process.stdin.on('end', () => {
@@ -32,9 +48,11 @@ process.stdin.on('end', () => {
       timeStr = hh + ':' + mm;
     }
 
-    const piece = pctStr && timeStr ? 'claude ' + pctStr + '(' + timeStr + ')'
-                : pctStr ? 'claude ' + pctStr
-                : timeStr ? 'claude (' + timeStr + ')'
+    // 레이블 'claude' 대신 현재 모델명(stdin 의 model.display_name). 없으면 'claude' 폴백.
+    const label = (input.model && input.model.display_name) || 'claude';
+    const piece = pctStr && timeStr ? label + ' ' + pctStr + '(' + timeStr + ')'
+                : pctStr ? label + ' ' + pctStr
+                : timeStr ? label + ' (' + timeStr + ')'
                 : '';
     if (piece) parts.push(piece);
   }
@@ -86,9 +104,11 @@ process.stdin.on('end', () => {
         const d = new Date(resetsAt * 1000);
         tm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
       }
-      const piece = pct && tm ? 'codex ' + pct + '(' + tm + ')'
-                  : pct ? 'codex ' + pct
-                  : tm ? 'codex (' + tm + ')'
+      // 레이블 'codex' 대신 codex 설정 모델명. 못 읽으면 'codex' 폴백.
+      const label = readCodexModel() || 'codex';
+      const piece = pct && tm ? label + ' ' + pct + '(' + tm + ')'
+                  : pct ? label + ' ' + pct
+                  : tm ? label + ' (' + tm + ')'
                   : '';
       if (piece) parts.push(piece);
     }
