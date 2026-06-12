@@ -33,6 +33,18 @@
     ]
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ~/.claude/scripts/guard-worktree-edit.js",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
@@ -89,7 +101,9 @@
       }
     }
   },
+  "effortLevel": "xhigh",
   "skipWorkflowUsageWarning": true,
   "theme": "dark",
-  "preferredNotifChannel": "notifications_disabled"
+  "preferredNotifChannel": "notifications_disabled",
+  "model": "claude-fable-5[1m]"
 }
