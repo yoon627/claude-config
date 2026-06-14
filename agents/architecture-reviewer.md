@@ -102,9 +102,9 @@ tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
 - 호출 측이 외부에서 codex 를 이미 호출 중이 아님 (env `CLAUDE_REVIEW_CODEX_MODE=external` 이면 호출 생략)
 - `codex --version` 가용성 확인 성공
 
-**호출 명령** (참고):
+**호출 명령** (참고 — effort 기준은 `docs/codex-review.md` §3 차등 표. 구조 검토는 보통 `high`):
 ```bash
-codex exec --sandbox read-only --skip-git-repo-check --ephemeral -c 'model_reasoning_effort="high"' - <<'CDXPROMPT'
+codex exec --sandbox read-only --skip-git-repo-check --ephemeral -c 'model_reasoning_effort="high"' -c hide_agent_reasoning=true - <<'CDXPROMPT'
 다음 변경의 구조적 결정을 검토하라.
 
 변경 파일: <git diff --stat>

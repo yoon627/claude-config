@@ -22,7 +22,11 @@ jobs:
           node --check statusline.js
           node --check subagent-statusline.js
           node --check codex-quota-refresh.js
+          node --check scripts/notify-hook.js
 
       - name: JSON validation
         run: |
           node -e "JSON.parse(require('fs').readFileSync('settings.json','utf8'))"
+
+      - name: Shell script lint (shellcheck)
+        run: shellcheck scripts/*.sh

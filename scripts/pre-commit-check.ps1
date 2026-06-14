@@ -5,11 +5,22 @@ $ErrorActionPreference = 'Stop'
 if ($Mode -eq 'pre-commit') {
     $staged = git diff --cached --name-only --diff-filter=ACMR
     if ($staged -notcontains 'settings.json') { exit 0 }
-    $content = git show ":settings.json"
+    $content = (git show ":settings.json") -join "`n"
 } else {
+    # Block direct push to protected branches. pre-push receives
+    # "<local ref> <local sha> <remote ref> <remote sha>" lines on stdin.
+    foreach ($line in ([Console]::In.ReadToEnd() -split "`n")) {
+        $rref = ($line.Trim() -split '\s+')[2]
+        if ($rref -eq 'refs/heads/main' -or $rref -eq 'refs/heads/master') {
+            Write-Host ""
+            Write-Host "[BLOCKED] Direct push to $rref is not allowed. Open a PR instead." -ForegroundColor Red
+            Write-Host "Bypass once (NOT recommended): git push --no-verify" -ForegroundColor DarkGray
+            exit 1
+        }
+    }
     $tracked = git ls-tree --name-only HEAD 2>$null
     if ($LASTEXITCODE -ne 0 -or $tracked -notcontains 'settings.json') { exit 0 }
-    $content = git show HEAD:settings.json
+    $content = (git show HEAD:settings.json) -join "`n"
 }
 
 $violations = @()

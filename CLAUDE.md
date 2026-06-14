@@ -25,12 +25,12 @@
 
 ## 2. 컨텍스트 관리
 
-세션이 길수록 성능 저하. 컨텍스트는 가장 중요한 자원.
+세션이 길수록 성능 저하. 컨텍스트는 가장 중요한 자원. **단, 진행 중 작업의 컨텍스트는 하니스의 자동 요약(compaction)이 맥락을 보존하며 이어간다 — 단지 길다는 이유로 정리를 권하지 않는다.**
 
 > `/clear`, `/rewind`, `Esc` 는 CLI 사용자 측 컨트롤이라 에이전트가 직접 호출 불가 → **사용자에게 제안**으로 수행.
 
-- 무관한 작업으로 넘어가는 신호 시 `/clear` 권장.
-- 같은 이슈로 2회 이상 교정 실패 시 더 시도하지 말고 학습 내용 요약 + `/clear` 재시작 제안.
+- **`/clear` 는 맥락을 버리는 동작 — 진행 중 작업·연속 흐름엔 권하지 않는다.** 컨텍스트가 걱정되면 자동 compaction 에 맡기고, 정 줄여야 하면 맥락 보존하는 `/compact` 를 권한다.
+- `/clear` 제안은 **맥락을 버려도 되는** 경우만: (a) 무관한 작업으로 전환, (b) 같은 이슈 2회+ 교정 실패 시 학습 요약 후 재시작. **직전에 사용자가 clear/compact 했으면 재권유 금지.**
 - 코드베이스 조사·리서치는 **subagent 가용하고 비용 대비 이득이 클 때** 위임 (Agent 도구). 미지원 환경이거나 단순 조회면 직접 수행하되 읽는 파일 수 의식적 제한.
 - 잘못된 방향 감지 시 즉시 중단, `Esc`/`/rewind` 제안.
 
@@ -38,11 +38,11 @@
 
 ## 3. 작업 흐름
 
-1. **Setup** (코드 변경/리뷰/레포 작업 시작 시) — `git status --short`. `docs/lessons.md` 있으면 훑기. 프로젝트 컨텍스트는 per-repo `CLAUDE.md` 또는 `<repo>/.claude/CLAUDE.md` 에 명시 (없으면 비어 있다고 판단). `.env`/key/token/cert 원문 출력 금지.
+1. **Setup** (코드 변경/리뷰/레포 작업 시작 시) — `git status --short`. 프로젝트 컨텍스트는 per-repo `CLAUDE.md` 또는 `<repo>/.claude/CLAUDE.md` 에 명시 (없으면 비어 있다고 판단). `.env`/key/token/cert 원문 출력 금지.
 2. **Explore** — 모호하면 질문 먼저. 관련 파일 + 호출부 read. 동일 디렉토리·같은 레이어 기존 파일 스타일 확인.
 3. **Plan** — 큰 변경(50줄 초과, 다중 파일, public API, DB schema, migration, 아키텍처/보안 영향)은 계획 먼저 제시하고 승인 후 진행. 작은 변경(오타, 로그 한 줄)은 즉시.
 4. **Implement** — 작은 단계로. 요청 범위 밖 "지나가는 김에" 수정 금지. 단, 빌드/테스트를 깨는 직접 원인이면 수정하고 이유 명시.
-5. **Verify** — lint/typecheck/test 실행. 변경 함수/클래스 호출부를 `rg` (없으면 `grep -R`) 로 확인. 미실행은 "미검증" 명시.
+5. **Verify** — lint/typecheck/test 실행. 변경 함수/클래스 호출부를 `rg` (없으면 `grep -R`) 로 확인. 미실행은 "미검증" 명시. **주석·docstring·commit message 가 변경된 코드의 현재 동작과 어긋나지 않는지 항상 확인** — 옛 설명·옛 식별자·옛 동작 서술이 남지 않게 (특히 리팩토링·rename·fixup 흡수 후 커밋 메시지/주석이 실제 변경과 일치하는지 점검).
 6. **Report** — 변경 요약 / 수정 파일 / 검증 결과 / 영향 범위 / 남은 리스크.
 
 > **문서 동기화 (작업 내내)**: 변경이 README 에 문서화된 컴포넌트(스크립트·설정·skill·agent 등)에 영향 주면 README 도 같은 브랜치에서 갱신. plan 은 §10 진행 중 동기화 규약을 따른다.
@@ -80,6 +80,7 @@
 - **researcher** — §4 검색 신호 해당 시. 어느 단계에서든.
 - **code-reviewer** — 구현 후. 버그·보안·테스트 누락·예외 처리·성능·backward compatibility.
 - **code-simplifier** — code-reviewer 통과 후 **항상 실행**. 중복·과한 추상화·불필요한 복잡도 제거. 코드 변경했으면 검증 재실행.
+- **architecture-reviewer** — 트리거 기반(자동 호출 아님). public API/DB schema/auth 변경, 신규 service·repository·client, DI 변경, 2개 이상 레이어 변경, 또는 설계 의문 명시 시.
 
 표준 순서: `plan-reviewer → 구현 → code-reviewer → code-simplifier → 최종 검증`.
 
@@ -92,6 +93,8 @@
 - 새 코드 전 동일 디렉토리/같은 레이어 기존 파일 read. 네이밍·에러 처리·로깅·import 순서를 기존과 맞춤.
 - 새 의존성 추가 전 기존 라이브러리/표준 라이브러리로 가능한지 확인. 추가하면 이유·대안·영향 명시.
 - Python production: type hint 기본. 데이터 경계(외부 입력, API, config, DB/메시지)는 Pydantic 또는 기존 검증 패턴.
+- 주석은 없는 게 기본 — 주석 없이 읽히는 코드가 최선. 자명한·코드를 그대로 옮긴 주석 금지, 표현 가능한 의도는 네이밍·구조로 푼다. 코드에 안 드러나는 *왜*(우회·트레이드오프·비자명한 제약)만, 꼭 필요한 최소 줄로 — 장황한 배경 서술 금지. docstring·테스트 주석도 동일(이름으로 자명하면 생략, 시나리오·배경 나열 금지).
+- **변경 경위는 주석이 아니라 커밋/PR 에.** "버그 X 수정", "리뷰 반영", "원래 ~였음", "안전을 위해 추가" 같은 *왜 바꿨는가*는 코드에 남기지 않는다 — 주석이 답하는 건 "이 코드가 지금 왜 이래야 하나"(제약)지 "왜 바꿨나"가 아니다.
 - 임시 코드: `# TODO: <이유> (<제거 조건/이슈>)` 형식.
 - 죽은 코드는 주석 말고 삭제 (git 이 기억).
 - 추측한 API/함수/라이브러리 이름 생성 금지. 확인하거나 모른다고 말한다.
@@ -119,7 +122,8 @@
 ## 8. Git / 보안
 
 - `git reset --hard`, `git clean -fd`, 강제 checkout, force push 는 명시 요청 없으면 금지.
-- 작업은 main/master 직접 말고 별도 브랜치/worktree 에서 한다 (main push 는 deny 로 차단). commit 은 그 작업의 plan 에 맞는 브랜치에서 작업 단위로 자유롭게 한다. **현재 브랜치/worktree 의 plan 과 무관한 작업이면 별도 브랜치나 worktree(`/wt`) 를 만들어 분리** — 무관한 변경을 한 브랜치에 섞지 않는다. push 는 사용자 요청 시만.
+- 작업은 main/master 직접 말고 별도 브랜치/worktree 에서 한다 (main push 는 deny 로 차단). commit 은 그 작업의 plan 에 맞는 브랜치에서 작업 단위로 자유롭게 한다. **trivial(오타·로그 1줄 등 금방 끝나는 것)이 아닌 작업은 — 무관 여부와 별개로 — 시작 시 별도 worktree(`/wt <요청사항>`)에서 한다.** 진행 중인 worktree 에 새 작업을 얹지 않는다 (base·체크아웃 충돌, 변경 혼입, 같은 파일 동시 편집 위험). 무관한 변경을 한 브랜치에 섞지 않는다. push 는 사용자 요청 시만.
+- **worktree 삭제 주의**: `git worktree remove` 는 gitignored 파일(`plans/`·`.env` 등 — whitelist `.gitignore` 라 `git status` 에 안 보임)을 **무경고 동반 삭제**한다. 삭제 전 `git status --porcelain --ignored` 로 점검 (상세는 `skills/e/SKILL.md` 의 worktree 정리 단계).
 - generated file / lock file 변경은 필요할 때만 포함, 이유 설명.
 - `.env`/private key/token/password/인증서 원문을 답변·로그·테스트 fixture·snapshot 에 출력 금지.
 - 인증/인가/암호화 코드는 기존 보안 패턴 먼저 확인. 임시 우회·hardcoded credential·TLS 검증 비활성화 금지.
@@ -132,7 +136,7 @@
 사용자는 Claude 와 Codex 양쪽을 사용. 둘 다 같은 `.claude/plans/` 핸드오프 채널을 공유.
 
 - **역할**: Claude 는 plan 생성/갱신·메인 구현·통합. Codex 는 리뷰·보조 구현·검증. 최종 통합 책임은 항상 **현재 메인 에이전트**.
-- **호출 조건**: 설치 확인은 `codex --version` 등. 사용량/실행 실패 시 Claude 단독 진행하고 사유 명시.
+- **호출 조건**: 설치 확인은 `codex --version`. **`codex exec` 는 PROMPT 인자가 있어도 stdin 을 추가로 읽어서, PowerShell 도구로 호출하면 stdin 이 안 닫혀 `Reading additional input from stdin...` 에서 무한 hang 한다(재현). → codex 는 반드시 Bash 도구로 호출한다(검증됨): `codex exec --sandbox read-only "<프롬프트>"`. 무거운 작업 전 짧은 smoke test(≤60s)로 응답부터 확인하고, hang/사용량 초과 시 즉시 중단 후 Claude 단독 진행 + 사유 명시.** (외부 CLI 는 동작 검증 후 사용. 원인은 재현으로 확정한 뒤 단정한다 — 이번에 PowerShell hang 을 'codex 불가'로 과일반화한 전례 있음.)
 - **리뷰 매트릭스**:
   - `plan-reviewer` / `code-reviewer` = **Claude subagent 필수 + Codex 가용 시 병행**. Codex 미가용이면 생략 사유를 Report 또는 plan `# Progress` 에 남긴다.
   - `researcher` / `code-simplifier` / 보조 구현 = 가용성·비용 대비 이득이 있을 때 선택.
@@ -178,28 +182,9 @@ updated: YYYY-MM-DD
 5. `# Key Files` — 핵심 파일 + 한 줄 메모
 6. `# Blockers` — 막힌 것 + 풀려면 필요한 것
 
-push 직전 `/push-review` 권장 — **codex 가용 시** bg + local 5관점 parallel → 통합 리포트. 리뷰 산출물은 `.claude/plans/<dir>/reviews/<YYYY-MM-DDTHHMM>-<sha7>/` 에 저장.
-
-### pre-push hook codex 리뷰 처리
-pre-push hook 이 codex 리뷰를 띄워 push 를 차단하면, 리뷰 항목을 **본문 그대로** (분류 라벨 + `파일:라인` + 요지) 사용자에게 노출한 뒤 분기한다. "MEDIUM 1건, clear 후 push" 식 한 줄 요약 금지 — 사용자가 항목을 보고 fix·티켓 분리·무시 결정을 내릴 기회를 가린다.
-- CRITICAL/HIGH 1개 이상: 코드 수정 + 재커밋, 사용자에게 "수정 완료, 다시 push" 안내.
-- MEDIUM/LOW 만: 항목 노출 → `bash .claude/hooks/clear-review.sh <대상 파일>` → 다시 push. 노출은 clear/push 직전에 수행.
-- push 후 보고에 같은 항목을 한 번 더 적어도 좋지만, **사전 노출이 우선**.
+리뷰는 dlc 의 중간 단계(구현 직후 code-reviewer + codex 병행, §9)가 담당한다 — push 직전 별도 codex 리뷰는 두지 않는다. 로컬 다관점 점검이 따로 필요하면 `/local-review` 를 수동 사용.
 
 ### 적용 범위
 티켓 또는 명확한 작업 컨텍스트만. 단순 질문/탐색/한 턴짜리 명령은 제외.
-
----
-
-## 11. 실수 기록
-
-`docs/lessons.md` 있으면 세션 시작 시 훑기. 재발 가능성 높고 비자명한 함정만 한 줄 추가:
-
-```
-- [YYYY-MM-DD] 증상 → 원인 → 해결 (관련 파일/커밋)
-```
-
-- 단순 오타·일회성 환경 문제·README 에 이미 있는 내용은 제외.
-- 사용자 요청 없이 새로 만들지 않는다.
 
 @RTK.md

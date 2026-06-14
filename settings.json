@@ -1,18 +1,8 @@
 {
   "env": {
-    "CLAUDE_CODE_EFFORT_LEVEL": "xhigh"
+    "CLAUDE_CODE_EFFORT_LEVEL": "max"
   },
   "permissions": {
-    "allow": [
-      "mcp__codegraph__codegraph_explore",
-      "mcp__codegraph__codegraph_search",
-      "mcp__codegraph__codegraph_node",
-      "mcp__codegraph__codegraph_callers",
-      "mcp__codegraph__codegraph_callees",
-      "mcp__codegraph__codegraph_impact",
-      "mcp__codegraph__codegraph_files",
-      "mcp__codegraph__codegraph_status"
-    ],
     "deny": [
       "Bash(git push origin main)",
       "Bash(git push origin main *)",
@@ -23,23 +13,65 @@
       "Bash(git push origin master *)",
       "Bash(git push origin master:*)",
       "Bash(git push origin HEAD:master)",
-      "Bash(git push origin HEAD:master *)"
+      "Bash(git push origin HEAD:master *)",
+      "PowerShell(git push origin main)",
+      "PowerShell(git push origin main *)",
+      "PowerShell(git push origin main:*)",
+      "PowerShell(git push origin HEAD:main)",
+      "PowerShell(git push origin HEAD:main *)",
+      "PowerShell(git push origin master)",
+      "PowerShell(git push origin master *)",
+      "PowerShell(git push origin master:*)",
+      "PowerShell(git push origin HEAD:master)",
+      "PowerShell(git push origin HEAD:master *)"
     ],
     "ask": [
       "Bash(git push)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "PowerShell(git push)",
+      "PowerShell(git push *)"
+    ],
+    "allow": [
+      "mcp__codegraph__codegraph_explore",
+      "mcp__codegraph__codegraph_search",
+      "mcp__codegraph__codegraph_node",
+      "mcp__codegraph__codegraph_callers",
+      "mcp__codegraph__codegraph_callees",
+      "mcp__codegraph__codegraph_impact",
+      "mcp__codegraph__codegraph_files",
+      "mcp__codegraph__codegraph_status"
     ]
   },
-  "model": "opus[1m]",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ~/.claude/scripts/guard-worktree-edit.js",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/jongyoonlee/.claude/hooks/rtk-rewrite.sh"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "git -C ~/.claude rev-parse --abbrev-ref HEAD 2>/dev/null | grep -qx main && git -C ~/.claude diff --quiet 2>/dev/null && git -C ~/.claude diff --cached --quiet 2>/dev/null && git -C ~/.claude pull --ff-only --quiet origin main >/dev/null 2>&1 || true",
+            "command": "git -C ~/.claude rev-parse --abbrev-ref HEAD 2>/dev/null | grep -qx main && git -C ~/.claude diff --quiet 2>/dev/null && git -C ~/.claude diff --cached --quiet 2>/dev/null && before=$(git -C ~/.claude rev-parse HEAD 2>/dev/null) && git -C ~/.claude pull --ff-only --quiet origin main >/dev/null 2>&1 && after=$(git -C ~/.claude rev-parse HEAD 2>/dev/null) && [ \"$before\" != \"$after\" ] && echo \"~/.claude updated from origin/main ($before -> $after); review pulled changes before relying on scripts/hooks this session.\" || true",
             "timeout": 30,
-            "statusMessage": "Syncing ~/.claude to origin/main",
+            "statusMessage": "Checking ~/.claude for updates",
             "async": true
           }
         ]
@@ -66,17 +98,6 @@
           }
         ]
       }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/Users/jongyoonlee/.claude/hooks/rtk-rewrite.sh"
-          }
-        ]
-      }
     ]
   },
   "statusLine": {
@@ -99,7 +120,9 @@
       }
     }
   },
-  "skipDangerousModePermissionPrompt": true,
+  "effortLevel": "xhigh",
+  "skipWorkflowUsageWarning": true,
   "theme": "dark",
-  "preferredNotifChannel": "terminal_bell"
+  "preferredNotifChannel": "notifications_disabled",
+  "model": "opus[1m]"
 }

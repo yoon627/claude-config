@@ -36,9 +36,9 @@ tools: Read, Grep, Glob, Bash
 - public API · DB schema · migration · 보안 · 아키텍처 영향이 있는 큰 변경
 - `codex --version` 가용성 확인 성공
 
-**호출 명령**:
+**호출 명령** (effort 기준은 `docs/codex-review.md` §3 — plan 리뷰는 보통 `medium`):
 ```bash
-codex exec --sandbox read-only --skip-git-repo-check - <<'CDXPROMPT'
+codex exec --sandbox read-only --skip-git-repo-check --ephemeral -c 'model_reasoning_effort="medium"' -c hide_agent_reasoning=true - <<'CDXPROMPT'
 다음 구현 계획을 비판적으로 검토하라.
 
 <계획 텍스트 또는 plan 파일 경로>
