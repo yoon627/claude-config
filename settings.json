@@ -3,6 +3,16 @@
     "CLAUDE_CODE_EFFORT_LEVEL": "xhigh"
   },
   "permissions": {
+    "allow": [
+      "mcp__codegraph__codegraph_explore",
+      "mcp__codegraph__codegraph_search",
+      "mcp__codegraph__codegraph_node",
+      "mcp__codegraph__codegraph_callers",
+      "mcp__codegraph__codegraph_callees",
+      "mcp__codegraph__codegraph_impact",
+      "mcp__codegraph__codegraph_files",
+      "mcp__codegraph__codegraph_status"
+    ],
     "deny": [
       "Bash(git push origin main)",
       "Bash(git push origin main *)",
@@ -20,6 +30,7 @@
       "Bash(git push *)"
     ]
   },
+  "model": "opus[1m]",
   "hooks": {
     "SessionStart": [
       {
@@ -27,9 +38,9 @@
           {
             "type": "command",
             "command": "git -C ~/.claude rev-parse --abbrev-ref HEAD 2>/dev/null | grep -qx main && git -C ~/.claude diff --quiet 2>/dev/null && git -C ~/.claude diff --cached --quiet 2>/dev/null && git -C ~/.claude pull --ff-only --quiet origin main >/dev/null 2>&1 || true",
-            "async": true,
             "timeout": 30,
-            "statusMessage": "Syncing ~/.claude to origin/main"
+            "statusMessage": "Syncing ~/.claude to origin/main",
+            "async": true
           }
         ]
       }
@@ -55,6 +66,17 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/jongyoonlee/.claude/hooks/rtk-rewrite.sh"
+          }
+        ]
+      }
     ]
   },
   "statusLine": {
@@ -77,6 +99,7 @@
       }
     }
   },
+  "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "preferredNotifChannel": "terminal_bell"
 }
