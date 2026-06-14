@@ -30,6 +30,16 @@
       "Bash(git push *)",
       "PowerShell(git push)",
       "PowerShell(git push *)"
+    ],
+    "allow": [
+      "mcp__codegraph__codegraph_explore",
+      "mcp__codegraph__codegraph_search",
+      "mcp__codegraph__codegraph_node",
+      "mcp__codegraph__codegraph_callers",
+      "mcp__codegraph__codegraph_callees",
+      "mcp__codegraph__codegraph_impact",
+      "mcp__codegraph__codegraph_files",
+      "mcp__codegraph__codegraph_status"
     ]
   },
   "hooks": {
@@ -41,6 +51,15 @@
             "type": "command",
             "command": "node ~/.claude/scripts/guard-worktree-edit.js",
             "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/jongyoonlee/.claude/hooks/rtk-rewrite.sh"
           }
         ]
       }
@@ -105,5 +124,5 @@
   "skipWorkflowUsageWarning": true,
   "theme": "dark",
   "preferredNotifChannel": "notifications_disabled",
-  "model": "claude-fable-5[1m]"
+  "model": "opus[1m]"
 }
