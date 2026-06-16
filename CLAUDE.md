@@ -38,7 +38,7 @@
 
 ## 3. 작업 흐름
 
-1. **Setup** (코드 변경/리뷰/레포 작업 시작 시) — `git status --short`. 프로젝트 컨텍스트는 per-repo `CLAUDE.md` 또는 `<repo>/.claude/CLAUDE.md` 에 명시 (없으면 비어 있다고 판단). `.env`/key/token/cert 원문 출력 금지. 비자명 작업(코드 변경·다단계)은 직접 진행 전 **`dlc` 경유를 self-check** — trivial 은 dlc 규모 gate 가 즉시 통과시키니 비용은 없고, skill 미진입으로 plan·검증을 통째 건너뛰는 라우팅 실패를 막는다.
+1. **Setup** (코드 변경/리뷰/레포 작업 시작 시) — `git status --short`. 프로젝트 컨텍스트는 per-repo `CLAUDE.md` 또는 `<repo>/.claude/CLAUDE.md` 에 명시 (없으면 비어 있다고 판단). `.env`/key/token/cert 원문 출력 금지. 비자명 **코드 변경**은 §8 대로 `/wt`(→dlc) 경유 — 이미 작업 worktree 안이면 `dlc` 적용을 self-check(skill 미진입으로 plan·검증 건너뛰기 방지).
 2. **Explore** — 모호하면 질문 먼저. 관련 파일 + 호출부 read. 동일 디렉토리·같은 레이어 기존 파일 스타일 확인.
 3. **Plan** — 큰 변경(50줄 초과, 다중 파일, public API, DB schema, migration, 아키텍처/보안 영향)은 계획 먼저 제시하고 승인 후 진행. 작은 변경(오타, 로그 한 줄)은 즉시.
 4. **Implement** — 작은 단계로. 요청 범위 밖 "지나가는 김에" 수정 금지. 단, 빌드/테스트를 깨는 직접 원인이면 수정하고 이유 명시.
