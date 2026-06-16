@@ -19,6 +19,10 @@
 !/skills/
 !/statusline.js
 !/subagent-statusline.js
+!/wiki/
+
+# LLM Wiki: pages/index/log are tracked; raw sources are not (copyright/size).
+wiki/raw/
 
 # Belt-and-suspenders: never push these even if the whitelist is changed by mistake.
 .credentials.json
