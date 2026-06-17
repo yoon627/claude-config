@@ -75,7 +75,8 @@ description: Git worktree 빠른 관리 — 목록/이동/생성+dlc/제거. `/w
 6. 새 cwd 에서 환경 셋업 (순서대로):
    - **submodule self-heal init**: `uv run --no-project python "${CLAUDE_SKILL_DIR}/heal_submodules.py"` 실행. 중단됐던 submodule clone(objects 불완전 → "Unable to find current revision")을 자동 복구한 뒤 init 한다. `.gitmodules` 없는 레포는 no-op 이라 무해. **bootstrap 보다 먼저** — bootstrap 의 submodule update 가 중단 corrupt 로 죽어 이후 단계(uv sync 등)가 안 도는 걸 방지.
    - `tools/bootstrap/bootstrap.py` 가 있으면 `uv run tools/bootstrap/bootstrap.py` 실행 (없으면 skip — 다른 프로젝트 무영향).
-   둘 중 무엇이 실패해도 worktree 는 유지하고 에러를 사용자에게 그대로 보고 (사용자가 원인 보고 수동 재실행 결정).
+   heal·bootstrap 중 무엇이 실패해도 worktree 는 유지하고 에러를 사용자에게 그대로 보고 (사용자가 원인 보고 수동 재실행 결정).
+   - **codegraph 인덱스** (조건부·백그라운드, heal·bootstrap 뒤): `codegraph` 바이너리가 PATH 에 있고 **main worktree(§4.4 처럼 `git worktree list --porcelain` 첫 worktree)에 `.codegraph/` 가 있을 때만** — 둘 다 만족 — 이 worktree 에서 `codegraph init` 을 `run_in_background` 로 실행해 worktree-local 인덱스를 만든다. init 안 하면 worktree 는 상위 탐색으로 main 의 `.codegraph/`(=main 브랜치 코드)를 잡아 이 worktree 변경이 누락된다. 조건 불만족이면 skip (codegraph 미사용 레포 무영향). 실패해도 인덱스만 없을 뿐 worktree·dlc 는 진행. ⚠️ 백그라운드라 인덱싱 완료 전 dlc 초기 codegraph 조회는 생성 중 부분 인덱스나 main fallback 을 볼 수 있다(곧 sync — 감수). (`.codegraph/` 는 루트 `.gitignore` whitelist 로 자동 ignore.)
 
 ### 5. dlc 작업
 - 생성·진입 완료 후, 새 worktree(현재 cwd)에서 **`dlc` Skill 을 요청사항 원문을 인자로 invoke** (Skill 도구, `skill: dlc`, `args: <요청사항 원문>`). 이후는 dlc 가 규모 gate 부터 파이프라인까지 진행한다.
@@ -108,7 +109,10 @@ description: Git worktree 빠른 관리 — 목록/이동/생성+dlc/제거. `/w
    - 대상에서 `git status --porcelain` 비어있지 않으면 경고.
    - unpushed 커밋 있으면 경고 (`git log origin/<branch>..<branch>` 또는 upstream 없으면 `git log <branch> --not --remotes`).
 5. AskUserQuestion (옵션 1: worktree 만 / 옵션 2: worktree + 브랜치 / 옵션 3: 취소). 경고는 question 본문에 명시.
-6. 실행: `git worktree remove <path>`. "modified or untracked files" 류 실패 시 `--force` 적용 여부 별도 AskUserQuestion (절대 묻지 않고 강제 실행 금지). 옵션 2 선택 시 `git branch -D <branch>`.
+6. 실행: `git worktree remove <path>`. 실패 시 stderr 원인으로 분기:
+   - **"modified or untracked files"/"use --force" 류**(변경·untracked 잔존): `--force` 적용 여부 별도 AskUserQuestion (절대 묻지 않고 강제 실행 금지).
+   - **파일 점유 류**("Access is denied"·"being used by another process"·"Directory not empty" 등 OS 삭제 실패): 그 worktree 의 `.codegraph/` 를 codegraph daemon 이 잡고 있을 수 있다(그 worktree 에서 codegraph MCP 세션을 띄웠던 경우만 — `init`·`status` 로는 안 뜸). **자동 종료하지 않고 안내**: 그 세션을 닫거나 daemon idle 자동종료(~5분) 후 재시도, 급하면 수동으로 해당 node 프로세스 종료. (`--force` 는 git 레벨이라 OS 파일점유는 못 푼다.)
+   - 옵션 2(브랜치도 삭제): **remove 성공 후에만** `git branch -D <branch>` (remove 실패·거부 시 브랜치 보존).
 7. 한 줄 보고.
 
 ## 주의
