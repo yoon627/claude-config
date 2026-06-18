@@ -59,7 +59,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/jongyoonlee/.claude/hooks/rtk-rewrite.sh"
+            "command": "uname -s | grep -qi darwin && /Users/jongyoonlee/.claude/hooks/rtk-rewrite.sh || exit 0"
           }
         ]
       }
