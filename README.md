@@ -213,7 +213,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 
 모든 프로젝트에 자동 로드되는 사용자 지시문. Claude Code 가 `~/.claude/CLAUDE.md` 를 모든 세션에서 읽음.
 
-11개 섹션:
+12개 섹션:
 0. 응답 언어 — 한국어, 의례적 preamble 금지
 1. 핵심 규칙 — 추측 금지, 코드 read 기반 답변, 근본 원인, 검증 후 "완료", 사용자 변경사항 보호
 2. 컨텍스트 관리 — `/clear`, `/rewind`, subagent 위임 기준
@@ -225,6 +225,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 8. Git / 보안 — destructive 명령 금지, 시크릿 출력 금지
 9. Claude ↔ Codex 협업 — `.claude/plans/` 핸드오프 채널
 10. `.claude/plans/` 핸드오프 규약 — slug, frontmatter, 6개 섹션
+11. 영속 프로젝트 메모리 (LLM Wiki) — `wiki/` 누적 지식, `plans/` 와 경계 (일시적 vs 영속)
 
 세션 시작 시점 자동 적용. 프로젝트별 추가 규칙은 per-repo `CLAUDE.md` 에 둘 수 있고, 글로벌 + 프로젝트 둘 다 로드됨.
 
@@ -311,6 +312,10 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - `EnterWorktree(path: <abs>)` 로 진입 — `name` 인자 사용 금지 (Claude Code 의 `worktree-` prefix 자동 부착 회피)
 - 정수·`rm`·기존 worktree 정확일치가 아닌 텍스트는 **요청사항**으로 간주 → 영문 kebab-case slug 파생 → AskUserQuestion 으로 확인 후 생성 → 요청사항 원문을 `dlc` task 로 전달 (dlc 없는 빈 worktree 단순 생성은 폐지)
 - 접두 `?` (`/wt ? <막연한 설명>`)는 **질문 모드** — AskUserQuestion 으로 요구사항을 구체화한 뒤 같은 요청사항 생성 경로로 합류 (접미 `?` 는 의문형 요청과 충돌해 미사용)
+
+### skills/wiki/ — LLM Wiki (영속 프로젝트 메모리)
+
+`/wiki <ingest|query|lint>` 로 `wiki/`(영속 프로젝트 메모리)를 운영. ingest(raw·작업지식 → 상호링크 페이지 + index/log) · query(누적 페이지로 답 → 가치 있으면 filed) · lint(orphan·dead link·모순 점검·보고). 운영 규약 단일 소스는 `wiki/WIKI.md`. `plans/`(일시적 작업 핸드오프)와 달리 작업을 **가로질러 누적**. raw 원문은 gitignored·읽기 전용, 페이지만 tracked. dlc 연계는 CLAUDE.md §11.
 
 ### scripts/
 
@@ -491,8 +496,10 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   │   └── SKILL.md                # /c — plan 이어가기
 │   ├── e/
 │   │   └── SKILL.md                # /e — plan 마무리 (임시 커밋 + 동기화)
-│   └── wt/
-│       └── SKILL.md                # /wt — git worktree 관리
+│   ├── wt/
+│   │   └── SKILL.md                # /wt — git worktree 관리
+│   └── wiki/
+│       └── SKILL.md                # /wiki — LLM Wiki 운영 (ingest/query/lint)
 ├── scripts/
 │   ├── notify-hook.js              # notify 진입점 (cross-platform; mac 인라인, win→.ps1 위임)
 │   ├── notify.ps1                  # (Windows) Toast + 사운드 + flash
@@ -502,6 +509,12 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   ├── prompt-gwl.py               # UserPromptSubmit 훅 (프로젝트별 사용)
 │   ├── gwl.ps1                     # (Windows) PowerShell `gwl` — worktree list + 현재 위치 →
 │   └── install-gwl.ps1             # gwl.ps1 을 $PROFILE 에 dot-source 등록 (멱등)
+├── wiki/                           # LLM Wiki — 영속 프로젝트 메모리
+│   ├── WIKI.md                     # 운영 규약 (schema)
+│   ├── index.md                    # 페이지 카탈로그
+│   ├── log.md                      # 연산 로그
+│   ├── raw/                        # 원문 (gitignored, 런타임 생성·미추적)
+│   └── pages/                      # concept·entity·decision·source·query
 └── plans/                          # 핸드오프 plan 파일 (gitignored)
 ```
 

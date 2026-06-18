@@ -47,7 +47,11 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
   2. **detached HEAD 아님** + plan `status == done`(이번 4단계 확정). detached 면 브랜치 기준 판정이 불가하니 제안 생략.
   3. **tracked 변경 없음** — 지금 시점 `git status --porcelain` 이 빈 출력.
   4. **unpushed 없음** — upstream 있으면(`git rev-parse --abbrev-ref --symbolic-full-name @{u}`) `git log @{u}..HEAD` 가, 없으면 폴백 `git log <branch> --not --remotes`(wt rm 과 동일) 가 비어야 한다(모든 커밋이 원격에 보존됨). 원격 자체가 없으면 미보존으로 보고 제안 안 함. (`git log origin/<branch>..HEAD` 는 origin ref 부재 시 fatal 이라 쓰지 않는다.)
-  5. **base 에 merged 됨** — pushed(조건4)는 커밋이 원격에 보존됐다는 뜻일 뿐, PR 리뷰 중·머지 전이면 그 브랜치에서 수정이 더 남아 지우면 안 된다. `BASE` = `git symbolic-ref --short refs/remotes/origin/HEAD`(실패 시 `origin/main`); `git rev-parse --verify --quiet <BASE>` 로 **유효성 먼저 확인** — 무효면(원격/기본 브랜치 미설정) 판정 불가 → 생략(조건4 처럼 fatal `git log` 회피). 유효하면 `git log <BASE>..HEAD` 가 비어야(브랜치 커밋이 모두 BASE 에 포함) merged → 제안, 비어있지 않으면(미머지·리뷰 중) 생략·유지. ⚠️ 한계: squash/rebase 머지는 원커밋 SHA 가 BASE 에 안 남아 미머지로 보이고(no-ff 전제), fetch 안 한 stale `BASE` 도 그러함 — 둘 다 유지 방향이라 안전. `BASE` 는 origin 기본 브랜치 가정이라 release/develop 등 비-기본 베이스에서 분기한 worktree 는 merged 오판 가능(이 repo 는 wt 가 기본 브랜치 분기라 통상 일치; 미심 시 수동 `/wt rm`). 막으려는 건 false-positive(미머지 삭제)다.
+  5. **base 또는 다른 원격 브랜치에 merged 됨 (둘 다 git-only 추정 — 확정 아님)** — pushed(조건4)는 커밋이 원격에 보존됐다는 뜻일 뿐, PR 리뷰 중·머지 전이면 그 브랜치에서 수정이 더 남아 지우면 안 된다. 아래 (a)·(b) 중 하나라도 머지 신호면 제안하되, 둘 다 **로컬 git 커밋 그래프 기반 추정**이라 확정이 아니며 최종 삭제는 늘 AskUserQuestion 이다:
+     - **(a) 기본 base 포함**: `BASE` = `git symbolic-ref --short refs/remotes/origin/HEAD`(실패 시 `origin/main`); `git rev-parse --verify --quiet <BASE>` 로 **유효성 먼저 확인** — 무효면(원격/기본 브랜치 미설정) 이 신호 skip(조건4 처럼 fatal `git log` 회피). 유효하면 `git log <BASE>..HEAD` 가 비면(브랜치 커밋이 모두 BASE 에 포함) BASE 에 merged.
+     - **(b) 다른 원격 브랜치 포함 (ticket-to-ticket 머지 감지)**: (a) 가 비어있지 않아도, `git branch -r --contains HEAD` 결과에서 self(`origin/<현재브랜치>`)를 뺀 원격 브랜치가 남으면 그 브랜치에 머지됐을 가능성(이 worktree 가 기본 브랜치 아닌 다른 ticket 위로 분기·PR 된 경우 — 예: CSTP1-2615 가 CSTP1-2613 에 머지). ⚠️ 단 **진행 중인 다른 브랜치가 내 커밋을 조상으로 쌓은 경우도 포함**되므로 머지 확정이 아니다 → 그 브랜치명을 근거로 들고, 5단계 제안의 AskUserQuestion 본문에 "`<HEAD7>` 가 `<remote-branch>` 에 포함됨 — 거기 머지됐을 수 있으나 진행 중 브랜치일 수도(확정 아님)" 로 **명시**해 사용자가 판단하게 한다.
+     - (a)·(b) 모두 신호 없으면(self 만 남거나 BASE 에 미포함) → 미머지로 보고 생략·유지.
+     - ⚠️ 한계: squash/rebase 머지는 원커밋 SHA 가 어느 브랜치에도 안 남아 (a)·(b) 둘 다 못 잡아 미머지로 보이고(no-ff 전제), fetch 안 한 stale 원격 ref 도 그러함 — 둘 다 유지 방향이라 안전. **PR 상태 직접 조회(Bitbucket API 등)는 인증·CLI 부재(ssh remote)와 headless/cron 동작 때문에 쓰지 않는다** — git-only 추정 + 사용자 확인으로 대신한다. 막으려는 1순위는 false-positive(미머지 삭제)이므로 (b)는 "확정"이 아니라 "근거 제시"로만 쓴다.
   6. **gitignored 산출물 점검 (필수)** — `git worktree remove`(--force 없이)는 **gitignored 파일을 경고 없이 함께 삭제**한다. 이 repo 는 whitelist `.gitignore` 라 `plans/`·`.env` 가 ignored → `git status` 엔 안 보인다. `git status --porcelain --ignored` 로 인벤토리를 수집:
      - 이 worktree `plans/` 에 **이번에 갱신한 plan 이 있으면 → 제안 생략**(방금 done 기록한 plan 이 worktree 와 함께 소실 방지; main worktree `plans/` 로 옮긴 뒤에야 안전).
      - `.env`·secret 후보·기타 산출물이 있으면 → 삭제될 목록을 AskUserQuestion 본문에 **명시**(기본 유지).
@@ -77,7 +81,11 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
 - **worktree 밖으로 이동**: `ExitWorktree(action: keep)` 로 세션을 원래 디렉토리(보통 main)로 되돌린다 — 대상 worktree 안에서는 자기 자신을 remove 할 수 없다(cwd 점유). ⚠️ **`EnterWorktree(path: <main_path>)` 는 쓰지 않는다** — 메인 워킹트리는 linked worktree 가 아니라 `EnterWorktree` 가 거부한다(검증됨).
   - **`ExitWorktree` 가 no-op 인 경우**(harness 가 worktree 에서 바로 시작해 `EnterWorktree` 를 거치지 않은 세션): 세션이 그 worktree 에 묶여 in-session 으로 못 빠져나온다. 폴백 — (a) 다른 **linked** worktree 가 있으면 `EnterWorktree(path: <other>)` 로 이동 후 대상 remove, (b) 없으면 remove 를 **생략하고 보고**("세션 종료 시 정리 — 종료하면 harness 가 worktree 를 놓는다" + 수동 `git worktree remove`/디렉토리 삭제 안내). 강제 진행 금지.
   - 이동(또는 폴백) 실패로 cwd 가 여전히 대상 안이면 **중단 + 보고**(remove 진행 금지).
-- **제거**: cwd 가 대상 밖임을 확인한 뒤, 대상이 `git worktree list --porcelain` 에 있으면 `git worktree remove <target_path>`. "modified or untracked files" 류로 실패하면 `--force` 는 **별도 AskUserQuestion 확인 후에만**(§8 — 묻지 않고 강제 금지). 디렉토리 삭제가 OS 제약(Windows long-path·점유 등)으로 실패하면 git 등록만 빠지고 디렉토리가 잔존할 수 있으니, 잔존 시 `git worktree prune` + 대상 디렉토리 수동 삭제로 마무리. ignored 산출물 손실 경고는 5단계에서 이미 처리.
+- **제거**: cwd 가 대상 밖임을 확인한 뒤, 대상이 `git worktree list --porcelain` 에 있으면 `git worktree remove <target_path>`. 실패 시 stderr 원인으로 분기:
+  - **"modified or untracked files" 류**(변경·untracked 잔존): `--force` 는 **별도 AskUserQuestion 확인 후에만**(§8 — 묻지 않고 강제 금지).
+  - **파일 점유 류**("Access is denied"·"being used"·"Directory not empty" 등 OS 삭제 실패): 그 worktree 의 `.codegraph/` 를 codegraph daemon 이 잡고 있을 수 있다(그 worktree 에서 codegraph MCP 세션을 띄웠던 경우만 — `init`/`status` 로는 안 뜸). **자동 종료 안 함** — 그 세션 닫기/daemon idle 자동종료(~5분) 후 재시도/수동 node 종료 안내(`--force` 는 OS 점유엔 무효).
+  - remove 가 **부분 성공**(git 등록은 빠졌으나 디렉토리 잔존; Windows long-path 등)이면 `git worktree prune` + 대상 디렉토리 수동 삭제로 마무리.
+  ignored 산출물 손실 경고는 5단계에서 이미 처리.
 - **브랜치 (옵션 ② 일 때만)**: `git branch -d <target_branch>`. 미머지로 `-d` 가 거부하면 `-D` 는 **별도 AskUserQuestion 확인 후에만**(§8, wt 주의 승계).
 - **push 안 함** — pushed 가 이미 제안 조건이라 추가 push 없음.
 - 한 줄 보고: 제거한 worktree·브랜치(또는 유지 사유).
