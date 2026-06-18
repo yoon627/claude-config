@@ -81,7 +81,11 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
 - **worktree 밖으로 이동**: `ExitWorktree(action: keep)` 로 세션을 원래 디렉토리(보통 main)로 되돌린다 — 대상 worktree 안에서는 자기 자신을 remove 할 수 없다(cwd 점유). ⚠️ **`EnterWorktree(path: <main_path>)` 는 쓰지 않는다** — 메인 워킹트리는 linked worktree 가 아니라 `EnterWorktree` 가 거부한다(검증됨).
   - **`ExitWorktree` 가 no-op 인 경우**(harness 가 worktree 에서 바로 시작해 `EnterWorktree` 를 거치지 않은 세션): 세션이 그 worktree 에 묶여 in-session 으로 못 빠져나온다. 폴백 — (a) 다른 **linked** worktree 가 있으면 `EnterWorktree(path: <other>)` 로 이동 후 대상 remove, (b) 없으면 remove 를 **생략하고 보고**("세션 종료 시 정리 — 종료하면 harness 가 worktree 를 놓는다" + 수동 `git worktree remove`/디렉토리 삭제 안내). 강제 진행 금지.
   - 이동(또는 폴백) 실패로 cwd 가 여전히 대상 안이면 **중단 + 보고**(remove 진행 금지).
-- **제거**: cwd 가 대상 밖임을 확인한 뒤, 대상이 `git worktree list --porcelain` 에 있으면 `git worktree remove <target_path>`. "modified or untracked files" 류로 실패하면 `--force` 는 **별도 AskUserQuestion 확인 후에만**(§8 — 묻지 않고 강제 금지). 디렉토리 삭제가 OS 제약(Windows long-path·점유 등)으로 실패하면 git 등록만 빠지고 디렉토리가 잔존할 수 있으니, 잔존 시 `git worktree prune` + 대상 디렉토리 수동 삭제로 마무리. ignored 산출물 손실 경고는 5단계에서 이미 처리.
+- **제거**: cwd 가 대상 밖임을 확인한 뒤, 대상이 `git worktree list --porcelain` 에 있으면 `git worktree remove <target_path>`. 실패 시 stderr 원인으로 분기:
+  - **"modified or untracked files" 류**(변경·untracked 잔존): `--force` 는 **별도 AskUserQuestion 확인 후에만**(§8 — 묻지 않고 강제 금지).
+  - **파일 점유 류**("Access is denied"·"being used"·"Directory not empty" 등 OS 삭제 실패): 그 worktree 의 `.codegraph/` 를 codegraph daemon 이 잡고 있을 수 있다(그 worktree 에서 codegraph MCP 세션을 띄웠던 경우만 — `init`/`status` 로는 안 뜸). **자동 종료 안 함** — 그 세션 닫기/daemon idle 자동종료(~5분) 후 재시도/수동 node 종료 안내(`--force` 는 OS 점유엔 무효).
+  - remove 가 **부분 성공**(git 등록은 빠졌으나 디렉토리 잔존; Windows long-path 등)이면 `git worktree prune` + 대상 디렉토리 수동 삭제로 마무리.
+  ignored 산출물 손실 경고는 5단계에서 이미 처리.
 - **브랜치 (옵션 ② 일 때만)**: `git branch -d <target_branch>`. 미머지로 `-d` 가 거부하면 `-D` 는 **별도 AskUserQuestion 확인 후에만**(§8, wt 주의 승계).
 - **push 안 함** — pushed 가 이미 제안 조건이라 추가 push 없음.
 - 한 줄 보고: 제거한 worktree·브랜치(또는 유지 사유).
