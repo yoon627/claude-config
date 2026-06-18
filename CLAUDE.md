@@ -20,6 +20,7 @@
 - **검증 후 "완료" 선언.** 적용 가능한 lint/typecheck/test/build 실행해 통과 확인. 명령이 비어있으면 추측 말고 README/CI 에서 확인. 적용 가능한 검증이 없으면 이유와 수동 확인 절차 명시. 검증 못 했으면 "완료"라 말하지 않는다. 검증이 통과해도 **요청(목표) 대비 충족을 함께 확인** — 통과 ≠ 완료.
 - **사용자가 틀리면 정중히 반박.** 아부 금지. 가정이 코드/로그/문서와 충돌하면 근거를 들어 설명.
 - **사용자 변경사항 보호.** 작업 전 `git status --short` 로 기존 변경 확인. 덮어쓰지 않는다. 변경 파일이 예상보다 많으면 즉시 멈추고 원인 확인.
+- **운영 자산 자가 수정 금지.** Claude 운영 자산(`CLAUDE.md`·`agents/`·`skills/`·`settings` 등)은 **명시 요청 없이 수정하지 않는다** — 요청이란 active plan `# Goal`/`# Key Files` 에 그 자산이 들었거나 사용자가 자산명+변경을 지시한 경우. 작업 중 발견한 개선점은 Report 제안(관찰된 문제+근거+제안 변경)으로만, 적용은 사용자 승인 후 별도 작업.
 
 ---
 
@@ -42,8 +43,8 @@
 1. **Setup** (코드 변경/리뷰/레포 작업 시작 시) — `git status --short`. 프로젝트 컨텍스트는 per-repo `CLAUDE.md` 또는 `<repo>/.claude/CLAUDE.md` 에 명시 (없으면 비어 있다고 판단). `.env`/key/token/cert 원문 출력 금지. 비자명 **코드 변경**은 §8 대로 `/wt`(→dlc) 경유 — 이미 작업 worktree 안이면 `dlc` 적용을 self-check(skill 미진입으로 plan·검증 건너뛰기 방지).
 2. **Explore** — 모호하면 질문 먼저. 관련 파일 + 호출부 read. 동일 디렉토리·같은 레이어 기존 파일 스타일 확인.
 3. **Plan** — 큰 변경(50줄 초과, 다중 파일, public API, DB schema, migration, 아키텍처/보안 영향)은 계획 먼저 제시하고 승인 후 진행. 작은 변경(오타, 로그 한 줄)은 즉시.
-4. **Implement** — 작은 단계로. 요청 범위 밖 "지나가는 김에" 수정 금지. 단, 빌드/테스트를 깨는 직접 원인이면 수정하고 이유 명시.
-5. **Verify** — lint/typecheck/test 실행. 변경 함수/클래스 호출부를 `rg` (없으면 `grep -R`) 로 확인. 미실행은 "미검증" 명시. **주석·docstring·commit message 가 변경된 코드의 현재 동작과 어긋나지 않는지 항상 확인** — 옛 설명·옛 식별자·옛 동작 서술이 남지 않게 (특히 리팩토링·rename·fixup 흡수 후 커밋 메시지/주석이 실제 변경과 일치하는지 점검).
+4. **Implement** — 작은 단계로. 요청 범위 밖 "지나가는 김에" 수정 금지. 단, 빌드/테스트를 깨는 직접 원인이면 수정하고 이유 명시. **범위 밖 발견은 유실도 금지** — 발견은 고치지 말고(수정은 §1 자가수정·스코프 경계 → 별도 작업) active plan `# Deferred`(§10, plan 없으면 Report)에 한 줄(내용·심각도·파일)로 기록하고 진행.
+5. **Verify** — lint/typecheck/test 실행. 변경 함수/클래스 호출부를 `rg` (없으면 `grep -R`) 로 확인. 미실행은 "미검증" 명시. **이번 변경이 깨뜨린 것만 수정 대상** — 작업 전부터 깨진 baseline failure 는 pre-change 실행 또는 base 재현으로 **입증된 것만** `# Deferred` 기록. 입증 안 되거나 완료 판정을 막는 실패는 # Deferred 금지 → 수정하거나 `status: blocked`/"미검증"(§1 에러 무시 금지). **주석·docstring·commit message 가 변경된 코드의 현재 동작과 어긋나지 않는지 항상 확인** — 옛 설명·옛 식별자·옛 동작 서술이 남지 않게 (특히 리팩토링·rename·fixup 흡수 후 커밋 메시지/주석이 실제 변경과 일치하는지 점검).
 6. **Report** — 변경 요약 / 수정 파일 / 검증 결과 / 영향 범위 / 남은 리스크.
 
 > **문서 동기화 (작업 내내)**: 변경이 README 에 문서화된 컴포넌트(스크립트·설정·skill·agent 등)에 영향 주면 README 도 같은 브랜치에서 갱신. plan 은 §10 진행 중 동기화 규약을 따른다.
@@ -182,6 +183,8 @@ updated: YYYY-MM-DD
 4. `# Decisions` — 설계/스코프 합의 + 이유
 5. `# Key Files` — 핵심 파일 + 한 줄 메모
 6. `# Blockers` — 막힌 것 + 풀려면 필요한 것
+
+선택 섹션 (해당 작업에서 필요할 때만): `# Review Disposition`(dlc fix loop 의 finding 처분 — `fix`/`defer`/`false-positive`/`wontfix`), `# Deferred`(범위 밖 발견 — §3-4). 둘은 다르다: `defer` 는 리뷰 finding 의 *처분 값*, `# Deferred` 는 범위 밖 발견의 *보존 섹션*.
 
 리뷰는 dlc 의 중간 단계(구현 직후 code-reviewer + codex 병행, §9)가 담당한다 — push 직전 별도 codex 리뷰는 두지 않는다. 로컬 다관점 점검이 따로 필요하면 `/local-review` 를 수동 사용.
 
