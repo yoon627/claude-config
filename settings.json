@@ -1,6 +1,6 @@
 {
   "env": {
-    "CLAUDE_CODE_EFFORT_LEVEL": "max"
+    "CLAUDE_CODE_EFFORT_LEVEL": "high"
   },
   "permissions": {
     "deny": [
@@ -120,7 +120,6 @@
       }
     }
   },
-  "effortLevel": "xhigh",
   "skipWorkflowUsageWarning": true,
   "theme": "dark",
   "preferredNotifChannel": "notifications_disabled",
