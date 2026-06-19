@@ -8,7 +8,7 @@ set -u
 # repo root 로 self-cd — 어디서 호출해도 cwd 의존 거짓통과(점검 다수가 빈 결과로 error=0) 차단.
 # skills/audit/audit.sh 구조 가정 → ../.. = repo root. git 비의존(가드로 검증).
 SELF=$(cd "$(dirname "$0")" && pwd)
-ROOT=$(cd "$SELF/../.." 2>/dev/null && pwd || true)
+ROOT=$(cd "$SELF/../.." 2>/dev/null && pwd)  # cd 실패 시 빈값 → 아래 가드가 처리
 if [ -n "$ROOT" ] && [ -f "$ROOT/CLAUDE.md" ] && [ -d "$ROOT/skills" ]; then
   cd "$ROOT" || { echo "[error] repo root 진입 실패: $ROOT"; exit 2; }
 else
