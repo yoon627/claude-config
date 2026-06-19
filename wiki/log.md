@@ -29,3 +29,7 @@
 - dlc→wt 를 "예외 없는 필수 게이트"로 강화(비trivial 은 항상 wt, main 직접 금지). trivial 즉시통과 유지.
 - Workflow Findings 를 wiki [[workflow-failures]] 에 영속 누적 + 같은 실패 2회+ 반복 시 wt 해결 제안(승인 시 wt→dlc).
 - decision 신규: [[workflow-failures]]. CLAUDE.md §3-1 wt 문구 강화.
+
+## [2026-06-19] ingest | dlc-evidence-falsepos (early-stop 오탐 수정 + 사용자 지적 트리거)
+- early-stop false positive 수정: `dlc-evidence-ledger` 가 gitignored/임시 파일(`git check-ignore`)은 changed 로 안 침 — 마무리 단계(커밋 메시지 임시파일 Write) 오탐 해결. [[workflow-failures]] 에 fixed 기록(첫 실제 항목).
+- dlc Workflow Findings 트리거에 ③ "사용자가 명시 지적한 마찰·오탐" 추가 — 사용자 피드백 누적, 반복 시 wt 개선([[self-diagnosis-and-improvement-status]]·§12 feedback 과 역할 구분).

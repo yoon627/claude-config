@@ -7,11 +7,29 @@
 //   plan # Acceptance(모델)가 단일 소스 — hook 은 "검증 시도조차 없음"을 잡는 누락 방지망.
 // 도구는 이미 실행된 뒤라 차단하지 않는다. 의존/파싱 실패 시 fail-open(exit 0).
 'use strict';
+const { execFileSync } = require('child_process');
 let ledger;
 try {
   ledger = require('./dlc-ledger.js');
 } catch {
   process.exit(0);
+}
+
+// gitignored/임시 파일(plans/·.commit-msg 등)은 검증 대상이 아니므로 changed 로 치지 않는다.
+// (마무리 단계의 커밋 메시지 임시파일 Write 가 false positive block 을 유발한 사례 — wiki workflow-failures.)
+// git check-ignore: exit 0 = ignored. 에러·git 미설치는 not-ignored 로 보아 changed 유지(gate 보수적).
+function isIgnored(fp, cwd) {
+  if (!fp) return false;
+  try {
+    execFileSync('git', ['check-ignore', '-q', '--', fp], {
+      cwd: cwd || process.cwd(),
+      stdio: 'ignore',
+      timeout: 2000,
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // 명백한 검증 명령만 좁게 — verified 오탐은 gate 를 헐겁게 하므로 보수적.
@@ -35,9 +53,12 @@ process.stdin.on('end', () => {
   const data = ledger.read(input.session_id);
 
   if (tool === 'Edit' || tool === 'Write' || tool === 'NotebookEdit') {
-    data.changed = true;
-    data.verified = false; // 최종 변경 이후 재검증 강제
-    data.blocks = 0; // 새 미검증 변경 → 경고 자격 회복(CAP 재적용)
+    const fp = (input.tool_input && input.tool_input.file_path) || '';
+    if (fp && !isIgnored(fp, input.cwd)) {
+      data.changed = true;
+      data.verified = false; // 최종 변경 이후 재검증 강제
+      data.blocks = 0; // 새 미검증 변경 → 경고 자격 회복(CAP 재적용)
+    }
   }
   if (tool === 'Bash') {
     const cmd = String((input.tool_input && input.tool_input.command) || '').toLowerCase();
