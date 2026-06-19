@@ -24,3 +24,8 @@
 - dlc 강화 구현: 진입 매트릭스·dlc→wt 자동·# Acceptance evidence gate·verification grounding·investigation 프로토콜·# Workflow Findings 최소형.
 - hook 3종: dlc-task-router(UserPromptSubmit 라우터)·dlc-evidence-ledger(PostToolUse 증거 기록)·dlc-early-stop(Stop, capped·fail-open).
 - decision 3 신규: [[evidence-gate]] [[dlc-wt-autoflow]] [[fablize-adopted-disciplines]]. [[self-diagnosis-and-improvement-status]] 에 finding 최소형 채택 반영.
+
+## [2026-06-19] ingest | dlc-failure-loop (wt 강제 + 실패 wiki 추적)
+- dlc→wt 를 "예외 없는 필수 게이트"로 강화(비trivial 은 항상 wt, main 직접 금지). trivial 즉시통과 유지.
+- Workflow Findings 를 wiki [[workflow-failures]] 에 영속 누적 + 같은 실패 2회+ 반복 시 wt 해결 제안(승인 시 wt→dlc).
+- decision 신규: [[workflow-failures]]. CLAUDE.md §3-1 wt 문구 강화.
