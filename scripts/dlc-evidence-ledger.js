@@ -14,6 +14,12 @@ try {
 } catch {
   process.exit(0);
 }
+let drift = null;
+try {
+  drift = require('./dlc-doc-drift.js');
+} catch {
+  /* 문서 drift 추적만 skip — 검증 ledger 기록은 유지(fail-open 비대칭 방지) */
+}
 
 // gitignored/임시 파일(plans/·.commit-msg 등)은 검증 대상이 아니므로 changed 로 치지 않는다.
 // (마무리 단계의 커밋 메시지 임시파일 Write 가 false positive block 을 유발한 사례 — wiki workflow-failures.)
@@ -58,6 +64,14 @@ process.stdin.on('end', () => {
       data.changed = true;
       data.verified = false; // 최종 변경 이후 재검증 강제
       data.blocks = 0; // 새 미검증 변경 → 경고 자격 회복(CAP 재적용)
+      // 문서 drift: 표면 변경 → *Dirty=true, 문서 변경 → false(순서 반영). 새로 dirty 면 경고 자격 회복.
+      // isIgnored 블록 안 — tmp_*.js·*.bak 등 gitignored scratch 가 false dirty 를 유발하지 않게(검증 changed 와 동일 게이트).
+      if (drift) {
+        const beforeR = data.readmeDirty;
+        const beforeI = data.indexDirty;
+        drift.applyChange(data, fp, input.cwd);
+        if ((!beforeR && data.readmeDirty) || (!beforeI && data.indexDirty)) data.docBlocks = 0;
+      }
     }
   }
   if (tool === 'Bash') {

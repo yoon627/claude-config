@@ -289,7 +289,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - code-simplifier 는 `Edit` 권한이 있어 격리 mutating 단계 — 메인이 diff 흡수 + targeted 재검증.
 - `.claude/plans/<slug>-plan.md` 가 subagent 간 단일 공유 채널 (메인만 write).
 - codex 병행 검토 호출 규약은 `docs/codex-review.md` (phase 당 codex owner 1개 지정으로 중복 호출 방지, Windows/PowerShell fallback 포함).
-- **evidence·라우팅 hook** (`scripts/dlc-*.js`, `settings.json` 등록, fail-open): `dlc-task-router`(UserPromptSubmit — 디버깅/render 키워드에 discipline 주입), `dlc-evidence-ledger`(PostToolUse — 변경·검증 명령 기록), `dlc-early-stop`(Stop — 변경 후 검증 누락 시 capped 1회 경고). plan `# Acceptance` evidence gate 의 보조 누락방지망 — 검증 *성공* 판정은 acceptance(메인)가 단일 소스. `CLAUDE_DLC_EARLYSTOP_OFF=1` 로 비활성(holdout). syntax 검사는 CI `lint.yml` 의 `node --check`.
+- **evidence·라우팅 hook** (`scripts/dlc-*.js`, `settings.json` 등록, fail-open): `dlc-task-router`(UserPromptSubmit — 디버깅/render 키워드에 discipline 주입), `dlc-evidence-ledger`(PostToolUse — 변경·검증 기록 + 문서 drift dirty flag), `dlc-early-stop`(Stop — 변경 후 검증 누락 **및 문서화 표면↔README/index drift** 시 capped 1회 경고; 판정은 `dlc-doc-drift.js` 모듈). plan `# Acceptance` evidence gate 의 보조 누락방지망 — 검증 *성공* 판정은 acceptance(메인)가 단일 소스. `CLAUDE_DLC_EARLYSTOP_OFF=1`(검증)·`CLAUDE_DLC_DOCDRIFT_OFF=1`(문서) 로 각각 비활성(holdout). syntax 검사 + 단위테스트는 CI `lint.yml`.
 
 ### skills/c/ — plan 이어가기
 
@@ -337,14 +337,15 @@ debug log: `$env:CLAUDE_NOTIFY_DEBUG = '1'` 설정 시에만 `%TEMP%\claude-noti
 #### `guard-worktree-edit.js`
 PreToolUse(`Edit|Write|NotebookEdit`) 가드. worktree 세션(cwd 가 `.../.claude/worktrees/<name>/` 하위)에서 **그 worktree 밖 main repo 소스**를 편집하려는 호출을 `deny` 로 차단 — 작업 격리가 새는 실수 케이스 방지. 현재 worktree 안, repo 의 `.claude/` 메타(plans·memory·settings 등), repo 밖(홈 등) 경로는 allow. jq 미설치 환경이라 node 로 stdin JSON 파싱. 파싱 실패 시 exit 0 (fail-open).
 
-#### `dlc-task-router.js` · `dlc-evidence-ledger.js` · `dlc-early-stop.js` (+ `dlc-ledger.js`)
+#### `dlc-task-router.js` · `dlc-evidence-ledger.js` · `dlc-early-stop.js` (+ `dlc-ledger.js` · `dlc-doc-drift.js`)
 dlc(`skills/dlc/`)의 evidence gate 를 보조하는 누락방지망. 모두 fail-open — plan `# Acceptance` evidence gate(메인 판정)가 단일 소스고, 이 hook 들은 capped 보조일 뿐.
 - **`dlc-task-router.js`** (UserPromptSubmit) — 디버깅/render 키워드 감지 시 조사·검증 discipline 을 주입하고 세션 evidence 장부를 리셋.
-- **`dlc-evidence-ledger.js`** (PostToolUse `Edit|Write|NotebookEdit|Bash`) — 코드 변경·검증 명령 실행을 세션 장부에 기록.
-- **`dlc-early-stop.js`** (Stop) — 비trivial 변경이 있는데 검증 기록이 없으면 capped 1회 경고. `CLAUDE_DLC_EARLYSTOP_OFF=1` 로 비활성(holdout).
-- **`dlc-ledger.js`** — 위 3종이 공유하는 per-session 임시 장부(`%TEMP%/dlc-evidence-<sid>.json`) read/write/reset 모듈. hook 으로 직접 등록되진 않음.
+- **`dlc-evidence-ledger.js`** (PostToolUse `Edit|Write|NotebookEdit|Bash`) — 코드 변경·검증 명령 실행을 세션 장부에 기록 + 문서화 표면↔README/index dirty flag 갱신(`dlc-doc-drift` 판정).
+- **`dlc-early-stop.js`** (Stop) — 종료 시 두 누락을 capped 1회 경고로 합쳐 출력: ① 변경했는데 검증 기록 없음(`CLAUDE_DLC_EARLYSTOP_OFF=1`), ② 문서화 표면(`scripts/`·`agents/`·`skills/**/SKILL.md`·`settings.json`·`CLAUDE.md`, `wiki/pages/`)을 바꿨는데 `README.md`/`wiki/index.md` 동기화 없음(`CLAUDE_DLC_DOCDRIFT_OFF=1`). 한 hook 에서 합산 출력 — 별도 hook 이면 동시 block 시 한쪽 카운터가 미노출 소모돼 다시 안 잡히는 false negative.
+- **`dlc-doc-drift.js`** — 문서 drift 판정 **순수 모듈**(hook 아님). `resolveRoot`(`.claude`/worktree 한정, 타 repo no-op)·`classify`(root 기준 정확 경로)·`applyChange`(dirty 전이)·`evaluate`. early-stop·evidence-ledger 가 require. 단위테스트 `dlc-doc-drift.test.js`.
+- **`dlc-ledger.js`** — 위 hook 들이 공유하는 per-session 임시 장부(`%TEMP%/dlc-evidence-<sid>.json`) read/write/reset 모듈. `DEFAULT` 스키마 단일 소스(`changed/verified/blocks` + `readmeDirty/indexDirty/docBlocks`). hook 으로 직접 등록되진 않음.
 
-syntax 검사는 CI `lint.yml` 의 `node --check`.
+syntax 검사 + `dlc-doc-drift.test.js` 단위테스트는 CI `lint.yml`.
 
 #### `pre-commit-check.ps1`
 staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json` 을 검사. 금지 키 (`mcpServers`, `apiKeyHelper`, `awsCredentialExport`, `awsAuthRefresh`) 또는 토큰 패턴 (Anthropic/OpenAI/GitHub/GitLab/AWS/GCP/Slack/JWT/PEM) 검출 시 exit 1.
@@ -375,7 +376,7 @@ staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json`
 - `hooks.PreToolUse` — `Edit|Write|NotebookEdit` 에 `guard-worktree-edit.js`(worktree 밖 main repo 편집 차단), `Bash` 에 macOS 한정 `rtk-rewrite.sh`(RTK 명령 재작성, darwin 아니면 no-op)
 - `hooks.UserPromptSubmit` — `dlc-task-router.js` (디버깅/render discipline 주입 + evidence 장부 리셋)
 - `hooks.PostToolUse` — `Edit|Write|NotebookEdit|Bash` 에 `dlc-evidence-ledger.js` (변경·검증 명령 기록)
-- `hooks.Stop` — `dlc-early-stop.js`(검증 누락 capped 경고) + `notify-hook.js Stop`(알림) 2개
+- `hooks.Stop` — `dlc-early-stop.js`(검증 누락 + 문서 drift capped 경고) + `notify-hook.js Stop`(알림) 2개
 - `hooks.Notification` — 입력 대기 시 `notify-hook.js Notification` (cross-platform 알림)
 - `enabledPlugins`, `extraKnownMarketplaces` — Pyright LSP plugin + OpenAI Codex marketplace
 - `model`, `theme`, `skipWorkflowUsageWarning`, `preferredNotifChannel` — Claude Code UI / 세션 기본값
@@ -526,9 +527,10 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   ├── notify-hook.ps1             # (Windows) notify-hook.js 가 spawn
 │   ├── guard-worktree-edit.js      # PreToolUse — worktree 밖 main repo 편집 차단
 │   ├── dlc-task-router.js          # UserPromptSubmit — dlc discipline 주입 + 장부 리셋
-│   ├── dlc-evidence-ledger.js      # PostToolUse — 변경·검증 명령 기록
-│   ├── dlc-early-stop.js           # Stop — 검증 누락 capped 경고
-│   ├── dlc-ledger.js               # 위 dlc 3종 공유 장부 모듈 (hook 미등록)
+│   ├── dlc-evidence-ledger.js      # PostToolUse — 변경·검증 기록 + 문서 drift dirty flag
+│   ├── dlc-early-stop.js           # Stop — 검증 누락 + 문서 drift capped 경고
+│   ├── dlc-doc-drift.js            # 문서 drift 판정 순수 모듈 (+ .test.js)
+│   ├── dlc-ledger.js               # 위 dlc hook 공유 장부 모듈 (hook 미등록)
 │   ├── pre-commit-check.sh / .ps1  # settings.json secret guard (pre-commit + pre-push)
 │   ├── install-hooks.sh / .ps1     # .git/hooks/{pre-commit,pre-push} wrapper 생성
 │   ├── prompt-gwl.py               # UserPromptSubmit 훅 (프로젝트별 사용)

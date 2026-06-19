@@ -47,7 +47,7 @@
 5. **Verify** — lint/typecheck/test 실행. 변경 함수/클래스 호출부를 `rg` (없으면 `grep -R`) 로 확인. 미실행은 "미검증" 명시. **이번 변경이 깨뜨린 것만 수정 대상** — 작업 전부터 깨진 baseline failure 는 pre-change 실행 또는 base 재현으로 **입증된 것만** `# Deferred` 기록. 입증 안 되거나 완료 판정을 막는 실패는 # Deferred 금지 → 수정하거나 `status: blocked`/"미검증"(§1 에러 무시 금지). **주석·docstring·commit message 가 변경된 코드의 현재 동작과 어긋나지 않는지 항상 확인** — 옛 설명·옛 식별자·옛 동작 서술이 남지 않게 (특히 리팩토링·rename·fixup 흡수 후 커밋 메시지/주석이 실제 변경과 일치하는지 점검). **비trivial 변경은 plan `# Acceptance`(§10) 항목을 증거(실행·관찰·통과)로 대조한 뒤에만 완료** — 미충족·미검증 항목이 있으면 완료 금지(증거 없는 "완료" 금지). 실행되는 산출물(render/CLI/서버 등)은 정적 점검이 아니라 실제 실행·관찰로 검증.
 6. **Report** — 변경 요약 / 수정 파일 / 검증 결과 / 영향 범위 / 남은 리스크.
 
-> **문서 동기화 (작업 내내)**: 변경이 README 에 문서화된 컴포넌트(스크립트·설정·skill·agent 등)에 영향 주면 README 도 같은 브랜치에서 갱신. plan 은 §10 진행 중 동기화 규약을 따른다.
+> **문서 동기화 (작업 내내, evidence gate 항목)**: 변경이 README 에 문서화된 컴포넌트(스크립트·설정·skill·agent·CLAUDE.md 섹션 등)에 영향 주면 README 도 **같은 브랜치에서 갱신** — 선택이 아니라 비trivial 변경의 acceptance 항목이다(검증과 동급). 마찬가지로 `wiki/pages/` 변경은 `wiki/index.md` 동기화를 동반한다. 잊으면 `dlc-early-stop`(Stop hook)이 "문서화 표면↔README/index drift"를 capped 1회 경고한다(보조망 — 단일 소스는 이 규약·acceptance). plan 은 §10 진행 중 동기화 규약을 따른다.
 
 ### Plan 단계에서 subagent 병렬화
 독립 단계는 subagent 분배 (가용 환경 한정). **파일 소유권 분리 필수** — 각 subagent 의 수정 범위를 spawn 시점에 명시, 겹치면 순차 실행. 통합·병합은 항상 메인 책임.
