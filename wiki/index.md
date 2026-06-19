@@ -28,6 +28,7 @@
 - [[evidence-gate]] — 검증 항목화 + 증거 충족 시만 완료(plan # Acceptance + Stop hook 보조, capped·fail-open).
 - [[dlc-wt-autoflow]] — dlc 가 비trivial 이면 wt worktree 자동 경유(순환 방지·slug 확인 유지).
 - [[fablize-adopted-disciplines]] — fablize 검증 규율 차용(grounding·investigation·early-stop), 플러그인 없이 직접 구현.
+- [[workflow-failures]] — 반복 workflow 실패 누적 추적, 2회+ 반복 시 wt 해결 제안.
 
 ## source
 _(없음)_
