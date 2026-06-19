@@ -213,7 +213,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 
 모든 프로젝트에 자동 로드되는 사용자 지시문. Claude Code 가 `~/.claude/CLAUDE.md` 를 모든 세션에서 읽음.
 
-12개 섹션:
+13개 섹션 (0~12):
 0. 응답 언어 — 한국어, 의례적 preamble 금지
 1. 핵심 규칙 — 추측 금지, 코드 read 기반 답변, 근본 원인, 검증 후 "완료", 사용자 변경사항 보호, 운영 자산 자가 수정 금지
 2. 컨텍스트 관리 — `/clear`, `/rewind`, subagent 위임 기준
@@ -222,10 +222,11 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 5. Sub-agent — 표준 순서 (plan-reviewer → 구현 → code-reviewer → code-simplifier)
 6. 코드 규칙 — 동일 디렉토리 스타일, 타입 힌트, 임시 코드 표기
 7. 테스트 (TDD) — 테스트 작성 순서, 예외 조건
-8. Git / 보안 — destructive 명령 금지, 시크릿 출력 금지
-9. Claude ↔ Codex 협업 — `.claude/plans/` 핸드오프 채널
-10. `.claude/plans/` 핸드오프 규약 — slug, frontmatter, 필수 6개 + 선택 섹션(Review Disposition·Deferred)
+8. Git / 보안 — destructive 명령 금지, 시크릿 출력 금지, 비trivial 은 worktree(`/wt`)에서
+9. Claude ↔ Codex 협업 — `.claude/plans/` 핸드오프 채널, 리뷰 매트릭스
+10. `.claude/plans/` 핸드오프 규약 — slug, frontmatter, 필수 6개 + 선택 섹션(Acceptance·Review Disposition·Deferred·Workflow Findings)
 11. 영속 프로젝트 메모리 (LLM Wiki) — `wiki/` 누적 지식, `plans/` 와 경계 (일시적 vs 영속)
+12. 피드백 메모리 — 작업 방식 교정을 `memory/`(type: feedback) + `MEMORY.md` 인덱스로 영속화해 다음 작업에 반영. 보편·중대 규칙은 이 `CLAUDE.md` 로 승격.
 
 세션 시작 시점 자동 적용. 프로젝트별 추가 규칙은 per-repo `CLAUDE.md` 에 둘 수 있고, 글로벌 + 프로젝트 둘 다 로드됨.
 
@@ -320,7 +321,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 ### scripts/
 
-후크가 호출하는 진입점은 `notify-hook.js` 하나 (settings.json 의 `Stop` / `Notification` command). macOS 는 이 안에서 직접 알림을 띄우고, Windows 는 기존 `.ps1` 로 위임한다.
+settings.json 에 등록돼 후크가 호출하는 진입점은 notify(`notify-hook.js`), worktree 가드(`guard-worktree-edit.js`), dlc evidence 3종(`dlc-task-router.js` / `dlc-evidence-ledger.js` / `dlc-early-stop.js`). 모두 fail-open (실패해도 throw 안 함). 나머지(`*.ps1`, `install-*`, `prompt-gwl.py`)는 위 진입점이 위임하거나 수동/프로젝트별로 쓰는 보조 스크립트.
 
 #### `notify-hook.js`
 Cross-platform notify 진입점 (Node). stdin 의 Claude Code JSON 에서 `message` · `cwd` 추출 (title = cwd basename). **macOS**: `afplay` 시스템 사운드 + `osascript` 배너 (인라인). **Windows**: 원본 stdin 을 그대로 넘기며 `powershell.exe -File notify-hook.ps1` spawn. **Linux**: best-effort `notify-send`. 모든 동작 best-effort — 실패해도 throw 안 하고 stdin 1초 타임아웃으로 세션 안 멈춤. 사운드 기본값은 이벤트별 (Stop→Glass/Asterisk, Notification→Ping/Exclamation); command 3번째 인자로 override.
@@ -332,6 +333,18 @@ Toast 알림 + 시스템 사운드 + 윈도우 flash. 우선순위: WinRT ToastN
 Windows 에서 `notify-hook.js` 가 spawn (`Stop` / `Notification` 이벤트). stdin 으로 넘어온 Claude Code JSON 에서 `cwd`, `session_id` 추출, 부모 프로세스 트리에서 WindowsTerminal 의 tab 제목 추출 → `notify.ps1` 에 title/message 전달. (macOS·Linux 에선 호출되지 않음.)
 
 debug log: `$env:CLAUDE_NOTIFY_DEBUG = '1'` 설정 시에만 `%TEMP%\claude-notify-debug.json` 에 매 호출마다 덮어씀. cwd, sessionId 포함되므로 디버깅 후 환경변수 해제 권장. 기본값은 off (privacy footprint 최소화).
+
+#### `guard-worktree-edit.js`
+PreToolUse(`Edit|Write|NotebookEdit`) 가드. worktree 세션(cwd 가 `.../.claude/worktrees/<name>/` 하위)에서 **그 worktree 밖 main repo 소스**를 편집하려는 호출을 `deny` 로 차단 — 작업 격리가 새는 실수 케이스 방지. 현재 worktree 안, repo 의 `.claude/` 메타(plans·memory·settings 등), repo 밖(홈 등) 경로는 allow. jq 미설치 환경이라 node 로 stdin JSON 파싱. 파싱 실패 시 exit 0 (fail-open).
+
+#### `dlc-task-router.js` · `dlc-evidence-ledger.js` · `dlc-early-stop.js` (+ `dlc-ledger.js`)
+dlc(`skills/dlc/`)의 evidence gate 를 보조하는 누락방지망. 모두 fail-open — plan `# Acceptance` evidence gate(메인 판정)가 단일 소스고, 이 hook 들은 capped 보조일 뿐.
+- **`dlc-task-router.js`** (UserPromptSubmit) — 디버깅/render 키워드 감지 시 조사·검증 discipline 을 주입하고 세션 evidence 장부를 리셋.
+- **`dlc-evidence-ledger.js`** (PostToolUse `Edit|Write|NotebookEdit|Bash`) — 코드 변경·검증 명령 실행을 세션 장부에 기록.
+- **`dlc-early-stop.js`** (Stop) — 비trivial 변경이 있는데 검증 기록이 없으면 capped 1회 경고. `CLAUDE_DLC_EARLYSTOP_OFF=1` 로 비활성(holdout).
+- **`dlc-ledger.js`** — 위 3종이 공유하는 per-session 임시 장부(`%TEMP%/dlc-evidence-<sid>.json`) read/write/reset 모듈. hook 으로 직접 등록되진 않음.
+
+syntax 검사는 CI `lint.yml` 의 `node --check`.
 
 #### `pre-commit-check.ps1`
 staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json` 을 검사. 금지 키 (`mcpServers`, `apiKeyHelper`, `awsCredentialExport`, `awsAuthRefresh`) 또는 토큰 패턴 (Anthropic/OpenAI/GitHub/GitLab/AWS/GCP/Slack/JWT/PEM) 검출 시 exit 1.
@@ -359,8 +372,13 @@ staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json`
 - `statusLine`, `subagentStatusLine` — statusline 스크립트 등록 (`node ~/.claude/statusline.js`)
 - `env.CLAUDE_CODE_EFFORT_LEVEL` — Opus effort level (`max`). docs 명시 값: `low|medium|high|xhigh|max`. `/effort` 나 `effortLevel` 키로는 세션 한정이지만 **env 변수로 설정할 때만 영구 적용**되므로 이 키로 둔다. env 가 `effortLevel` 키를 override.
 - `hooks.SessionStart` — `~/.claude` 가 `main` 브랜치 + 클린 트리이면 `git pull --ff-only origin main` 으로 origin/main 자동 동기화 (ff-only·가드 실패 무음; `~` 확장 위해 sh/Git Bash 필요). pull 로 HEAD 가 바뀌면 한 줄 알림(`~/.claude updated …`) 출력. pull 내용은 **다음 세션부터** 적용. dirty/분기/다른 브랜치면 가드에 걸려 skip. (과거엔 `install-gwl.ps1` 을 자동 실행하는 2번 command 가 있었으나 무서명 원격 스크립트 자동 실행 위험 때문에 제거 — gwl 등록은 위 `install-gwl.ps1` 수동 1회 실행으로.)
-- `hooks.Stop` / `hooks.Notification` — 응답 완료 / 입력 대기 시 `node ~/.claude/scripts/notify-hook.js` 호출 (cross-platform)
+- `hooks.PreToolUse` — `Edit|Write|NotebookEdit` 에 `guard-worktree-edit.js`(worktree 밖 main repo 편집 차단), `Bash` 에 macOS 한정 `rtk-rewrite.sh`(RTK 명령 재작성, darwin 아니면 no-op)
+- `hooks.UserPromptSubmit` — `dlc-task-router.js` (디버깅/render discipline 주입 + evidence 장부 리셋)
+- `hooks.PostToolUse` — `Edit|Write|NotebookEdit|Bash` 에 `dlc-evidence-ledger.js` (변경·검증 명령 기록)
+- `hooks.Stop` — `dlc-early-stop.js`(검증 누락 capped 경고) + `notify-hook.js Stop`(알림) 2개
+- `hooks.Notification` — 입력 대기 시 `notify-hook.js Notification` (cross-platform 알림)
 - `enabledPlugins`, `extraKnownMarketplaces` — Pyright LSP plugin + OpenAI Codex marketplace
+- `model`, `theme`, `skipWorkflowUsageWarning`, `preferredNotifChannel` — Claude Code UI / 세션 기본값
 
 Path 표기 (cross-platform):
 - 모든 command 가 `node ~/.claude/...` 형태. `~` 는 Claude Code 가 command 를 실행하는 셸(macOS·Linux = `sh -c`, Windows = Git Bash)에서 홈으로 확장된다. `$HOME` 은 Windows PowerShell fallback 에서 깨질 수 있어 쓰지 않음 → **Windows 는 Git Bash 필수**.
@@ -460,7 +478,7 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 
 ### OS 지원 현황 (Windows / macOS / Linux)
 `settings.json` 은 단일 cross-platform — 모든 command 가 `node ~/.claude/...` 이고 OS 분기는 `notify-hook.js` 의 `process.platform` 에서. 컴포넌트별:
-- `statusline.js`, `subagent-statusline.js`, `codex-quota-refresh.js`, `notify-hook.js` — `os.homedir()` / `process.platform` 기반, **cross-platform**.
+- `statusline.js`, `subagent-statusline.js`, `codex-quota-refresh.js`, `notify-hook.js`, `guard-worktree-edit.js`, `dlc-*.js` — node 기반(`os.homedir()` / `process.platform` / `os.tmpdir()`), **cross-platform**.
 - `CLAUDE.md`, `agents/*.md`, `commands/*.md`, `skills/*/SKILL.md` — 텍스트 가이드, **OS 무관**.
 - `scripts/notify.ps1`, `notify-hook.ps1` — Windows 전용 (WinRT toast / flash). macOS·Linux 는 `notify-hook.js` 가 직접 처리하므로 미사용.
 - `scripts/pre-commit-check.{sh,ps1}`, `install-hooks.{sh,ps1}` — OS별 가드/설치 스크립트 (양쪽 제공).
@@ -489,7 +507,8 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 ├── commands/
 │   └── local-review.md             # /local-review (per-repo hook 필요)
 ├── docs/
-│   └── codex-review.md             # codex 병행 검토 공유 규약
+│   ├── codex-review.md             # codex 병행 검토 공유 규약
+│   └── headroom-serena-session-lifecycle.md  # headroom/serena 세션 수명 메모
 ├── skills/
 │   ├── dlc/
 │   │   └── SKILL.md                # /dlc — 자동 개발 사이클
@@ -505,6 +524,11 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   ├── notify-hook.js              # notify 진입점 (cross-platform; mac 인라인, win→.ps1 위임)
 │   ├── notify.ps1                  # (Windows) Toast + 사운드 + flash
 │   ├── notify-hook.ps1             # (Windows) notify-hook.js 가 spawn
+│   ├── guard-worktree-edit.js      # PreToolUse — worktree 밖 main repo 편집 차단
+│   ├── dlc-task-router.js          # UserPromptSubmit — dlc discipline 주입 + 장부 리셋
+│   ├── dlc-evidence-ledger.js      # PostToolUse — 변경·검증 명령 기록
+│   ├── dlc-early-stop.js           # Stop — 검증 누락 capped 경고
+│   ├── dlc-ledger.js               # 위 dlc 3종 공유 장부 모듈 (hook 미등록)
 │   ├── pre-commit-check.sh / .ps1  # settings.json secret guard (pre-commit + pre-push)
 │   ├── install-hooks.sh / .ps1     # .git/hooks/{pre-commit,pre-push} wrapper 생성
 │   ├── prompt-gwl.py               # UserPromptSubmit 훅 (프로젝트별 사용)
