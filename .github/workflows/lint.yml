@@ -27,6 +27,12 @@ jobs:
           node --check scripts/dlc-task-router.js
           node --check scripts/dlc-evidence-ledger.js
           node --check scripts/dlc-early-stop.js
+          node --check scripts/dlc-doc-drift.js
+          node --check scripts/dlc-doc-drift.test.js
+
+      - name: Unit tests
+        run: |
+          node scripts/dlc-doc-drift.test.js
 
       - name: JSON validation
         run: |
