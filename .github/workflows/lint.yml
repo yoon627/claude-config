@@ -23,6 +23,10 @@ jobs:
           node --check subagent-statusline.js
           node --check codex-quota-refresh.js
           node --check scripts/notify-hook.js
+          node --check scripts/dlc-ledger.js
+          node --check scripts/dlc-task-router.js
+          node --check scripts/dlc-evidence-ledger.js
+          node --check scripts/dlc-early-stop.js
 
       - name: JSON validation
         run: |

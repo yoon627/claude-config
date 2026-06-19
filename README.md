@@ -288,6 +288,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - code-simplifier 는 `Edit` 권한이 있어 격리 mutating 단계 — 메인이 diff 흡수 + targeted 재검증.
 - `.claude/plans/<slug>-plan.md` 가 subagent 간 단일 공유 채널 (메인만 write).
 - codex 병행 검토 호출 규약은 `docs/codex-review.md` (phase 당 codex owner 1개 지정으로 중복 호출 방지, Windows/PowerShell fallback 포함).
+- **evidence·라우팅 hook** (`scripts/dlc-*.js`, `settings.json` 등록, fail-open): `dlc-task-router`(UserPromptSubmit — 디버깅/render 키워드에 discipline 주입), `dlc-evidence-ledger`(PostToolUse — 변경·검증 명령 기록), `dlc-early-stop`(Stop — 변경 후 검증 누락 시 capped 1회 경고). plan `# Acceptance` evidence gate 의 보조 누락방지망 — 검증 *성공* 판정은 acceptance(메인)가 단일 소스. `CLAUDE_DLC_EARLYSTOP_OFF=1` 로 비활성(holdout). syntax 검사는 CI `lint.yml` 의 `node --check`.
 
 ### skills/c/ — plan 이어가기
 

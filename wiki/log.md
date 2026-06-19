@@ -19,3 +19,8 @@
 - remote 재확인: self-improve-trigger 폐기(원격 삭제, 머지 아님), dlc-improvements f698001 `done`(invariant-check 미채택 결론).
 - [[self-diagnosis-and-improvement-status]] 갱신: "미구현·재개 필요"(stale) → "심의 종결, 신규 일반 단계 미채택". [[feedback-memory]] self-improvement 관계 문단 동기화.
 - 로컬 plans 정합: dlc-improvements 최신화(f698001), self-improve-trigger 삭제(폐기).
+
+## [2026-06-19] ingest | dlc-fablize-evidence (evidence gate·fablize 규율·wt 자동화)
+- dlc 강화 구현: 진입 매트릭스·dlc→wt 자동·# Acceptance evidence gate·verification grounding·investigation 프로토콜·# Workflow Findings 최소형.
+- hook 3종: dlc-task-router(UserPromptSubmit 라우터)·dlc-evidence-ledger(PostToolUse 증거 기록)·dlc-early-stop(Stop, capped·fail-open).
+- decision 3 신규: [[evidence-gate]] [[dlc-wt-autoflow]] [[fablize-adopted-disciplines]]. [[self-diagnosis-and-improvement-status]] 에 finding 최소형 채택 반영.
