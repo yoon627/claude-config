@@ -39,4 +39,4 @@ jobs:
           node -e "JSON.parse(require('fs').readFileSync('settings.json','utf8'))"
 
       - name: Shell script lint (shellcheck)
-        run: shellcheck scripts/*.sh
+        run: shellcheck scripts/*.sh skills/e/*.sh
