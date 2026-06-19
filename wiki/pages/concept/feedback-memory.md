@@ -22,4 +22,4 @@ sources:
 보편·중대 규칙은 CLAUDE.md 해당 섹션으로 승격(전문이 100% 주입)하고 메모리는 정리. 모순되면 옛 것을 새 것으로 교체, 죽은 규칙은 삭제(계속 주입돼 방해).
 
 ## self-improvement와의 관계
-> [!open] feedback-memory는 *사용자가 지시할 때* 저장한다. Claude가 실수를 **자발적으로** 감지해 기록하는 트리거는 아직 없다(미머지) — [[self-diagnosis-and-improvement-status]]. 인프라(메모리)는 있고 트리거가 빠진 상태.
+feedback-memory는 *사용자가 지시할 때* 저장한다. Claude가 실수를 **자발적으로** 감지해 기록하는 트리거(self-improve-trigger)는 검토 후 **미채택·폐기**(2026-06-19) — [[self-diagnosis-and-improvement-status]]. 사용자 지시 기반 저장 + self-diagnosis(사후 감지) 조합으로 간다.
