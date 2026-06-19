@@ -320,6 +320,13 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 `/wiki <ingest|query|lint>` 로 `wiki/`(영속 프로젝트 메모리)를 운영. ingest(raw·작업지식 → 상호링크 페이지 + index/log) · query(누적 페이지로 답 → 가치 있으면 filed) · lint(orphan·dead link·모순 점검·보고). 운영 규약 단일 소스는 `wiki/WIKI.md`. `plans/`(일시적 작업 핸드오프)와 달리 작업을 **가로질러 누적**. raw 원문은 gitignored·읽기 전용, 페이지만 tracked. dlc 연계는 CLAUDE.md §11.
 
+### skills/audit/ — 운영 자산 정합성 점검
+
+`/audit` 으로 운영 자산(skills·agents·CLAUDE.md·settings.json·MEMORY.md·wiki)의 **자산 간 참조 정합**을 읽기전용으로 점검해 심각도(error/warn/info)와 함께 보고. **수정은 제안만**(§1 자가수정 금지 — 자동 수정 안 함).
+- 기계 점검 `skills/audit/audit.sh`(read-only): settings hooks↔scripts 실존 · MEMORY 인덱스↔파일 양방향 · CLAUDE.md 가 참조한 agent 실존 · SKILL frontmatter name · 죽은 스크립트 후보(require 그래프·수동유틸 화이트리스트로 오탐 차단, info 만) · wiki index↔pages 개수.
+- 의미 점검(LLM): 문서 간 모순 · 중복 trigger · 개선점.
+- **역할 경계**: README↔surface drift 는 `dlc-doc-drift` hook, wiki 내부 무결성은 `/wiki lint` 영역 — audit 은 안 보고 위임/보완만(중복 회피).
+
 ### scripts/
 
 settings.json 에 등록돼 후크가 호출하는 진입점은 notify(`notify-hook.js`), worktree 가드(`guard-worktree-edit.js`), dlc evidence 3종(`dlc-task-router.js` / `dlc-evidence-ledger.js` / `dlc-early-stop.js`). 모두 fail-open (실패해도 throw 안 함). 나머지(`*.ps1`, `install-*`, `prompt-gwl.py`)는 위 진입점이 위임하거나 수동/프로젝트별로 쓰는 보조 스크립트.
@@ -521,8 +528,11 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   │   └── collect-state.sh        # 마무리 읽기전용 git 신호 1회 수집(read-only)
 │   ├── wt/
 │   │   └── SKILL.md                # /wt — git worktree 관리
-│   └── wiki/
-│       └── SKILL.md                # /wiki — LLM Wiki 운영 (ingest/query/lint)
+│   ├── wiki/
+│   │   └── SKILL.md                # /wiki — LLM Wiki 운영 (ingest/query/lint)
+│   └── audit/
+│       ├── SKILL.md                # /audit — 운영 자산 정합성 점검 (read-only·보고·제안)
+│       └── audit.sh                # 자산 간 참조 정합 기계 점검 (read-only)
 ├── scripts/
 │   ├── notify-hook.js              # notify 진입점 (cross-platform; mac 인라인, win→.ps1 위임)
 │   ├── notify.ps1                  # (Windows) Toast + 사운드 + flash
