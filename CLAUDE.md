@@ -40,11 +40,11 @@
 
 ## 3. 작업 흐름
 
-1. **Setup** (코드 변경/리뷰/레포 작업 시작 시) — `git status --short`. 프로젝트 컨텍스트는 per-repo `CLAUDE.md` 또는 `<repo>/.claude/CLAUDE.md` 에 명시 (없으면 비어 있다고 판단). `.env`/key/token/cert 원문 출력 금지. 비자명 **코드 변경**은 §8 대로 `/wt`(→dlc) 경유 — 이미 작업 worktree 안이면 `dlc` 적용을 self-check(skill 미진입으로 plan·검증 건너뛰기 방지).
+1. **Setup** (코드 변경/리뷰/레포 작업 시작 시) — `git status --short`. 프로젝트 컨텍스트는 per-repo `CLAUDE.md` 또는 `<repo>/.claude/CLAUDE.md` 에 명시 (없으면 비어 있다고 판단). `.env`/key/token/cert 원문 출력 금지. 비자명 **코드 변경**은 §8 대로 `/wt`(→dlc) 경유 — 이미 작업 worktree 안이면 `dlc` 적용을 self-check(skill 미진입으로 plan·검증 건너뛰기 방지). **dlc 는 비trivial 인데 worktree 밖이면 wt 를 자동 경유한다**(skills/dlc/SKILL.md 진입 매트릭스·dlc→wt — slug 확인은 유지).
 2. **Explore** — 모호하면 질문 먼저. 관련 파일 + 호출부 read. 동일 디렉토리·같은 레이어 기존 파일 스타일 확인.
 3. **Plan** — 큰 변경(50줄 초과, 다중 파일, public API, DB schema, migration, 아키텍처/보안 영향)은 계획 먼저 제시하고 승인 후 진행. 작은 변경(오타, 로그 한 줄)은 즉시.
 4. **Implement** — 작은 단계로. 요청 범위 밖 "지나가는 김에" 수정 금지. 단, 빌드/테스트를 깨는 직접 원인이면 수정하고 이유 명시. **범위 밖 발견은 유실도 금지** — 발견은 고치지 말고(수정은 §1 자가수정·스코프 경계 → 별도 작업) active plan `# Deferred`(§10, plan 없으면 Report)에 한 줄(내용·심각도·파일)로 기록하고 진행.
-5. **Verify** — lint/typecheck/test 실행. 변경 함수/클래스 호출부를 `rg` (없으면 `grep -R`) 로 확인. 미실행은 "미검증" 명시. **이번 변경이 깨뜨린 것만 수정 대상** — 작업 전부터 깨진 baseline failure 는 pre-change 실행 또는 base 재현으로 **입증된 것만** `# Deferred` 기록. 입증 안 되거나 완료 판정을 막는 실패는 # Deferred 금지 → 수정하거나 `status: blocked`/"미검증"(§1 에러 무시 금지). **주석·docstring·commit message 가 변경된 코드의 현재 동작과 어긋나지 않는지 항상 확인** — 옛 설명·옛 식별자·옛 동작 서술이 남지 않게 (특히 리팩토링·rename·fixup 흡수 후 커밋 메시지/주석이 실제 변경과 일치하는지 점검).
+5. **Verify** — lint/typecheck/test 실행. 변경 함수/클래스 호출부를 `rg` (없으면 `grep -R`) 로 확인. 미실행은 "미검증" 명시. **이번 변경이 깨뜨린 것만 수정 대상** — 작업 전부터 깨진 baseline failure 는 pre-change 실행 또는 base 재현으로 **입증된 것만** `# Deferred` 기록. 입증 안 되거나 완료 판정을 막는 실패는 # Deferred 금지 → 수정하거나 `status: blocked`/"미검증"(§1 에러 무시 금지). **주석·docstring·commit message 가 변경된 코드의 현재 동작과 어긋나지 않는지 항상 확인** — 옛 설명·옛 식별자·옛 동작 서술이 남지 않게 (특히 리팩토링·rename·fixup 흡수 후 커밋 메시지/주석이 실제 변경과 일치하는지 점검). **비trivial 변경은 plan `# Acceptance`(§10) 항목을 증거(실행·관찰·통과)로 대조한 뒤에만 완료** — 미충족·미검증 항목이 있으면 완료 금지(증거 없는 "완료" 금지). 실행되는 산출물(render/CLI/서버 등)은 정적 점검이 아니라 실제 실행·관찰로 검증.
 6. **Report** — 변경 요약 / 수정 파일 / 검증 결과 / 영향 범위 / 남은 리스크.
 
 > **문서 동기화 (작업 내내)**: 변경이 README 에 문서화된 컴포넌트(스크립트·설정·skill·agent 등)에 영향 주면 README 도 같은 브랜치에서 갱신. plan 은 §10 진행 중 동기화 규약을 따른다.
@@ -184,7 +184,7 @@ updated: YYYY-MM-DD
 5. `# Key Files` — 핵심 파일 + 한 줄 메모
 6. `# Blockers` — 막힌 것 + 풀려면 필요한 것
 
-선택 섹션 (해당 작업에서 필요할 때만): `# Review Disposition`(dlc fix loop 의 finding 처분 — `fix`/`defer`/`false-positive`/`wontfix`), `# Deferred`(범위 밖 발견 — §3-4). 둘은 다르다: `defer` 는 리뷰 finding 의 *처분 값*, `# Deferred` 는 범위 밖 발견의 *보존 섹션*.
+선택 섹션 (해당 작업에서 필요할 때만): `# Acceptance`(test 가능한 완료 기준 — 각 항목이 증거(실행·관찰·통과)로 충족될 때만 완료, dlc evidence gate), `# Review Disposition`(dlc fix loop 의 finding 처분 — `fix`/`defer`/`false-positive`/`wontfix`), `# Deferred`(범위 밖 발견 — §3-4), `# Workflow Findings`(확인된 workflow 실패 기록 — dlc 증거기반 자기개선, 최소형). `defer`(리뷰 finding 처분값) ≠ `# Deferred`(범위 밖 발견 보존 섹션).
 
 리뷰는 dlc 의 중간 단계(구현 직후 code-reviewer + codex 병행, §9)가 담당한다 — push 직전 별도 codex 리뷰는 두지 않는다. 로컬 다관점 점검이 따로 필요하면 `/local-review` 를 수동 사용.
 
@@ -198,7 +198,7 @@ updated: YYYY-MM-DD
 이 repo·워크플로우의 누적 지식(아키텍처 결정·교훈·검증된 외부 사실)은 `wiki/`(스키마 `wiki/WIKI.md`)에 영속 적립. `plans/`(일시적 작업 핸드오프)와 역할이 다르다 — plan 은 작업 종료 시 닫히고, wiki 는 작업을 가로질러 누적.
 
 - 작업 시작 시 `wiki/index.md` 에서 관련 페이지 조회(있을 때만 — 없으면 무비용).
-- 재사용 가능한 지식(비자명한 결정·교훈·확정한 외부 사실)이 나오면 `/wiki ingest` 제안(자동 아님).
+- 재사용 가능한 지식(비자명한 결정·교훈·확정한 외부 사실)은 **wiki 대상 여부 판정 필수** — 대상이면 `/wiki ingest` 제안(자동 아님), 비대상이면 그 사유. ingest 강제는 아니되 *판정*은 빠뜨리지 않는다.
 - raw 원문은 읽기 전용·gitignored. 페이지 write 규약은 `wiki/WIKI.md` 가 단일 소스.
 
 ---
