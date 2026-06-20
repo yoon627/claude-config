@@ -329,7 +329,10 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 ### scripts/
 
-settings.json 에 등록돼 후크가 호출하는 진입점은 notify(`notify-hook.js`), worktree 가드(`guard-worktree-edit.js`), dlc evidence 3종(`dlc-task-router.js` / `dlc-evidence-ledger.js` / `dlc-early-stop.js`). 모두 fail-open (실패해도 throw 안 함). 나머지(`*.ps1`, `install-*`, `prompt-gwl.py`)는 위 진입점이 위임하거나 수동/프로젝트별로 쓰는 보조 스크립트.
+settings.json 에 등록돼 후크가 호출하는 진입점은 notify(`notify-hook.js`), worktree 가드(`guard-worktree-edit.js`), dlc evidence 3종(`dlc-task-router.js` / `dlc-evidence-ledger.js` / `dlc-early-stop.js`). 모두 fail-open (실패해도 throw 안 함). 나머지(`bootstrap/`, `*.ps1`, `install-*`, `prompt-gwl.py`)는 위 진입점이 위임하거나 수동/프로젝트별로 쓰는 보조 스크립트.
+
+#### `bootstrap/` (setup.sh · setup.ps1 · README.md)
+새 머신에서 한 번 실행해 이 환경(도구 + 설정 + 선택적 memory)을 재현하는 **idempotent** 부트스트랩. macOS `setup.sh`(zsh/launchd, 비-conda), Windows `setup.ps1`(레지스트리/scheduled task — ⚠️ 실행 미검증). 도구(node/uv/headroom/codegraph/rtk)·MCP 등록·headroom proxy(`--mode token`)·codegraph init·셸 env 를 각 단계 guard 로 `[SKIP]`. rtk 는 headroom 번들 심링크+`rtk init` 서명(hook 직접편집 금지). `--dry-run`/`--memory-from` 지원. 상세·전제·한계는 `scripts/bootstrap/README.md`.
 
 #### `notify-hook.js`
 Cross-platform notify 진입점 (Node). stdin 의 Claude Code JSON 에서 `message` · `cwd` 추출 (title = cwd basename). **macOS**: `afplay` 시스템 사운드 + `osascript` 배너 (인라인). **Windows**: 원본 stdin 을 그대로 넘기며 `powershell.exe -File notify-hook.ps1` spawn. **Linux**: best-effort `notify-send`. 모든 동작 best-effort — 실패해도 throw 안 하고 stdin 1초 타임아웃으로 세션 안 멈춤. 사운드 기본값은 이벤트별 (Stop→Glass/Asterisk, Notification→Ping/Exclamation); command 3번째 인자로 override.
