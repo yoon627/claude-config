@@ -29,10 +29,13 @@ jobs:
           node --check scripts/dlc-early-stop.js
           node --check scripts/dlc-doc-drift.js
           node --check scripts/dlc-doc-drift.test.js
+          node --check scripts/guard-worktree-edit.js
+          node --check scripts/guard-worktree-edit.test.js
 
       - name: Unit tests
         run: |
           node scripts/dlc-doc-drift.test.js
+          node scripts/guard-worktree-edit.test.js
 
       - name: JSON validation
         run: |

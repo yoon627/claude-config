@@ -36,6 +36,7 @@ pwsh -File scripts\bootstrap\setup.ps1 -MemoryFrom 'D:\backup\.claude'
 | 항목 | 방법 |
 |---|---|
 | node | `brew install node` / `winget install OpenJS.NodeJS` |
+| jq | `brew install jq` / `winget install jqlang.jq` — rtk hook(`rtk-rewrite.sh`)이 stdin JSON 파싱에 의존 |
 | uv | astral 설치 스크립트 (비-conda) |
 | headroom | `uv tool install headroom-ai` |
 | codegraph | `npm install -g @colbymchenry/codegraph` |
