@@ -34,8 +34,8 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 cd $env:USERPROFILE\.claude
 .\scripts\install-hooks.ps1
 
-# 4. (선택) PowerShell `gwl` 명령 설치 — worktree list 단축키
-#    SessionStart hook 이 pwsh 있으면 매 세션 자동 등록하므로, 다음 세션을 안 기다리고 즉시 쓰려는 경우에만.
+# 4. (선택) PowerShell `gwl` 명령 설치 — worktree list 단축키 (수동 1회 실행)
+#    과거 SessionStart 자동등록은 무서명 원격 스크립트 자동 실행 위험으로 제거됨 (아래 install-gwl.ps1 절 참조).
 .\scripts\install-gwl.ps1
 
 # 5. Claude Code 재시작
@@ -381,8 +381,9 @@ staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json`
 - `theme`, `preferredNotifChannel` — Claude Code UI 설정
 - `permissions.deny` — `git push origin main/master` 직접 푸시 차단
 - `permissions.ask` — 일반 `git push` 는 확인 후 실행
+- `model` — 세션 기본 모델 (`opus[1m]` — Opus, 1M context)
 - `statusLine`, `subagentStatusLine` — statusline 스크립트 등록 (`node ~/.claude/statusline.js`)
-- `env.CLAUDE_CODE_EFFORT_LEVEL` — Opus effort level (`max`). docs 명시 값: `low|medium|high|xhigh|max`. `/effort` 나 `effortLevel` 키로는 세션 한정이지만 **env 변수로 설정할 때만 영구 적용**되므로 이 키로 둔다. env 가 `effortLevel` 키를 override.
+- `env.CLAUDE_CODE_EFFORT_LEVEL` — Opus effort level (`high`). docs 명시 값: `low|medium|high|xhigh|max`. `/effort` 나 `effortLevel` 키로는 세션 한정이지만 **env 변수로 설정할 때만 영구 적용**되므로 이 키로 둔다. env 가 `effortLevel` 키를 override.
 - `hooks.SessionStart` — `~/.claude` 가 `main` 브랜치 + 클린 트리이면 `git pull --ff-only origin main` 으로 origin/main 자동 동기화 (ff-only·가드 실패 무음; `~` 확장 위해 sh/Git Bash 필요). pull 로 HEAD 가 바뀌면 한 줄 알림(`~/.claude updated …`) 출력. pull 내용은 **다음 세션부터** 적용. dirty/분기/다른 브랜치면 가드에 걸려 skip. (과거엔 `install-gwl.ps1` 을 자동 실행하는 2번 command 가 있었으나 무서명 원격 스크립트 자동 실행 위험 때문에 제거 — gwl 등록은 위 `install-gwl.ps1` 수동 1회 실행으로.)
 - `hooks.PreToolUse` — `Edit|Write|NotebookEdit` 에 `guard-worktree-edit.js`(worktree 밖 main repo 편집 차단), `Bash` 에 macOS 한정 `rtk-rewrite.sh`(RTK 명령 재작성, darwin 아니면 no-op)
 - `hooks.UserPromptSubmit` — `dlc-task-router.js` (디버깅/render discipline 주입 + evidence 장부 리셋)

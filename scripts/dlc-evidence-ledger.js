@@ -59,7 +59,8 @@ process.stdin.on('end', () => {
   const data = ledger.read(input.session_id);
 
   if (tool === 'Edit' || tool === 'Write' || tool === 'NotebookEdit') {
-    const fp = (input.tool_input && input.tool_input.file_path) || '';
+    const ti = input.tool_input || {};
+    const fp = ti.file_path || ti.notebook_path || ''; // NotebookEdit 는 notebook_path
     if (fp && !isIgnored(fp, input.cwd)) {
       data.changed = true;
       data.verified = false; // 최종 변경 이후 재검증 강제

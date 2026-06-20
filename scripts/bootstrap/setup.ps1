@@ -76,6 +76,14 @@ else {
   Ok 'node 설치'
 }
 
+# --- 2b. jq (rtk hook rtk-rewrite.sh 가 stdin JSON 파싱에 의존) ---
+if (Have 'jq') { Skip 'jq 있음' }
+else {
+  if ($pkg -eq 'winget') { Run 'winget install jqlang.jq'; RunCmd 'winget install -e --id jqlang.jq' }
+  else { Run 'choco install -y jq'; RunCmd 'choco install -y jq' }
+  Ok 'jq 설치'
+}
+
 # --- 3. uv (astral) ---
 if ((Test-Path (Join-Path $LocalBin 'uv.exe')) -or (Have 'uv')) { Skip 'uv 있음' }
 else { Run 'uv 설치 (astral)'; RunCmd 'powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"'; Ok 'uv 설치' }

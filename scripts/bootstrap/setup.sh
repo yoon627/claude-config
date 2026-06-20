@@ -59,6 +59,10 @@ case ":$PATH:" in *":$LOCAL_BIN:"*) : ;; *) export PATH="$LOCAL_BIN:$PATH" ;; es
 if have node; then skip "node 있음 ($(node --version 2>/dev/null))"; else
   run "brew install node"; do_cmd brew install node && ok "node 설치"; fi
 
+# --- 2b. jq (rtk hook rtk-rewrite.sh 가 stdin JSON 파싱에 의존) ---
+if have jq; then skip "jq 있음"; else
+  run "brew install jq"; do_cmd brew install jq && ok "jq 설치"; fi
+
 # --- 3. uv (astral, 비-conda) ---
 if [ -x "$LOCAL_BIN/uv" ] || have uv; then skip "uv 있음"; else
   run "uv 설치 (astral)"; do_cmd sh -c 'curl -LsSf https://astral.sh/uv/install.sh | sh' && ok "uv 설치"; fi

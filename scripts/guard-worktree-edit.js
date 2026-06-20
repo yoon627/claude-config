@@ -4,10 +4,13 @@
 //
 // 판정 (cwd 가 .../.claude/worktrees/<name>/ 하위인 worktree 세션일 때만):
 //   file_path ∈ 현재 worktree            → allow
-//   file_path ∈ <repo>/.claude/...        → allow (plans/memory/settings 등 메타)
-//   file_path ∈ <repo>/...(worktree 밖)   → DENY  (main repo 소스 — 실수 케이스)
+//   file_path ∈ <repo>/.claude/...        → allow (메타 — 일반 프로젝트)
+//   repo-root==~/.claude: 직하 plans/·projects/·settings.local.json → allow (gitignored 글로벌 메타)
+//   file_path ∈ <repo>/...(worktree 밖)   → DENY  (main repo 소스/추적 자산 — 실수 케이스)
 //   그 외 (repo 밖: 홈/다른 경로)          → allow
 'use strict';
+
+const path = require('path');
 
 let raw = '';
 process.stdin.on('data', (c) => (raw += c));
@@ -19,7 +22,10 @@ process.stdin.on('end', () => {
     process.exit(0); // 파싱 실패 시 정상 흐름 방해하지 않음
   }
   const norm = (p) => (p || '').replace(/\\/g, '/');
-  const fp = norm(input.tool_input && input.tool_input.file_path);
+  const ti = input.tool_input || {};
+  const rawFp = norm(ti.file_path || ti.notebook_path); // NotebookEdit 는 notebook_path
+  // `..` 정규화 — `projects/../scripts/x` 처럼 메타 prefix 로 위장해 추적 자산 deny 를 우회하는 것 차단
+  const fp = rawFp ? path.posix.normalize(rawFp) : '';
   const cwd = norm(input.cwd);
   const MARK = '/.claude/worktrees/';
 
@@ -30,7 +36,16 @@ process.stdin.on('end', () => {
   const wtRoot = repoRoot + MARK + wtName;
 
   if (fp === wtRoot || fp.startsWith(wtRoot + '/')) process.exit(0); // worktree 안
-  if (fp.startsWith(repoRoot + '/.claude/')) process.exit(0); // repo .claude 메타
+  if (fp.startsWith(repoRoot + '/.claude/')) process.exit(0); // repo .claude 메타 (일반 프로젝트)
+  // repo-root 자체가 ~/.claude 인 레이아웃: 글로벌 메타가 repoRoot 직하에 있다.
+  // gitignored 글로벌 상태(plans·projects/memory·settings.local)는 worktree 에 복사본이
+  // 없어 main 경로 편집이 정상 → allow. 추적 자산(settings.json·CLAUDE.md·wiki·scripts 등)은
+  // worktree 복사본 편집이 정답이라 deny 유지.
+  if (repoRoot.endsWith('/.claude')) {
+    const rel = fp.slice(repoRoot.length + 1);
+    const seg = rel.split('/')[0];
+    if (seg === 'plans' || seg === 'projects' || rel === 'settings.local.json') process.exit(0);
+  }
   if (fp.startsWith(repoRoot + '/')) {
     process.stdout.write(
       JSON.stringify({
