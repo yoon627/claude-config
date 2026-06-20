@@ -517,7 +517,7 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   └── local-review.md             # /local-review (per-repo hook 필요)
 ├── docs/
 │   ├── codex-review.md             # codex 병행 검토 공유 규약
-│   └── headroom-proxy-session-lifecycle.md  # headroom proxy 세션 수명 메모
+│   └── headroom-proxy-session-lifecycle.md  # headroom proxy 세션 수명·셋업 메모 (macOS)
 ├── skills/
 │   ├── dlc/
 │   │   └── SKILL.md                # /dlc — 자동 개발 사이클
