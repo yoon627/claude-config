@@ -1,4 +1,4 @@
-# 동시 Claude 세션: headroom proxy · serena MCP 프로세스 수명주기
+# 동시 Claude 세션: headroom proxy 프로세스 수명주기
 
 여러 Claude Code 세션을 동시에 띄워 쓸 때, **어떤 보조 프로세스를 끄면 다른 세션까지 죽는가**를 정리한 운영 노트. 한 번 크게 당한 적이 있어 기록한다(headroom proxy 세션 동반 사망). headroom `0.25.0` 기준.
 
@@ -7,10 +7,8 @@
 | 대상 | 구조 | 잘못 끄면 | 다른 세션 |
 |---|---|---|---|
 | **headroom proxy** (8787) | 전역 공유 **단일** 인스턴스 | 모든 세션 `api_error` | **다 죽음** |
-| **serena MCP** | 세션별 **독립** 인스턴스 (stdio) | 그 세션의 코드분석 도구만 사라짐 | **영향 없음** |
 
 - proxy를 죽이는 건 **`headroom wrap claude` 세션을 닫는 것**이지, 그냥 `claude`를 켜는 것이 아니다.
-- serena는 끊어도 안전하다.
 
 ## 이 머신의 셋업
 
@@ -40,19 +38,7 @@ proxy 는 실제 active session 수를 알지만(`_proxy_active_session_count`, 
 
 "세션 닫고 `claude` 로 새로 켰더니 다른 세션이 죽었다"의 진짜 원인은 **닫기**다. `claude` 는 순수 exe(`~/.local/bin/claude.exe`, alias/function 아님 — `Get-Command claude` 가 Application 으로 resolve)라 headroom 코드를 전혀 실행하지 않고, proxy 를 띄우지도 죽이지도 못한다. 닫는 순간 proxy 가 이미 죽었고, 새로 켠 claude 는 죽은 proxy 에 붙어 "켤 때 다 죽은 것처럼" 보일 뿐이다.
 
-## 2. serena MCP — 끊어도 안전한 이유
-
-`~/.claude.json` 의 serena 등록은 `"type": "stdio"` (`uvx --from git+https://github.com/oraios/serena serena start-mcp-server --project-from-cwd --context claude-code`). headroom wrap 이 등록(`_setup_serena_mcp`).
-
-stdio MCP 는 **각 Claude 세션이 serena 를 자기 자식 프로세스로 직접 spawn** 한다 → 세션별 독립 인스턴스. 실측: 독립 serena 트리가 세션 수만큼(예: 4개), 각자 부모(PPID)가 다르고 각자 dashboard 포트(24284·24285·24286·24287…)를 따로 연다. 트리마다 language server 자식(PowerShellEditorServices 등)도 딸린다.
-
-따라서:
-- serena 인스턴스 하나를 끄면 → **그걸 띄운 그 세션의 serena 도구만** unavailable (`find_symbol`/`get_symbols_overview`/`find_referencing_symbols` 등). 그 세션의 `Read`/`Edit`/`Bash`/`Grep` 과 API 통신은 멀쩡(`api_error` 안 남 — serena 는 로컬 코드분석이라 API 경로와 무관).
-- **다른 세션은 각자 자기 serena 를 갖고 있어 전혀 영향 없음.** 전부 끄더라도 각 세션이 "자기 코드분석 도구만" 잃는 것이지 세션 동반 사망이 아니다.
-
-(Claude Code 가 죽은 stdio MCP 를 자동 재연결/재spawn 하는지는 버전별 동작 — 보통 `/mcp` reconnect 또는 세션 재시작 시 재기동. "다른 세션 무전파"는 stdio 구조상 확실.)
-
-## 3. 권장 운영
+## 2. 권장 운영
 
 **proxy 수명주기를 wrap 에 의존시키지 않는다:**
 
@@ -76,10 +62,6 @@ while ($pid0) {
   if ($p.ParentProcessId -in 0,$pid0) { break }
   $pid0 = $p.ParentProcessId
 }
-
-# serena 인스턴스들 (세션별 독립이라 여러 개가 정상)
-Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'serena' } |
-  Select-Object ProcessId,ParentProcessId,Name
 ```
 
 연관: token-mode 압축 timeout 으로 세션이 `api_error` 로 멈추는 별개 이슈는 proxy 를 `--mode cache` 로 교체해 해결한다(이 머신은 `HEADROOM_MODE=cache` 로 영구화됨).
