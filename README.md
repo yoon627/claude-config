@@ -213,7 +213,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 
 모든 프로젝트에 자동 로드되는 사용자 지시문. Claude Code 가 `~/.claude/CLAUDE.md` 를 모든 세션에서 읽음.
 
-13개 섹션 (0~12):
+14개 섹션 (0~13):
 0. 응답 언어 — 한국어, 의례적 preamble 금지
 1. 핵심 규칙 — 추측 금지, 코드 read 기반 답변, 근본 원인, 검증 후 "완료", 사용자 변경사항 보호, 운영 자산 자가 수정 금지
 2. 컨텍스트 관리 — `/clear`, `/rewind`, subagent 위임 기준
@@ -227,6 +227,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 10. `.claude/plans/` 핸드오프 규약 — slug, frontmatter, 필수 6개 + 선택 섹션(Acceptance·Review Disposition·Deferred·Workflow Findings)
 11. 영속 프로젝트 메모리 (LLM Wiki) — `wiki/` 누적 지식, `plans/` 와 경계 (일시적 vs 영속)
 12. 피드백 메모리 — 작업 방식 교정을 `memory/`(type: feedback) + `MEMORY.md` 인덱스로 영속화해 다음 작업에 반영. 보편·중대 규칙은 이 `CLAUDE.md` 로 승격.
+13. 실수·교훈 로그 — 반복 실수를 wiki `decision/lesson-*`(상세) + `MEMORY.md` 인덱스(자동 상기)로 적립해 다음 구현에서 회피. 인덱스 주입은 권고이지 강제 아님.
 
 세션 시작 시점 자동 적용. 프로젝트별 추가 규칙은 per-repo `CLAUDE.md` 에 둘 수 있고, 글로벌 + 프로젝트 둘 다 로드됨.
 
