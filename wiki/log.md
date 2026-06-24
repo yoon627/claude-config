@@ -34,6 +34,10 @@
 - early-stop false positive 수정: `dlc-evidence-ledger` 가 gitignored/임시 파일(`git check-ignore`)은 changed 로 안 침 — 마무리 단계(커밋 메시지 임시파일 Write) 오탐 해결. [[workflow-failures]] 에 fixed 기록(첫 실제 항목).
 - dlc Workflow Findings 트리거에 ③ "사용자가 명시 지적한 마찰·오탐" 추가 — 사용자 피드백 누적, 반복 시 wt 개선([[self-diagnosis-and-improvement-status]]·§12 feedback 과 역할 구분).
 
+## [2026-06-24] ingest | lesson-grep-absence-not-proof (§13 첫 lesson)
+- CLAUDE.md §13 실수·교훈 로그 규약 신설(PR #65) 후 첫 dogfooding. README 동기화 오판(grep 무매칭→부재 단정, doc-drift hook 이 포착)을 decision 으로 적립.
+- decision 신규: [[lesson-grep-absence-not-proof]]. 교훈: 부재 주장은 grep 무매칭이 아니라 직접 증거(Read·`git check-ignore`)로.
+
 ## [2026-06-26] ingest | effort-global-xhigh (effort 정책 전환)
 - effort 전역 정책 전환: model/effort 차등 폐기 → 메인·subagent 전부 opus + xhigh 단일(PR #66 model 통일·#67 settings effort xhigh·#68 agents frontmatter effort 제거).
 - decision 신규: [[effort-global-xhigh]]. 근거: 공식 docs Opus 4.8 코딩 권장=xhigh / effort=adaptive signal / max=frontier 전용.
