@@ -31,6 +31,7 @@
 - [[dlc-wt-autoflow]] — dlc 가 비trivial 이면 wt worktree 자동 경유(순환 방지·slug 확인 유지).
 - [[fablize-adopted-disciplines]] — fablize 검증 규율 차용(grounding·investigation·early-stop), 플러그인 없이 직접 구현.
 - [[workflow-failures]] — 반복 workflow 실패 누적 추적, 2회+ 반복 시 wt 해결 제안.
+- [[lesson-grep-absence-not-proof]] — grep 무매칭을 부재로 단정 금지, 동기화 판정은 대상 파일 직접 확인 (§13 첫 lesson).
 
 ## source
 _(없음)_
