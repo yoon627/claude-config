@@ -2,7 +2,7 @@
 title: subagent-model-effort-tiering
 category: decision
 created: 2026-06-19
-updated: 2026-06-19
+updated: 2026-06-26
 sources:
   - plans/2026-06-18-subagent-model-effort/subagent-model-effort-plan.md
   - PR #51
@@ -10,6 +10,9 @@ sources:
 ---
 
 # subagent-model-effort-tiering
+
+> [!conflict] Superseded by [[effort-global-xhigh]] (PR #66·#67·#68, 2026-06-26)
+> model/effort 차등을 폐기하고 메인·subagent 전부 `opus` + `xhigh` 단일 정책으로 전환했다. 아래 차등(simplifier sonnet·researcher haiku·reviewer effort max·메인 high)은 더 이상 유효하지 않다 — 역사적 근거로만 보존.
 
 subagent별 `model`/`effort`를 차등해 토큰을 최적화하되 리뷰 품질은 보존한 결정(PR #51, 2026-06-19 머지). [[hub-and-spoke-isolation]]의 spoke마다 작업 성격에 맞는 모델 티어를 둔다.
 

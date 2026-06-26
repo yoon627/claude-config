@@ -33,3 +33,8 @@
 ## [2026-06-19] ingest | dlc-evidence-falsepos (early-stop 오탐 수정 + 사용자 지적 트리거)
 - early-stop false positive 수정: `dlc-evidence-ledger` 가 gitignored/임시 파일(`git check-ignore`)은 changed 로 안 침 — 마무리 단계(커밋 메시지 임시파일 Write) 오탐 해결. [[workflow-failures]] 에 fixed 기록(첫 실제 항목).
 - dlc Workflow Findings 트리거에 ③ "사용자가 명시 지적한 마찰·오탐" 추가 — 사용자 피드백 누적, 반복 시 wt 개선([[self-diagnosis-and-improvement-status]]·§12 feedback 과 역할 구분).
+
+## [2026-06-26] ingest | effort-global-xhigh (effort 정책 전환)
+- effort 전역 정책 전환: model/effort 차등 폐기 → 메인·subagent 전부 opus + xhigh 단일(PR #66 model 통일·#67 settings effort xhigh·#68 agents frontmatter effort 제거).
+- decision 신규: [[effort-global-xhigh]]. 근거: 공식 docs Opus 4.8 코딩 권장=xhigh / effort=adaptive signal / max=frontier 전용.
+- [[subagent-model-effort-tiering]] 에 `[!conflict]` superseded 표시(역사 보존). [[effort-os-env-single-source]] 에 현재 상태 note(env=xhigh 단일소스·env 가 frontmatter override) 추가.
