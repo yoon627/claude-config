@@ -2,7 +2,7 @@
 title: claude-codex-collaboration
 category: concept
 created: 2026-06-19
-updated: 2026-06-19
+updated: 2026-07-04
 sources:
   - CLAUDE.md (§9 Claude ↔ Codex 협업)
   - docs/codex-review.md
@@ -14,7 +14,7 @@ sources:
 
 ## 리뷰 매트릭스
 - `plan-reviewer` / `code-reviewer` = **Claude subagent 필수 + Codex 가용 시 병행**. Codex 미가용이면 생략 사유를 Report/plan에 남긴다.
-- `researcher` / `code-simplifier` / 보조 구현 = 가용성·비용 대비 이득 있을 때 선택.
+- `researcher` / 보조 구현 = 가용성·비용 대비 이득 있을 때 선택. (simplify 체크는 2026-07-04 부로 메인 직접 — 매트릭스 대상 아님)
 - 한 phase에 reviewer가 여럿이면 codex owner 1개만 지정, 나머지는 `CLAUDE_REVIEW_CODEX_MODE=external`(중복 호출 방지).
 
 ## 왜 병행인가

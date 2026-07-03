@@ -81,12 +81,12 @@
 - **plan-reviewer** — Plan 직후. 누락 케이스·잘못된 가정·영향 범위·rollback.
 - **researcher** — §4 검색 신호 해당 시. 어느 단계에서든.
 - **code-reviewer** — 구현 후. 버그·보안·테스트 누락·예외 처리·성능·backward compatibility.
-- **code-simplifier** — code-reviewer 통과·**blocker 해소 후 실행** (미해결 blocker 있으면 미룸 — dlc 13단계와 동일). 중복·과한 추상화·불필요한 복잡도 제거. 코드 변경했으면 검증 재실행.
+- **simplify 체크 (subagent 아님 — 메인 직접)** — code-reviewer 통과·**blocker 해소 후 수행** (미해결 blocker 있으면 미룸 — dlc 13단계). 중복·과한 추상화·불필요한 복잡도·죽은 코드 제거. 동작 보존, 불확실하면 보류(제안만). 코드 변경했으면 검증 재실행.
 - **architecture-reviewer** — 트리거 기반(자동 호출 아님). public API/DB schema/auth 변경, 신규 service·repository·client, DI 변경, 2개 이상 레이어 변경, 또는 설계 의문 명시 시.
 
-표준 순서: `plan-reviewer → 구현 → code-reviewer → code-simplifier → 최종 검증`.
+표준 순서: `plan-reviewer → 구현 → code-reviewer → simplify 체크 → 최종 검증`.
 
-**code-simplifier 관점 점검은 모든 코드 변경에 필수**. 소규모 변경은 외부 subagent 호출 대신 메인 에이전트가 직접 점검할 수 있고, 생략 사유는 Report 에 적는다. 보안·데이터 모델·public API·migration·비즈니스 로직은 sub-agent 우선.
+**simplify 관점 점검은 모든 코드 변경에 필수** — 메인이 직접 수행(전용 subagent 없음), 생략 사유는 Report 에 적는다. 상세 체크 항목은 `skills/dlc/SKILL.md` 13단계.
 
 ---
 
@@ -141,7 +141,7 @@
 - **호출 조건**: 설치 확인은 `codex --version`. **`codex exec` 는 PROMPT 인자가 있어도 stdin 을 추가로 읽어서, PowerShell 도구로 호출하면 stdin 이 안 닫혀 `Reading additional input from stdin...` 에서 무한 hang 한다(재현). → codex 는 반드시 Bash 도구로 호출한다(검증됨): `codex exec --sandbox read-only "<프롬프트>"`. 무거운 작업 전 짧은 smoke test(≤60s)로 응답부터 확인하고, hang/사용량 초과 시 즉시 중단 후 Claude 단독 진행 + 사유 명시.** (외부 CLI 는 동작 검증 후 사용. 원인은 재현으로 확정한 뒤 단정한다 — 이번에 PowerShell hang 을 'codex 불가'로 과일반화한 전례 있음.)
 - **리뷰 매트릭스**:
   - `plan-reviewer` / `code-reviewer` = **Claude subagent 필수 + Codex 가용 시 병행**. Codex 미가용이면 생략 사유를 Report 또는 plan `# Progress` 에 남긴다.
-  - `researcher` / `code-simplifier` / 보조 구현 = 가용성·비용 대비 이득이 있을 때 선택.
+  - `researcher` / 보조 구현 = 가용성·비용 대비 이득이 있을 때 선택. (simplify 체크는 메인 직접 — 매트릭스 대상 아님)
 - **공유 채널**: `.claude/plans/<dir>/<slug>-plan.md` 가 세션·도구 간 컨텍스트 채널. 토큰 소진/세션 종료 시 다른 도구가 이어받기 위함.
 
 ---
@@ -186,7 +186,7 @@ updated: YYYY-MM-DD
 
 선택 섹션 (해당 작업에서 필요할 때만): `# Acceptance`(test 가능한 완료 기준 — 각 항목이 증거(실행·관찰·통과)로 충족될 때만 완료, dlc evidence gate), `# Review Disposition`(dlc fix loop 의 finding 처분 — `fix`/`defer`/`false-positive`/`wontfix`), `# Deferred`(범위 밖 발견 — §3-4), `# Workflow Findings`(확인된 workflow 실패 기록 — dlc 증거기반 자기개선, 최소형). `defer`(리뷰 finding 처분값) ≠ `# Deferred`(범위 밖 발견 보존 섹션).
 
-리뷰는 dlc 의 중간 단계(구현 직후 code-reviewer + codex 병행, §9)가 담당한다 — push 직전 별도 codex 리뷰는 두지 않는다. 로컬 다관점 점검이 따로 필요하면 `/local-review` 를 수동 사용.
+리뷰는 dlc 의 중간 단계(구현 직후 code-reviewer + codex 병행, §9)가 담당한다 — push 직전 별도 codex 리뷰는 두지 않는다. 로컬 다관점 점검이 따로 필요하면 빌트인 `/code-review` 를 수동 사용.
 
 ### 적용 범위
 티켓 또는 명확한 작업 컨텍스트만. 단순 질문/탐색/한 턴짜리 명령은 제외.

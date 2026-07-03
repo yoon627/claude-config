@@ -2,7 +2,7 @@
 
 Windows 에서 사용하는 `%USERPROFILE%\.claude\` 또는 macOS 에서 사용하는 `~/.claude/` 의 사용자 글로벌 설정·에이전트·명령·스킬·후크·스크립트·스테이터스라인을 한 레포에 모은 것. 다른 머신에서 동일한 작업 환경을 빠르게 재현하기 위함.
 
-대상: Claude Code 를 깊이 사용하는 본인. 일반 공개 가이드 아님. 본인 워크플로우와 기존 자동화에 종속된 컴포넌트가 일부 있음 (특히 per-repo hook 에 의존하는 `commands/local-review`).
+대상: Claude Code 를 깊이 사용하는 본인. 일반 공개 가이드 아님. 본인 워크플로우와 기존 자동화에 종속된 컴포넌트가 일부 있음.
 
 `settings.json` 은 **단일 cross-platform** — Windows·macOS 모두 clone 한 그대로 동작 (OS별 복사 단계 없음). statusline·notify 는 `node ~/.claude/...` 형태로 통일했고 (`~` 는 Git Bash·sh 양쪽에서 홈으로 확장), OS 분기는 호출되는 스크립트 내부에서 처리 (`scripts/notify-hook.js` 의 `process.platform`). Windows 의 toast·flash 만 `scripts/notify.ps1` / `notify-hook.ps1` 로 위임.
 
@@ -219,7 +219,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 2. 컨텍스트 관리 — `/clear`, `/rewind`, subagent 위임 기준
 3. 작업 흐름 — Setup → Explore → Plan → Implement → Verify → Report
 4. 웹 검색 능동 사용 — 지식 컷오프 이후 정보, 라이브러리 버전별 동작 등
-5. Sub-agent — 표준 순서 (plan-reviewer → 구현 → code-reviewer → code-simplifier)
+5. Sub-agent — 표준 순서 (plan-reviewer → 구현 → code-reviewer → simplify 체크(메인 직접))
 6. 코드 규칙 — 동일 디렉토리 스타일, 타입 힌트, 임시 코드 표기
 7. 테스트 (TDD) — 테스트 작성 순서, 예외 조건
 8. Git / 보안 — destructive 명령 금지, 시크릿 출력 금지, 비trivial 은 worktree(`/wt`)에서
@@ -256,37 +256,24 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - Codex CLI 미설치 / 인증 안 된 머신: spawn 실패 시 negative cache, statusline 의 codex 부분만 빠짐
 - Codex CLI 버전 변경으로 `account/rateLimits/read` 메소드가 사라지면 마찬가지로 빠짐 (확인된 동작 버전: codex-cli 0.128.x 시점)
 
-### agents/ — 5개 subagent
+### agents/ — 4개 subagent
 
-`Agent` 도구로 호출. CLAUDE.md §5 의 표준 순서 (plan-reviewer → 구현 → code-reviewer → code-simplifier) 가 기본.
+`Agent` 도구로 호출. CLAUDE.md §5 의 표준 순서 (plan-reviewer → 구현 → code-reviewer → simplify 체크(메인 직접, dlc 13단계)) 가 기본. frontmatter `model: inherit` — 세션 모델을 상속(모델 세대 교체 시 수정 지점 0).
 
 | 파일 | 호출 시점 | 핵심 책임 |
 |---|---|---|
 | `plan-reviewer.md` | Plan 단계 직후 (비사소한 모든 구현 계획) | 누락 케이스·잘못된 가정·영향 범위·rollback·근본 원인 비판적 발굴. public API / DB schema / migration / 보안 / 아키텍처 / 권한 변경 시 필수. |
 | `architecture-reviewer.md` | 트리거 기반 (자동 호출 대상 아님) | 설계 결정 — 의존 방향·레이어 경계·객체 생명주기·DI/IoC·인터페이스 위치·테스트 가능 구조. public API / proto / DB schema / auth 변경, 신규 service·repository·client, DI 변경, 2개 이상 레이어 변경, 150줄 이상 diff, 또는 설계 의문 명시 시. |
 | `code-reviewer.md` | 구현 직후 (코드 변경이 있었던 모든 흐름) | 버그·보안·테스트 누락·예외 처리·성능·backward compatibility·근본 원인. 통과 검토 금지, 비판적 발굴 목적. |
-| `code-simplifier.md` | code-reviewer 통과 후 항상 실행 | 중복·과한 추상화·불필요한 복잡도·죽은 코드·과한 옵션 제거. ROI 없으면 보고만. public API / 행동 변경 / 다중 파일 리팩토링은 제안만 (직접 수정 금지). |
 | `researcher.md` | 외부 사실 조사 필요 시 (어느 단계에서든) | 라이브러리 버전별 동작·마이그레이션·최신 API, 정확한 에러 메시지 매칭, 릴리스 노트·CVE·RFC, 지식 컷오프 이후 정보, 함수/플래그 실존 여부 불확실 시. |
 
 각 agent 의 frontmatter `tools` 필드가 권한 범위를 제한 (예: researcher 는 Edit 권한 없음, code-reviewer 는 Bash 가능). agent 별 출력 형식과 호출 조건은 각 파일 본문 참고.
-
-### commands/ — slash command
-
-사용자 `/<command>` 입력 시 실행.
-
-#### `local-review` (`/local-review [base-ref]`)
-
-`base-ref..HEAD` 범위 변경분을 **5개 관점** (security, correctness, tests, impact, maintainability) 으로 **병렬 subagent** 로 검토. 각 perspective subagent 가 결과를 파일로 저장 → 6번째 synthesis subagent 가 통합 → `local.md` 작성. 메인 컨텍스트는 요약만 받음 (raw 결과 끌어오기 금지).
-
-저장 위치: `<active plan dir>/reviews/<TS>-<sha7>/local.md`.
-
-**Per-repo hook 의존**: `local-review` 는 프로젝트 `.claude/hooks/active-plan.sh`, `resolve-range.sh` 가 있어야 동작. 글로벌 설정만으론 미작동 — 프로젝트 setup 시 hook 별도 설치 필요.
 
 ### skills/dlc/ — 자동 개발 사이클
 
 `/dlc` 명시 호출 또는 비자명한 코드 변경 시 적용하는 개발 사이클 오케스트레이션. 규모 (trivial / small / medium / structural) 를 판정해 단계를 gate — 오타 1줄은 즉시 통과, structural 변경은 explore → plan → 리뷰 → TDD → 구현 → 리뷰 → simplify → 검증 전체를 돈다.
 - 메인이 hub, 리뷰/검토(plan-reviewer, architecture-reviewer, code-reviewer)와 **최종 검증**(격리 runner·general-purpose, 실행만 — 메인이 명령·worktree cwd 지정)은 격리 subagent. 구현·통합·검증 판단·실패 fix·최종 판단은 메인.
-- code-simplifier 는 `Edit` 권한이 있어 격리 mutating 단계 — 메인이 diff 흡수 + targeted 재검증.
+- simplify 체크(13단계)는 메인이 직접 수행 — 모든 격리 spoke 는 read-only. substantive 수정 시 targeted 재검증.
 - `.claude/plans/<slug>-plan.md` 가 subagent 간 단일 공유 채널 (메인만 write).
 - codex 병행 검토 호출 규약은 `docs/codex-review.md` (phase 당 codex owner 1개 지정으로 중복 호출 방지, Windows/PowerShell fallback 포함).
 - **evidence·라우팅 hook** (`scripts/dlc-*.js`, `settings.json` 등록, fail-open): `dlc-task-router`(UserPromptSubmit — 디버깅/render 키워드에 discipline 주입), `dlc-evidence-ledger`(PostToolUse — 변경·검증 기록 + 문서 drift dirty flag), `dlc-early-stop`(Stop — 변경 후 검증 누락 **및 문서화 표면↔README/index drift** 시 capped 1회 경고; 판정은 `dlc-doc-drift.js` 모듈). plan `# Acceptance` evidence gate 의 보조 누락방지망 — 검증 *성공* 판정은 acceptance(메인)가 단일 소스. `CLAUDE_DLC_EARLYSTOP_OFF=1`(검증)·`CLAUDE_DLC_DOCDRIFT_OFF=1`(문서) 로 각각 비활성(holdout). syntax 검사 + 단위테스트는 CI `lint.yml`.
@@ -493,7 +480,7 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 ### OS 지원 현황 (Windows / macOS / Linux)
 `settings.json` 은 단일 cross-platform — 모든 command 가 `node ~/.claude/...` 이고 OS 분기는 `notify-hook.js` 의 `process.platform` 에서. 컴포넌트별:
 - `statusline.js`, `subagent-statusline.js`, `codex-quota-refresh.js`, `notify-hook.js`, `guard-worktree-edit.js`, `dlc-*.js` — node 기반(`os.homedir()` / `process.platform` / `os.tmpdir()`), **cross-platform**.
-- `CLAUDE.md`, `agents/*.md`, `commands/*.md`, `skills/*/SKILL.md` — 텍스트 가이드, **OS 무관**.
+- `CLAUDE.md`, `agents/*.md`, `skills/*/SKILL.md` — 텍스트 가이드, **OS 무관**.
 - `scripts/notify.ps1`, `notify-hook.ps1` — Windows 전용 (WinRT toast / flash). macOS·Linux 는 `notify-hook.js` 가 직접 처리하므로 미사용.
 - `scripts/pre-commit-check.{sh,ps1}`, `install-hooks.{sh,ps1}` — OS별 가드/설치 스크립트 (양쪽 제공).
 - **남은 검증**: Windows notify 분기와 statusLine `~` 확장은 Windows 실기 확인 필요. Linux notify 는 `notify-send` best-effort 만.
@@ -515,11 +502,8 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 ├── agents/
 │   ├── architecture-reviewer.md
 │   ├── code-reviewer.md
-│   ├── code-simplifier.md
 │   ├── plan-reviewer.md
 │   └── researcher.md
-├── commands/
-│   └── local-review.md             # /local-review (per-repo hook 필요)
 ├── docs/
 │   ├── codex-review.md             # codex 병행 검토 공유 규약
 │   └── headroom-proxy-session-lifecycle.md  # headroom proxy 세션 수명·셋업 메모 (macOS)

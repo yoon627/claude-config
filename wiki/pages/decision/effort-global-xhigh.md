@@ -2,7 +2,7 @@
 title: effort-global-xhigh
 category: decision
 created: 2026-06-26
-updated: 2026-06-26
+updated: 2026-07-04
 sources:
   - PR #66 (subagent model opus 통일)
   - PR #67 (settings effort xhigh + README)
@@ -18,6 +18,7 @@ sources:
 - **단일 레버**: `settings.json` `env.CLAUDE_CODE_EFFORT_LEVEL=xhigh` 하나로 메인·subagent effort 를 전역 고정. (`effortLevel` 키도 xhigh 로 일치시켜 두되 실효 레버는 env.)
 - **subagent frontmatter**: `agents/*.md` 는 `model: opus` 만 두고 `effort` 필드 제거 — env 가 frontmatter effort 를 override 하므로 어차피 죽은 설정이었다([[claude-code-subagent-config]]).
 - model 차등(simplifier sonnet / researcher haiku)도 폐기 → 전부 opus.
+- **`model: opus` → `model: inherit` 로 변경 (이유: Fable 가용성 변동 대비 — 모델 세대 교체 시 agents 수정 지점 0, 세션 모델 상속. 2026-07-04, asset-cleanup)**. effort=xhigh 전역 단일은 유지 — 이 결정의 "단일 레버" 원칙은 불변이고 model 명시만 상속으로 완화. 상속 동작 근거는 [[claude-code-subagent-config]](미지정=세션 상속·inherit 별칭).
 
 ## 근거 (공식 docs)
 - **Opus 4.8 코딩 권장 = xhigh**: "Start with `xhigh` for coding and agentic use cases." 기본값은 high 이므로 xhigh 는 명시 설정해야 적용.
