@@ -20,7 +20,7 @@
 - [[headroom]] — 컨텍스트 최적화 proxy(token mode·launchd)·MCP·rtk 번들.
 
 ## decision
-- [[effort-global-xhigh]] — 메인·subagent 전부 opus+xhigh 단일 통일, frontmatter effort 제거 (#66·#67·#68).
+- [[effort-global-xhigh]] — effort xhigh 전역 단일 유지, subagent model 은 opus 명시→`inherit`(세션 상속, 2026-07-04) (#66·#67·#68).
 - [[subagent-model-effort-tiering]] — (superseded by [[effort-global-xhigh]]) reviewer opus+max / simplifier sonnet / researcher haiku 차등 (#51).
 - [[effort-os-env-single-source]] — OS env > settings.json env, effort 단일소스화; env 가 frontmatter effort 도 override.
 - [[dual-review-plan-and-code]] — plan 리뷰(구현 전) + code 리뷰(구현 후) 관점 분리.

@@ -2,7 +2,7 @@
 title: dlc-development-cycle
 category: concept
 created: 2026-06-19
-updated: 2026-07-03
+updated: 2026-07-04
 sources:
   - skills/dlc/SKILL.md
   - CLAUDE.md (§3 작업 흐름, §5 Sub-agent)
@@ -16,12 +16,12 @@ sources:
 변경 규모를 판정해 도는 단계를 차등한다 — 작은 변경에 과한 절차를 피하기 위함.
 - **trivial**(오타·로그 1줄): 구현→검증→Report (리뷰/plan/TDD 생략).
 - **small**(<50줄, 단일 모듈): Explore→(버그면 TDD Red)→구현→code-reviewer→검증.
-- **medium**(50~150줄): small + draft plan→plan-reviewer→code-simplifier.
+- **medium**(50~150줄): small + draft plan→plan-reviewer→simplify 체크.
 - **structural**(다계층·public API·DB·신규 service·150줄+): 전체 16단계 파이프라인.
 - 규모는 **예비값** — Explore 후·구현 diff 후 재판정해 승급하면 skip한 단계를 되살린다.
 
 ## structural 파이프라인 (요지)
-Setup → Explore → draft plan → plan-reviewer → TDD Red → 구현 → Green → code-reviewer+architecture-reviewer(병렬) → fix loop(≤2) → code-simplifier → targeted 재리뷰 → 최종 검증 → Report. 최종 검증은 격리 runner가 실행하고 메인이 판단.
+Setup → Explore → draft plan → plan-reviewer → TDD Red → 구현 → Green → code-reviewer+architecture-reviewer(병렬) → fix loop(≤2) → simplify 체크(메인 직접) → targeted 재리뷰 → 최종 검증 → Report. 최종 검증은 격리 runner가 실행하고 메인이 판단.
 
 ## 요구사항 명확화 게이트
 규모 판정 직후, 요구의 공백(완료기준·범위·산출물·제외)이 acceptance를 바꾸면 `AskUserQuestion`. 공백 없으면 침묵 진행. "무엇이 빠지면 질문, 방법만 갈리면 분석 후 추천".
