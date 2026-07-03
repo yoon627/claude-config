@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
-# /audit 기계 점검 — 운영 자산 *간* 참조 정합만(read-only). repo root 에서 실행.
+# /improve 기계 점검 — ① 운영 자산 *간* 참조 정합(구 /audit 승계, read-only) ② dlc 신호 집계.
 # 심각도 prefix: [error]=실행경로 깨짐 / [warn]=미등록·한쪽누락 / [info]=인벤토리·약참조(단정 아님) / [ok].
 # 경계: README↔surface drift 는 dlc-doc-drift hook, wiki 내부 무결성은 /wiki lint 영역 — 여기서 안 본다(개수만).
+#   신호 집계는 hook 이 emit 한 판정의 *사후 집계*다(재판정 아님).
 # 수정·파괴 명령 없음(read-only). 부분 실패는 그 점검만 skip + 명시, 스크립트는 exit 0.
 set -u
 
 # repo root 로 self-cd — 어디서 호출해도 cwd 의존 거짓통과(점검 다수가 빈 결과로 error=0) 차단.
-# skills/audit/audit.sh 구조 가정 → ../.. = repo root. git 비의존(가드로 검증).
+# skills/improve/improve.sh 구조 가정 → ../.. = repo root. git 비의존(가드로 검증).
 SELF=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$SELF/../.." 2>/dev/null && pwd)  # cd 실패 시 빈값 → 아래 가드가 처리
 if [ -n "$ROOT" ] && [ -f "$ROOT/CLAUDE.md" ] && [ -d "$ROOT/skills" ]; then
   cd "$ROOT" || { echo "[error] repo root 진입 실패: $ROOT"; exit 2; }
 else
-  echo "[error] repo root(~/.claude 류) 를 찾지 못함 — skills/audit/ 구조 안에서 실행하세요"
+  echo "[error] repo root(~/.claude 류) 를 찾지 못함 — skills/improve/ 구조 안에서 실행하세요"
   exit 2
 fi
 
@@ -86,9 +87,17 @@ if [ -d wiki/pages ] && [ -f wiki/index.md ]; then
   ic=$(grep -cE '^- \[\[' wiki/index.md 2>/dev/null || true)
   ic=${ic:-0}
   if [ "$pc" = "$ic" ]; then OK "wiki pages=$pc = index 등재=$ic"; else W "wiki pages=$pc ≠ index 등재=$ic → /wiki lint 권장"; fi
-  I "wiki 내부 무결성(orphan·dead link·모순)은 /wiki lint 로 점검(audit 은 개수만)"
+  I "wiki 내부 무결성(orphan·dead link·모순)은 /wiki lint 로 점검(improve 는 개수만)"
 else
   I "wiki 없음 → skip"
+fi
+
+echo "== 7. dlc 신호 집계 (telemetry — hook 판정의 사후 집계, 재판정 아님) =="
+SIGDIR=${CLAUDE_DLC_SIGNAL_DIR:-$HOME/.claude/telemetry}
+if [ -f "$SIGDIR/dlc-signals.jsonl" ]; then
+  node scripts/dlc-signal.js summary || I "신호 집계 실행 실패(node) → skip"
+else
+  I "신호 파일 없음($SIGDIR/dlc-signals.jsonl) → 집계 skip — 신호는 hook 발동 시 자동 누적"
 fi
 
 echo "== 요약: error=$err warn=$warn (info 는 수동 확인 권고) =="

@@ -9,6 +9,12 @@ try {
 } catch {
   process.exit(0);
 }
+let sig = null;
+try {
+  sig = require('./dlc-signal.js');
+} catch {
+  /* 신호 기록만 skip — 라우팅 주입은 유지(fail-open) */
+}
 
 // 증상 표현 위주로 좁힘 — "error handling 추가" 같은 기능 요청 오탐 완화.
 const DBG = /(디버그|debugging|stack ?trace|스택\s?트레이스|재현|reproduce|회귀\s?버그|regression|crash|튕긴|튕겨|예외가\s?(발생|나)|exception\s?(발생|thrown)|안\s?돼|안\s?됨|동작\s?안|작동\s?안|버그가|에러가\s?(나|발생)|깨졌|깨진다|실패한다|failing)/;
@@ -28,13 +34,16 @@ process.stdin.on('end', () => {
   ledger.reset(input.session_id); // 새 턴 시작
 
   const prompt = String(input.prompt || '').toLowerCase();
+  const ctx = { session_id: input.session_id, cwd: input.cwd };
   const out = [];
   if (DBG.test(prompt)) {
+    if (sig) sig.emit('router-investigation', ctx);
     out.push(
       "[dlc:investigation] 디버깅/장애로 보입니다. 추측 수정 전: ① 실패 재현 ② 가설 3개+ 경쟁 ③ 증상→직접원인→근본원인 인과사슬을 증거로 확정. 재현 없이 '고쳤다' 금지. (skills/dlc/SKILL.md 조사 프로토콜)"
     );
   }
   if (RENDER.test(prompt)) {
+    if (sig) sig.emit('router-grounding', ctx);
     out.push(
       "[dlc:grounding] 실행되는 산출물(render/executable)로 보입니다. 정적 점검(파싱 OK)으로 끝내지 말고 실제 실행해 출력을 관찰한 증거를 acceptance 에 남기세요. 'well-formed ≠ correct'. (skills/dlc/SKILL.md verification grounding)"
     );

@@ -12,6 +12,13 @@
 
 const path = require('path');
 
+let sig = null;
+try {
+  sig = require('./dlc-signal.js');
+} catch {
+  /* 신호 기록만 skip — 차단 본연 동작은 유지(fail-open) */
+}
+
 let raw = '';
 process.stdin.on('data', (c) => (raw += c));
 process.stdin.on('end', () => {
@@ -47,6 +54,7 @@ process.stdin.on('end', () => {
     if (seg === 'plans' || seg === 'projects' || rel === 'settings.local.json') process.exit(0);
   }
   if (fp.startsWith(repoRoot + '/')) {
+    if (sig) sig.emit('guard-worktree-deny', { session_id: input.session_id, cwd: input.cwd, detail: fp });
     process.stdout.write(
       JSON.stringify({
         hookSpecificOutput: {

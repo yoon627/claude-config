@@ -29,12 +29,15 @@ jobs:
           node --check scripts/dlc-early-stop.js
           node --check scripts/dlc-doc-drift.js
           node --check scripts/dlc-doc-drift.test.js
+          node --check scripts/dlc-signal.js
+          node --check scripts/dlc-signal.test.js
           node --check scripts/guard-worktree-edit.js
           node --check scripts/guard-worktree-edit.test.js
 
       - name: Unit tests
         run: |
           node scripts/dlc-doc-drift.test.js
+          node scripts/dlc-signal.test.js
           node scripts/guard-worktree-edit.test.js
 
       - name: JSON validation
@@ -42,4 +45,4 @@ jobs:
           node -e "JSON.parse(require('fs').readFileSync('settings.json','utf8'))"
 
       - name: Shell script lint (shellcheck)
-        run: shellcheck scripts/*.sh skills/e/*.sh skills/audit/*.sh
+        run: shellcheck scripts/*.sh skills/e/*.sh skills/improve/*.sh
