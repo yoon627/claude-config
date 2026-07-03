@@ -25,13 +25,13 @@
 - [[effort-os-env-single-source]] — OS env > settings.json env, effort 단일소스화; env 가 frontmatter effort 도 override.
 - [[dual-review-plan-and-code]] — plan 리뷰(구현 전) + code 리뷰(구현 후) 관점 분리.
 - [[deferred-and-scope-boundary]] — 범위 밖 발견 보존(# Deferred)·운영자산 자가수정 금지 (#50).
-- [[self-diagnosis-and-improvement-status]] — 자기진단 채택(#49) / 자기개선 = 증거기반 finding 최소형 채택, 트리거·invariant 미채택.
+- [[self-diagnosis-and-improvement-status]] — 자기진단 채택(#49) / 자기개선 = 수집·분석 기계화 채택(2026-07-03, dlc-signal+/improve), 반영은 승인 게이트 유지.
 - [[comment-and-commit-policy]] — 주석 최소·변경 경위는 커밋/PR 에 (#26·#34·#25).
 - [[codex-bash-invocation]] — codex 는 Bash 도구로 호출(PowerShell stdin hang 회피, #23).
 - [[evidence-gate]] — 검증 항목화 + 증거 충족 시만 완료(plan # Acceptance + Stop hook 보조, capped·fail-open).
 - [[dlc-wt-autoflow]] — dlc 가 비trivial 이면 wt worktree 자동 경유(순환 방지·slug 확인 유지).
 - [[fablize-adopted-disciplines]] — fablize 검증 규율 차용(grounding·investigation·early-stop), 플러그인 없이 직접 구현.
-- [[workflow-failures]] — 반복 workflow 실패 누적 추적, 2회+ 반복 시 wt 해결 제안.
+- [[workflow-failures]] — 반복 workflow 실패 누적 추적(자동 신호는 telemetry, 표는 맥락), 2회+ 반복 시 wt 해결 제안.
 
 ## source
 _(없음)_

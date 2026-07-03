@@ -26,6 +26,12 @@ try {
 } catch {
   /* 문서 drift 판정만 skip — 검증 누락 경고는 유지 */
 }
+let sig = null;
+try {
+  sig = require('./dlc-signal.js');
+} catch {
+  /* 신호 기록만 skip — 경고 본연 동작은 유지(fail-open) */
+}
 const CAP = 1;
 
 const VERIFY_MISSING =
@@ -48,6 +54,7 @@ process.stdin.on('end', () => {
 
   const data = ledger.read(input.session_id);
   const reasons = [];
+  const sigCtx = { session_id: input.session_id, cwd: input.cwd };
 
   // (1) 검증 누락
   if (
@@ -58,6 +65,7 @@ process.stdin.on('end', () => {
   ) {
     data.blocks = (data.blocks || 0) + 1;
     reasons.push(VERIFY_MISSING);
+    if (sig) sig.emit('early-stop-verify', sigCtx); // 실제 block 출력과 동일 조건에서만
   }
 
   // (2) 문서 drift
@@ -66,6 +74,8 @@ process.stdin.on('end', () => {
     if (docMsgs.length) {
       data.docBlocks = (data.docBlocks || 0) + 1;
       reasons.push(...docMsgs);
+      if (sig && data.readmeDirty) sig.emit('doc-drift-readme', sigCtx);
+      if (sig && data.indexDirty) sig.emit('doc-drift-index', sigCtx);
     }
   }
 

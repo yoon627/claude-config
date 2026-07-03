@@ -12,7 +12,10 @@ const WT = REPO + '/.claude/worktrees/wt1';
 function decide(toolInput, tool = 'Edit') {
   const inp = JSON.stringify({ cwd: WT, tool_name: tool, tool_input: toolInput });
   let out = '';
-  try { out = execFileSync('node', [GUARD], { input: inp }).toString(); }
+  // SIGNAL_OFF 자기격리: deny 케이스의 신호 emit 이 실제 ~/.claude/telemetry 를 오염하지 않게
+  // 테스트 파일 자신이 env 를 명시한다(호출 방식·CI env 에 의존 금지).
+  const env = { ...process.env, CLAUDE_DLC_SIGNAL_OFF: '1' };
+  try { out = execFileSync('node', [GUARD], { input: inp, env }).toString(); }
   catch (e) { out = e.stdout ? e.stdout.toString() : ''; }
   return out.includes('"permissionDecision":"deny"') ? 'deny' : 'allow';
 }

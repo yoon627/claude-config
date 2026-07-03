@@ -320,12 +320,12 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 `/wiki <ingest|query|lint>` 로 `wiki/`(영속 프로젝트 메모리)를 운영. ingest(raw·작업지식 → 상호링크 페이지 + index/log) · query(누적 페이지로 답 → 가치 있으면 filed) · lint(orphan·dead link·모순 점검·보고). 운영 규약 단일 소스는 `wiki/WIKI.md`. `plans/`(일시적 작업 핸드오프)와 달리 작업을 **가로질러 누적**. raw 원문은 gitignored·읽기 전용, 페이지만 tracked. dlc 연계는 CLAUDE.md §11.
 
-### skills/audit/ — 운영 자산 정합성 점검
+### skills/improve/ — 자기개선 loop 분석 축 (구 /audit 흡수)
 
-`/audit` 으로 운영 자산(skills·agents·CLAUDE.md·settings.json·MEMORY.md·wiki)의 **자산 간 참조 정합**을 읽기전용으로 점검해 심각도(error/warn/info)와 함께 보고. **수정은 제안만**(§1 자가수정 금지 — 자동 수정 안 함).
-- 기계 점검 `skills/audit/audit.sh`(read-only): settings hooks↔scripts 실존 · MEMORY 인덱스↔파일 양방향 · CLAUDE.md 가 참조한 agent 실존 · SKILL frontmatter name · 죽은 스크립트 후보(require 그래프·수동유틸 화이트리스트로 오탐 차단, info 만) · wiki index↔pages 개수.
-- 의미 점검(LLM): 문서 간 모순 · 중복 trigger · 개선점.
-- **역할 경계**: README↔surface drift 는 `dlc-doc-drift` hook, wiki 내부 무결성은 `/wiki lint` 영역 — audit 은 안 보고 위임/보완만(중복 회피).
+`/improve` 로 ① 운영 자산(skills·agents·CLAUDE.md·settings.json·MEMORY.md·wiki)의 **자산 간 참조 정합**(구 `/audit` 승계)과 ② hook 이 자동 누적한 **dlc 신호(telemetry)** 를 함께 분석해 **개선 후보를 랭킹**으로 제시. **수정은 제안만**(§1 자가수정 금지) — 승인 시 wt→dlc 별도 작업. loop 구조: 수집(hook 자동, `dlc-signal.js`) → 분석·제안(`/improve`) → 반영(승인 후 wt→dlc) → 효과 확인(다음 `/improve` 의 신호 추이).
+- 기계 점검+집계 `skills/improve/improve.sh`(read-only): settings hooks↔scripts 실존 · MEMORY 인덱스↔파일 양방향 · CLAUDE.md 가 참조한 agent 실존 · SKILL frontmatter name · 죽은 스크립트 후보(require 그래프·수동유틸 화이트리스트로 오탐 차단, info 만) · wiki index↔pages 개수 · **신호 집계**(`node scripts/dlc-signal.js summary` — failure/activity 축, session-unique 우선).
+- 의미 점검(LLM): 문서 간 모순 · 중복 trigger · 죽은 규칙 + wiki `workflow-failures` 표·MEMORY 인덱스·plan `# Workflow Findings` 대조.
+- **역할 경계**: README↔surface drift 는 `dlc-doc-drift` hook, wiki 내부 무결성은 `/wiki lint` 영역 — improve 는 재판정하지 않고 신호의 **사후 집계**만(중복 회피).
 
 ### scripts/
 
@@ -348,15 +348,16 @@ debug log: `$env:CLAUDE_NOTIFY_DEBUG = '1'` 설정 시에만 `%TEMP%\claude-noti
 #### `guard-worktree-edit.js`
 PreToolUse(`Edit|Write|NotebookEdit`) 가드. worktree 세션(cwd 가 `.../.claude/worktrees/<name>/` 하위)에서 **그 worktree 밖 main repo 소스**를 편집하려는 호출을 `deny` 로 차단 — 작업 격리가 새는 실수 케이스 방지. 현재 worktree 안, repo 의 `.claude/` 메타(plans·memory·settings 등), repo 밖(홈 등) 경로는 allow. jq 미설치 환경이라 node 로 stdin JSON 파싱. 파싱 실패 시 exit 0 (fail-open).
 
-#### `dlc-task-router.js` · `dlc-evidence-ledger.js` · `dlc-early-stop.js` (+ `dlc-ledger.js` · `dlc-doc-drift.js`)
+#### `dlc-task-router.js` · `dlc-evidence-ledger.js` · `dlc-early-stop.js` (+ `dlc-ledger.js` · `dlc-doc-drift.js` · `dlc-signal.js`)
 dlc(`skills/dlc/`)의 evidence gate 를 보조하는 누락방지망. 모두 fail-open — plan `# Acceptance` evidence gate(메인 판정)가 단일 소스고, 이 hook 들은 capped 보조일 뿐.
 - **`dlc-task-router.js`** (UserPromptSubmit) — 디버깅/render 키워드 감지 시 조사·검증 discipline 을 주입하고 세션 evidence 장부를 리셋.
 - **`dlc-evidence-ledger.js`** (PostToolUse `Edit|Write|NotebookEdit|Bash`) — 코드 변경·검증 명령 실행을 세션 장부에 기록 + 문서화 표면↔README/index dirty flag 갱신(`dlc-doc-drift` 판정).
 - **`dlc-early-stop.js`** (Stop) — 종료 시 두 누락을 capped 1회 경고로 합쳐 출력: ① 변경했는데 검증 기록 없음(`CLAUDE_DLC_EARLYSTOP_OFF=1`), ② 문서화 표면(`scripts/`·`agents/`·`skills/**/SKILL.md`·`settings.json`·`CLAUDE.md`, `wiki/pages/`)을 바꿨는데 `README.md`/`wiki/index.md` 동기화 없음(`CLAUDE_DLC_DOCDRIFT_OFF=1`). 한 hook 에서 합산 출력 — 별도 hook 이면 동시 block 시 한쪽 카운터가 미노출 소모돼 다시 안 잡히는 false negative.
 - **`dlc-doc-drift.js`** — 문서 drift 판정 **순수 모듈**(hook 아님). `resolveRoot`(`.claude`/worktree 한정, 타 repo no-op)·`classify`(root 기준 정확 경로)·`applyChange`(dirty 전이)·`evaluate`. early-stop·evidence-ledger 가 require. 단위테스트 `dlc-doc-drift.test.js`.
 - **`dlc-ledger.js`** — 위 hook 들이 공유하는 per-session 임시 장부(`%TEMP%/dlc-evidence-<sid>.json`) read/write/reset 모듈. `DEFAULT` 스키마 단일 소스(`changed/verified/blocks` + `readmeDirty/indexDirty/docBlocks`). hook 으로 직접 등록되진 않음.
+- **`dlc-signal.js`** — 자기개선 loop 의 **신호 수집 모듈**(hook 아님, 위 dlc hook 3종 + `guard-worktree-edit.js` 가 require). hook 판정 발동(early-stop 경고·doc-drift·guard deny·router 주입·plan `status: blocked` 전이·disposition 기록)을 `~/.claude/telemetry/dlc-signals.jsonl` 에 append-only 누적 — `/improve` 가 집계 소비. kind→axis(failure/activity) 단일 소스 `KINDS`, plan 신호는 substring 이 아니라 **상태 전이**로 판정(`detectPlanSignal` 순수 함수 — disposition 은 Review Disposition 섹션/placeholder 컨텍스트에서만). payload 는 kind·ts·session_id·cwd·경로만(`~` 축약, 프롬프트 원문·시크릿 없음 — 단 경로 메타데이터는 로컬 gitignored 파일에 남음, 전송·커밋 안 됨). fail-open + env 채널: `CLAUDE_DLC_SIGNAL_DIR`(redirect — 테스트 격리), `CLAUDE_DLC_SIGNAL_OFF=1`(무력화), `CLAUDE_DLC_SIGNAL_MAX_BYTES`(회전 임계, 기본 5MB `.1` 단일 회전 best-effort; summary 는 `.1` 도 함께 읽음). CLI `node scripts/dlc-signal.js summary`. 단위+통합테스트 `dlc-signal.test.js`.
 
-syntax 검사 + `dlc-doc-drift.test.js` 단위테스트는 CI `lint.yml`.
+syntax 검사 + `dlc-doc-drift.test.js`·`dlc-signal.test.js` 단위테스트는 CI `lint.yml`.
 
 #### `pre-commit-check.ps1`
 staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json` 을 검사. 금지 키 (`mcpServers`, `apiKeyHelper`, `awsCredentialExport`, `awsAuthRefresh`) 또는 토큰 패턴 (Anthropic/OpenAI/GitHub/GitLab/AWS/GCP/Slack/JWT/PEM) 검출 시 exit 1.
@@ -534,9 +535,9 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   │   └── SKILL.md                # /wt — git worktree 관리
 │   ├── wiki/
 │   │   └── SKILL.md                # /wiki — LLM Wiki 운영 (ingest/query/lint)
-│   └── audit/
-│       ├── SKILL.md                # /audit — 운영 자산 정합성 점검 (read-only·보고·제안)
-│       └── audit.sh                # 자산 간 참조 정합 기계 점검 (read-only)
+│   └── improve/
+│       ├── SKILL.md                # /improve — 자기개선 loop 분석 축 (구 /audit 흡수; read-only·랭킹·제안)
+│       └── improve.sh              # 자산 간 참조 정합 기계 점검 + dlc 신호 집계 (read-only)
 ├── scripts/
 │   ├── notify-hook.js              # notify 진입점 (cross-platform; mac 인라인, win→.ps1 위임)
 │   ├── notify.ps1                  # (Windows) Toast + 사운드 + flash
@@ -547,6 +548,7 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   ├── dlc-early-stop.js           # Stop — 검증 누락 + 문서 drift capped 경고
 │   ├── dlc-doc-drift.js            # 문서 drift 판정 순수 모듈 (+ .test.js)
 │   ├── dlc-ledger.js               # 위 dlc hook 공유 장부 모듈 (hook 미등록)
+│   ├── dlc-signal.js               # 자기개선 loop 신호 수집 모듈 — telemetry append (+ .test.js)
 │   ├── pre-commit-check.sh / .ps1  # settings.json secret guard (pre-commit + pre-push)
 │   ├── install-hooks.sh / .ps1     # .git/hooks/{pre-commit,pre-push} wrapper 생성
 │   ├── prompt-gwl.py               # UserPromptSubmit 훅 (프로젝트별 사용)

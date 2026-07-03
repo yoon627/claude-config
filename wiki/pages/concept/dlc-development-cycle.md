@@ -2,7 +2,7 @@
 title: dlc-development-cycle
 category: concept
 created: 2026-06-19
-updated: 2026-06-19
+updated: 2026-07-03
 sources:
   - skills/dlc/SKILL.md
   - CLAUDE.md (§3 작업 흐름, §5 Sub-agent)
@@ -27,7 +27,7 @@ Setup → Explore → draft plan → plan-reviewer → TDD Red → 구현 → Gr
 규모 판정 직후, 요구의 공백(완료기준·범위·산출물·제외)이 acceptance를 바꾸면 `AskUserQuestion`. 공백 없으면 침묵 진행. "무엇이 빠지면 질문, 방법만 갈리면 분석 후 추천".
 
 ## 자기 진단 vs 자기 개선
-dlc에는 작업 단위 가드인 **자기 진단(self-diagnosis)**이 있다(이번 작업이 `# Next`·규모표를 이탈하나). 규약 자체를 학습으로 고치는 **자기 개선**은 아직 없다 — [[self-diagnosis-and-improvement-status]].
+dlc에는 작업 단위 가드인 **자기 진단(self-diagnosis)**이 있다(이번 작업이 `# Next`·규모표를 이탈하나). 규약 자체를 고치는 **자기 개선**은 수집(hook 신호 자동 누적)·분석(`/improve` 랭킹 제안)까지 기계화됐고, 반영은 사용자 승인 게이트다(2026-07-03) — [[self-diagnosis-and-improvement-status]].
 
 ## 연계
 plan은 [[plan-handoff]]이 단일 채널. Explore 시 [[ingest-operation]]으로 wiki 조회, Report 시 ingest 제안. 이중 리뷰는 [[dual-review-plan-and-code]]. Verify 단계의 주석·커밋 현행성 점검은 [[comment-and-commit-policy]].

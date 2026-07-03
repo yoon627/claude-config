@@ -20,6 +20,12 @@ try {
 } catch {
   /* 문서 drift 추적만 skip — 검증 ledger 기록은 유지(fail-open 비대칭 방지) */
 }
+let sig = null;
+try {
+  sig = require('./dlc-signal.js');
+} catch {
+  /* 신호 기록만 skip — ledger 기록은 유지(fail-open) */
+}
 
 // gitignored/임시 파일(plans/·.commit-msg 등)은 검증 대상이 아니므로 changed 로 치지 않는다.
 // (마무리 단계의 커밋 메시지 임시파일 Write 가 false positive block 을 유발한 사례 — wiki workflow-failures.)
@@ -61,6 +67,11 @@ process.stdin.on('end', () => {
   if (tool === 'Edit' || tool === 'Write' || tool === 'NotebookEdit') {
     const ti = input.tool_input || {};
     const fp = ti.file_path || ti.notebook_path || ''; // NotebookEdit 는 notebook_path
+    // plan 신호는 isIgnored 게이트 *밖* — plans/ 는 gitignored 라 아래 블록이 항상 skip 한다.
+    if (sig) {
+      const kind = sig.detectPlanSignal(tool, ti);
+      if (kind) sig.emit(kind, { session_id: input.session_id, cwd: input.cwd, detail: fp });
+    }
     if (fp && !isIgnored(fp, input.cwd)) {
       data.changed = true;
       data.verified = false; // 최종 변경 이후 재검증 강제
