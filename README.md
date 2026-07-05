@@ -134,7 +134,10 @@ git clone <this-repo-url> .claude
 cd ~/.claude
 ./scripts/install-hooks.sh
 
-# 3. Claude Code 재시작
+# 3. (optional) `gwl` 셸 단축키 설치 — worktree list (수동 1회). 상세: 아래 gwl.zsh 절.
+./scripts/install-gwl.zsh
+
+# 4. Claude Code 재시작
 ```
 
 ### B. 이미 `~/.claude/` 가 있는 macOS 머신 — 기존 데이터 보존
@@ -363,6 +366,12 @@ staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json`
 #### `install-gwl.ps1` (Windows / PowerShell)
 `$PROFILE` (CurrentUserCurrentHost) 에 `. "$HOME/.claude/scripts/gwl.ps1"` 한 줄을 marker 블록(begin/end)으로 멱등 추가 — 두 marker 다 있으면 skip, 한쪽만 있으면(손상) 에러, 없으면 추가. 기존 inline `function gwl` 발견 시 경고. dot-source 대상은 항상 `~/.claude/scripts/gwl.ps1`(문서상 clone 위치)이라 레포가 다른 곳이면 경고만 하고 그대로 진행. 이후 `git pull` 로 `gwl.ps1` 갱신 시 profile 수정 없이 반영. **수동 1회 실행** 필요 — `~/.claude` 에서 `& ./scripts/install-gwl.ps1` (또는 `pwsh -File scripts/install-gwl.ps1`). 과거 `hooks.SessionStart` 가 자동 실행했으나, 무서명 원격 스크립트를 매 세션 자동 실행하는 위험 때문에 제거했다.
 
+#### `gwl.zsh` (macOS / zsh)
+`gwl.ps1` 의 zsh 대응물 — `git worktree list` 를 출력하되 현재 디렉토리를 포함하는 worktree 앞에 `→` 마커. `~/.zshrc` 에서 source 해 명령처럼 쓴다 (모델 왕복 없음). 개인 worktree(`.claude/worktrees/<name>`, 경로 무공백) 전용이라 단순 split. 현재 worktree 판정은 `git rev-parse --show-toplevel` **정확일치** — 이 레포는 worktree 가 main 하위에 nest 되어(main path 가 worktree path 의 prefix) prefix 방식이면 main 행에도 `→` 가 붙기 때문(`gwl.ps1`·`prompt-gwl.py` 의 잠재 이슈를 zsh 판에서 정본화). macOS/zsh 는 UTF-8 기본이라 BOM 불필요. 인자는 받지 않는다 (`--porcelain` 등으로 split 이 깨지는 것 방지).
+
+#### `install-gwl.zsh` (macOS / zsh)
+`~/.zshrc` 에 `source "$HOME/.claude/scripts/gwl.zsh"` 한 줄을 marker 블록으로 멱등 추가 — `install-gwl.ps1` 과 같은 규약(두 marker 다 있으면 skip, 한쪽만이면 에러, 없으면 추가; 기존 inline `gwl` 발견 시 경고; 파일 끝 개행 보장; `~/.zshrc` 없으면 생성). source 대상은 항상 `~/.claude/scripts/gwl.zsh`(문서상 clone 위치)라 `git pull` 갱신이 profile 수정 없이 반영된다. **수동 1회** 실행: `~/.claude` 에서 `./scripts/install-gwl.zsh`. `~/.zshrc` 는 인터랙티브 셸이 source 하므로 Claude Code `!`/Bash 스냅샷에도 흘러가나 **다음 세션/새 터미널부터** 유효.
+
 ### settings.json — 살아있는 설정 (tracked)
 
 머신 간 sync 의 source of truth. 핵심 키:
@@ -536,8 +545,8 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   ├── pre-commit-check.sh / .ps1  # settings.json secret guard (pre-commit + pre-push)
 │   ├── install-hooks.sh / .ps1     # .git/hooks/{pre-commit,pre-push} wrapper 생성
 │   ├── prompt-gwl.py               # UserPromptSubmit 훅 (프로젝트별 사용)
-│   ├── gwl.ps1                     # (Windows) PowerShell `gwl` — worktree list + 현재 위치 →
-│   └── install-gwl.ps1             # gwl.ps1 을 $PROFILE 에 dot-source 등록 (멱등)
+│   ├── gwl.ps1 / gwl.zsh           # `gwl` — worktree list + 현재 위치 → (Windows / macOS·zsh)
+│   └── install-gwl.ps1 / .zsh      # gwl 을 profile($PROFILE·~/.zshrc)에 등록 (멱등)
 ├── wiki/                           # LLM Wiki — 영속 프로젝트 메모리
 │   ├── WIKI.md                     # 운영 규약 (schema)
 │   ├── index.md                    # 페이지 카탈로그

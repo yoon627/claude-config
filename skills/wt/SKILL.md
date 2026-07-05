@@ -22,7 +22,7 @@ description: Git worktree 빠른 관리 — 목록/이동/생성+dlc/제거. `/w
 - `rm` 뒤 인자 누락 등 형식 이상 → 위 표 출력 후 종료.
 - **dlc 없는 단순 생성(빈 worktree 만 만들기)은 없다** — 정확일치하지 않는 텍스트는 항상 요청사항으로 처리된다.
 
-> **참고**: 단순 list 만 보고 싶을 때는 사용자가 PowerShell `gwl` 함수를 쓰는 것이 훨씬 빠름 (모델 왕복 없음). `/wt` 는 가공된 출력이나 후속 동작이 필요할 때만.
+> **참고**: 단순 list 만 보고 싶을 때는 사용자가 셸 `gwl` 함수(PowerShell 은 `scripts/gwl.ps1`, zsh 는 `scripts/gwl.zsh`)를 쓰는 것이 훨씬 빠름 (모델 왕복 없음). `/wt` 는 가공된 출력이나 후속 동작이 필요할 때만.
 
 ## 공통 규칙
 
@@ -38,11 +38,20 @@ description: Git worktree 빠른 관리 — 목록/이동/생성+dlc/제거. `/w
 
 ## switch
 
-호출 경로 2가지:
-1. `/wt <N>` (정수) — list N번째 worktree path 로 `EnterWorktree(path: <abs>)`. 범위 밖이면 안내 + list.
-2. `/wt <기존이름>` — `git worktree list` 의 branch 이름과 **정확일치**하는 worktree 1개 → `EnterWorktree(path: <abs>)`. 정확일치 0개면 **request** (요청사항 → 생성 + dlc) 로 폴백.
+먼저 **대상 worktree 를 해석**한다 (경로 2가지):
+1. `/wt <N>` (정수) — list N번째 worktree. 범위 밖이면 안내 + list.
+2. `/wt <기존이름>` — `git worktree list` 의 branch 이름과 **정확일치**하는 worktree 1개. 정확일치 0개면 **request** (요청사항 → 생성 + dlc) 로 폴백.
 
 부분일치/모호 매칭 없음. 정확일치만.
+
+### 이동 방식 — 대상이 main 인지로 분기
+worktree 세션 안에서 `EnterWorktree` 는 `.claude/worktrees/` 하위 대상만 받는다 (main = repo 루트는 못 들어간다). 그래서 대상이 어디냐로 도구를 가른다:
+
+- **main 판정 = path 기준** (브랜치명 아님 — main/master 무관): 대상 path == `git worktree list --porcelain` 첫 `worktree <path>`(= main checkout). `/wt 1`(정수 1) 과 `/wt <main브랜치명>`(정확일치) 양 경로 모두 이 판정을 탄다.
+- **대상이 main 이면**:
+  - 이미 cwd 가 main (= `git rev-parse --show-toplevel` 가 위 첫 porcelain worktree path 와 일치) → `ExitWorktree` 호출 없이 "이미 main" 보고.
+  - 아니면 → **`ExitWorktree(action: keep)`** 로 세션을 원래(main) 위치로 복귀. 반환이 복귀 성공이면 완료. 반환이 "활성 worktree 세션 없음" no-op 이고 cwd 가 여전히 worktree 면(세션이 `/wt`/EnterWorktree 경유가 아니라 worktree 안에서 시작된 경우) → 자동 복귀 불가를 사용자에게 안내(새 세션에서 열거나 수동 이동). 세션 이력을 추측하지 말고 **툴 반환으로 판정**한다.
+- **대상이 그 외(하위 worktree)면** → `EnterWorktree(path: <abs>)`.
 
 ## request (요청사항 → 생성 + dlc)
 
