@@ -6,7 +6,7 @@ reviewer subagent(plan-reviewer / code-reviewer / architecture-reviewer)와 dlc 
 
 ## 1. preflight
 
-- `codex --version` 성공 시에만 호출. 실패(미설치 / PATH 없음 / 사용량 한도)면 codex 병행을 **생략**하고 출력에 `Codex 미가용: <사유>` 1줄. **agent 자체 검토는 계속**(non-blocking — codex 실패가 리뷰를 막지 않는다).
+- `codex --version` 성공 시에만 호출. 실패·실행 오류(미설치 / PATH 없음 / 사용량 한도 / 환경 이슈: stdin·git-repo·sandbox)면 codex 병행을 **생략**하고 단독 진행, 출력에 `Codex 미가용: <사유>` 1줄. **agent 자체 검토는 계속**(non-blocking — codex 실패가 리뷰를 막지 않는다).
 
 ## 2. phase owner (중복 호출 방지)
 
@@ -15,6 +15,8 @@ reviewer subagent(plan-reviewer / code-reviewer / architecture-reviewer)와 dlc 
 - owner 기본 선택: 변경이 버그/보안 위주면 `code-reviewer`, 구조 위주면 `architecture-reviewer`, 계획 단계는 `plan-reviewer`. **arch 의 planning 모드는 항상 codex off.**
 
 ## 3. 호출 명령 (Bash 도구 — 1차 경로)
+
+**MUST — codex 는 Bash 도구로 호출한다.** `codex exec` 는 PROMPT 인자가 있어도 stdin 을 추가로 읽어, PowerShell 도구로 호출하면 stdin 이 안 닫혀 `Reading additional input from stdin...` 에서 무한 hang 한다(재현). 무거운 작업 전 짧은 smoke test(≤60s)로 응답부터 확인하고, hang/사용량 초과 시 즉시 중단하고 단독 진행 + 사유 명시. (PowerShell 만 가용한 환경의 폴백은 §4.)
 
 read-only sandbox, ephemeral, git repo 체크 skip. **effort 는 작업 난이도별 차등**(아래 표). reasoning 로그 노이즈는 `-c hide_agent_reasoning=true` 로 억제(출력에서 결론 추출이 쉬워진다).
 
@@ -47,7 +49,7 @@ CDXPROMPT
 
 ## 4. Windows / PowerShell fallback
 
-Bash 도구가 없고 PowerShell 만 가용한 환경:
+§3 의 Bash MUST 는 **Bash 도구가 있을 때** 전제 — 아래는 Bash 도구 자체가 없고 PowerShell 만 가용한 환경 한정 폴백이다(§3 강제와 모순 아니라 양립):
 
 - heredoc `<<'CDXPROMPT'` → 단일 인용 here-string `@'` … `'@` (closing `'@` 는 반드시 column 0).
 - 출력 리다이렉트 `> file 2>&1` → `| Out-File -Encoding utf8 <file>` (stderr 는 별도 처리; native exe stderr 를 `2>&1` 로 합치지 말 것 — PowerShell 5.1 은 NativeCommandError 로 감싼다).
