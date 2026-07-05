@@ -2,10 +2,11 @@
 title: feedback-memory
 category: concept
 created: 2026-06-19
-updated: 2026-06-19
+updated: 2026-07-05
 sources:
   - CLAUDE.md (§12 피드백 메모리)
   - MEMORY.md
+  - skills/c/SKILL.md (/c PR 리뷰 intake)
 ---
 
 # feedback-memory
@@ -23,3 +24,6 @@ sources:
 
 ## self-improvement와의 관계
 feedback-memory는 *사용자가 지시할 때* 저장한다. Claude가 실수를 **자발적으로** 감지해 기록하는 트리거(self-improve-trigger)는 검토 후 **미채택·폐기**(2026-06-19) — [[self-diagnosis-and-improvement-status]]. 사용자 지시 기반 저장 + self-diagnosis(사후 감지) 조합으로 간다.
+
+## /c PR 리뷰 intake (유입 경로)
+plan 이어받기(`/c`)가 그 브랜치 PR 의 **사람** 리뷰 코멘트를 수집해, 작업방식 교정성 지적을 이 feedback-memory 저장 **판정**으로 넘긴다 — "사용자 코드리뷰 → 개선 → 기억" 루프의 자동 유입 경로. 코드 지적은 `# Next`(fix)로, 저장 자체는 여전히 §12 대로 사용자 확인 후.

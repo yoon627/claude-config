@@ -283,10 +283,10 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 ### skills/c/ — plan 이어가기
 
-`/c` 로 현재 worktree/repo 의 진행 중인 plan(§10)을 찾아 **남은 작업 + plan↔실제(git/코드) sync 상태**를 진단하고, 어긋나면 plan 을 보정한 뒤 다음 액션을 제시.
+`/c` 로 현재 worktree/repo 의 진행 중인 plan(§10)을 찾아 **남은 작업 + plan↔실제(git/코드) sync 상태**를 진단하고, 어긋나면 plan 을 보정한 뒤 `# Next` 가 명확하면 이어서 실행(멈춤 예외 5종).
 - branch→plan dir 매칭(§10), 실패 시 `in_progress`/`blocked` plan 목록 제시 후 사용자 선택 (추측 자동선택 안 함).
 - `plans/` 가 gitignored & worktree별 독립이라 현재 repo + main worktree 양쪽 `plans/` 를 탐색.
-- 확인·sync 진단·plan 보정까지 수행하되 **다음 액션은 제시만** (자동 실행 안 함). plan 이 없으면 새로 만들지 않음 — 신규 plan 생성은 dlc 몫.
+- 확인·sync 진단·plan 보정 후 **`# Next` 가 명확하면 이어서 실행**(멈추는 예외 5종: `blocked`·plan 후보 다수·`# Next` 재구성·파괴적/외부공개 액션·`done`). 그 브랜치 PR 의 **사람** 리뷰 코멘트를 intake 해 코드 지적은 `# Next`, 작업방식 지적은 feedback memory 판정으로 넘긴다. plan 이 없으면 새로 만들지 않음 — 신규 plan 생성은 dlc 몫.
 
 ### skills/e/ — plan 마무리
 
