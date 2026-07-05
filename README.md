@@ -336,7 +336,11 @@ Windows 에서 `notify-hook.js` 가 spawn (`Stop` / `Notification` 이벤트). s
 debug log: `$env:CLAUDE_NOTIFY_DEBUG = '1'` 설정 시에만 `%TEMP%\claude-notify-debug.json` 에 매 호출마다 덮어씀. cwd, sessionId 포함되므로 디버깅 후 환경변수 해제 권장. 기본값은 off (privacy footprint 최소화).
 
 #### `guard-worktree-edit.js`
-PreToolUse(`Edit|Write|NotebookEdit`) 가드. worktree 세션(cwd 가 `.../.claude/worktrees/<name>/` 하위)에서 **그 worktree 밖 main repo 소스**를 편집하려는 호출을 `deny` 로 차단 — 작업 격리가 새는 실수 케이스 방지. 현재 worktree 안, repo 의 `.claude/` 메타(plans·memory·settings 등), repo 밖(홈 등) 경로는 allow. jq 미설치 환경이라 node 로 stdin JSON 파싱. 파싱 실패 시 exit 0 (fail-open).
+PreToolUse(`Edit|Write|NotebookEdit`) 가드. 두 경로:
+- **worktree 세션**(cwd 가 `.../.claude/worktrees/<name>/` 하위): **그 worktree 밖 main repo 소스**를 편집하려는 호출을 `deny` 로 차단 — 작업 격리가 새는 실수 케이스 방지. 현재 worktree 안, repo 의 `.claude/` 메타(plans·memory·settings 등), repo 밖(홈 등) 경로는 allow.
+- **비-worktree 세션**: cwd repo 가 `main`/`master` 브랜치이고 편집 대상이 **그 repo 의 추적 파일**이면 `ask`(승인 요구) + `main-edit-ask` 신호 emit — main 직접 편집 대신 worktree/브랜치를 쓰는 규약(CLAUDE.md §8)을 기계화. branch·tracked 판정 모두 cwd repo 기준(fp 가 cwd repo 밖이면 allow). 전 repo 전역 적용, `CLAUDE_MAIN_EDIT_GUARD_OFF=1` 로 전역 해제. git 판정 실패(미설치·detached·repo 밖·timeout)는 모두 fail-open(allow).
+
+jq 미설치 환경이라 node 로 stdin JSON 파싱. 파싱 실패 시 exit 0 (fail-open).
 
 #### `dlc-task-router.js` · `dlc-evidence-ledger.js` · `dlc-early-stop.js` (+ `dlc-ledger.js` · `dlc-doc-drift.js` · `dlc-signal.js`)
 dlc(`skills/dlc/`)의 evidence gate 를 보조하는 누락방지망. 모두 fail-open — plan `# Acceptance` evidence gate(메인 판정)가 단일 소스고, 이 hook 들은 capped 보조일 뿐.
@@ -345,9 +349,9 @@ dlc(`skills/dlc/`)의 evidence gate 를 보조하는 누락방지망. 모두 fai
 - **`dlc-early-stop.js`** (Stop) — 종료 시 두 누락을 capped 1회 경고로 합쳐 출력: ① 변경했는데 검증 기록 없음(`CLAUDE_DLC_EARLYSTOP_OFF=1`), ② 문서화 표면(`scripts/`·`agents/`·`skills/**/SKILL.md`·`settings.json`·`CLAUDE.md`, `wiki/pages/`)을 바꿨는데 `README.md`/`wiki/index.md` 동기화 없음(`CLAUDE_DLC_DOCDRIFT_OFF=1`). 한 hook 에서 합산 출력 — 별도 hook 이면 동시 block 시 한쪽 카운터가 미노출 소모돼 다시 안 잡히는 false negative.
 - **`dlc-doc-drift.js`** — 문서 drift 판정 **순수 모듈**(hook 아님). `resolveRoot`(`.claude`/worktree 한정, 타 repo no-op)·`classify`(root 기준 정확 경로)·`applyChange`(dirty 전이)·`evaluate`. early-stop·evidence-ledger 가 require. 단위테스트 `dlc-doc-drift.test.js`.
 - **`dlc-ledger.js`** — 위 hook 들이 공유하는 per-session 임시 장부(`%TEMP%/dlc-evidence-<sid>.json`) read/write/reset 모듈. `DEFAULT` 스키마 단일 소스(`changed/verified/blocks` + `readmeDirty/indexDirty/docBlocks`). hook 으로 직접 등록되진 않음.
-- **`dlc-signal.js`** — 자기개선 loop 의 **신호 수집 모듈**(hook 아님, 위 dlc hook 3종 + `guard-worktree-edit.js` 가 require). hook 판정 발동(early-stop 경고·doc-drift·guard deny·router 주입·plan `status: blocked` 전이·disposition 기록)을 `~/.claude/telemetry/dlc-signals.jsonl` 에 append-only 누적 — `/improve` 가 집계 소비. kind→axis(failure/activity) 단일 소스 `KINDS`, plan 신호는 substring 이 아니라 **상태 전이**로 판정(`detectPlanSignal` 순수 함수 — disposition 은 Review Disposition 섹션/placeholder 컨텍스트에서만). payload 는 kind·ts·session_id·cwd·경로만(`~` 축약, 프롬프트 원문·시크릿 없음 — 단 경로 메타데이터는 로컬 gitignored 파일에 남음, 전송·커밋 안 됨). fail-open + env 채널: `CLAUDE_DLC_SIGNAL_DIR`(redirect — 테스트 격리), `CLAUDE_DLC_SIGNAL_OFF=1`(무력화), `CLAUDE_DLC_SIGNAL_MAX_BYTES`(회전 임계, 기본 5MB `.1` 단일 회전 best-effort; summary 는 `.1` 도 함께 읽음). CLI `node scripts/dlc-signal.js summary`. 단위+통합테스트 `dlc-signal.test.js`.
+- **`dlc-signal.js`** — 자기개선 loop 의 **신호 수집 모듈**(hook 아님, 위 dlc hook 3종 + `guard-worktree-edit.js` 가 require). hook 판정 발동(early-stop 경고·doc-drift·guard deny·guard main-edit ask·router 주입·plan `status: blocked` 전이·disposition 기록)을 `~/.claude/telemetry/dlc-signals.jsonl` 에 append-only 누적 — `/improve` 가 집계 소비. kind→axis(failure/activity) 단일 소스 `KINDS`, plan 신호는 substring 이 아니라 **상태 전이**로 판정(`detectPlanSignal` 순수 함수 — disposition 은 Review Disposition 섹션/placeholder 컨텍스트에서만). payload 는 kind·ts·session_id·cwd·경로만(`~` 축약, 프롬프트 원문·시크릿 없음 — 단 경로 메타데이터는 로컬 gitignored 파일에 남음, 전송·커밋 안 됨). fail-open + env 채널: `CLAUDE_DLC_SIGNAL_DIR`(redirect — 테스트 격리), `CLAUDE_DLC_SIGNAL_OFF=1`(무력화), `CLAUDE_DLC_SIGNAL_MAX_BYTES`(회전 임계, 기본 5MB `.1` 단일 회전 best-effort; summary 는 `.1` 도 함께 읽음). CLI `node scripts/dlc-signal.js summary`. 단위+통합테스트 `dlc-signal.test.js`.
 
-syntax 검사 + `dlc-doc-drift.test.js`·`dlc-signal.test.js` 단위테스트는 CI `lint.yml`.
+syntax 검사 + `dlc-doc-drift.test.js`·`dlc-signal.test.js`·`dlc-evidence-ledger.test.js`·`guard-worktree-edit.test.js` 단위테스트는 CI `lint.yml`.
 
 #### `pre-commit-check.ps1`
 staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json` 을 검사. 금지 키 (`mcpServers`, `apiKeyHelper`, `awsCredentialExport`, `awsAuthRefresh`) 또는 토큰 패턴 (Anthropic/OpenAI/GitHub/GitLab/AWS/GCP/Slack/JWT/PEM) 검출 시 exit 1.
@@ -382,7 +386,7 @@ staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json`
 - `statusLine`, `subagentStatusLine` — statusline 스크립트 등록 (`node ~/.claude/statusline.js`)
 - `env.CLAUDE_CODE_EFFORT_LEVEL` — Opus effort level (`xhigh`). docs 명시 값: `low|medium|high|xhigh|max`. `/effort` 나 `effortLevel` 키로는 세션 한정이지만 **env 변수로 설정할 때만 영구 적용**되므로 이 키로 둔다. env 가 `effortLevel` 키를 override.
 - `hooks.SessionStart` — `~/.claude` 가 `main` 브랜치 + 클린 트리이면 `git pull --ff-only origin main` 으로 origin/main 자동 동기화 (ff-only·가드 실패 무음; `~` 확장 위해 sh/Git Bash 필요). pull 로 HEAD 가 바뀌면 한 줄 알림(`~/.claude updated …`) 출력. pull 내용은 **다음 세션부터** 적용. dirty/분기/다른 브랜치면 가드에 걸려 skip. (과거엔 `install-gwl.ps1` 을 자동 실행하는 2번 command 가 있었으나 무서명 원격 스크립트 자동 실행 위험 때문에 제거 — gwl 등록은 위 `install-gwl.ps1` 수동 1회 실행으로.)
-- `hooks.PreToolUse` — `Edit|Write|NotebookEdit` 에 `guard-worktree-edit.js`(worktree 밖 main repo 편집 차단), `Bash` 에 macOS 한정 `rtk-rewrite.sh`(RTK 명령 재작성, darwin 아니면 no-op)
+- `hooks.PreToolUse` — `Edit|Write|NotebookEdit` 에 `guard-worktree-edit.js`(worktree 밖 main repo 편집 차단 + 비-worktree 세션의 main/master 추적파일 직접 편집 `ask`, `CLAUDE_MAIN_EDIT_GUARD_OFF=1` 로 해제), `Bash` 에 macOS 한정 `rtk-rewrite.sh`(RTK 명령 재작성, darwin 아니면 no-op)
 - `hooks.UserPromptSubmit` — `dlc-task-router.js` (디버깅/render discipline 주입 + evidence 장부 리셋)
 - `hooks.PostToolUse` — `Edit|Write|NotebookEdit|Bash` 에 `dlc-evidence-ledger.js` (변경·검증 명령 기록)
 - `hooks.Stop` — `dlc-early-stop.js`(검증 누락 + 문서 drift capped 경고) + `notify-hook.js Stop`(알림) 2개

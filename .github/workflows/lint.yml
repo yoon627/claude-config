@@ -31,6 +31,7 @@ jobs:
           node --check scripts/dlc-doc-drift.test.js
           node --check scripts/dlc-signal.js
           node --check scripts/dlc-signal.test.js
+          node --check scripts/dlc-evidence-ledger.test.js
           node --check scripts/guard-worktree-edit.js
           node --check scripts/guard-worktree-edit.test.js
 
@@ -38,6 +39,7 @@ jobs:
         run: |
           node scripts/dlc-doc-drift.test.js
           node scripts/dlc-signal.test.js
+          node scripts/dlc-evidence-ledger.test.js
           node scripts/guard-worktree-edit.test.js
 
       - name: JSON validation

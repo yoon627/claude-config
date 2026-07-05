@@ -17,6 +17,7 @@ const KINDS = {
   'doc-drift-readme': 'failure',
   'doc-drift-index': 'failure',
   'guard-worktree-deny': 'failure',
+  'main-edit-ask': 'failure',
   'plan-blocked': 'failure',
   'router-investigation': 'activity',
   'router-grounding': 'activity',
