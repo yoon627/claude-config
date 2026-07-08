@@ -3,7 +3,7 @@
 # 호출측(skills/e/SKILL.md)이 이 신호로 판정한다. 이 스크립트는 raw 사실만 — 판정·삭제 결정·
 # 파괴 명령(worktree remove·branch -d/-D·commit·add)은 하지 않는다(read-only).
 # cwd(또는 대상 worktree) 기준. 각 점검 독립 fail-safe: 실패 필드는 none/unknown, 스크립트는 exit 0.
-# bool 평탄화 금지 — isMainWorktree·mergedToBase 판정은 호출측이 raw(root/mainWorktree path, inBase, remoteContainingHead)로 수행.
+# bool 평탄화 금지 — isMainWorktree·mergedToBase 판정은 호출측이 raw(root/mainWorktree path, inBase, patchInBase, remoteContainingHead)로 수행.
 set -u
 
 root=$(git rev-parse --show-toplevel 2>/dev/null || true)
@@ -52,6 +52,20 @@ else
   inBase=unknown
 fi
 
+# patchInBase: rebase/squash 머지 감지. inBase(SHA 포함)가 false 여도 브랜치의 모든 커밋이
+# patch-equivalent 로 base 에 있으면(git cherry '+' 0개) rebase merge 로 base 에 반영된 것.
+# base 유효·비detached 일 때만 유효(그 외 unknown). squash(N→1)는 patch-id 불일치라 여전히 못 잡음(false=유지, 안전).
+if [ "$baseValid" = true ] && [ "$detached" = false ]; then
+  if [ "$inBase" = true ]; then
+    patchInBase=true
+  else
+    unmergedPatches=$(git cherry "$base" HEAD 2>/dev/null | grep -c '^+' || true)
+    if [ "$unmergedPatches" = 0 ]; then patchInBase=true; else patchInBase=false; fi
+  fi
+else
+  patchInBase=unknown
+fi
+
 # HEAD 를 포함하는 원격 브랜치(self 포함 raw — self 제외·(a)/(b) 판정은 호출측).
 remoteContaining=$(git branch -r --contains HEAD 2>/dev/null | sed 's/^[ *]*//' || true)
 
@@ -78,6 +92,7 @@ echo "unpushedStatus: $unpushedStatus"
 echo "base: $base"
 echo "baseValid: $baseValid"
 echo "inBase: $inBase"
+echo "patchInBase: $patchInBase"
 echo "ignoredStatus: $ignoredStatus"
 emit_list "status" "$status"
 emit_list "unpushed" "$unpushed"
