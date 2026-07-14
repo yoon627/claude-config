@@ -294,7 +294,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - uncommitted 변경은 작업 브랜치에 **임시(WIP) 커밋**으로 보존 — `main`/`master` 직접 커밋·push 는 안 함(§8), `.env`·key 등 위험 파일은 커밋 보류 후 확인.
 - `# Progress`/`# Next`/`# Decisions`/`status`/`updated` 를 사실 기반으로 갱신 → 다음 세션이 `/c` 로 곧장 이어받음.
 - done 자동 전환 안 함 (확정 완료 신호 + 사용자 확인 시만, 기본 `in_progress` 체크포인트). plan 없으면 새로 만들지 않음 — 임시 커밋 + 보고만.
-- worktree 에서 작업이 `done`·clean·pushed·merged(base 통합)이고 내부에 잃을 ignored 산출물(plan·`.env`)이 없으면 **worktree 삭제도 제안** (AskUserQuestion; worktree만/+브랜치/유지). 삭제 시 main 으로 빠져나간 뒤 `git worktree remove`, `--force`·`branch -D` 는 추가 확인.
+- worktree 에서 작업이 `done`·clean·pushed·merged(base 통합)이고 내부에 잃을 ignored 산출물(plan·`.env`)이 없으면 **worktree 삭제도 제안** (AskUserQuestion; worktree만/+로컬브랜치/+로컬·원격브랜치/유지). 삭제 시 main 으로 빠져나간 뒤 `git worktree remove`, 원격은 `git push origin --delete`, `--force`·`branch -D`·원격 삭제는 추가 확인. merge/done 후 정리를 방치하지 않고 능동 제안하는 규약은 CLAUDE.md §8.
 - **`collect-state.sh`** (헬퍼): 마무리 2단계·5단계의 읽기전용 git 신호(worktree 위치·dirty·upstream/unpushed·base merged·ignored)를 평문 `key:value` 로 1회에 수집 — 분산된 개별 git 호출의 왕복을 줄인다. read-only(판정·삭제·파괴 명령은 SKILL 메인), 각 점검 fail-safe(실패 필드 none/unknown), `unpushedStatus` 는 false 와 unknown 을 구분해 false-positive 삭제를 막는다.
 
 ### skills/wt/ — Git worktree 빠른 관리

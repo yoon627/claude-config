@@ -117,6 +117,7 @@
 - `git reset --hard`·`git clean -fd`·강제 checkout·force push 는 명시 요청 없으면 금지.
 - **작업은 main/master 직접 말고 별도 브랜치/worktree 에서** (main push 는 deny 로 차단). commit 은 그 작업 plan 에 맞는 브랜치에서 작업 단위로 자유롭게. **trivial 이 아닌 작업은 — 무관 여부와 별개로 — 시작 시 별도 worktree(`/wt <요청사항>`)에서 한다.** 진행 중인 worktree 에 새 작업을 얹지 않는다(base·체크아웃 충돌, 변경 혼입, 동시 편집 위험). 무관한 변경을 한 브랜치에 섞지 않는다. push 는 요청 시만.
 - **worktree 삭제 주의**: `git worktree remove` 는 gitignored 파일(`plans/`·`.env` 등 — whitelist `.gitignore` 라 `git status` 에 안 보임)을 **무경고 동반 삭제**한다. 삭제 전 `git status --porcelain --ignored` 점검(상세 `skills/e/SKILL.md`).
+- **머지/완료 후 정리는 능동**: 작업 브랜치가 main 에 merged 되고 정리해도 안전하면(완료·clean), 그 worktree 정리(worktree + **로컬·원격** 브랜치)를 방치하거나 "선택사항"으로만 언급하지 말고 **능동 제안**한다 — 특히 내가 직접 push/merge 를 수행했으면 그 직후. **정확한 안전조건·실행은 `/e` step5·worktree 정리 규칙**(로컬 `git branch -d/-D` + 원격 `git push origin --delete`, 모두 AskUserQuestion). 원격 삭제·`git branch -D` 는 명시 확인 없이 금지 — **단 사용자가 지시한 PR 머지에 `gh pr merge --delete-branch` 를 쓰는 것은 그 머지 지시에 원격 정리가 포함된 것으로 본다**(머지 자체가 확인). `/e`·wt 등 독립 정리 경로의 원격 삭제는 AskUserQuestion.
 - generated/lock file 변경은 필요할 때만 포함, 이유 설명.
 - `.env`/private key/token/password/인증서 원문을 답변·로그·테스트 fixture·snapshot 에 출력 금지.
 - 인증/인가/암호화 코드는 기존 보안 패턴 먼저 확인. 임시 우회·hardcoded credential·TLS 검증 비활성화 금지.
