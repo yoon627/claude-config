@@ -25,4 +25,4 @@ sources:
 hard-block 은 trivial·예외에서 마찰·오작동(fablize 도 declarative offer 오탐 인정). 그래서 차단이 아니라 *유도* — 1회 경고 후 통과, `CLAUDE_DLC_EARLYSTOP_OFF=1` holdout. 강제 강도는 plan 규약이 지고 hook 은 누락 방지망.
 
 ## 연계
-worktree 자동 진입은 [[dlc-wt-autoflow]], 차용 규율 전체는 [[fablize-adopted-disciplines]].
+worktree 자동 진입은 [[dlc-wt-autoflow]], 차용 규율 전체는 [[fablize-adopted-disciplines]]. hard-gate 사고의 다른 적용 — 운영문서 슬림화에서 "규칙 손실 0 을 hard gate, bytes 감소는 보조목표"로 둔 결정은 [[ops-doc-slimming]].
