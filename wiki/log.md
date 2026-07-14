@@ -38,3 +38,8 @@
 - effort 전역 정책 전환: model/effort 차등 폐기 → 메인·subagent 전부 opus + xhigh 단일(PR #66 model 통일·#67 settings effort xhigh·#68 agents frontmatter effort 제거).
 - decision 신규: [[effort-global-xhigh]]. 근거: 공식 docs Opus 4.8 코딩 권장=xhigh / effort=adaptive signal / max=frontier 전용.
 - [[subagent-model-effort-tiering]] 에 `[!conflict]` superseded 표시(역사 보존). [[effort-os-env-single-source]] 에 현재 상태 note(env=xhigh 단일소스·env 가 frontmatter override) 추가.
+
+## [2026-07-14] ingest | ops-doc-slimming (항상주입 문서 압축 상한 교훈)
+- doc-slim(PR #73) 교훈 적립: 규칙손실0 유지 시 규칙밀도 높은 항상주입 문서의 압축 상한 실측 ~11%(70,596→62,706B). 30%+ 는 규칙 통합/이관=범위확대 없이는 불가, 이관은 로드등급 하락이라 안전/실행/트리거 규칙엔 그 자체가 손실.
+- decision 신규: [[ops-doc-slimming]] — bytes 감소는 보조목표, 규칙손실0 이 hard gate([[evidence-gate]] 정합). 손실방어 3겹 + [[claude-codex-collaboration]] 병행이 규칙손실 3건 포착.
+- 상위 plans/2026-07-02-workflow-loopify Workstream C 완료 마커 정정 동반.
