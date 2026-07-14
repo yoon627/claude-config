@@ -112,5 +112,14 @@ ok('⑥ bash verify.sh.bak → verified 불변 (lookahead: .sh 뒤 . 거부)', (
   assert.strictEqual(V('bash verify.sh.bak'), false));
 ok('기존 VERIFY 비회귀: npm test → verified=true', () => assert.strictEqual(V('npm test'), true));
 ok('기존 VERIFY 비회귀: pytest → verified=true', () => assert.strictEqual(V('pytest -q'), true));
+// node 테스트 인식(이 repo 방식) — VERIFY 미인식 오탐 수정
+ok('node scripts/x.test.js → verified=true', () => assert.strictEqual(V('node scripts/dlc-signal.test.js'), true));
+ok('node --test → verified=true', () => assert.strictEqual(V('node --test'), true));
+ok('node a.test.mjs → verified=true', () => assert.strictEqual(V('node a.test.mjs'), true));
+ok('node app.js → verified 불변 (테스트 아님)', () => assert.strictEqual(V('node app.js'), false));
+ok('node --test-only server.js → verified 불변 (--test 완전 토큰만)', () =>
+  assert.strictEqual(V('node --test-only server.js'), false));
+ok('node -e "..x.test.js.." → verified 불변 (인용문 내 미매칭)', () =>
+  assert.strictEqual(V('node -e "require(\'./x.test.js\')"'), false));
 
 console.log(`dlc-evidence-ledger.test.js: ${n} tests passed`);
