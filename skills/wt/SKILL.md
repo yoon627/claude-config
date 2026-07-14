@@ -117,16 +117,18 @@ worktree 세션 안에서 `EnterWorktree` 는 `.claude/worktrees/` 하위 대상
    - cwd 가 대상 하위면 거부 + 다른 worktree 로 switch 안내.
    - 대상에서 `git status --porcelain` 비어있지 않으면 경고.
    - unpushed 커밋 있으면 경고 (`git log origin/<branch>..<branch>` 또는 upstream 없으면 `git log <branch> --not --remotes`).
-5. AskUserQuestion (옵션 1: worktree 만 / 옵션 2: worktree + 브랜치 / 옵션 3: 취소). 경고는 question 본문에 명시.
+   - **미머지 탐지 (옵션 3 원격 삭제 판단 근거)**: `git branch --merged origin/<default>` 에 대상 branch 가 없거나 `git log origin/<default>..<branch>` 가 비어있지 않으면 **미머지** — 원격 삭제(옵션 3)는 데이터 유실 위험이므로 이 사실을 옵션 3 경고에 명시(e 는 조건5 게이트로 차단하나 wt 는 수동이라 사용자 판단; 미탐지 시 삭제 안 함 전제). `<default>` = `git symbolic-ref --short refs/remotes/origin/HEAD` (실패 시 `origin/main`).
+5. AskUserQuestion (옵션 1: worktree 만 / 옵션 2: worktree + 로컬 브랜치 / 옵션 3: worktree + 로컬·원격 브랜치 / 옵션 4: 취소). 경고(특히 unpushed·미머지)는 question 본문에 명시 — 원격 삭제(옵션 3)는 그 경고를 본 사용자가 택할 때만.
 6. 실행: `git worktree remove <path>`. 실패 시 stderr 원인으로 분기:
    - **"modified or untracked files"/"use --force" 류**(변경·untracked 잔존): `--force` 적용 여부 별도 AskUserQuestion (절대 묻지 않고 강제 실행 금지).
    - **파일 점유 류**("Access is denied"·"being used by another process"·"Directory not empty" 등 OS 삭제 실패): 그 worktree 의 `.codegraph/` 를 codegraph daemon 이 잡고 있을 수 있다(그 worktree 에서 codegraph MCP 세션을 띄웠던 경우만 — `init`·`status` 로는 안 뜸). **자동 종료하지 않고 안내**: 그 세션을 닫거나 daemon idle 자동종료(~5분) 후 재시도, 급하면 수동으로 해당 node 프로세스 종료. (`--force` 는 git 레벨이라 OS 파일점유는 못 푼다.)
-   - 옵션 2(브랜치도 삭제): **remove 성공 후에만** `git branch -D <branch>` (remove 실패·거부 시 브랜치 보존).
+   - 옵션 2·3(로컬 브랜치 삭제): **remove 성공 후에만** `git branch -D <branch>` (remove 실패·거부 시 브랜치 보존).
+   - 옵션 3(원격도 삭제): 로컬 삭제 후 `git push origin --delete <branch>` (원격 ref 부재면 no-op·경고만).
 7. 한 줄 보고.
 
 ## 주의
 
-- `git worktree remove --force`, `git branch -D` 는 사용자 명시 확인 없이 실행 금지.
+- `git worktree remove --force`, `git branch -D`, 원격 브랜치 삭제(`git push origin --delete`)는 사용자 명시 확인 없이 실행 금지.
 - 정확일치하지 않는 텍스트는 요청사항으로 간주해 worktree 를 새로 만든다 — 이름 오타로 의도치 않은 생성을 막기 위해 **생성 전 slug 확인(AskUserQuestion)** 을 반드시 거친다.
 - 요청사항 path 는 생성 후 `dlc` 를 자동 실행한다. worktree 를 만들 필요가 없는 단순 질문·탐색·읽기 전용 작업이면 `/wt` 대신 현재 worktree 에서 직접 처리.
 - EnterWorktree 후 후속 명령은 새 cwd 기준.

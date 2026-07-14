@@ -56,7 +56,7 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
      - 이 worktree `plans/` 에 **이번에 갱신한 plan 이 있으면 → 제안 생략**(방금 done 기록한 plan 이 worktree 와 함께 소실 방지; main worktree `plans/` 로 옮긴 뒤에야 안전).
      - `.env`·secret 후보·기타 산출물이 있으면 → 삭제될 목록을 AskUserQuestion 본문에 **명시**(기본 유지).
   - 하나라도 불충족/위험/헬퍼 불가 → 제안 생략 + 보고에 사유 한 줄(예: "미머지(리뷰 중) → 유지", "unpushed 2건 → 유지", "plan 이 worktree 내부 → 유지").
-- **제안 (AskUserQuestion; wt rm 과 동일 옵션)**: ① worktree 만 삭제(브랜치 유지) / ② worktree + 브랜치 삭제 / ③ 유지(기본). 실행은 "worktree 정리 규칙".
+- **제안 (AskUserQuestion; wt rm 과 같은 계열 옵션)**: ① worktree 만 삭제(로컬·원격 브랜치 유지) / ② worktree + 로컬 브랜치 삭제(원격 유지) / ③ worktree + 로컬·원격 브랜치 삭제(조건4 pushed·조건5 merged **신호** 충족분만 — 조건5 는 확정 아님이라 AskUserQuestion 본문에 그 불확실성 경고 그대로 노출) / ④ 유지(기본). 실행은 "worktree 정리 규칙".
 
 ### 6. 세션을 main worktree 로 복귀
 1~5단계 후 세션을 main worktree 로 되돌린다(작업 기록은 worktree 에 남기고 다음 작업은 main 에서). **비파괴적**(worktree·브랜치 보존)이라 자동 수행.
@@ -86,8 +86,9 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
   - **파일 점유 류**("Access is denied"·"being used"·"Directory not empty" 등 OS 삭제 실패): 그 worktree 의 `.codegraph/` 를 codegraph daemon 이 잡고 있을 수 있다(그 worktree 에서 codegraph MCP 세션을 띄웠던 경우만 — `init`/`status` 로는 안 뜸). **자동 종료 안 함** — 그 세션 닫기/daemon idle 자동종료(~5분) 후 재시도/수동 node 종료 안내(`--force` 는 OS 점유엔 무효).
   - remove 가 **부분 성공**(git 등록은 빠졌으나 디렉토리 잔존; Windows long-path 등)이면 `git worktree prune` + 대상 디렉토리 수동 삭제로 마무리.
   ignored 산출물 손실 경고는 5단계에서 이미 처리.
-- **브랜치 (옵션 ② 일 때만)**: `git branch -d <target_branch>`. 미머지로 `-d` 가 거부하면 `-D` 는 **별도 AskUserQuestion 확인 후에만**(§8, wt 주의 승계).
-- **push 안 함** — pushed 가 이미 제안 조건이라 추가 push 없음.
+- **로컬 브랜치 (옵션 ②·③ 일 때)**: `git branch -d <target_branch>`. 미머지로 `-d` 가 거부하면 `-D` 는 **별도 AskUserQuestion 확인 후에만**(§8, wt 주의 승계).
+- **원격 브랜치 (옵션 ③ 일 때만)**: worktree·로컬 삭제 성공 후 `git push origin --delete <target_branch>`. 원격 ref 부재면 no-op(경고만). 조건5(merged 신호) 충족분만 여기 오나 **조건5 는 확정 아님**(특히 5(b) 는 진행 중 child 가능) → 사용자가 AskUserQuestion 에서 그 경고를 보고 택한 경우만(미머지 orphan 방지).
+- **그 외 push 안 함** — 옵션 ③ 의 delete-push 외 커밋 push 는 하지 않음(§8).
 - 한 줄 보고: 제거한 worktree·브랜치(또는 유지 사유).
 
 ## 경계 (안 하는 것)
@@ -96,5 +97,5 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
 - done **자동 전환 안 함** — 확정 완료 신호 + 사용자 확인 시만. 기본 in_progress 체크포인트.
 - plan 갱신은 **사실 기반만**(§1) — git/파일로 확인된 것만. 추측으로 Progress/Decisions 채우지 않는다.
 - subagent 위임 아님 — plan single writer 는 메인. 메인이 직접 커밋/기록한다.
-- **worktree 자동 삭제 안 함** — 5단계 제안 조건(비-메인·done·clean·pushed·merged·ignored 안전) 충족 시에도 항상 AskUserQuestion. `--force`·`git branch -D` 는 명시 확인 없이 금지(§8).
+- **worktree 자동 삭제 안 함** — 5단계 제안 조건(비-메인·done·clean·pushed·merged·ignored 안전) 충족 시에도 항상 AskUserQuestion. `--force`·`git branch -D`·**원격 삭제(`git push origin --delete`)**는 명시 확인 없이 금지(§8).
 - **main 복귀(6단계)는 자동** — `ExitWorktree(action: keep)` 라 worktree·브랜치를 보존하는 비파괴 동작이라 확인 없이 수행. 단 삭제(remove)는 6단계 아닌 5단계 사안이고, no-op(harness 가 worktree 에서 시작)이면 강제 이동 없이 보고만.
