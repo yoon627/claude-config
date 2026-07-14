@@ -8,9 +8,40 @@
 //   repo-root==~/.claude: 직하 plans/·projects/·settings.local.json → allow (gitignored 글로벌 메타)
 //   file_path ∈ <repo>/...(worktree 밖)   → DENY  (main repo 소스/추적 자산 — 실수 케이스)
 //   그 외 (repo 밖: 홈/다른 경로)          → allow
+//
+// 비-worktree 세션(cwd 가 worktree 밖): cwd repo 가 main/master 이고 fp 가 그 repo 의 추적
+//   파일이면 → ask (worktree/브랜치 규약 우회 방지, CLAUDE.md §8). 그 외 전부 allow.
+//   전 repo 적용, CLAUDE_MAIN_EDIT_GUARD_OFF=1 로 전역 해제. git 판정 실패는 모두 fail-open.
 'use strict';
 
 const path = require('path');
+const { execFileSync } = require('child_process');
+
+// 비-worktree 세션의 main/master 직접-편집 판정. ask 대상이면 브랜치명, 아니면 null.
+// branch·tracked 판정 모두 cwd repo 기준(fp 가 cwd repo 밖이면 ls-files 128 → null → allow).
+function mainTrackedEditBranch(fp, cwd) {
+  if (process.env.CLAUDE_MAIN_EDIT_GUARD_OFF === '1') return null;
+  if (!fp || !path.isAbsolute(fp) || !cwd) return null;
+  let branch;
+  try {
+    branch = execFileSync('git', ['branch', '--show-current'], {
+      cwd,
+      timeout: 2000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim();
+  } catch {
+    return null; // git 부재·repo 밖 등 → allow
+  }
+  if (branch !== 'main' && branch !== 'master') return null; // detached(빈 문자열) 포함 → allow
+  try {
+    execFileSync('git', ['ls-files', '--error-unmatch', '--', fp], { cwd, timeout: 2000, stdio: 'ignore' });
+  } catch {
+    return null; // untracked/gitignored/repo 밖(128) → allow
+  }
+  return branch;
+}
 
 let sig = null;
 try {
@@ -36,7 +67,27 @@ process.stdin.on('end', () => {
   const cwd = norm(input.cwd);
   const MARK = '/.claude/worktrees/';
 
-  if (!fp || !cwd.includes(MARK)) process.exit(0);
+  if (!fp) process.exit(0);
+  if (!cwd.includes(MARK)) {
+    // 비-worktree 세션 → main/master 직접-편집 가드(③)
+    const branch = mainTrackedEditBranch(fp, cwd);
+    if (branch) {
+      if (sig) sig.emit('main-edit-ask', { session_id: input.session_id, cwd: input.cwd, detail: fp });
+      process.stdout.write(
+        JSON.stringify({
+          hookSpecificOutput: {
+            hookEventName: 'PreToolUse',
+            permissionDecision: 'ask',
+            permissionDecisionReason:
+              `main/master 브랜치(${branch})에서 추적 파일(${fp})을 직접 수정하려 합니다. ` +
+              `작업은 worktree/별도 브랜치에서 하는 게 규약입니다(CLAUDE.md §8). ` +
+              `의도한 편집이면 승인하세요. (이 가드 끄기: CLAUDE_MAIN_EDIT_GUARD_OFF=1)`,
+          },
+        })
+      );
+    }
+    process.exit(0);
+  }
 
   const repoRoot = cwd.split(MARK)[0];
   const wtName = cwd.split(MARK)[1].split('/')[0];
