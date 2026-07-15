@@ -45,7 +45,7 @@ process.stdin.on('end', () => {
   if (RENDER.test(prompt)) {
     if (sig) sig.emit('router-grounding', ctx);
     out.push(
-      "[dlc:grounding] 실행되는 산출물(render/executable)로 보입니다. 정적 점검(파싱 OK)으로 끝내지 말고 실제 실행해 출력을 관찰한 증거를 acceptance 에 남기세요. 'well-formed ≠ correct'. (skills/dlc/SKILL.md verification grounding)"
+      "[dlc:grounding] 실행되는 산출물(render/executable)로 보입니다. 정적 점검(파싱 OK)으로 끝내지 말고 실제 실행해 출력을 관찰한 증거를 acceptance 에 남기세요. 'well-formed ≠ correct'. 취향·시각 판단이 큰 산출물이면 구현 전 저비용 변형 2~4종을 먼저 제시해 반응을 받는 것을 고려하세요(취향 발견이 구현 후로 밀리면 비쌈). (skills/dlc/SKILL.md verification grounding·프로토타입-우선)"
     );
   }
   if (out.length === 0) process.exit(0);
