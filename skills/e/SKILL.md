@@ -39,6 +39,7 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
   - 막힘 → `blocked` + `# Blockers`.
   - 그 외 → `in_progress` 유지(체크포인트).
 - **보고**: plan 위치·title·status / 임시 커밋 sha(또는 "변경 없음") / 동기화한 항목 / 남은 작업(`# Next`·`# Blockers`) / "다음 세션은 `/c` 로 이어받기".
+- **recap 형식(CLAUDE.md §3-6)**: 위 보고는 **결론 요약(≤3줄, 무엇이 끝났고 status)을 먼저**. 마무리 선택지(마무리·정리 / 이어가기 / 종료)는 **5단계 worktree 정리 제안 + "다음 세션 `/c`" 안내가 겸한다** — 별도 AskUserQuestion 을 새로 만들지 않는다(마무리 시점 1회 원칙).
 
 ### 5. worktree 정리 제안 (조건부)
 마무리가 끝난 뒤, 현재 worktree 가 **역할을 다했고 안전하게 지울 수 있으면** 삭제를 제안한다 — **자동 삭제 안 함, 항상 AskUserQuestion**.
