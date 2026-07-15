@@ -4,7 +4,10 @@
 # 경계: README↔surface drift 는 dlc-doc-drift hook, wiki 내부 무결성은 /wiki lint 영역 — 여기서 안 본다(개수만).
 #   신호 집계는 hook 이 emit 한 판정의 *사후 집계*다(재판정 아님).
 # 수정·파괴 명령 없음(read-only). 부분 실패는 그 점검만 skip + 명시, 스크립트는 exit 0.
+# deep 모드(`improve.sh deep`): ⑧ 표면 크기 ⑨ 사용량 카운트 ⑩ MCP 인벤토리 추가(광역 관측, 여전히 read-only·secret 미출력).
 set -u
+
+case "${1:-}" in deep | --deep) DEEP=1 ;; *) DEEP=0 ;; esac
 
 # repo root 로 self-cd — 어디서 호출해도 cwd 의존 거짓통과(점검 다수가 빈 결과로 error=0) 차단.
 # skills/improve/improve.sh 구조 가정 → ../.. = repo root. git 비의존(가드로 검증).
@@ -100,5 +103,43 @@ else
   I "신호 파일 없음($SIGDIR/dlc-signals.jsonl) → 집계 skip — 신호는 hook 발동 시 자동 누적"
 fi
 
-echo "== 요약: error=$err warn=$warn (info 는 수동 확인 권고) =="
+if [ "$DEEP" = 1 ]; then
+  echo "== 8. 주입·로드 표면 크기 (deep — wc -c; 토큰 압박 관측, 상대경로·카운트만) =="
+  tot=0
+  for f in CLAUDE.md skills/*/SKILL.md agents/*.md; do
+    [ -f "$f" ] || continue
+    b=$(wc -c < "$f" | tr -d ' ')
+    tot=$((tot + b))
+    I "${b}B  $f"
+  done
+  I "표면 합계: ${tot}B"
+
+  echo "== 9. 사용량 카운트 (deep — transcript JSONL 파싱; 카운트·slug 만, 원문·파일명 미출력) =="
+  if [ -f scripts/usage-count.js ]; then
+    node scripts/usage-count.js || I "usage-count 실행 실패 → skip"
+  else
+    I "scripts/usage-count.js 없음 → skip"
+  fi
+
+  echo "== 10. MCP 서버 인벤토리 (deep — 이름만; ~/.claude.json, args·env·secret 미출력) =="
+  if [ -f "$HOME/.claude.json" ]; then
+    node -e '
+      const fs = require("fs");
+      let j;
+      try { j = JSON.parse(fs.readFileSync(process.env.HOME + "/.claude.json", "utf8")); }
+      catch { console.log("[info] ~/.claude.json 파싱 실패 → skip"); process.exit(0); }
+      const names = new Set();
+      const add = (o) => { if (o && typeof o === "object") for (const k of Object.keys(o)) names.add(k); };
+      add(j.mcpServers);
+      const projs = j.projects || {};
+      for (const p of Object.keys(projs)) add(projs[p] && projs[p].mcpServers);
+      const arr = [...names].sort();
+      console.log("[info] MCP 서버 " + arr.length + "종: " + (arr.join(", ") || "(없음)"));
+    ' || I "MCP 인벤토리 실행 실패 → skip"
+  else
+    I "~/.claude.json 없음 → MCP 인벤토리 skip"
+  fi
+fi
+
+echo "== 요약: error=$err warn=$warn (info 는 수동 확인 권고; deep=$DEEP) =="
 exit 0

@@ -315,6 +315,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 `/improve` 로 ① 운영 자산(skills·agents·CLAUDE.md·settings.json·MEMORY.md·wiki)의 **자산 간 참조 정합**(구 `/audit` 승계)과 ② hook 이 자동 누적한 **dlc 신호(telemetry)** 를 함께 분석해 **개선 후보를 랭킹**으로 제시. **수정은 제안만**(§1 자가수정 금지) — 승인 시 wt→dlc 별도 작업. loop 구조: 수집(hook 자동, `dlc-signal.js`) → 분석·제안(`/improve`) → 반영(승인 후 wt→dlc) → 효과 확인(다음 `/improve` 의 신호 추이).
 - 기계 점검+집계 `skills/improve/improve.sh`(read-only): settings hooks↔scripts 실존 · MEMORY 인덱스↔파일 양방향 · CLAUDE.md 가 참조한 agent 실존 · SKILL frontmatter name · 죽은 스크립트 후보(require 그래프·수동유틸 화이트리스트로 오탐 차단, info 만) · wiki index↔pages 개수 · **신호 집계**(`node scripts/dlc-signal.js summary` — failure/activity 축, session-unique 우선).
+- **`improve.sh deep`**(opt-in 광역 관측, 여전히 read-only·secret 미출력): ⑧ 주입·로드 표면 크기(`wc -c` — CLAUDE.md·SKILL·agent, 토큰 압박) · ⑨ 사용량 카운트(`node scripts/usage-count.js` — transcript JSONL 파싱해 skill·subagent·codex 호출 빈도, **카운트·slug 만**, 원문·파일명·경로·args 미출력) · ⑩ MCP 서버 인벤토리(`~/.claude.json` **이름만**, 값·env·secret 미출력). 판단·제안 경로는 기본 4단계와 동일(측정→제안, 수정 금지).
 - 의미 점검(LLM): 문서 간 모순 · 중복 trigger · 죽은 규칙 + wiki `workflow-failures` 표·MEMORY 인덱스·plan `# Workflow Findings` 대조.
 - **역할 경계**: README↔surface drift 는 `dlc-doc-drift` hook, wiki 내부 무결성은 `/wiki lint` 영역 — improve 는 재판정하지 않고 신호의 **사후 집계**만(중복 회피).
 
@@ -351,6 +352,8 @@ dlc(`skills/dlc/`)의 evidence gate 를 보조하는 누락방지망. 모두 fai
 - **`dlc-doc-drift.js`** — 문서 drift 판정 **순수 모듈**(hook 아님). `resolveRoot`(`.claude`/worktree 한정, 타 repo no-op)·`classify`(root 기준 정확 경로)·`applyChange`(dirty 전이)·`evaluate`. early-stop·evidence-ledger 가 require. 단위테스트 `dlc-doc-drift.test.js`.
 - **`dlc-ledger.js`** — 위 hook 들이 공유하는 per-session 임시 장부(`%TEMP%/dlc-evidence-<sid>.json`) read/write/reset 모듈. `DEFAULT` 스키마 단일 소스(`changed/verified/blocks` + `readmeDirty/indexDirty/docBlocks`). hook 으로 직접 등록되진 않음.
 - **`dlc-signal.js`** — 자기개선 loop 의 **신호 수집 모듈**(hook 아님, 위 dlc hook 3종 + `guard-worktree-edit.js` 가 require). hook 판정 발동(early-stop 경고·doc-drift·guard deny·guard main-edit ask·router 주입·plan `status: blocked` 전이·disposition 기록)을 `~/.claude/telemetry/dlc-signals.jsonl` 에 append-only 누적 — `/improve` 가 집계 소비. kind→axis(failure/activity) 단일 소스 `KINDS`, plan 신호는 substring 이 아니라 **상태 전이**로 판정(`detectPlanSignal` 순수 함수 — disposition 은 Review Disposition 섹션/placeholder 컨텍스트에서만). payload 는 kind·ts·session_id·cwd·경로만(`~` 축약, 프롬프트 원문·시크릿 없음 — 단 경로 메타데이터는 로컬 gitignored 파일에 남음, 전송·커밋 안 됨). fail-open + env 채널: `CLAUDE_DLC_SIGNAL_DIR`(redirect — 테스트 격리), `CLAUDE_DLC_SIGNAL_OFF=1`(무력화), `CLAUDE_DLC_SIGNAL_MAX_BYTES`(회전 임계, 기본 5MB `.1` 단일 회전 best-effort; summary 는 `.1` 도 함께 읽음). CLI `node scripts/dlc-signal.js summary`. 단위+통합테스트 `dlc-signal.test.js`.
+- **`session-brief.js`** (SessionStart hook — 위 hooks.SessionStart 참조) — 세션 시작 리마인더. K 머지 대기: `~/.claude` 의 origin/main 대비 ahead 로컬 브랜치(`for-each-ref`+`rev-list`, main/master 제외·oldest 순 cap5, fetch 안 함·git stderr 억제). L /improve 권장: `dlc-signal` 의 jsonl 을 직접 파싱해 마커(`last-improve` touch) 이후 failure 축 **unique 세션**(cross-kind dedup·회전분 합산) 이 임계(`CLAUDE_BRIEF_IMPROVE_MIN`, 기본5) 이상이면 nudge. 전부 fail-open. 테스트 `session-brief.test.js`.
+- **`usage-count.js`** (`improve.sh deep` ⑨ 가 호출, hook 아님) — transcript JSONL 을 파싱해 skill/subagent/codex tool_use 레코드만 집계. 프라이버시: 카운트+고정 slug 만 출력, 파일명·경로·원문·args 미출력(raw grep 대신 스키마 파싱). `CLAUDE_TRANSCRIPT_DIR` redirect(테스트). 테스트 `usage-count.test.js`.
 
 syntax 검사 + `dlc-doc-drift.test.js`·`dlc-signal.test.js`·`dlc-evidence-ledger.test.js`·`guard-worktree-edit.test.js` 단위테스트는 CI `lint.yml`.
 
@@ -386,7 +389,7 @@ staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json`
 - `model` — 세션 기본 모델 (`opus[1m]` — Opus, 1M context)
 - `statusLine`, `subagentStatusLine` — statusline 스크립트 등록 (`node ~/.claude/statusline.js`)
 - `env.CLAUDE_CODE_EFFORT_LEVEL` — Opus effort level (`xhigh`). docs 명시 값: `low|medium|high|xhigh|max`. `/effort` 나 `effortLevel` 키로는 세션 한정이지만 **env 변수로 설정할 때만 영구 적용**되므로 이 키로 둔다. env 가 `effortLevel` 키를 override.
-- `hooks.SessionStart` — `~/.claude` 가 `main` 브랜치 + 클린 트리이면 `git pull --ff-only origin main` 으로 origin/main 자동 동기화 (ff-only·가드 실패 무음; `~` 확장 위해 sh/Git Bash 필요). pull 로 HEAD 가 바뀌면 한 줄 알림(`~/.claude updated …`) 출력. pull 내용은 **다음 세션부터** 적용. dirty/분기/다른 브랜치면 가드에 걸려 skip. (과거엔 `install-gwl.ps1` 을 자동 실행하는 2번 command 가 있었으나 무서명 원격 스크립트 자동 실행 위험 때문에 제거 — gwl 등록은 위 `install-gwl.ps1` 수동 1회 실행으로.)
+- `hooks.SessionStart` — 2개. (1) `~/.claude` 가 `main` 브랜치 + 클린 트리이면 `git pull --ff-only origin main` 으로 origin/main 자동 동기화 (ff-only·가드 실패 무음, async; `~` 확장 위해 sh/Git Bash 필요). pull 로 HEAD 가 바뀌면 한 줄 알림(`~/.claude updated …`) 출력. pull 내용은 **다음 세션부터** 적용. dirty/분기/다른 브랜치면 가드에 걸려 skip. (2) `session-brief.js`(동기·timeout10) — 세션 시작 브리프 1~2줄: **머지 대기**(origin/main 대비 ahead 인 미머지 로컬 브랜치, oldest 순 cap5) + **`/improve` 권장**(마커 이후 failure 신호 임계 세션 이상). 전부 fail-open 무음, `CLAUDE_SESSION_BRIEF_OFF=1`(+ `CLAUDE_BRIEF_MERGE_OFF`·`CLAUDE_BRIEF_IMPROVE_OFF`)로 해제. (과거엔 `install-gwl.ps1` 을 자동 실행하는 command 가 있었으나 무서명 원격 스크립트 자동 실행 위험 때문에 제거 — gwl 등록은 위 `install-gwl.ps1` 수동 1회 실행으로.)
 - `hooks.PreToolUse` — `Edit|Write|NotebookEdit` 에 `guard-worktree-edit.js`(worktree 밖 main repo 편집 차단 + 비-worktree 세션의 main/master 추적파일 직접 편집 `ask`, `CLAUDE_MAIN_EDIT_GUARD_OFF=1` 로 해제), `Bash` 에 macOS 한정 `rtk-rewrite.sh`(RTK 명령 재작성, darwin 아니면 no-op)
 - `hooks.UserPromptSubmit` — `dlc-task-router.js` (디버깅/render discipline 주입 + evidence 장부 리셋)
 - `hooks.PostToolUse` — `Edit|Write|NotebookEdit|Bash` 에 `dlc-evidence-ledger.js` (변경·검증 명령 기록)
@@ -547,6 +550,8 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   ├── dlc-doc-drift.js            # 문서 drift 판정 순수 모듈 (+ .test.js)
 │   ├── dlc-ledger.js               # 위 dlc hook 공유 장부 모듈 (hook 미등록)
 │   ├── dlc-signal.js               # 자기개선 loop 신호 수집 모듈 — telemetry append (+ .test.js)
+│   ├── session-brief.js            # SessionStart — 머지 대기 + /improve 권장 브리프 (+ .test.js)
+│   ├── usage-count.js              # improve.sh deep — transcript 사용량 카운트 (+ .test.js)
 │   ├── pre-commit-check.sh / .ps1  # settings.json secret guard (pre-commit + pre-push)
 │   ├── install-hooks.sh / .ps1     # .git/hooks/{pre-commit,pre-push} wrapper 생성
 │   ├── prompt-gwl.py               # UserPromptSubmit 훅 (프로젝트별 사용)
