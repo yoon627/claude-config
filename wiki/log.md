@@ -45,6 +45,6 @@
 - 상위 plans/2026-07-02-workflow-loopify Workstream C 완료 마커 정정 동반.
 
 ## [2026-07-16] ingest | unknowns-pass (Fable unknowns 발굴 기법 → dlc)
-- Thariq "A Field Guide to Fable: Finding Your Unknowns"(2026-07-04, x.com) 의 unknowns 발굴 기법 3종을 dlc 에 반영: blind-spot pass·질문 우선순위(명확화 절), 프로토타입-우선(router `[dlc:grounding]` 주입 + verification grounding). dead memory ref(`feedback-analyze-before-asking`, 파일 부재) 정리.
+- Thariq "A Field Guide to Fable: Finding Your Unknowns"(2026-07-04, x.com) 의 unknowns 발굴 기법 3종을 dlc 에 반영: blind-spot pass·질문 우선순위(명확화 절), 프로토타입-우선(router `[dlc:grounding]` 주입 + verification grounding). 부재 memory 참조(명확화 절 괄호) 정리.
 - source 신규: [[fable-field-guide-unknowns]](원문 auth-gated 402 → Fable 세션 분석 2차출처·`[!open]` flag). concept 신규: [[unknowns-discovery]](기법→dlc 매핑 표).
 - 상위 plans/2026-07-02-workflow-loopify Workstream J.
