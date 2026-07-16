@@ -82,6 +82,13 @@ function acceptanceRefs(scanText) {
   return { nums, unsupported };
 }
 
+// 섹션 헤더 title 이 요구 섹션명인가 — 접미사(설명) 허용: "Decisions", "Decisions (설계)",
+// "Decisions — 방안", "Decisions: foo" 모두 인정. 정확일치 강요는 실제 plan 관행과 어긋나 오탐.
+function sectionIs(title, name) {
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp('^' + esc + '(?:$|[\\s(:—–-])').test(title);
+}
+
 function lintPlan(text) {
   const t = String(text || '').replace(/\r\n/g, '\n');
   const lines = t.split('\n');
@@ -106,13 +113,12 @@ function lintPlan(text) {
   // 3 6 H1 섹션 (frontmatter 블록 이후만)
   const fmEnd = fm ? t.slice(0, fm.index + fm[0].length).split('\n').length - 1 : -1;
   const sections = h1Sections(lines, fmEnd);
-  const titles = new Set(sections.map((s) => s.title));
   for (const s of REQUIRED_SECTIONS) {
-    if (!titles.has(s)) violations.push(`# ${s} 섹션 누락(H1)`);
+    if (!sections.some((sec) => sectionIs(sec.title, s))) violations.push(`# ${s} 섹션 누락(H1)`);
   }
 
   // 4 Acceptance 참조 무결성
-  const acc = sections.find((s) => s.title === 'Acceptance');
+  const acc = sections.find((s) => sectionIs(s.title, 'Acceptance'));
   const itemCount = acceptanceItemCount(lines, acc);
   const { nums, unsupported } = acceptanceRefs(scannableText(lines, sections, fmEnd));
   if (unsupported) violations.push('미지원 Acceptance 참조 형식(①-⑳ 밖의 원문자)');
