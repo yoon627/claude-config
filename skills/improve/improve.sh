@@ -137,7 +137,7 @@ if [ "$DEEP" = 1 ]; then
       console.log("[info] MCP 서버 " + arr.length + "종: " + (arr.join(", ") || "(없음)"));
     ' || I "MCP 인벤토리 실행 실패 → skip"
   else
-    I "~/.claude.json 없음 → MCP 인벤토리 skip"
+    I "홈 .claude.json 없음 → MCP 인벤토리 skip"
   fi
 fi
 
