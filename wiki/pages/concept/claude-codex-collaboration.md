@@ -18,7 +18,7 @@ sources:
 - 한 phase에 reviewer가 여럿이면 codex owner 1개만 지정, 나머지는 `CLAUDE_REVIEW_CODEX_MODE=external`(중복 호출 방지).
 
 ## 왜 병행인가
-Claude(컨텍스트 축적·통합)와 Codex(독립 뷰)가 같은 변경을 보면 단일 리뷰가 놓친 보안·구조 결함을 잡을 확률이 오른다. 실제로 "skill 라우팅 실패"를 plan-reviewer+Codex가 독립 발견한 전례가 있다.
+Claude(컨텍스트 축적·통합)와 Codex(독립 뷰)가 같은 변경을 보면 단일 리뷰가 놓친 보안·구조 결함을 잡을 확률이 오른다. 실제로 "skill 라우팅 실패"를 plan-reviewer+Codex가 독립 발견한 전례가 있고, git 훅의 동기-pull hang 사각지대(사용자 macOS+HTTPS 환경 직격)를 code-review 병행이 Major 로 파낸 예도 있다 — [[git-hook-network-safety]].
 
 ## 호출 규약
 Codex는 반드시 **Bash 도구**로 호출한다 — [[codex-bash-invocation]](PowerShell hang 회피). 무거운 작업 전 짧은 smoke test로 응답부터 확인.
