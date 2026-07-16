@@ -5,7 +5,7 @@
 // 판정 (cwd 가 .../.claude/worktrees/<name>/ 하위인 worktree 세션일 때만):
 //   file_path ∈ 현재 worktree            → allow
 //   file_path ∈ <repo>/.claude/...        → allow (메타 — 일반 프로젝트)
-//   repo-root==~/.claude: 직하 plans/·projects/·settings.local.json → allow (gitignored 글로벌 메타)
+//   repo-root==~/.claude: 직하 plans/(tracked·§10 핸드오프)·projects/·settings.local.json → allow (글로벌/핸드오프 메타)
 //   file_path ∈ <repo>/...(worktree 밖)   → DENY  (main repo 소스/추적 자산 — 실수 케이스)
 //   그 외 (repo 밖: 홈/다른 경로)          → allow
 //
@@ -96,8 +96,10 @@ process.stdin.on('end', () => {
   if (fp === wtRoot || fp.startsWith(wtRoot + '/')) process.exit(0); // worktree 안
   if (fp.startsWith(repoRoot + '/.claude/')) process.exit(0); // repo .claude 메타 (일반 프로젝트)
   // repo-root 자체가 ~/.claude 인 레이아웃: 글로벌 메타가 repoRoot 직하에 있다.
-  // gitignored 글로벌 상태(plans·projects/memory·settings.local)는 worktree 에 복사본이
-  // 없어 main 경로 편집이 정상 → allow. 추적 자산(settings.json·CLAUDE.md·wiki·scripts 등)은
+  // plans/ 는 방안 A 로 tracked 지만 §10 핸드오프 문서라 worktree 세션이 main 의 상위/umbrella
+  // plan 을 갱신하는 것이 정상 → allow (커밋된 plan 의 main 직접편집 마찰은 mainTrackedEditBranch
+  // ask 가드가 담당). projects/memory·settings.local 은 gitignored 글로벌 상태라 worktree 복사본이
+  // 없어 역시 main 경로 편집이 정상. 그 외 추적 자산(settings.json·CLAUDE.md·wiki·scripts 등)은
   // worktree 복사본 편집이 정답이라 deny 유지.
   if (repoRoot.endsWith('/.claude')) {
     const rel = fp.slice(repoRoot.length + 1);

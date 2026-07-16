@@ -56,6 +56,10 @@ W(repoWt, '.gitignore', 'plans/\n');
 W(repoWt, 'plans/y-plan.md', '# plan\n');
 const nonGit = fs.mkdtempSync(path.join(os.tmpdir(), 'dlc-led-nongit-'));
 W(nonGit, 'main.py', 'print(1)\n'); // git init 전 실디렉토리 소스
+const repoTracked = initRepo();    // 방안 A: plans/ 가 tracked(gitignore 에 없음)
+W(repoTracked, '.gitignore', '*.log\n'); // plans/ 는 무시 안 함 → tracked
+W(repoTracked, 'plans/z-plan.md', '# plan\n');
+W(repoTracked, 'app.js');          // 비-plan 실소스
 
 // ---- ① isIgnored: fp 자기 repo 기준(cross-worktree/repo 오탐 제거) ----
 ok('① cross-worktree: 다른 repo cwd 에서 main 의 gitignored plans 편집 → changed=false', () => {
@@ -74,6 +78,12 @@ ok('③ 같은 repo 비-ignored 실소스 편집 → changed=true (비회귀)', 
 });
 ok('④ 같은 repo gitignored(*.log) 편집 → changed=false (비회귀)', () => {
   assert.strictEqual(edit(path.join(repoMain, 'a.log'), repoMain, sid()).changed, false);
+});
+ok('⑪ 방안 A: tracked plans/ 편집 → changed=false (isPlan 명시 제외, gitignore 무관)', () => {
+  assert.strictEqual(edit(path.join(repoTracked, 'plans/z-plan.md'), repoTracked, sid()).changed, false);
+});
+ok('⑪ʹ 방안 A repo: 비-plan 실소스(app.js) 편집 → changed=true (isPlan 과대적용 아님)', () => {
+  assert.strictEqual(edit(path.join(repoTracked, 'app.js'), repoTracked, sid()).changed, true);
 });
 ok('⑨ non-git 실디렉토리 소스(main.py) 편집 → changed=false (S3 완화 고정)', () => {
   assert.strictEqual(edit(path.join(nonGit, 'main.py'), repoMain, sid()).changed, false);
