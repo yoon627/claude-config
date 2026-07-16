@@ -97,6 +97,12 @@
             "timeout": 30,
             "statusMessage": "Checking ~/.claude for updates",
             "async": true
+          },
+          {
+            "type": "command",
+            "command": "node ~/.claude/scripts/session-brief.js",
+            "timeout": 10,
+            "statusMessage": "세션 브리프"
           }
         ]
       }

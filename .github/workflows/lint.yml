@@ -34,6 +34,10 @@ jobs:
           node --check scripts/dlc-evidence-ledger.test.js
           node --check scripts/guard-worktree-edit.js
           node --check scripts/guard-worktree-edit.test.js
+          node --check scripts/session-brief.js
+          node --check scripts/session-brief.test.js
+          node --check scripts/usage-count.js
+          node --check scripts/usage-count.test.js
 
       - name: Unit tests
         run: |
@@ -41,6 +45,8 @@ jobs:
           node scripts/dlc-signal.test.js
           node scripts/dlc-evidence-ledger.test.js
           node scripts/guard-worktree-edit.test.js
+          node scripts/session-brief.test.js
+          node scripts/usage-count.test.js
 
       - name: JSON validation
         run: |
