@@ -65,6 +65,7 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
 - 5단계에서 worktree 를 **삭제한 경우** → 이미 main 복귀됨 → skip(중복 `ExitWorktree` 금지).
 - 그 외(유지·제안 생략·조건 미충족) → `ExitWorktree(action: keep)` 로 원래 디렉토리(보통 main) 복귀. plan `status` 무관 — `in_progress` 체크포인트여도 세션만 빠지고 worktree·브랜치는 남는다(다음에 `/wt <name>` 로 들어가 `/c` 로 이어감).
 - **`ExitWorktree` 가 no-op**(harness 가 worktree 에서 바로 시작해 `EnterWorktree` 미경유) → in-session 복귀 불가. 강제 이동 금지 — "세션 종료하면 harness 가 worktree 를 놓는다"고 보고만(다른 worktree 로 우회하지 않는다).
+- **복귀 후 main 최신화 (main-autopull ⓑ)**: 세션이 **실제로 main 에 복귀했을 때만** `git pull --ff-only origin "$(git rev-parse --abbrev-ref HEAD)"` 1회 — 세션 중 머지·원격 진행분을 반영(post-checkout hook 은 `git checkout` 에만 뜨고 ExitWorktree 세션 복귀엔 안 뜨므로 이 구간을 커버). **원격은 반드시 현재 브랜치**(하드코딩 `main` 금지 — master repo 오대응 방지). **선행 가드 전부 충족 시에만**: ① main worktree ② `git rev-parse --abbrev-ref HEAD` ∈ {main, master} ③ working tree clean. **ExitWorktree 가 no-op(feature 브랜치 잔류)·dirty·ff 실패·origin 부재면 skip** — feature 브랜치에 origin/main 을 merge 하는 파괴적 동작 방지. 자동 rebase·stash·force 없음(§8). ff 됐으면 1줄 보고.
 - 한 줄 보고: main 복귀 여부(또는 불가 사유).
 
 ## 임시 커밋 규칙

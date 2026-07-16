@@ -362,8 +362,12 @@ staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json`
 
 `.git/hooks/` 에 직접 두지 않고 별도 파일 → repo 에 tracked. `install-hooks.ps1` 가 `.git/hooks/{pre-commit,pre-push}` sh wrapper 를 생성해서 이 스크립트로 위임.
 
-#### `install-hooks.ps1`
-`.git/hooks/pre-commit`, `.git/hooks/pre-push` sh wrapper 생성. UTF-8 (no BOM) + LF endings — Git Bash 가 인식. idempotent — 재실행 시 덮어쓰기. 새 머신 setup 시 1회 실행.
+#### `install-hooks.ps1` / `install-hooks.sh`
+`.git/hooks/` 에 세 hook 의 sh wrapper 생성 (`.ps1`=Windows, `.sh`=Unix, 동일 로직):
+- `pre-commit`·`pre-push` — settings.json 가드(`pre-commit-check`)로 위임.
+- **`post-checkout`** (main-autopull) — main/master 로 **branch 체크아웃 시** `git pull --ff-only origin <branch>` 로 origin 최신화. `git checkout` 을 절대 막지 않음(항상 exit 0). ff 실패는 "main 에 로컬 커밋 있음" 신호라 자동 rebase 하지 않고 경고만. **skip/무해 조건**: dirty·origin 없음·rebase/merge/bisect 중·default 브랜치가 main/master 아님. **hang 방지**: `GIT_TERMINAL_PROMPT=0`(프롬프트)+SSH `ConnectTimeout=10`+HTTP low-speed+백그라운드 pull 을 ~20s 폴링 워치독으로 kill (macOS 는 `timeout(1)` 부재라 자체 워치독). **비활성**: `export CLAUDE_AUTOPULL_OFF=1`. **제거**(rollback): `rm .git/hooks/post-checkout`(hook 은 비추적·머신별이라 스크립트 revert 로 안 지워짐).
+
+UTF-8 (no BOM) + LF endings — Git Bash 가 인식. idempotent — 재실행 시 기존 pre-commit/pre-push 는 **바이트 동일 유지**하고 post-checkout 만 추가. 새 머신 setup 시(=clone 한 repo 마다) 1회 실행. SessionStart 훅(세션 **시작** 시점 pull)과 역할 분리 — post-checkout 은 **체크아웃** 시점을 커버.
 
 #### `prompt-gwl.py`
 프롬프트에 정확히 `gwl` 만 입력하면 가로채서 `git worktree list` 를 현재 위치 `→` 마커와 함께 출력하는 UserPromptSubmit 훅 (모델 왕복 없음). `--porcelain` 기반이라 공백 포함 경로·bare·detached worktree 도 정확히 파싱. 글로벌 `settings.json` 엔 미등록 — 프로젝트별 `.claude/settings.json` 에 hook 으로 등록해 사용.
@@ -389,7 +393,7 @@ staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json`
 - `model` — 세션 기본 모델 (`opus[1m]` — Opus, 1M context)
 - `statusLine`, `subagentStatusLine` — statusline 스크립트 등록 (`node ~/.claude/statusline.js`)
 - `env.CLAUDE_CODE_EFFORT_LEVEL` — Opus effort level (`xhigh`). docs 명시 값: `low|medium|high|xhigh|max`. `/effort` 나 `effortLevel` 키로는 세션 한정이지만 **env 변수로 설정할 때만 영구 적용**되므로 이 키로 둔다. env 가 `effortLevel` 키를 override.
-- `hooks.SessionStart` — 2개. (1) `~/.claude` 가 `main` 브랜치 + 클린 트리이면 `git pull --ff-only origin main` 으로 origin/main 자동 동기화 (ff-only·가드 실패 무음, async; `~` 확장 위해 sh/Git Bash 필요). pull 로 HEAD 가 바뀌면 한 줄 알림(`~/.claude updated …`) 출력. pull 내용은 **다음 세션부터** 적용. dirty/분기/다른 브랜치면 가드에 걸려 skip. (2) `session-brief.js`(동기·timeout10) — 세션 시작 브리프 1~2줄: **머지 대기**(origin/main 대비 ahead 인 미머지 로컬 브랜치, oldest 순 cap5) + **`/improve` 권장**(마커 이후 failure 신호 임계 세션 이상). 전부 fail-open 무음, `CLAUDE_SESSION_BRIEF_OFF=1`(+ `CLAUDE_BRIEF_MERGE_OFF`·`CLAUDE_BRIEF_IMPROVE_OFF`)로 해제. (과거엔 `install-gwl.ps1` 을 자동 실행하는 command 가 있었으나 무서명 원격 스크립트 자동 실행 위험 때문에 제거 — gwl 등록은 위 `install-gwl.ps1` 수동 1회 실행으로.)
+- `hooks.SessionStart` — 2개. (1) `~/.claude` 가 `main` 브랜치 + 클린 트리이면 `git pull --ff-only origin main` 으로 origin/main 자동 동기화 (ff-only·가드 실패 무음, async; `~` 확장 위해 sh/Git Bash 필요). pull 로 HEAD 가 바뀌면 한 줄 알림(`~/.claude updated …`) 출력. pull 내용은 **다음 세션부터** 적용. dirty/분기/다른 브랜치면 가드에 걸려 skip. **이 pull 훅은 세션 시작 시점만 커버 — 체크아웃 시점은 install-hooks 의 `post-checkout` git hook, 세션 중 main 복귀 시점은 `/e` 6단계가 각각 보완(main-autopull).** (2) `session-brief.js`(동기·timeout10) — 세션 시작 브리프 1~2줄: **머지 대기**(origin/main 대비 ahead 인 미머지 로컬 브랜치, oldest 순 cap5) + **`/improve` 권장**(마커 이후 failure 신호 임계 세션 이상). 전부 fail-open 무음, `CLAUDE_SESSION_BRIEF_OFF=1`(+ `CLAUDE_BRIEF_MERGE_OFF`·`CLAUDE_BRIEF_IMPROVE_OFF`)로 해제. (과거엔 `install-gwl.ps1` 을 자동 실행하는 command 가 있었으나 무서명 원격 스크립트 자동 실행 위험 때문에 제거 — gwl 등록은 위 `install-gwl.ps1` 수동 1회 실행으로.)
 - `hooks.PreToolUse` — `Edit|Write|NotebookEdit` 에 `guard-worktree-edit.js`(worktree 밖 main repo 편집 차단 + 비-worktree 세션의 main/master 추적파일 직접 편집 `ask`, `CLAUDE_MAIN_EDIT_GUARD_OFF=1` 로 해제), `Bash` 에 macOS 한정 `rtk-rewrite.sh`(RTK 명령 재작성, darwin 아니면 no-op)
 - `hooks.UserPromptSubmit` — `dlc-task-router.js` (디버깅/render discipline 주입 + evidence 장부 리셋)
 - `hooks.PostToolUse` — `Edit|Write|NotebookEdit|Bash` 에 `dlc-evidence-ledger.js` (변경·검증 명령 기록)
@@ -553,7 +557,7 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   ├── session-brief.js            # SessionStart — 머지 대기 + /improve 권장 브리프 (+ .test.js)
 │   ├── usage-count.js              # improve.sh deep — transcript 사용량 카운트 (+ .test.js)
 │   ├── pre-commit-check.sh / .ps1  # settings.json secret guard (pre-commit + pre-push)
-│   ├── install-hooks.sh / .ps1     # .git/hooks/{pre-commit,pre-push} wrapper 생성
+│   ├── install-hooks.sh / .ps1     # .git/hooks/{pre-commit,pre-push,post-checkout} wrapper 생성
 │   ├── prompt-gwl.py               # UserPromptSubmit 훅 (프로젝트별 사용)
 │   ├── gwl.ps1 / gwl.zsh           # `gwl` — worktree list + 현재 위치 → (Windows / macOS·zsh)
 │   └── install-gwl.ps1 / .zsh      # gwl 을 profile($PROFILE·~/.zshrc)에 등록 (멱등)

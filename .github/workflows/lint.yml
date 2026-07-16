@@ -38,6 +38,7 @@ jobs:
           node --check scripts/session-brief.test.js
           node --check scripts/usage-count.js
           node --check scripts/usage-count.test.js
+          node --check scripts/install-hooks.test.js
 
       - name: Unit tests
         run: |
@@ -47,6 +48,7 @@ jobs:
           node scripts/guard-worktree-edit.test.js
           node scripts/session-brief.test.js
           node scripts/usage-count.test.js
+          node scripts/install-hooks.test.js
 
       - name: JSON validation
         run: |
