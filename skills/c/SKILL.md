@@ -40,8 +40,9 @@ plan 을 read 하고 두 축을 본다.
   | 커밋 반영 | `git log --oneline -15` (plan 시작 이후) | `# Progress` 에 없는 커밋 |
   | 미반영 변경 | `git status --short` | Progress/Next 에 없는 uncommitted |
   | 완료 여부 | `git log --oneline origin/main..HEAD` 비었나 / `git branch --merged origin/main` | 머지됐는데 `status≠done` |
+  | plan 무결성 | `node scripts/plan-lint.js <채택 plan>`(있으면) | frontmatter 필수키·6 H1 섹션·**끊긴 Acceptance 참조** 위반 |
 
-  - 점검 명령이 실패(origin 없음 등)하면 그 점검만 skip 하고 보고에 명시.
+  - 점검 명령이 실패(origin 없음 등)하면 그 점검만 skip 하고 보고에 명시. **plan-lint 위반은 노출·보정 대상(hard-stop 아님)** — 3단계 보정에 반영.
 - **PR 리뷰 intake** (plan 이 매칭된 경우만, read-only): 그 브랜치 PR 의 **사람** 리뷰 지적(요약·conversation·**인라인 line**)을 수집해 3단계 처분으로 넘긴다.
   - PR 식별: `gh pr list --head <BR> --state all --limit 3 --json number,state,title`.
   - 수집 (3소스 — **인라인이 코드지적의 주 형태라 필수**):
