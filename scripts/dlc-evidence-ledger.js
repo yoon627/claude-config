@@ -66,6 +66,13 @@ function isIgnored(fp, cwd) {
   }
 }
 
+// plan(§10 핸드오프 문서)은 tracked 여도 검증 대상이 아니다 — plans/ 를 tracked 로 전환한 뒤엔
+// isIgnored 가 not-ignored 를 반환하므로, gitignore 상태와 무관하게 plans/ 경로를 명시 제외해
+// plan 편집이 evidence gate(changed=true)를 트리거하지 않게 한다. `plans` 가 완전한 경로 세그먼트일 때만.
+function isPlan(fp) {
+  return !!fp && /(^|[/\\])plans[/\\]/.test(fp);
+}
+
 // 명백한 검증 명령만 좁게 — verified 오탐은 gate 를 헐겁게 하므로 보수적.
 const VERIFY =
   /(\bpytest\b|\bjest\b|vitest|\bmocha\b|playwright|cypress|\bruff\b|eslint|flake8|\bmypy\b|\btsc\b|typecheck|cargo\s+(test|build|check|clippy)|go\s+(test|vet)|gradlew?\s+\S*(test|build|check)|mvn\s+\S*(test|verify|package)|check_links|npm\s+(test|run\s+(test|lint|build|typecheck|check|verify))|(pnpm|yarn)\s+(test|lint|typecheck|run\s+\S+)|python\s+-m\s+(pytest|unittest)|node\s+(--test(?=$|\s)|\S*\.test\.[cm]?js\b))/;
@@ -92,12 +99,13 @@ process.stdin.on('end', () => {
   if (tool === 'Edit' || tool === 'Write' || tool === 'NotebookEdit') {
     const ti = input.tool_input || {};
     const fp = ti.file_path || ti.notebook_path || ''; // NotebookEdit 는 notebook_path
-    // plan 신호는 isIgnored 게이트 *밖* — plans/ 는 gitignored 라 아래 블록이 항상 skip 한다.
+    // plan 신호는 changed 게이트 *밖* — plans/ 는 아래 블록에서 isPlan 으로 항상 skip 된다
+    // (gitignored 든 tracked 든 무관 — 방안 A 로 tracked 전환된 뒤에도 plan 편집은 검증 대상 아님).
     if (sig) {
       const kind = sig.detectPlanSignal(tool, ti);
       if (kind) sig.emit(kind, { session_id: input.session_id, cwd: input.cwd, detail: fp });
     }
-    if (fp && !isIgnored(fp, input.cwd)) {
+    if (fp && !isPlan(fp) && !isIgnored(fp, input.cwd)) {
       data.changed = true;
       data.verified = false; // 최종 변경 이후 재검증 강제
       data.blocks = 0; // 새 미검증 변경 → 경고 자격 회복(CAP 재적용)

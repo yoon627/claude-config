@@ -116,7 +116,7 @@
 
 - `git reset --hard`·`git clean -fd`·강제 checkout·force push 는 명시 요청 없으면 금지.
 - **작업은 main/master 직접 말고 별도 브랜치/worktree 에서** (main push 는 deny 로 차단). commit 은 그 작업 plan 에 맞는 브랜치에서 작업 단위로 자유롭게. **trivial 이 아닌 작업은 — 무관 여부와 별개로 — 시작 시 별도 worktree(`/wt <요청사항>`)에서 한다.** 진행 중인 worktree 에 새 작업을 얹지 않는다(base·체크아웃 충돌, 변경 혼입, 동시 편집 위험). 무관한 변경을 한 브랜치에 섞지 않는다. push 는 요청 시만.
-- **worktree 삭제 주의**: `git worktree remove` 는 gitignored 파일(`plans/`·`.env` 등 — whitelist `.gitignore` 라 `git status` 에 안 보임)을 **무경고 동반 삭제**한다. 삭제 전 `git status --porcelain --ignored` 점검(상세 `skills/e/SKILL.md`).
+- **worktree 삭제 주의**: `git worktree remove` 는 gitignored 파일(`.env` 등 — whitelist `.gitignore` 라 `git status` 에 안 보임)을 **무경고 동반 삭제**한다. `plans/` 는 tracked(§10)라 미커밋 plan 은 `git status` 에 보이고 remove 가 거부하지만, **미커밋 plan 변경은 삭제 전 커밋·push 로 보존**한다. 삭제 전 `git status --porcelain --ignored` 점검(상세 `skills/e/SKILL.md`).
 - **머지/완료 후 정리는 능동**: 작업 브랜치가 main 에 merged 되고 정리해도 안전하면(완료·clean), 그 worktree 정리(worktree + **로컬·원격** 브랜치)를 방치하거나 "선택사항"으로만 언급하지 말고 **능동 제안**한다 — 특히 내가 직접 push/merge 를 수행했으면 그 직후. **정확한 안전조건·실행은 `/e` step5·worktree 정리 규칙**(로컬 `git branch -d/-D` + 원격 `git push origin --delete`, 모두 AskUserQuestion). 원격 삭제·`git branch -D` 는 명시 확인 없이 금지 — **단 사용자가 지시한 PR 머지에 `gh pr merge --delete-branch` 를 쓰는 것은 그 머지 지시에 원격 정리가 포함된 것으로 본다**(머지 자체가 확인). `/e`·wt 등 독립 정리 경로의 원격 삭제는 AskUserQuestion.
 - generated/lock file 변경은 필요할 때만 포함, 이유 설명.
 - `.env`/private key/token/password/인증서 원문을 답변·로그·테스트 fixture·snapshot 에 출력 금지.
@@ -157,6 +157,7 @@
 - **턴 종료**: `# Progress` 오늘 진행 한 줄, frontmatter `updated:` 오늘. 빠뜨린 동기화 보강.
 - **완료**: 머지·배포·승인 **그 시점에 즉시** `status: done` — 미루지 않는다. **블로커**: `status: blocked` + `# Blockers`.
 - **원칙**: plan 은 "현재 상태의 단일 진실 소스". 합의가 plan 에 없으면 다음 세션/도구가 모른다 — 항상 plan 우선 반영.
+- **동기화 (tracked)**: `plans/` 는 tracked(§8 whitelist `.gitignore`) — plan 을 작업 브랜치와 함께 commit·push 하면 다른 머신/세션이 pull 로 이어받아 "단일 진실 소스"가 머신 경계를 넘는다. secret 유출 방지: pre-commit-check 가 staged `plans/*.md` 토큰 스캔(+§8 원문 출력 금지) — plan 에 raw token/credential/PII 붙여넣기 금지.
 
 ### frontmatter (필수)
 ```yaml
