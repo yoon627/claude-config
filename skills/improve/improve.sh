@@ -4,7 +4,7 @@
 # 경계: README↔surface drift 는 dlc-doc-drift hook, wiki 내부 무결성은 /wiki lint 영역 — 여기서 안 본다(개수만).
 #   신호 집계는 hook 이 emit 한 판정의 *사후 집계*다(재판정 아님).
 # 수정·파괴 명령 없음(read-only). 부분 실패는 그 점검만 skip + 명시, 스크립트는 exit 0.
-# deep 모드(`improve.sh deep`): ⑧ 표면 크기 ⑨ 사용량 카운트 ⑩ MCP 인벤토리 추가(광역 관측, 여전히 read-only·secret 미출력).
+# check 8 = plan-lint(tracked plans, 항상). deep 모드(`improve.sh deep`): ⑨ 표면 크기 ⑩ 사용량 카운트 ⑪ MCP 인벤토리 추가(광역 관측, 여전히 read-only·secret 미출력).
 set -u
 
 case "${1:-}" in deep | --deep) DEEP=1 ;; *) DEEP=0 ;; esac
@@ -103,8 +103,25 @@ else
   I "신호 파일 없음($SIGDIR/dlc-signals.jsonl) → 집계 skip — 신호는 hook 발동 시 자동 누적"
 fi
 
+echo "== 8. plan 참조 무결성 (tracked plans — plan-lint; §10 plan 스펙 검증) =="
+if [ -f scripts/plan-lint.js ]; then
+  plans=$(git ls-files 'plans/*/*-plan.md' 2>/dev/null)
+  if [ -z "$plans" ]; then
+    I "tracked plan 없음(plans/ 미커밋?) → plan-lint skip"
+  else
+    out=$(printf '%s\n' "$plans" | xargs node scripts/plan-lint.js 2>&1)
+    if [ -z "$out" ]; then
+      OK "plan-lint: tracked plan 무결성 통과"
+    else
+      while IFS= read -r ln; do [ -n "$ln" ] && W "plan-lint: $ln"; done <<<"$out"
+    fi
+  fi
+else
+  I "scripts/plan-lint.js 없음 → skip"
+fi
+
 if [ "$DEEP" = 1 ]; then
-  echo "== 8. 주입·로드 표면 크기 (deep — wc -c; 토큰 압박 관측, 상대경로·카운트만) =="
+  echo "== 9. 주입·로드 표면 크기 (deep — wc -c; 토큰 압박 관측, 상대경로·카운트만) =="
   tot=0
   for f in CLAUDE.md skills/*/SKILL.md agents/*.md; do
     [ -f "$f" ] || continue
@@ -114,14 +131,14 @@ if [ "$DEEP" = 1 ]; then
   done
   I "표면 합계: ${tot}B"
 
-  echo "== 9. 사용량 카운트 (deep — transcript JSONL 파싱; 카운트·slug 만, 원문·파일명 미출력) =="
+  echo "== 10. 사용량 카운트 (deep — transcript JSONL 파싱; 카운트·slug 만, 원문·파일명 미출력) =="
   if [ -f scripts/usage-count.js ]; then
     node scripts/usage-count.js || I "usage-count 실행 실패 → skip"
   else
     I "scripts/usage-count.js 없음 → skip"
   fi
 
-  echo "== 10. MCP 서버 인벤토리 (deep — 이름만; ~/.claude.json, args·env·secret 미출력) =="
+  echo "== 11. MCP 서버 인벤토리 (deep — 이름만; ~/.claude.json, args·env·secret 미출력) =="
   if [ -f "$HOME/.claude.json" ]; then
     node -e '
       const fs = require("fs");

@@ -39,6 +39,8 @@ jobs:
           node --check scripts/usage-count.js
           node --check scripts/usage-count.test.js
           node --check scripts/install-hooks.test.js
+          node --check scripts/plan-lint.js
+          node --check scripts/plan-lint.test.js
 
       - name: Unit tests
         run: |
@@ -49,6 +51,15 @@ jobs:
           node scripts/session-brief.test.js
           node scripts/usage-count.test.js
           node scripts/install-hooks.test.js
+          node scripts/plan-lint.test.js
+
+      - name: Plan integrity (changed plans, non-blocking)
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        run: |
+          git fetch --no-tags --depth=1 origin "+refs/heads/$GITHUB_BASE_REF:refs/remotes/origin/$GITHUB_BASE_REF" || true
+          git diff --name-only "origin/$GITHUB_BASE_REF" HEAD -- 'plans/*/*-plan.md' \
+            | xargs node scripts/plan-lint.js
 
       - name: JSON validation
         run: |

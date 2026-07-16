@@ -32,6 +32,7 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
 - `# Key Files`: 추가/이동 동기화.
 - `# Blockers`: 막힌 것 + 풀 조건.
 - frontmatter: `status` 판정(4단계) · `updated:` 오늘.
+- **plan 무결성(plan-lint)**: 위 갱신을 **write 한 뒤** `node scripts/plan-lint.js <이 plan>`(있으면) 실행 — frontmatter·6 H1 섹션·**끊긴 Acceptance 참조** 검증. 위반은 **그 자리에서 보정**(additive 편집이 참조를 깬 경우 흔함). 명령 실패(스크립트 부재 등)는 skip+명시. hard-stop 아님.
 
 ### 4. status 판정 + 마무리 보고
 - **status 판정**:
