@@ -345,7 +345,7 @@ jq 미설치 환경이라 node 로 stdin JSON 파싱. 파싱 실패 시 exit 0 (
 
 #### `dlc-task-router.js` · `dlc-evidence-ledger.js` · `dlc-early-stop.js` (+ `dlc-ledger.js` · `dlc-doc-drift.js` · `dlc-signal.js`)
 dlc(`skills/dlc/`)의 evidence gate 를 보조하는 누락방지망. 모두 fail-open — plan `# Acceptance` evidence gate(메인 판정)가 단일 소스고, 이 hook 들은 capped 보조일 뿐.
-- **`dlc-task-router.js`** (UserPromptSubmit) — 디버깅/render 키워드 감지 시 조사·검증 discipline 을 주입하고 세션 evidence 장부를 리셋.
+- **`dlc-task-router.js`** (UserPromptSubmit) — 디버깅/render 키워드 감지 시 조사·검증 discipline(취향·시각 산출물엔 **프로토타입-우선** 제안 포함)을 주입하고 세션 evidence 장부를 리셋.
 - **`dlc-evidence-ledger.js`** (PostToolUse `Edit|Write|NotebookEdit|Bash`) — 코드 변경·검증 명령 실행을 세션 장부에 기록 + 문서화 표면↔README/index dirty flag 갱신(`dlc-doc-drift` 판정).
 - **`dlc-early-stop.js`** (Stop) — 종료 시 두 누락을 capped 1회 경고로 합쳐 출력: ① 변경했는데 검증 기록 없음(`CLAUDE_DLC_EARLYSTOP_OFF=1`), ② 문서화 표면(`scripts/`·`agents/`·`skills/**/SKILL.md`·`settings.json`·`CLAUDE.md`, `wiki/pages/`)을 바꿨는데 `README.md`/`wiki/index.md` 동기화 없음(`CLAUDE_DLC_DOCDRIFT_OFF=1`). 한 hook 에서 합산 출력 — 별도 hook 이면 동시 block 시 한쪽 카운터가 미노출 소모돼 다시 안 잡히는 false negative.
 - **`dlc-doc-drift.js`** — 문서 drift 판정 **순수 모듈**(hook 아님). `resolveRoot`(`.claude`/worktree 한정, 타 repo no-op)·`classify`(root 기준 정확 경로)·`applyChange`(dirty 전이)·`evaluate`. early-stop·evidence-ledger 가 require. 단위테스트 `dlc-doc-drift.test.js`.

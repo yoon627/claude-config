@@ -12,6 +12,7 @@
 - [[worktree-per-task]] — 작업마다 격리 worktree(wt skill·자동 bootstrap·삭제 조건).
 - [[claude-codex-collaboration]] — Claude(구현·통합)↔Codex(리뷰·검증) 병행(§9·리뷰 매트릭스).
 - [[feedback-memory]] — 사용자 교정의 영속화(§12·MEMORY.md 인덱스=행동지시문).
+- [[unknowns-discovery]] — 구현 전 unknowns(unknown unknowns) 능동 발굴 기법→dlc 매핑(blind-spot·질문우선순위·프로토타입-우선·퀴즈·deviations).
 
 ## entity
 - [[anthropic-claude-models]] — Opus4.8/Sonnet4.6/Haiku4.5 가격·effort 지원(2026-06).
@@ -35,7 +36,7 @@
 - [[ops-doc-slimming]] — 항상주입 운영문서 압축 상한 실측 ~11%(규칙손실0 유지 시), 30%+ 는 이관=범위확대; bytes 목표는 보조·규칙손실0 이 hard gate (#73).
 
 ## source
-_(없음)_
+- [[fable-field-guide-unknowns]] — Thariq "A Field Guide to Fable: Finding Your Unknowns"(2026-07-04) 요약: unknowns 사분면·발굴 기법(Interviews·References·Mockups·Blind spot scans·Explainer&Quiz·Implementation Notes).
 
 ## query
 _(없음)_
