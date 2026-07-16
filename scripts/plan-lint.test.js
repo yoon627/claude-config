@@ -100,6 +100,10 @@ ok('ⓣ "Acceptance 21①" 혼합 → 미지원 위반', hasV(V.replace('Accepta
 // ⓤ apostrophe(소유격·축약) 사이 참조를 삼키지 않음 (code-review Major 회귀)
 ok('ⓤ apostrophe 사이 Acceptance 5(항목3) → 위반(미삼킴)',
   hasV(V.replace('Acceptance 2 참조', "plan's bug, Acceptance 5 참조, wasn't done"), 'Acceptance 5'));
+// ⓥ 섹션 헤더 접미사 허용 ("# Decisions (설계)"·"# Next — 방안" 등도 유효)
+ok('ⓥ "# Decisions (설계)" 접미사 → clean(누락 아님)', clean(V.replace('# Decisions', '# Decisions (설계)')));
+// ⓦ Acceptance 섹션 접미사도 참조 무결성이 인식
+ok('ⓦ "# Acceptance (완료기준)" 접미사 → 참조 정상 인식(clean)', clean(V.replace('# Acceptance', '# Acceptance (완료기준)')));
 
 // ---- CLI ----
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'plan-lint-'));
