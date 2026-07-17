@@ -42,7 +42,6 @@
       "PowerShell(git push *)"
     ]
   },
-  "model": "opus[1m]",
   "hooks": {
     "PreToolUse": [
       {
@@ -161,6 +160,7 @@
   },
   "effortLevel": "xhigh",
   "tui": "fullscreen",
+  "skipDangerousModePermissionPrompt": true,
   "skipWorkflowUsageWarning": true,
   "theme": "dark",
   "preferredNotifChannel": "notifications_disabled"
