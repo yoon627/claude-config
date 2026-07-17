@@ -69,9 +69,9 @@
 
 상세 정의는 `.claude/agents/`(프로젝트 우선, 없으면 `~/.claude/agents/`). 정의 없으면 임의 생성 말고 같은 관점으로 직접 점검. plan-reviewer/code-reviewer 의 Codex 검토는 §9.
 
-- **plan-reviewer** — Plan 직후. 누락 케이스·잘못된 가정·영향 범위·rollback.
+- **plan-reviewer** — Plan 직후(비사소한 계획).
 - **researcher** — §4 검색 신호 해당 시, 어느 단계에서든.
-- **code-reviewer** — 구현 후. 버그·보안·테스트 누락·예외 처리·성능·backward compatibility.
+- **code-reviewer** — 구현 후(코드 변경 있는 모든 흐름).
 - **simplify 체크** (subagent 아님 — 메인 직접) — code-reviewer 통과·**blocker 해소 후**(미해결 blocker 있으면 미룸, dlc 13단계). 중복·과한 추상화·불필요한 복잡도·죽은 코드 제거. 동작 보존, 불확실하면 보류(제안만). 코드 변경했으면 검증 재실행.
 - **architecture-reviewer** — 트리거 기반(자동 호출 아님). public API/DB schema/auth 변경, 신규 service·repository·client, DI 변경, 2계층 이상 변경, 설계 의문 명시 시.
 
@@ -215,6 +215,6 @@ updated: YYYY-MM-DD
 
 - **상세 = wiki `pages/decision/lesson-<주제>.md`.** 원인(최소 3 Whys)·재현 조건·잘못된 방법·올바른 방법. 기존 [[workflow-failures]] 와 같은 ADR-lite 형식(§11). `index.md`·`log.md` 동기화 동반.
 - **자동 상기 = `MEMORY.md` feedback 인덱스 한 줄(명령형 + lesson 링크).** wiki 는 자동 주입 안 되고, 매 세션 주입되는 유일한 경로는 이 인덱스 줄이다. *정보 요약이 아니라 회피 행동 지시*로 쓴다(§12): `마이그레이션 down 스크립트 먼저 작성 (롤백 불가 실수 → lesson-migration)`.
-- **메커니즘은 §11·§12 그대로 (중복 서술 안 함).** 저장(wiki lesson + `MEMORY.md` 인덱스 2단계)·승격(보편·치명적 회피 규칙은 이 `CLAUDE.md` 로)·재참고(dlc Explore 시 인덱스 능동 확인)는 §12 와 동일. **§13 의 순증분은 대상 확대뿐** — §12 가 "사용자 교정 지시"를 다룬다면 §13 은 **내가 능동 발견한 실수(사용자 지시 없이도)** 까지 (위 승인 게이트 하에서) 포함. **적립은 매 실수마다 의무가 아니라 판정·제안**이다(위 무승인 금지) — 반면 *승인되어 만들어진* 인덱스 줄은 §12 대로 매 세션 주입된다("적립 의무"와 "인덱스 주입"은 별개). 회피를 hook 으로 강제해야 할 만큼 반복되면 게이트(Stop/UserPromptSubmit)로 승격.
+- **메커니즘은 §11·§12 그대로** (저장 2단계·승격·재참고를 재서술하지 않는다). **§13 의 순증분은 대상 확대뿐** — §12 가 "사용자 교정 지시"라면 §13 은 **내가 능동 발견한 실수(사용자 지시 없이도)** 까지 (위 무승인 게이트 하에서) 포함. **적립은 매 실수마다 의무가 아니라 판정·제안**(위 무승인 금지) — 반면 *승인되어 만들어진* 인덱스 줄은 §12 대로 매 세션 주입("적립 의무"와 "인덱스 주입"은 별개). 회피를 hook 으로 강제할 만큼 반복되면 게이트(Stop/UserPromptSubmit)로 승격.
 
 @RTK.md
