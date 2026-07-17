@@ -57,3 +57,5 @@
 - main-autopull(PR #82) 교훈 2건 적립. ① git 클라이언트 훅은 동기·무timeout → 훅 안 `git pull` 이 죽은 네트워크/프롬프트에 걸리면 checkout hang(SessionStart 훅과 달리 하니스 안전망 없음). macOS 는 `timeout(1)` 부재라 poll 워치독(`kill -0` 폴링·orphan 0)+`GIT_TERMINAL_PROMPT=0`+SSH `ConnectTimeout` 로 자체 상한. ② ff-merge 는 post-checkout 재발동 안 함(재귀 없음, 격리 fixture 실측).
 - decision 신규: [[git-hook-network-safety]] — hang 함정은 [[claude-codex-collaboration]] 병행 리뷰가 사각지대로 포착, 재귀 안전은 [[evidence-gate]] 실측으로 확정.
 - 상위 plans/2026-07-02-workflow-loopify Workstream G(main-autopull).
+
+## [2026-07-17] ingest | ops-doc-slimming 정련 — thin skills slim 후속 이관(#89-92): 압축률∝1/규칙밀도·방향역전 금지·manifest 방법론
