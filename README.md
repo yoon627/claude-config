@@ -298,6 +298,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - done 자동 전환 안 함 (확정 완료 신호 + 사용자 확인 시만, 기본 `in_progress` 체크포인트). plan 없으면 새로 만들지 않음 — 임시 커밋 + 보고만.
 - worktree 에서 작업이 `done`·clean·pushed·merged(base 통합)이고 내부에 잃을 ignored 산출물(plan·`.env`)이 없으면 **worktree 삭제도 제안** (AskUserQuestion; worktree만/+로컬브랜치/+로컬·원격브랜치/유지). 삭제 시 main 으로 빠져나간 뒤 `git worktree remove`, 원격은 `git push origin --delete`, `--force`·`branch -D`·원격 삭제는 추가 확인. merge/done 후 정리를 방치하지 않고 능동 제안하는 규약은 CLAUDE.md §8.
 - **`collect-state.sh`** (헬퍼): 마무리 2단계·5단계의 읽기전용 git 신호(worktree 위치·dirty·upstream/unpushed·base merged·ignored)를 평문 `key:value` 로 1회에 수집 — 분산된 개별 git 호출의 왕복을 줄인다. read-only(판정·삭제·파괴 명령은 SKILL 메인), 각 점검 fail-safe(실패 필드 none/unknown), `unpushedStatus` 는 false 와 unknown 을 구분해 false-positive 삭제를 막는다.
+- **`docs/worktree-lifecycle.md`** (참조, 자동 로드 안 됨): `/e` 의 상태 수집 필드 카탈로그·worktree 삭제 판정 6조건 메커닉·정리 실행 폴백·복귀 pull 의 git 세부를 담는다. SKILL 본문엔 게이트·닫힌목록·안전 규칙만 남기고 세부는 여기로 이관(해당 분기 진입 시 Read — `docs/codex-review.md` 와 같은 참조 패턴).
 
 ### skills/wt/ — Git worktree 빠른 관리
 
@@ -529,7 +530,8 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   └── researcher.md
 ├── docs/
 │   ├── codex-review.md             # codex 병행 검토 공유 규약
-│   └── headroom-proxy-session-lifecycle.md  # headroom proxy 세션 수명·셋업 메모 (macOS)
+│   ├── headroom-proxy-session-lifecycle.md  # headroom proxy 세션 수명·셋업 메모 (macOS)
+│   └── worktree-lifecycle.md       # /e 상태수집·worktree 정리 메커닉 참조(자동 로드 안 됨)
 ├── skills/
 │   ├── dlc/
 │   │   └── SKILL.md                # /dlc — 자동 개발 사이클
