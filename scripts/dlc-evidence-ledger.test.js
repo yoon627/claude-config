@@ -50,6 +50,7 @@ const repoMain = initRepo();       // "main checkout" — plans/·*.log gitignor
 W(repoMain, '.gitignore', 'plans/\n*.log\n');
 W(repoMain, 'plans/x-plan.md', '# plan\n');
 W(repoMain, 'src.js');             // 비-ignored 실소스
+W(repoMain, 'doc.md');             // 비-plan 문서(.md)
 W(repoMain, 'a.log');              // gitignored
 const repoWt = initRepo();         // "worktree 세션 cwd" — 별개 repo
 W(repoWt, '.gitignore', 'plans/\n');
@@ -75,6 +76,16 @@ ok('② /tmp 비-git 스크래치 파일 편집 → changed=false (exit 128)', (
 });
 ok('③ 같은 repo 비-ignored 실소스 편집 → changed=true (비회귀)', () => {
   assert.strictEqual(edit(path.join(repoMain, 'src.js'), repoMain, sid()).changed, true);
+});
+ok('③b 비-plan .md 문서 편집 → changed=false (verify 게이트 밖 — doc-only 오탐 방지)', () => {
+  assert.strictEqual(edit(path.join(repoMain, 'doc.md'), repoMain, sid()).changed, false);
+});
+ok('③c 코드검증 후 .md 편집이 verified 를 리셋하지 않음 (문서≠코드 무효화)', () => {
+  const s = sid();
+  edit(path.join(repoMain, 'src.js'), repoMain, s); // changed=true, verified=false
+  bash('node src.test.js', s); // VERIFY 매치 → verified=true
+  const d = edit(path.join(repoMain, 'doc.md'), repoMain, s); // .md 편집 → verified 유지해야
+  assert.strictEqual(d.verified, true);
 });
 ok('④ 같은 repo gitignored(*.log) 편집 → changed=false (비회귀)', () => {
   assert.strictEqual(edit(path.join(repoMain, 'a.log'), repoMain, sid()).changed, false);

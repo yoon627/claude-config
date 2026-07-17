@@ -2,6 +2,7 @@
 // PostToolUse hook (matcher: Edit|Write|NotebookEdit|Bash) — 증거 장부 갱신.
 //   파일 변경(Edit/Write/NotebookEdit) → changed=true + verified·blocks 리셋
 //     (최종 변경 이후 다시 검증해야 gate 통과 — verified 무효화, 경고 자격 회복).
+//     단 문서(.md)는 test/lint 대상이 아니라 verify 게이트를 켜지 않는다(doc-drift 로만 커버).
 //   Bash 검증 명령 → verified=true. 단 cat/grep/ls 등 비검증 시작 명령은 제외.
 // 한계: hook 은 "검증 *명령 실행* 여부"의 거친 근사다. 검증 *성공* 판정은
 //   plan # Acceptance(모델)가 단일 소스 — hook 은 "검증 시도조차 없음"을 잡는 누락 방지망.
@@ -106,9 +107,14 @@ process.stdin.on('end', () => {
       if (kind) sig.emit(kind, { session_id: input.session_id, cwd: input.cwd, detail: fp });
     }
     if (fp && !isPlan(fp) && !isIgnored(fp, input.cwd)) {
-      data.changed = true;
-      data.verified = false; // 최종 변경 이후 재검증 강제
-      data.blocks = 0; // 새 미검증 변경 → 경고 자격 회복(CAP 재적용)
+      // 문서(.md)는 test/lint 대상이 아니다 → verify 게이트(changed) 를 켜지 않는다.
+      // README·CLAUDE.md·SKILL·wiki 만 고친 세션이 early-stop-verify 오탐을 내던 원인.
+      // 문서의 README/index 동기화는 아래 doc-drift 가 계속 추적한다(verify 와 별개 축).
+      if (!/\.md$/i.test(fp)) {
+        data.changed = true;
+        data.verified = false; // 최종 변경 이후 재검증 강제
+        data.blocks = 0; // 새 미검증 변경 → 경고 자격 회복(CAP 재적용)
+      }
       // 문서 drift: 표면 변경 → *Dirty=true, 문서 변경 → false(순서 반영). 새로 dirty 면 경고 자격 회복.
       // isIgnored 블록 안 — tmp_*.js·*.bak 등 gitignored scratch 가 false dirty 를 유발하지 않게(검증 changed 와 동일 게이트).
       if (drift) {
