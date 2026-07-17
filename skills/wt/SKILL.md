@@ -73,19 +73,10 @@ worktree 세션 안에서 `EnterWorktree` 는 `.claude/worktrees/` 하위 대상
 ### 4. 생성 (확인된 slug 로)
 1. base ref: `git symbolic-ref --short refs/remotes/origin/HEAD` → 실패 시 `origin/main` 폴백.
 2. `git fetch origin <default>` (실패해도 경고만).
-3. `git worktree add --no-track -b <slug> .claude/worktrees/<slug> origin/<default>` (`--no-track` 으로 새 브랜치 upstream 자동 설정 차단 → 첫 `git push` 시 global `push.autoSetupRemote=true` 가 `origin/<slug>` 으로 set).
-4. **`.env` 자동 복사** (옵트아웃 없음):
-   - source = main worktree path = `git worktree list --porcelain` 의 첫 `worktree <path>` 라인. 현재 cwd 가 worktree 안이어도 항상 main 기준.
-   - 후보 = `git -C <main> ls-files --others --ignored --exclude-standard` 결과 중 basename 이 정확히 `.env` 인 행. (디렉토리째 ignored 된 캐시 안 `.env` 는 git 이 listing 에 넣지 않으므로 자동 제외됨.)
-   - 추가 제외 (정규식, 어느 세그먼트에서든 매치): `(^|/)(\.venv|node_modules|__pycache__|\.uv-cache|\.cache|dist|build)/` — 디렉토리 단위가 아닌 패턴 ignore 케이스 대비 안전망.
-   - 각 후보를 동일 상대경로로 `.claude/worktrees/<slug>/` 안에 복사. 부모 디렉토리 없으면 mkdir. **이미 같은 경로에 파일 존재하면 skip (덮어쓰지 않음)**.
-   - 복사 실패 (권한 등) 는 경고만 출력하고 worktree 는 유지.
+3. `git worktree add --no-track -b <slug> .claude/worktrees/<slug> origin/<default>`. (`--no-track` 이유·첫 push autoSetupRemote 는 `references/rm-recovery.md` §A.)
+4. **`.env` 자동 복사** (옵트아웃 없음): **main worktree** 에서 basename 이 정확히 `.env` 인 ignored 파일을 **동일 상대경로**로 `.claude/worktrees/<slug>/` 안에 복사. **이미 있으면 skip(덮어쓰지 않음)**, 복사 실패(권한 등)는 경고만·worktree 유지. 후보 선정(`ls-files --others --ignored --exclude-standard`, basename `.env`)·제외 정규식은 `references/env-copy.md`.
 5. `EnterWorktree(path: <repo-root>/.claude/worktrees/<slug>)`.
-6. 새 cwd 에서 환경 셋업 (순서대로):
-   - **submodule self-heal init**: `uv run --no-project python "${CLAUDE_SKILL_DIR}/heal_submodules.py"` 실행. 중단됐던 submodule clone(objects 불완전 → "Unable to find current revision")을 자동 복구한 뒤 init 한다. `.gitmodules` 없는 레포는 no-op 이라 무해. **bootstrap 보다 먼저** — bootstrap 의 submodule update 가 중단 corrupt 로 죽어 이후 단계(uv sync 등)가 안 도는 걸 방지.
-   - `tools/bootstrap/bootstrap.py` 가 있으면 `uv run tools/bootstrap/bootstrap.py` 실행 (없으면 skip — 다른 프로젝트 무영향).
-   heal·bootstrap 중 무엇이 실패해도 worktree 는 유지하고 에러를 사용자에게 그대로 보고 (사용자가 원인 보고 수동 재실행 결정).
-   - **codegraph 인덱스** (조건부·백그라운드, heal·bootstrap 뒤): `codegraph` 바이너리가 PATH 에 있고 **main worktree(§4.4 처럼 `git worktree list --porcelain` 첫 worktree)에 `.codegraph/` 가 있을 때만** — 둘 다 만족 — 이 worktree 에서 `codegraph init` 을 `run_in_background` 로 실행해 worktree-local 인덱스를 만든다. init 안 하면 worktree 는 상위 탐색으로 main 의 `.codegraph/`(=main 브랜치 코드)를 잡아 이 worktree 변경이 누락된다. 조건 불만족이면 skip (codegraph 미사용 레포 무영향). 실패해도 인덱스만 없을 뿐 worktree·dlc 는 진행. ⚠️ 백그라운드라 인덱싱 완료 전 dlc 초기 codegraph 조회는 생성 중 부분 인덱스나 main fallback 을 볼 수 있다(곧 sync — 감수). (`.codegraph/` 는 루트 `.gitignore` whitelist 로 자동 ignore.) ⚠️ **staleness**: codegraph MCP 세션의 기본 조회는 세션 시작 시점 인덱스에 고정되어 EnterWorktree 이후·merge 반영 후에도 stale 할 수 있다(실측: 같은 커밋에서 기본 17파일/172노드 vs `projectPath` 명시 20파일/221노드). 조회 시 `projectPath` 를 현재 worktree 절대경로로 명시하고, 오래돼 보이면 그 repo 에서 `codegraph init` 재실행(비파괴). (memory `codegraph-projectpath-explicit`)
+6. 새 cwd 에서 환경 셋업 (순서대로): **submodule self-heal**(`heal_submodules.py`) → **bootstrap**(`tools/bootstrap/bootstrap.py` 있으면, 없으면 skip) → **codegraph init**(조건부·백그라운드). heal 을 **bootstrap 보다 먼저**(중단 corrupt submodule 이 이후 단계를 죽이는 것 방지). 무엇이 실패해도 **worktree 유지·에러 그대로 보고**(사용자가 수동 재실행 결정). self-heal/bootstrap 상세는 `references/rm-recovery.md` §B, codegraph init 조건(PATH + **main** `.codegraph/`)·백그라운드·staleness·`projectPath` 지침은 `references/codegraph-worktree.md`.
 
 ### 5. dlc 작업
 - 생성·진입 완료 후, 새 worktree(현재 cwd)에서 **`dlc` Skill 을 요청사항 원문을 인자로 invoke** (Skill 도구, `skill: dlc`, `args: <요청사항 원문>`). 이후는 dlc 가 규모 gate 부터 파이프라인까지 진행한다.
@@ -120,8 +111,8 @@ worktree 세션 안에서 `EnterWorktree` 는 `.claude/worktrees/` 하위 대상
    - **미머지 탐지 (옵션 3 원격 삭제 판단 근거)**: `git branch --merged origin/<default>` 에 대상 branch 가 없거나 `git log origin/<default>..<branch>` 가 비어있지 않으면 **미머지** — 원격 삭제(옵션 3)는 데이터 유실 위험이므로 이 사실을 옵션 3 경고에 명시(e 는 조건5 게이트로 차단하나 wt 는 수동이라 사용자 판단; 미탐지 시 삭제 안 함 전제). `<default>` = `git symbolic-ref --short refs/remotes/origin/HEAD` (실패 시 `origin/main`).
 5. AskUserQuestion (옵션 1: worktree 만 / 옵션 2: worktree + 로컬 브랜치 / 옵션 3: worktree + 로컬·원격 브랜치 / 옵션 4: 취소). 경고(특히 unpushed·미머지)는 question 본문에 명시 — 원격 삭제(옵션 3)는 그 경고를 본 사용자가 택할 때만.
 6. 실행: `git worktree remove <path>`. 실패 시 stderr 원인으로 분기:
-   - **"modified or untracked files"/"use --force" 류**(변경·untracked 잔존): `--force` 적용 여부 별도 AskUserQuestion (절대 묻지 않고 강제 실행 금지).
-   - **파일 점유 류**("Access is denied"·"being used by another process"·"Directory not empty" 등 OS 삭제 실패): 그 worktree 의 `.codegraph/` 를 codegraph daemon 이 잡고 있을 수 있다(그 worktree 에서 codegraph MCP 세션을 띄웠던 경우만 — `init`·`status` 로는 안 뜸). **자동 종료하지 않고 안내**: 그 세션을 닫거나 daemon idle 자동종료(~5분) 후 재시도, 급하면 수동으로 해당 node 프로세스 종료. (`--force` 는 git 레벨이라 OS 파일점유는 못 푼다.)
+   - **"modified or untracked files"/"use --force" 류**(변경·untracked 잔존): `--force` 적용 여부는 **별도 AskUserQuestion 후에만**(절대 묻지 않고 강제 실행 금지).
+   - **파일 점유 류**(OS 삭제 실패 — "Access is denied"·"being used"·"Directory not empty"): codegraph daemon 이 그 worktree `.codegraph/` 를 잡았을 수 있음. **자동 종료하지 않고 안내** 후 재시도(`--force` 는 OS 점유엔 무효). 상세·조건은 `references/rm-recovery.md` §C.
    - 옵션 2·3(로컬 브랜치 삭제): **remove 성공 후에만** `git branch -D <branch>` (remove 실패·거부 시 브랜치 보존).
    - 옵션 3(원격도 삭제): 로컬 삭제 후 `git push origin --delete <branch>` (원격 ref 부재면 no-op·경고만).
 7. 한 줄 보고.

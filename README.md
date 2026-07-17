@@ -308,6 +308,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - `EnterWorktree(path: <abs>)` 로 진입 — `name` 인자 사용 금지 (Claude Code 의 `worktree-` prefix 자동 부착 회피)
 - 정수·`rm`·기존 worktree 정확일치가 아닌 텍스트는 **요청사항**으로 간주 → 영문 kebab-case slug 파생 → AskUserQuestion 으로 확인 후 생성 → 요청사항 원문을 `dlc` task 로 전달 (dlc 없는 빈 worktree 단순 생성은 폐지)
 - 접두 `?` (`/wt ? <막연한 설명>`)는 **질문 모드** — AskUserQuestion 으로 요구사항을 구체화한 뒤 같은 요청사항 생성 경로로 합류 (접미 `?` 는 의문형 요청과 충돌해 미사용)
+- `references/` (자동 로드 안 됨): SKILL 본문엔 절차 스텝·안전 게이트만 두고, 상세 메커닉은 해당 분기 진입 시 Read 하는 참조 doc 으로 분리 — `env-copy.md`(`.env` 복사 후보/제외)·`codegraph-worktree.md`(codegraph init 조건·staleness·projectPath)·`rm-recovery.md`(생성 git 시퀀스·self-heal·rm 실패 복구). `docs/codex-review.md`·`docs/worktree-lifecycle.md` 와 같은 참조 패턴.
 
 ### skills/wiki/ — LLM Wiki (영속 프로젝트 메모리)
 
@@ -541,7 +542,8 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   │   ├── SKILL.md                # /e — plan 마무리 (임시 커밋 + 동기화)
 │   │   └── collect-state.sh        # 마무리 읽기전용 git 신호 1회 수집(read-only)
 │   ├── wt/
-│   │   └── SKILL.md                # /wt — git worktree 관리
+│   │   ├── SKILL.md                # /wt — git worktree 관리
+│   │   └── references/             # 생성 시퀀스·codegraph·.env 복사·rm 복구 메커닉 (자동 로드 안 됨)
 │   ├── wiki/
 │   │   └── SKILL.md                # /wiki — LLM Wiki 운영 (ingest/query/lint)
 │   └── improve/
