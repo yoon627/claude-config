@@ -80,6 +80,9 @@ ok('③ 같은 repo 비-ignored 실소스 편집 → changed=true (비회귀)', 
 ok('③b 비-plan .md 문서 편집 → changed=false (verify 게이트 밖 — doc-only 오탐 방지)', () => {
   assert.strictEqual(edit(path.join(repoMain, 'doc.md'), repoMain, sid()).changed, false);
 });
+ok('③c changed 파일은 changedTrigger 에 basename 기록 (신호 detail 용)', () => {
+  assert.strictEqual(edit(path.join(repoMain, 'src.js'), repoMain, sid()).changedTrigger, 'src.js');
+});
 ok('③c 코드검증 후 .md 편집이 verified 를 리셋하지 않음 (문서≠코드 무효화)', () => {
   const s = sid();
   edit(path.join(repoMain, 'src.js'), repoMain, s); // changed=true, verified=false

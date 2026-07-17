@@ -45,11 +45,13 @@ function classify(fp, root) {
 function applyChange(data, fp, cwd, home) {
   const root = resolveRoot(cwd, home);
   if (!root) return data;
+  const nf = String(fp || '').replace(/\\/g, '/');
+  const rel = nf.startsWith(root + '/') ? nf.slice(root.length + 1) : null; // 신호 detail 용(repo-relative)
   switch (classify(fp, root)) {
-    case 'readme-trigger': data.readmeDirty = true; break;
-    case 'readme-target': data.readmeDirty = false; break;
-    case 'index-trigger': data.indexDirty = true; break;
-    case 'index-target': data.indexDirty = false; break;
+    case 'readme-trigger': data.readmeDirty = true; data.readmeTrigger = rel; break;
+    case 'readme-target': data.readmeDirty = false; data.readmeTrigger = null; break;
+    case 'index-trigger': data.indexDirty = true; data.indexTrigger = rel; break;
+    case 'index-target': data.indexDirty = false; data.indexTrigger = null; break;
   }
   return data;
 }

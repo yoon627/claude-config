@@ -69,6 +69,31 @@ ok('root=null no change', () => {
   assert.strictEqual(data.readmeDirty, false);
 });
 
+// --- applyChange: trigger 파일 detail 기록 (신호 detail 용, repo-relative) ---
+ok('trigger records readmeTrigger rel', () => {
+  const data = { readmeDirty: false, indexDirty: false };
+  d.applyChange(data, R + '/skills/dlc/SKILL.md', R, HOME);
+  assert.strictEqual(data.readmeTrigger, 'skills/dlc/SKILL.md');
+});
+ok('target clears readmeTrigger', () => {
+  const data = { readmeDirty: true, readmeTrigger: 'CLAUDE.md', indexDirty: false };
+  d.applyChange(data, R + '/README.md', R, HOME);
+  assert.strictEqual(data.readmeTrigger, null);
+});
+ok('last trigger wins in readmeTrigger', () => {
+  const data = { readmeDirty: false, indexDirty: false };
+  d.applyChange(data, R + '/CLAUDE.md', R, HOME);
+  d.applyChange(data, R + '/scripts/x.js', R, HOME);
+  assert.strictEqual(data.readmeTrigger, 'scripts/x.js');
+});
+ok('index trigger records + clears', () => {
+  const data = { readmeDirty: false, indexDirty: false };
+  d.applyChange(data, R + '/wiki/pages/concept/x.md', R, HOME);
+  assert.strictEqual(data.indexTrigger, 'wiki/pages/concept/x.md');
+  d.applyChange(data, R + '/wiki/index.md', R, HOME);
+  assert.strictEqual(data.indexTrigger, null);
+});
+
 // --- evaluate: dirty → 메시지 ---
 ok('clean → no message', () => assert.deepStrictEqual(d.evaluate({ readmeDirty: false, indexDirty: false }), []));
 ok('readme dirty → 1 msg', () => assert.strictEqual(d.evaluate({ readmeDirty: true, indexDirty: false }).length, 1));
