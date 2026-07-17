@@ -65,7 +65,7 @@ process.stdin.on('end', () => {
   ) {
     data.blocks = (data.blocks || 0) + 1;
     reasons.push(VERIFY_MISSING);
-    if (sig) sig.emit('early-stop-verify', sigCtx); // 실제 block 출력과 동일 조건에서만
+    if (sig) sig.emit('early-stop-verify', { ...sigCtx, detail: data.changedTrigger }); // 실제 block 출력과 동일 조건에서만
   }
 
   // (2) 문서 drift
@@ -74,8 +74,8 @@ process.stdin.on('end', () => {
     if (docMsgs.length) {
       data.docBlocks = (data.docBlocks || 0) + 1;
       reasons.push(...docMsgs);
-      if (sig && data.readmeDirty) sig.emit('doc-drift-readme', sigCtx);
-      if (sig && data.indexDirty) sig.emit('doc-drift-index', sigCtx);
+      if (sig && data.readmeDirty) sig.emit('doc-drift-readme', { ...sigCtx, detail: data.readmeTrigger });
+      if (sig && data.indexDirty) sig.emit('doc-drift-index', { ...sigCtx, detail: data.indexTrigger });
     }
   }
 

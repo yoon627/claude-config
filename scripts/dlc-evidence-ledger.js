@@ -114,6 +114,7 @@ process.stdin.on('end', () => {
         data.changed = true;
         data.verified = false; // 최종 변경 이후 재검증 강제
         data.blocks = 0; // 새 미검증 변경 → 경고 자격 회복(CAP 재적용)
+        data.changedTrigger = String(fp).replace(/\\/g, '/').split('/').pop(); // 신호 detail 용(basename — 경로유출 회피)
       }
       // 문서 drift: 표면 변경 → *Dirty=true, 문서 변경 → false(순서 반영). 새로 dirty 면 경고 자격 회복.
       // isIgnored 블록 안 — tmp_*.js·*.bak 등 gitignored scratch 가 false dirty 를 유발하지 않게(검증 changed 와 동일 게이트).
