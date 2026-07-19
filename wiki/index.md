@@ -17,7 +17,7 @@
 ## entity
 - [[anthropic-claude-models]] — Opus4.8/Sonnet4.6/Haiku4.5 가격·effort 지원(2026-06).
 - [[claude-code-subagent-config]] — subagent frontmatter model/effort·env 우선순위·Haiku effort.
-- [[codegraph]] — 코드 심볼 그래프 MCP(npm @colbymchenry/codegraph)·worktree-local 인덱스.
+- [[codegraph]] — 코드 심볼 그래프 MCP(npm @colbymchenry/codegraph)·worktree-local 인덱스(init 스냅샷·watcher 없어 stale→조회 전 재-sync).
 - [[headroom]] — 컨텍스트 최적화 proxy(token mode·launchd)·MCP·rtk 번들.
 
 ## decision
