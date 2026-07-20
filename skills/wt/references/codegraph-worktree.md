@@ -13,10 +13,11 @@ heal·bootstrap 뒤, 조건부·백그라운드:
 - (`.codegraph/` 는 루트 `.gitignore` whitelist 로 자동 ignore.)
 
 ## ⚠️ 백그라운드 주의
-백그라운드라 인덱싱 완료 전 dlc 초기 codegraph 조회는 생성 중 부분 인덱스나 main fallback 을 볼 수 있다(곧 sync — 감수).
+백그라운드라 인덱싱 완료 전 dlc 초기 codegraph 조회는 생성 중 부분 인덱스나 main fallback 을 볼 수 있다(초기 init 완료 시 반영 — 감수). 단 이 "완료 시 반영"은 **최초 init 1회뿐**이다 — worktree 인덱스엔 live watcher 가 없어(아래 staleness 절) 이후 worktree 편집은 자동 sync 되지 않는다.
 
 ## ⚠️ staleness / projectPath (실측)
 codegraph MCP 세션의 **기본 조회는 세션 시작 시점 인덱스에 고정**되어 EnterWorktree 이후·merge 반영 후에도 stale 할 수 있다(실측: 같은 커밋에서 기본 17파일/172노드 vs `projectPath` 명시 20파일/221노드).
+- **worktree 인덱스엔 live watcher 가 없다**(2026-07-19 실측): auto-sync watcher 는 MCP 서버가 기동 시 바인딩한 root(=main)에서만 돈다. worktree-local `.codegraph/` 는 위 init **시점의 스냅샷**이라, 이후 worktree 편집은 CLI `sync`·MCP `projectPath=worktree` 조회(둘 다 일회성) 없이는 반영 안 됨 — worktree 엔 `daemon.log` 조차 안 생긴다. (세션 중 cwd 만 worktree 로 바꿔도 MCP 서버는 main 에 고정.)
 - 조회 시 `projectPath` 를 **현재 worktree 절대경로로 명시**.
-- 오래돼 보이면 그 repo 에서 `codegraph init` 재실행(비파괴).
+- 장기 작업 중엔 조회 전 `codegraph sync <worktree>`(또는 `init`) 재실행 — 오래돼 보이면 비파괴 재생성. 신뢰가 필요하면 Read/Grep 병용.
 - 근거: memory `codegraph-projectpath-explicit`.
