@@ -10,9 +10,11 @@ updated: 2026-07-22
 
 # Progress
 - 2026-07-22: 문제 실증·원인 규명 완료(아래 Decisions 의 실측 근거). worktree `worklog-cwd-attribution` 생성, 이 plan 작성. 구현 미착수.
+- 2026-07-22: plan commit `b9e0a28` → `origin/worklog-cwd-attribution` push(PR 미오픈). 작업 트리 clean, WIP 커밋 없음.
 
 # Next
 구현 착수 시 첫 액션: `skills/jira-worklog/test_session_time.py`(신규, stdlib unittest — 기존 `skills/wt/test_heal_submodules.py` 스타일) 에 **회귀 테스트부터** 작성. 케이스: 한 jsonl 안에 worktree A 구간 → B 구간이 섞여 있을 때 A/B 가 각자의 시간만 받고 합이 이중계상되지 않을 것(Red 확인 후 구현).
+이어받기: `/wt worklog-cwd-attribution` → `/c`. 이어붙일 WIP 커밋 없음(clean).
 
 # Decisions
 
