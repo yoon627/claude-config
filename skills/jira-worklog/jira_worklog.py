@@ -4,8 +4,10 @@
 그 worktree 의 세션 로그(Claude ``~/.claude/projects/<slug>`` + Codex ``~/.codex/sessions``)
 에서 AI 가 실제 작업한 시간(사용자 응답 대기·긴 공백 제외)을 날짜별로 추정한다. 두 소스가 다
 있으면 시간을 union 한다. 어느 소스도 세션이 없으면 '세션 활동 없음'. 기본은 미리보기(dry-run).
-실제 등록은 ``--register``. (ticket,date) 마커로 그날 **본인** worklog 를 찾아 없으면 생성,
-있으면 시간만 갱신한다(upsert — 재실행 시 skip 아님). 인증·설정은 .env / 환경변수 / jira-kit.toml.
+실제 등록은 ``--register``.
+(ticket, date, worktree) 마커로 **그 worktree 의** 본인 worklog 를 찾아 없으면 생성, 있으면 시간만
+갱신한다(upsert — 재실행 시 skip 아님). 같은 티켓을 여러 worktree 에서 작업하면 worktree 마다
+항목이 따로 생기고 티켓 총 작업시간은 Jira 가 합산한다. 인증·설정은 .env / 환경변수 / jira-kit.toml.
 
 이 스킬 디렉토리에서 직접 실행한다(대상 worktree 를 cwd 로):
   python ~/.claude/skills/jira-worklog/jira_worklog.py            # 현재 worktree 미리보기
@@ -34,6 +36,7 @@ if isinstance(sys.stderr, io.TextIOWrapper):
 from jira_kit.config import Config, ConfigError, load_config, resolve_timezone  # noqa: E402
 from jira_kit.git_util import GitError, Worktree, current_worktree, list_worktrees  # noqa: E402
 from jira_kit.jira_client import JiraError, get_myself, get_worklogs  # noqa: E402
+from jira_kit.markers import worklog_marker  # noqa: E402
 from jira_kit.session_time import SessionFiles, ai_worklog_by_date, discover_sessions  # noqa: E402
 from jira_kit.worklog_core import DayWorklog, extract_ticket, format_duration  # noqa: E402
 from jira_kit.worklog_register import upsert_worklog  # noqa: E402
@@ -71,8 +74,10 @@ def _days_for(
     return ticket, days
 
 
-def _register(config: Config, ticket: str, days: list[DayWorklog], user_comment: str | None) -> int:
-    """Jira worklog 를 그날 항목마다 upsert 한다(insert-once 아님). 실패 건수 반환.
+def _register(
+    config: Config, ticket: str, worktree: str, days: list[DayWorklog], user_comment: str | None
+) -> int:
+    """그 worktree 의 날짜별 worklog 를 upsert 한다(insert-once 아님). 실패 건수 반환.
 
     create/update/unchanged 판정·author-scoping·comment 조립은 upsert_worklog 가 담당한다.
     사용자/기존 worklog 조회가 실패하면 안전하게 전량 skip(오등록 방지).
@@ -88,9 +93,10 @@ def _register(config: Config, ticket: str, days: list[DayWorklog], user_comment:
     for day in days:
         try:
             result = upsert_worklog(
-                config.jira, ticket, day, existing, my_account_id, note_parts=(user_comment,)
+                config.jira, ticket, day, existing, my_account_id,
+                worktree=worktree, note_parts=(user_comment,),
             )
-            print(f"    {result} {ticket} {day.day} {format_duration(day.seconds)}")
+            print(f"    {result} {ticket} {day.day} {format_duration(day.seconds)} [{worktree}]")
         except JiraError as exc:
             print(f"    등록 실패 {day.day}: {exc}", file=sys.stderr)
             failures += 1
@@ -114,13 +120,19 @@ def process(
         f"ticket={ticket or '(없음)'} 활동 {len(days)}일 합계 {format_duration(total)}"
     )
     for day in days:
-        print(f"    {day.day}  {format_duration(day.seconds):>8}  (시작 {day.started.strftime('%H:%M')})")
+        # worklog 항목은 worktree 단위로 갈리므로 어떤 마커로 기록될지 등록 전에 보여준다
+        # (Jira 를 수동 정리할 때 그대로 찾아 쓸 문자열이라 날짜별 실물을 찍는다).
+        marker = f"  {worklog_marker(ticket, day.day, name)}" if ticket else ""
+        print(
+            f"    {day.day}  {format_duration(day.seconds):>8}  "
+            f"(시작 {day.started.strftime('%H:%M')}){marker}"
+        )
 
     if ticket is None and register:
         print("    티켓 매치 없음 → 등록 skip (--ticket-pattern 또는 worktree 이름/브랜치명 확인)")
         return 0
     if register and config.jira is not None and ticket:
-        return _register(config, ticket, days, args.comment)
+        return _register(config, ticket, name, days, args.comment)
     return 0
 
 
