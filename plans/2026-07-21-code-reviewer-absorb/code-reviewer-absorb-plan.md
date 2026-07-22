@@ -14,9 +14,10 @@ updated: 2026-07-22
 - 2026-07-21: 빌트인 /code-review 소스 추출(바이너리 2.1.216) — 5-phase, finder angle, report-everything, failure_scenario, verdict(CONFIRMED/PLAUSIBLE/REFUTED), 4.8 튜닝 노트 확인. Explore 완료. draft plan v1 작성.
 - 2026-07-21: plan-reviewer(+codex medium 병행, 전 항목 독립 수렴) = **CONDITIONAL**. 핵심 결정 "verdict가 확신도 대체" 철회 — 아래 Decisions v2로 재설계(축 분리·REFUTED 감사로그·defect/recommendation 분리·공유규약 불변·fixture dry-run). 지적이 명확·반영 방향 확정적이라 plan-reviewer 재실행 생략, 구현 후 code-reviewer가 최종 점검.
 - 2026-07-22: 구현(code-reviewer.md 6곳 + README) → plan-lint 통과 → fixture dry-run(acceptance8) 통과 → code-reviewer(+codex medium) = **REQUEST CHANGES**(Critical 1 실증: H3 heading 이 grep `^##?` 패턴에서 유실). fix loop 1회로 전 항목 반영(verdict collinear→반증결과만 재정의 · grep H2 복원 · ❌템플릿 제거 · failure_scenario 몰드 일반화 · Codex 독립입력 · 상태전이 고정 · 종합판단 매핑 · Opus4.8 모델비종속). C1 실증 재검증 통과(`## Critical` H2 매치, H3 잔재 0). 2회차 리뷰 생략(핵심 반영+실증). simplify 특이사항 없음(문서 지침).
+- 2026-07-22: 커밋(5978657) → push → **PR #97** 오픈(base main). Acceptance 9항목 evidence gate 통과.
 
 # Next
-최종 검증(plan-lint 통과 · markdown 추가 lint 없음) 후 Report — 사용자에 push/PR/머지 선택지.
+PR #97 리뷰·머지 대기. 머지되면 worktree(code-reviewer-absorb) + 로컬·원격 브랜치 정리(/e step5).
 
 # Decisions
 > v2 = plan-reviewer 지적 반영 재설계. v1의 "verdict로 확신도 통합"은 **철회**.
