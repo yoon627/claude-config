@@ -323,6 +323,15 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - 의미 점검(LLM): 문서 간 모순 · 중복 trigger · 죽은 규칙 + wiki `workflow-failures` 표·MEMORY 인덱스·plan `# Workflow Findings` 대조.
 - **역할 경계**: README↔surface drift 는 `dlc-doc-drift` hook, wiki 내부 무결성은 `/wiki lint` 영역 — improve 는 재판정하지 않고 신호의 **사후 집계**만(중복 회피).
 
+### skills/jira-worklog/ — worktree 작업시간 → Jira worklog
+
+worktree 의 AI 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex/sessions`)에서 AI 가 실제 작업한 시간(사용자 응답 대기·긴 공백 제외)을 날짜별로 추정해 Jira worklog 에 기록. stdlib only(설치 불필요), 기본은 미리보기(dry-run)이고 실제 등록은 `--register`. `/e` 5단계가 마무리 시 호출한다.
+- 대상 티켓은 **worktree 디렉토리 이름 prefix**(anchored)에서 우선 추출, 없으면 브랜치명 fallback. 어느 쪽에도 없으면 등록 skip(안전).
+- **worklog 항목은 worktree 단위**: 마커 `[jira-kit] worklog <티켓> <날짜> (<worktree>)` 로 그 worktree 의 그날 항목만 upsert 한다(멱등). 같은 티켓을 `CSTP1-1234-abc`/`-def` 여러 worktree 에서 작업하면 항목이 각각 생기고 **티켓 총 작업시간은 Jira 가 합산** — 나중 등록이 이전 worktree 시간을 덮지 않는다. 병렬로 돌린 구간은 양쪽에 잡혀 합계가 실제 경과시간보다 커진다.
+- 마커 매칭은 ADF **줄 정확일치** — 부분문자열이면 사용자 `--comment` 본문이나 Jira UI 편집 텍스트에 마커가 섞인 항목을 자기 것으로 오인한다. 반대로 마커를 **놓치면** 새 항목이 생겨 조용히 이중계상되므로, 줄 추출은 UI 편집이 만드는 `hardBreak`·`codeBlock`·`heading`·앞뒤 공백까지 흡수한다.
+- author scoping(내 accountId 항목만) · 마커 중복 2건+ 중단 · worktree 없는 구 형식 항목 발견 시 중단(귀속 불명 → 수동 정리 요구).
+- 인증(`JIRA_BASE_URL`/`JIRA_EMAIL`/`JIRA_API_TOKEN`)은 환경변수 또는 `~/.jira-kit/.env`, 비민감 설정은 `~/.jira-kit/jira-kit.toml`. 토큰 없으면 미리보기만 되고 마무리 흐름은 안 막힌다.
+
 ### scripts/
 
 settings.json 에 등록돼 후크가 호출하는 진입점은 notify(`notify-hook.js`), worktree 가드(`guard-worktree-edit.js`), dlc evidence 3종(`dlc-task-router.js` / `dlc-evidence-ledger.js` / `dlc-early-stop.js`). 모두 fail-open (실패해도 throw 안 함). 나머지(`bootstrap/`, `*.ps1`, `install-*`, `prompt-gwl.py`)는 위 진입점이 위임하거나 수동/프로젝트별로 쓰는 보조 스크립트.
@@ -547,9 +556,14 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   │   └── references/             # 생성 시퀀스·codegraph·.env 복사·rm 복구 메커닉 (자동 로드 안 됨)
 │   ├── wiki/
 │   │   └── SKILL.md                # /wiki — LLM Wiki 운영 (ingest/query/lint)
-│   └── improve/
-│       ├── SKILL.md                # /improve — 자기개선 loop 분석 축 (구 /audit 흡수; read-only·랭킹·제안)
-│       └── improve.sh              # 자산 간 참조 정합 기계 점검 + dlc 신호 집계 (read-only)
+│   ├── improve/
+│   │   ├── SKILL.md                # /improve — 자기개선 loop 분석 축 (구 /audit 흡수; read-only·랭킹·제안)
+│   │   └── improve.sh              # 자산 간 참조 정합 기계 점검 + dlc 신호 집계 (read-only)
+│   └── jira-worklog/
+│       ├── SKILL.md                # worktree AI 작업시간 → Jira worklog (dry-run 기본)
+│       ├── jira_worklog.py         # CLI 진입점 (stdlib only)
+│       ├── jira_kit/               # 세션시간 추정·마커·Jira REST·설정 모듈
+│       └── test_worklog_scope.py   # worktree 단위 upsert 격리 테스트 (수동 실행)
 ├── scripts/
 │   ├── notify-hook.js              # notify 진입점 (cross-platform; mac 인라인, win→.ps1 위임)
 │   ├── notify.ps1                  # (Windows) Toast + 사운드 + flash
