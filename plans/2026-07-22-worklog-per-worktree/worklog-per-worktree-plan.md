@@ -24,10 +24,13 @@ updated: 2026-07-22
   legacy 중단 메시지의 복구 안내가 그대로 따르면 이중계상) + Minor 5건 수용해 fix loop 1회.
 - 2026-07-22 mutation 검증: 줄 정확일치 → 부분문자열 되돌리면 7건 Red, hardBreak/codeBlock/
   heading 처리 제거하면 3건 Red — 테스트가 두 회귀를 실제로 잡는 것 확인.
+- 2026-07-22 최종 검증 통과(신규 21 + 기존 Python 24 + node 8종 + plan-lint + JSON).
+  커밋 `6683d63` → push → PR #101 (https://github.com/yoon627/claude-config/pull/101).
 
 # Next
 
-15단계 최종 검증(격리 runner) → Report. 이후 Deferred 의 pull 훅 문제를 별도 브랜치에서.
+PR #101 리뷰·머지. 머지되면 `status: done` 으로 바꾸고 worktree(`worklog-ticket-union`) 정리.
+그 다음 Deferred 의 `settings.json` pull 훅 문제를 별도 브랜치에서.
 
 # Decisions
 
