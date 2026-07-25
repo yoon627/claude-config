@@ -2,20 +2,19 @@
 title: auto-cleanup-after-merge — 내가 직접 수행한 merge 직후 안전조건 충족 시 정리 자동화
 status: in_progress
 started: 2026-07-21
-updated: 2026-07-21
+updated: 2026-07-25
 ---
 
 # Goal
 **내가(에이전트) 이 세션에서 직접 수행/확인한 merge 직후**, 대상이 안전조건(비-main/보호브랜치·clean·fetch 후 remote-ahead 없음·base 에 merged·산출물 안전) 충족이면 worktree+로컬+원격 브랜치를 **확인 없이 자동 정리**하고 결과(삭제 tip sha 포함) 1줄 보고. 우연히 머지된 브랜치·`/e`·`wt rm` 독립 정리, 또는 안전조건 미충족/불확실이면 **기존 AskUserQuestion 유지**(데이터 유실 방지). 리뷰어 CONDITIONAL GO 설계. 순수 문서/정책 변경.
 
 # Progress
-- 2026-07-21: wt→dlc 진입, Explore 완료. 4개 대상 정확 텍스트 확보(CLAUDE.md:120·e step5(45-56,76-83,91)·dlc:120·wt rm:106-118,122). 규모 structural(안전 게이트 완화). plan 작성.
+- 2026-07-21: wt→dlc 진입, Explore 완료(대상 CLAUDE.md:120·e·dlc·wt). plan-review(+codex) 가 원안(머지 후 항상 원격 자동삭제) NO-GO 판정 — remote-ahead 단방향 unpushed 미탐지·human-gate 소멸 등 데이터 유실 구멍 → 옵션1(self-merge 한정+fetch 양방향) 재설계, 사용자 확정.
+- 2026-07-22: 옵션1 로 6파일 편집 완료 — CLAUDE.md §8(a)/(b) anchor, dlc:120·e:46·wt:122·docs/worktree-lifecycle.md:5 cross-ref, README:300 동기화(§3). 자체검증: 5개 구멍(remote-ahead·remoteContainingHead·PR-uncheck·human-gate·rollback) 각 구현 텍스트와 1:1 대조로 닫힘 + /e·wt rm over-reach 명시 배제. 확정 재리뷰는 API 세션 한도로 실패(리뷰 결과 아님) — 설계는 plan-review CONDITIONAL GO, 구현은 충실한 전사.
+- 2026-07-25: /e 마무리 — 정식 커밋 `724b8b9`(7파일, wip 아님·완료 상태). working tree clean.
 
 # Next
-commit+push+PR(사용자 확인). 머지 시 §8(a) 자동 정리 첫 적용 대상.
-
-# Progress (추가)
-- 2026-07-22: 옵션1 로 6파일 편집 완료 — CLAUDE.md §8(a)/(b) anchor, dlc:120·e:46·wt:122·docs/worktree-lifecycle.md:5 cross-ref, README:300 동기화(§3 문서 동기화). 자체 검증: 5개 구멍(remote-ahead·remoteContainingHead·PR-uncheck·human-gate·rollback) 각각 구현 텍스트와 1:1 대조로 닫힘 확인 + /e·wt rm over-reach 명시 배제. simplify: cross-ref 1줄씩 최소·중복 없음. **확정 재리뷰는 API 세션 한도로 실패(리뷰 결과 아님) — 설계는 앞선 plan-review 의 CONDITIONAL GO 이고 구현은 그 충실한 전사라 자체검증으로 진행.**
+push → PR(main) → 머지. ⚠️ **main 의 CLAUDE.md 가 세션 중 §8 인접에 새 규칙(line 119 worklog 정확성) 추가 + §3 Report 갱신** → PR 시 rebase/충돌 확인 필요. 이 PR 머지가 §8(a) 자동 정리의 첫 실적용 대상.
 
 # Chosen Design (옵션 1, 2026-07-21 사용자 확정)
 **auto FULL cleanup(worktree+로컬+원격, 무확인) 트리거 = 아래 전부 AND:**
@@ -60,11 +59,11 @@ commit+push+PR(사용자 확인). 머지 시 §8(a) 자동 정리 첫 적용 대
 - docs/worktree-lifecycle.md — merge 판정 §B authority(참조 정합만 확인, 확인=늘 AskUserQuestion 철학과 auto-예외 충돌 없게 anchor 는 §8)
 
 # Acceptance
-- [ ] CLAUDE.md:120: self-merge-this-session + 안전6조건(비-main·clean·fetch후 remote-ahead없음·base merged·산출물안전)→worktree+로컬+원격 자동(확인생략, 삭제 tip sha 보고); 미충족/우연머지→AskUserQuestion. `gh pr merge --delete-branch`·main 제외 보존 (관찰: diff)
-- [ ] dlc:120: self-merge 직후+안전→자동 full clean, else 능동 제안(AskUserQuestion) (관찰: diff)
-- [ ] e step5·wt rm: cross-ref 1줄 추가(§8 auto-예외 지시), 나머지 기존 ask 동작 보존 — /e·wt rm 독립정리는 여전히 확인 (관찰: diff)
-- [ ] 일관성: 4파일 + docs 가 동일 정책, "auto 인데 remote-ahead/protected 미체크" 잔존 없음 (관찰: grep + 읽기)
-- [ ] 안전 불변식: main auto 없음·squash/미머지/dirty/remote-ahead/불확실→ask·`--force` 자동 없음·삭제전 tip sha 기록 (관찰: 각 문구)
+- [x] CLAUDE.md:120: self-merge-this-session + 안전6조건(비-main·clean·fetch후 remote-ahead없음·base merged·산출물안전)→worktree+로컬+원격 자동(확인생략, 삭제 tip sha 보고); 미충족/우연머지→AskUserQuestion. `gh pr merge --delete-branch`·main 제외 보존 (관찰: diff)
+- [x] dlc:120: self-merge 직후+안전→자동 full clean, else 능동 제안(AskUserQuestion) (관찰: diff)
+- [x] e step5·wt rm: cross-ref 1줄 추가(§8 auto-예외 지시), 나머지 기존 ask 동작 보존 — /e·wt rm 독립정리는 여전히 확인 (관찰: diff)
+- [x] 일관성: 4파일 + docs 가 동일 정책, "auto 인데 remote-ahead/protected 미체크" 잔존 없음 (관찰: grep + 읽기)
+- [x] 안전 불변식: main auto 없음·squash/미머지/dirty/remote-ahead/불확실→ask·`--force` 자동 없음·삭제전 tip sha 기록 (관찰: 각 문구)
 
 # Deferred
 - **정정**: `docs/worktree-lifecycle.md` 는 repo root 에 실재(내 find 오류). Deferred 아님 — Key Files 로 이동, 참조 정합 확인 대상.
