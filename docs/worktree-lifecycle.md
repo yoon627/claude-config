@@ -4,6 +4,8 @@
 
 > 이 파일은 자동 로드되지 않는다 — `/e` 가 **상태 수집·worktree 삭제 판정/실행·복귀 pull 분기에 실제로 들어갔을 때** 이 파일을 Read 한다. 판정 골격(6조건 AND·자동삭제 금지·안전 게이트)은 SKILL 본문이 단일 소스이고, 여기는 "어떻게"만.
 
+> **범위**: 이 파일의 정리 판정·실행은 전부 **CLAUDE.md §8(b) — 독립 정리(우연 머지·`/e`·`wt rm`), 최종 삭제는 늘 AskUserQuestion** 경로다. **§8(a)**(내가 이 세션에서 직접 수행/확인한 merge 직후 + 안전조건 전부 충족 시 worktree+로컬+원격을 **무확인 자동 정리**)는 이 파일이 다루지 않는 **별개 경로**다(fetch 후 remote-ahead·base merged·보호브랜치 체크는 §8(a) 가 자체 수행).
+
 ## A. collect-state 필드 카탈로그·파싱 (SKILL §2)
 `bash skills/e/collect-state.sh` 가 개별 git 10+ 호출을 1회로 묶어 평문 `key: value` 로 반환하는 신호:
 `root·branch·detached·mainWorktree·dirty·status·upstreamStatus·upstream·unpushedStatus·unpushed·base·baseValid·inBase·patchInBase·remoteContainingHead·ignoredStatus·ignored`.
