@@ -2,7 +2,7 @@
 title: auto-cleanup-after-merge — 내가 직접 수행한 merge 직후 안전조건 충족 시 정리 자동화
 status: in_progress
 started: 2026-07-21
-updated: 2026-07-25
+updated: 2026-07-26
 ---
 
 # Goal
@@ -12,9 +12,10 @@ updated: 2026-07-25
 - 2026-07-21: wt→dlc 진입, Explore 완료(대상 CLAUDE.md:120·e·dlc·wt). plan-review(+codex) 가 원안(머지 후 항상 원격 자동삭제) NO-GO 판정 — remote-ahead 단방향 unpushed 미탐지·human-gate 소멸 등 데이터 유실 구멍 → 옵션1(self-merge 한정+fetch 양방향) 재설계, 사용자 확정.
 - 2026-07-22: 옵션1 로 6파일 편집 완료 — CLAUDE.md §8(a)/(b) anchor, dlc:120·e:46·wt:122·docs/worktree-lifecycle.md:5 cross-ref, README:300 동기화(§3). 자체검증: 5개 구멍(remote-ahead·remoteContainingHead·PR-uncheck·human-gate·rollback) 각 구현 텍스트와 1:1 대조로 닫힘 + /e·wt rm over-reach 명시 배제. 확정 재리뷰는 API 세션 한도로 실패(리뷰 결과 아님) — 설계는 plan-review CONDITIONAL GO, 구현은 충실한 전사.
 - 2026-07-25: /e 마무리 — 정식 커밋 `724b8b9`(7파일, wip 아님·완료 상태). working tree clean.
+- 2026-07-26: `origin/main` merge(`eefb6b0`) — 예고된 충돌 1건 실현. **#98 이 `/e` 에 worklog 를 step5 로 삽입해 worktree 정리가 step6 으로 재번호** → 충돌(skills/e/SKILL.md)은 main 구조 채택 + 이 브랜치의 "§8(b) 독립 정리라 항상 ask" 문구를 step6 본문에 반영으로 해결. 이 브랜치가 추가한 step5 참조 2곳(CLAUDE.md:124·dlc:120) → step6 정정. 검증: plan-lint exit=0 · settings.json parse OK · `node --test scripts/*.test.js` 8파일 전건 pass · 충돌 마커 0(shellcheck 는 변경이 전부 `.md` 라 생략).
 
 # Next
-push → PR(main) → 머지. ⚠️ **main 의 CLAUDE.md 가 세션 중 §8 인접에 새 규칙(line 119 worklog 정확성) 추가 + §3 Report 갱신** → PR 시 rebase/충돌 확인 필요. 이 PR 머지가 §8(a) 자동 정리의 첫 실적용 대상.
+push → PR(main) 오픈 → 리뷰·머지. 이 PR 머지가 §8(a) 자동 정리의 첫 실적용 대상(머지 직후 이 worktree+로컬·원격 브랜치가 무확인 자동 정리 조건을 만족하는지 실관찰).
 
 # Chosen Design (옵션 1, 2026-07-21 사용자 확정)
 **auto FULL cleanup(worktree+로컬+원격, 무확인) 트리거 = 아래 전부 AND:**
@@ -67,6 +68,7 @@ push → PR(main) → 머지. ⚠️ **main 의 CLAUDE.md 가 세션 중 §8 인
 
 # Deferred
 - **정정**: `docs/worktree-lifecycle.md` 는 repo root 에 실재(내 find 오류). Deferred 아님 — Key Files 로 이동, 참조 정합 확인 대상.
+- **step 번호 baseline drift (범위 밖 · main 기원 · 2026-07-26 발견)**: #98 이 `/e` 에 worklog step5 를 삽입하며 후속 단계 번호를 밀었으나 참조 2곳이 갱신되지 않음 — `docs/worktree-lifecycle.md:3`("worktree 삭제 판정(5단계)…복귀 pull(6단계 ⓑ)" → 실제 6·7단계), `README.md:301`("마무리 2단계·5단계의 읽기전용 git 신호" → 2·6단계). 이 브랜치가 만든 drift 가 아니라 merge 로 가시화된 것이라 §3-4 대로 미수정. 심각도 낮음(문서 참조), 수정 비용 2줄.
 - `skills/e/collect-state.sh:30` unpushed=`@{u}..HEAD` **단방향**(remote-ahead 미탐지). 이번 auto 경로는 §8 에서 별도 `git fetch`+양방향 rev-list 를 명시해 우회하므로 무영향. collect-state 소비자(/e·wt rm)는 여전히 ask 라 유실 없음. 근본 개선(collect-state 에 remote-ahead 필드 추가)은 스코프 밖·별도 작업 후보. 심각도 낮음.
 
 # Blockers
