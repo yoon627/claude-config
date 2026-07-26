@@ -114,46 +114,51 @@ function improveNudgeLine(env) {
   return `/improve 권장 — failure 신호 ${sessions.size}세션 누적 (마커 이후)`;
 }
 
+// frontmatter 는 파일 맨 앞이라 head 만 읽는다. `* text=auto`(.gitattributes) 때문에 플랫폼별로
+// CRLF 로 체크아웃되므로 개행·BOM 을 정규화한다 — plan-lint.js 파서와 같은 전처리.
 function readHead(file, bytes) {
   const fd = fs.openSync(file, 'r');
   try {
     const buf = Buffer.alloc(bytes);
     const n = fs.readSync(fd, buf, 0, bytes, 0);
-    return buf.subarray(0, n).toString('utf8');
+    return buf.subarray(0, n).toString('utf8').replace(/^﻿/, '').replace(/\r\n/g, '\n');
   } finally {
     fs.closeSync(fd);
   }
 }
 
 // frontmatter(`---` 블록) 안에서만 key 값을 뽑는다 — 본문의 같은 이름 라인에 오염되지 않게.
+// YAML 인라인 주석은 값이 아니다: §10 정본 템플릿이 `status: in_progress  # in_progress | ...` 형태다.
 function frontmatterValue(head, key) {
   const block = head.match(/^---\n([\s\S]*?)\n---/);
   if (!block) return null;
   const hit = block[1].match(new RegExp(`^${key}:[ \\t]*(.+)$`, 'm'));
-  return hit ? hit[1].trim() : null;
+  return hit ? hit[1].replace(/\s+#.*$/, '').trim() : null;
 }
 
-// 로컬 달력 일수 차. updated 는 날짜만이라 UTC 파싱하면 오전에 음수가 되므로 로컬 자정 기준으로 비교.
+// 달력 일수 차. `updated` 는 날짜만이라 시각 성분을 섞으면 오전에 음수가 되고, 로컬 자정 간
+// ms 차분은 DST 전환(23시간 하루)에서 하루 작아진다 → 양쪽을 UTC 자정으로 옮겨 차분한다.
 function daysSinceLocal(dateStr, now) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
   if (!m) return null;
-  const then = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  if (Number.isNaN(then.getTime())) return null;
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const diff = Math.floor((today.getTime() - then.getTime()) / 86400000);
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const then = new Date(Date.UTC(y, mo - 1, d));
+  if (then.getUTCMonth() + 1 !== mo || then.getUTCDate() !== d) return null; // 2026-02-31 같은 롤오버 거부
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = Math.floor((today - then.getTime()) / 86400000);
   return diff < 0 ? 0 : diff; // 미래 날짜는 0 으로 클램프
 }
 
 // slug ↔ 브랜치 앵커 매칭. free substring 은 쓰지 않는다 — 항상 존재하는 `main` 이
 // slug 에 main 이 든 plan(main-autopull 등)을 영구 억제하고, 무관 브랜치가 우연 매칭된다.
 function anchorMatches(branch, slug) {
+  if (!slug) return false;
   return branch === slug || branch === `worktree-${slug}` || branch.endsWith(`-${slug}`);
 }
 
 // M: in_progress 인데 작업이 끝난 것으로 보이는 plan 목록 라인(없으면 null).
 // "끝난 것으로 보임" = 매칭 브랜치가 없음 OR 있어도 origin/main 대비 ahead 0(이미 머지됨).
 function stalePlanLine(repoDir, env, now) {
-  // `Math.max(1, Number(x) || 3)` 관용구는 음수가 truthy 라 -5 를 1 로 통과시킨다 → 범위 검사로.
   const rawDays = Number(env.CLAUDE_BRIEF_STALE_DAYS);
   const minDays = Number.isFinite(rawDays) && rawDays >= 1 ? Math.floor(rawDays) : 3;
   const plansDir = path.join(repoDir, 'plans');
@@ -177,9 +182,11 @@ function stalePlanLine(repoDir, env, now) {
     } catch {
       continue;
     }
-    for (const ref of out.split('\n').filter(Boolean)) {
+    for (const ref of out.split('\n').filter(Boolean).slice(0, MAX_BRANCHES)) {
       const name = ref.startsWith('origin/') ? ref.slice(7) : ref;
-      if (MAINLINE.has(name) || name === 'HEAD') continue; // K 와 같은 이유로 mainline 제외
+      // mainline 제외는 K 와 같은 이유(§ anchorMatches 주석). `origin` 은 refs/remotes/origin/HEAD 의
+      // short 표기라 브랜치가 아니다.
+      if (MAINLINE.has(name) || name === 'origin') continue;
       branches.push({ ref, name });
     }
   }
@@ -197,23 +204,35 @@ function stalePlanLine(repoDir, env, now) {
   };
 
   const stale = [];
-  for (const e of entries.slice(0, MAX_PLANS)) {
-    if (!e.isDirectory()) continue; // plans/ 루트의 stray 파일(ENOTDIR) 차단
+  // plans/ 루트의 stray 파일(ENOTDIR)을 먼저 걸러낸 뒤 cap 을 적용한다 — 순서가 반대면 오래된 done
+  // 디렉토리와 stray 파일이 예산을 소진해 최신 in_progress plan 이 스캔 밖으로 밀린다(readdir 오름차순).
+  const dirs = entries.filter((e) => e.isDirectory()).slice(-MAX_PLANS);
+  for (const e of dirs) {
+    const dir = path.join(plansDir, e.name);
+    let files;
     try {
-      const dir = path.join(plansDir, e.name);
-      for (const f of fs.readdirSync(dir)) {
-        if (!f.endsWith('-plan.md')) continue;
+      files = fs.readdirSync(dir);
+    } catch {
+      continue;
+    }
+    for (const f of files) {
+      if (!f.endsWith('-plan.md')) continue;
+      try {
         const slug = f.slice(0, -'-plan.md'.length);
         const head = readHead(path.join(dir, f), FM_BYTES);
         if (frontmatterValue(head, 'status') !== 'in_progress') continue; // blocked 는 의도적 정지라 제외
-        const days = daysSinceLocal(frontmatterValue(head, 'updated') || '', now);
+        // updated 가 불량·부재면 started 로 폴백한다 — frontmatter 관리가 끊긴 plan 이야말로
+        // 가장 오래 방치된 쪽이라, 파싱 실패를 skip 으로 처리하면 목표와 정반대가 된다.
+        const days =
+          daysSinceLocal(frontmatterValue(head, 'updated') || '', now) ??
+          daysSinceLocal(frontmatterValue(head, 'started') || '', now);
         if (days === null || days < minDays) continue;
         const matched = branches.filter((b) => anchorMatches(b.name, slug));
         if (matched.length && (!hasOriginMain || matched.some((b) => !isMerged(b.ref)))) continue; // 진행 중
         stale.push({ slug, days });
+      } catch {
+        continue; // 불량 plan 1건이 같은 디렉토리의 나머지 파일 평가를 막지 않는다
       }
-    } catch {
-      continue; // 불량 plan 1건이 나머지 보고를 막지 않는다
     }
   }
   if (!stale.length) return null;
