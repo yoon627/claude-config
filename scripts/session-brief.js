@@ -1,9 +1,12 @@
 #!/usr/bin/env node
-// SessionStart 브리프 — 세션 시작 시 1줄 리마인더 두 종(해당 시에만, 없으면 무음):
+// SessionStart 브리프 — 세션 시작 시 1줄 리마인더 세 종(해당 시에만, 없으면 무음):
 //   K 머지 대기: ~/.claude 의 origin/main 대비 ahead>0 로컬 브랜치(완성-미머지가 조용히 방치되는 것 가시화).
 //   L /improve 권장: dlc-signal failure 축 신호가 마커(마지막 /improve) 이후 임계 세션 이상 누적.
+//   M 닫히지 않은 plan: in_progress 인데 작업이 끝난 것으로 보이는 plan(§10 "머지 시점에 즉시 done" 누락).
+//     K 의 정반대 축 — K 는 "코드는 됐는데 안 머지됨", M 은 "머지는 됐는데 plan 이 안 닫힘".
 // 계약: 판정 아님·표시만(telemetry emit 안 함) · 전부 fail-open(무음 exit 0) · ~/.claude 한정 ·
-//   동기 hook(async 면 stdout 이 첫 턴 후 도달) · git stderr 억제 · child git timeout.
+//   동기 hook(async 면 stdout 이 첫 턴 후 도달) · git stderr 억제 · child git timeout ·
+//   신호끼리 예외 격리(한 신호가 죽어도 나머지 라인은 살린다 — stdout write 가 마지막에 1회라서).
 'use strict';
 const { execFileSync } = require('child_process');
 const fs = require('fs');
@@ -19,6 +22,9 @@ try {
 const MERGE_CAP = 5;
 const MAX_BRANCHES = 100; // 스캔 상한(동기 hook 지연 방지 — 브랜치당 git 2 spawn)
 const MAINLINE = new Set(['main', 'master']);
+const STALE_CAP = 5;
+const MAX_PLANS = 200; // plans/ 는 done 도 계속 누적 → MAX_BRANCHES 와 대칭으로 상한
+const FM_BYTES = 2048; // frontmatter 는 파일 맨 앞 몇 줄 → 전문 대신 head 만 read
 
 function git(repoDir, args) {
   return execFileSync('git', ['-C', repoDir, ...args], {
@@ -108,19 +114,133 @@ function improveNudgeLine(env) {
   return `/improve 권장 — failure 신호 ${sessions.size}세션 누적 (마커 이후)`;
 }
 
+function readHead(file, bytes) {
+  const fd = fs.openSync(file, 'r');
+  try {
+    const buf = Buffer.alloc(bytes);
+    const n = fs.readSync(fd, buf, 0, bytes, 0);
+    return buf.subarray(0, n).toString('utf8');
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+// frontmatter(`---` 블록) 안에서만 key 값을 뽑는다 — 본문의 같은 이름 라인에 오염되지 않게.
+function frontmatterValue(head, key) {
+  const block = head.match(/^---\n([\s\S]*?)\n---/);
+  if (!block) return null;
+  const hit = block[1].match(new RegExp(`^${key}:[ \\t]*(.+)$`, 'm'));
+  return hit ? hit[1].trim() : null;
+}
+
+// 로컬 달력 일수 차. updated 는 날짜만이라 UTC 파싱하면 오전에 음수가 되므로 로컬 자정 기준으로 비교.
+function daysSinceLocal(dateStr, now) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+  if (!m) return null;
+  const then = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (Number.isNaN(then.getTime())) return null;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = Math.floor((today.getTime() - then.getTime()) / 86400000);
+  return diff < 0 ? 0 : diff; // 미래 날짜는 0 으로 클램프
+}
+
+// slug ↔ 브랜치 앵커 매칭. free substring 은 쓰지 않는다 — 항상 존재하는 `main` 이
+// slug 에 main 이 든 plan(main-autopull 등)을 영구 억제하고, 무관 브랜치가 우연 매칭된다.
+function anchorMatches(branch, slug) {
+  return branch === slug || branch === `worktree-${slug}` || branch.endsWith(`-${slug}`);
+}
+
+// M: in_progress 인데 작업이 끝난 것으로 보이는 plan 목록 라인(없으면 null).
+// "끝난 것으로 보임" = 매칭 브랜치가 없음 OR 있어도 origin/main 대비 ahead 0(이미 머지됨).
+function stalePlanLine(repoDir, env, now) {
+  // `Math.max(1, Number(x) || 3)` 관용구는 음수가 truthy 라 -5 를 1 로 통과시킨다 → 범위 검사로.
+  const rawDays = Number(env.CLAUDE_BRIEF_STALE_DAYS);
+  const minDays = Number.isFinite(rawDays) && rawDays >= 1 ? Math.floor(rawDays) : 3;
+  const plansDir = path.join(repoDir, 'plans');
+  let entries;
+  try {
+    entries = fs.readdirSync(plansDir, { withFileTypes: true });
+  } catch {
+    return null; // plans/ 부재·비 git → 무음
+  }
+  let hasOriginMain = true;
+  try {
+    git(repoDir, ['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/main']);
+  } catch {
+    hasOriginMain = false; // ahead 판정 불가 → "브랜치 있으면 제외"로 보수 동작
+  }
+  const branches = []; // rev-list 에 그대로 쓸 수 있는 ref 이름(로컬 short / origin/<name>)
+  for (const ns of ['refs/heads', 'refs/remotes/origin']) {
+    let out;
+    try {
+      out = git(repoDir, ['for-each-ref', '--format=%(refname:short)', ns]);
+    } catch {
+      continue;
+    }
+    for (const ref of out.split('\n').filter(Boolean)) {
+      const name = ref.startsWith('origin/') ? ref.slice(7) : ref;
+      if (MAINLINE.has(name) || name === 'HEAD') continue; // K 와 같은 이유로 mainline 제외
+      branches.push({ ref, name });
+    }
+  }
+  const mergedCache = new Map();
+  const isMerged = (ref) => {
+    if (mergedCache.has(ref)) return mergedCache.get(ref);
+    let merged = false;
+    try {
+      merged = parseInt(git(repoDir, ['rev-list', '--count', `origin/main..${ref}`]).trim(), 10) === 0;
+    } catch {
+      merged = false; // 판정 실패 → 미머지 취급(오탐보다 침묵)
+    }
+    mergedCache.set(ref, merged);
+    return merged;
+  };
+
+  const stale = [];
+  for (const e of entries.slice(0, MAX_PLANS)) {
+    if (!e.isDirectory()) continue; // plans/ 루트의 stray 파일(ENOTDIR) 차단
+    try {
+      const dir = path.join(plansDir, e.name);
+      for (const f of fs.readdirSync(dir)) {
+        if (!f.endsWith('-plan.md')) continue;
+        const slug = f.slice(0, -'-plan.md'.length);
+        const head = readHead(path.join(dir, f), FM_BYTES);
+        if (frontmatterValue(head, 'status') !== 'in_progress') continue; // blocked 는 의도적 정지라 제외
+        const days = daysSinceLocal(frontmatterValue(head, 'updated') || '', now);
+        if (days === null || days < minDays) continue;
+        const matched = branches.filter((b) => anchorMatches(b.name, slug));
+        if (matched.length && (!hasOriginMain || matched.some((b) => !isMerged(b.ref)))) continue; // 진행 중
+        stale.push({ slug, days });
+      }
+    } catch {
+      continue; // 불량 plan 1건이 나머지 보고를 막지 않는다
+    }
+  }
+  if (!stale.length) return null;
+  stale.sort((a, z) => z.days - a.days); // 오래 방치된 것 먼저
+  const shown = stale.slice(0, STALE_CAP).map((x) => `${x.slug}(${x.days}d)`);
+  const more = stale.length > STALE_CAP ? ` +${stale.length - STALE_CAP}` : '';
+  return `닫히지 않은 plan: ${shown.join(', ')}${more}`;
+}
+
 function main() {
   const env = process.env;
   if (env.CLAUDE_SESSION_BRIEF_OFF === '1') return;
   const repoDir = env.CLAUDE_BRIEF_REPO || path.join(os.homedir(), '.claude');
   const lines = [];
-  if (env.CLAUDE_BRIEF_MERGE_OFF !== '1') {
-    const l = mergePendingLine(repoDir);
-    if (l) lines.push(l);
-  }
-  if (env.CLAUDE_BRIEF_IMPROVE_OFF !== '1') {
-    const l = improveNudgeLine(env);
-    if (l) lines.push(l);
-  }
+  // 신호별 try — stdout write 가 마지막 1회라, 격리 없으면 한 신호의 예외가 이미 계산된 라인까지 삼킨다.
+  const collect = (off, fn) => {
+    if (env[off] === '1') return;
+    try {
+      const l = fn();
+      if (l) lines.push(l);
+    } catch {
+      /* 이 신호만 포기, 나머지는 계속 */
+    }
+  };
+  collect('CLAUDE_BRIEF_MERGE_OFF', () => mergePendingLine(repoDir));
+  collect('CLAUDE_BRIEF_IMPROVE_OFF', () => improveNudgeLine(env));
+  collect('CLAUDE_BRIEF_STALE_OFF', () => stalePlanLine(repoDir, env, new Date()));
   if (lines.length) process.stdout.write(lines.join('\n') + '\n');
 }
 

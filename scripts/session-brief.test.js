@@ -7,7 +7,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 const BRIEF = path.join(__dirname, 'session-brief.js');
 
 // CI 결정성: 상속된 GIT_* 가 fixture repo 판정을 오염시키지 않게 스크럽.
@@ -48,8 +48,25 @@ function sigDir() {
 function writeRows(dir, rows, file) {
   fs.writeFileSync(path.join(dir, file || 'dlc-signals.jsonl'), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
 }
-const OFF = { CLAUDE_BRIEF_IMPROVE_OFF: '1' }; // K 테스트 시 L 끄기
-const MOFF = { CLAUDE_BRIEF_MERGE_OFF: '1' }; // L 테스트 시 K 끄기
+// plans/<dir>/<slug>-plan.md 를 frontmatter 와 함께 만든다. dir 은 §10 형식(<date>-<slug>).
+function writePlan(repoDir, slug, status, updated, dirName) {
+  const dir = path.join(repoDir, 'plans', dirName || `2026-07-01-${slug}`);
+  fs.mkdirSync(dir, { recursive: true });
+  const fm = `---\ntitle: ${slug} — t\nstatus: ${status}\nstarted: 2026-07-01\nupdated: ${updated}\n---\n\n# Goal\nt\n`;
+  fs.writeFileSync(path.join(dir, `${slug}-plan.md`), fm);
+}
+// updated 값으로 쓸 "오늘 - n일" 로컬 날짜 문자열(YYYY-MM-DD).
+function daysAgo(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+const OFF = { CLAUDE_BRIEF_IMPROVE_OFF: '1', CLAUDE_BRIEF_STALE_OFF: '1' }; // K 테스트 시 L·M 끄기
+// L 테스트 시 K·M 끄기. STALE_OFF 필수 — L 테스트는 CLAUDE_BRIEF_REPO 를 안 넘겨 실제 ~/.claude 를
+// 읽으므로, M 이 켜져 있으면 그쪽 plan 상태에 따라 무음 단언이 깨진다.
+const MOFF = { CLAUDE_BRIEF_MERGE_OFF: '1', CLAUDE_BRIEF_STALE_OFF: '1' };
+const SOFF = { CLAUDE_BRIEF_MERGE_OFF: '1', CLAUDE_BRIEF_IMPROVE_OFF: '1' }; // M 테스트 시 K·L 끄기
 
 // ---------- K: 머지 대기 ----------
 ok('ⓐ ahead>0 브랜치 → 머지 대기 목록 1줄', () => {
@@ -216,6 +233,148 @@ ok('ⓚ CLAUDE_SESSION_BRIEF_OFF=1 → 완전 무음', () => {
   const d = sigDir();
   writeRows(d, Array.from({ length: 9 }, (_, i) => failRow('s' + i, 'plan-blocked', '2026-07-10T00:0' + i + ':00Z')));
   assert.strictEqual(run({ CLAUDE_DLC_SIGNAL_DIR: d, CLAUDE_SESSION_BRIEF_OFF: '1' }), '');
+});
+
+// ---------- M: 닫히지 않은 plan ----------
+ok('ⓜ in_progress + 매칭 브랜치 없음 + 경과 ≥ 임계 → 1줄', () => {
+  const r = initRepo();
+  commit(r, 'base');
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  writePlan(r, 'orphan-plan', 'in_progress', daysAgo(5));
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...SOFF });
+  assert.match(out, /닫히지 않은 plan/);
+  assert.match(out, /orphan-plan\(5d\)/);
+});
+ok('ⓝ 매칭 브랜치 존재 + ahead>0 → 제외(세 앵커 형태)', () => {
+  for (const branch of ['anchor-a', 'worktree-anchor-a', 'feat-anchor-a']) {
+    const r = initRepo();
+    commit(r, 'base');
+    git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+    writePlan(r, 'anchor-a', 'in_progress', daysAgo(5));
+    git(r, ['checkout', '-b', branch]);
+    commit(r, 'wip'); // ahead>0 = 진행 중
+    assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...SOFF }), '', `branch=${branch}`);
+  }
+});
+ok('ⓞ 매칭 브랜치 있어도 ahead 0(머지됨) → 검출(이중 블라인드 구간)', () => {
+  const r = initRepo();
+  commit(r, 'base');
+  git(r, ['checkout', '-b', 'merged-work']);
+  commit(r, 'work');
+  git(r, ['checkout', 'main']);
+  git(r, ['merge', '--ff-only', 'merged-work']);
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']); // 브랜치는 남았고 이미 머지됨
+  writePlan(r, 'merged-work', 'in_progress', daysAgo(5));
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...SOFF });
+  assert.match(out, /merged-work\(5d\)/);
+});
+ok('ⓟ slug 에 main 포함 → main 브랜치에 억제되지 않음', () => {
+  const r = initRepo();
+  commit(r, 'base');
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  writePlan(r, 'main-autopull', 'in_progress', daysAgo(5));
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...SOFF });
+  assert.match(out, /main-autopull\(5d\)/);
+});
+ok('ⓠ 원격 전용 브랜치가 매칭 → 제외(다머신 오탐 차단)', () => {
+  const r = initRepo();
+  commit(r, 'base');
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  git(r, ['checkout', '-b', 'tmp']); commit(r, 'remote work');
+  git(r, ['update-ref', 'refs/remotes/origin/other-machine', 'HEAD']); // 원격에만 존재
+  git(r, ['checkout', 'main']); git(r, ['branch', '-D', 'tmp']);
+  writePlan(r, 'other-machine', 'in_progress', daysAgo(5));
+  assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...SOFF }), '');
+});
+ok('ⓡ done·blocked 는 제외', () => {
+  const r = initRepo();
+  commit(r, 'base');
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  writePlan(r, 'closed-one', 'done', daysAgo(9));
+  writePlan(r, 'stuck-one', 'blocked', daysAgo(9));
+  assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...SOFF }), '');
+});
+ok('ⓢ 경과 < 임계 → 제외, STALE_DAYS 로 조정', () => {
+  const r = initRepo();
+  commit(r, 'base');
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  writePlan(r, 'fresh-plan', 'in_progress', daysAgo(1)); // 기본 임계 3 미달
+  assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...SOFF }), '');
+  const out = run({ CLAUDE_BRIEF_REPO: r, CLAUDE_BRIEF_STALE_DAYS: '1', ...SOFF });
+  assert.match(out, /fresh-plan\(1d\)/);
+});
+ok('ⓣ STALE_DAYS 0·음수·비숫자 → 기본값(3) 흡수', () => {
+  const r = initRepo();
+  commit(r, 'base');
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  writePlan(r, 'two-days', 'in_progress', daysAgo(2)); // 기본 3 미달
+  for (const v of ['0', '-5', 'abc', '']) {
+    assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, CLAUDE_BRIEF_STALE_DAYS: v, ...SOFF }), '', `v=${v}`);
+  }
+});
+ok('ⓤ STALE_OFF=1 로 해제 · SESSION_BRIEF_OFF=1 우선', () => {
+  const r = initRepo();
+  commit(r, 'base');
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  writePlan(r, 'muted-plan', 'in_progress', daysAgo(5));
+  assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...SOFF, CLAUDE_BRIEF_STALE_OFF: '1' }), '');
+  assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, CLAUDE_SESSION_BRIEF_OFF: '1' }), '');
+});
+ok('ⓥ plans 부재·루트 stray 파일(ENOTDIR)·frontmatter 불량 → 무음 + exit 0', () => {
+  const r = initRepo();
+  commit(r, 'base');
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  const res1 = spawnSync('node', [BRIEF], { env: { ...process.env, CLAUDE_BRIEF_REPO: r, ...SOFF } });
+  assert.strictEqual(res1.status, 0);
+  assert.strictEqual(res1.stdout.toString(), ''); // plans/ 없음
+  fs.mkdirSync(path.join(r, 'plans'), { recursive: true });
+  fs.writeFileSync(path.join(r, 'plans', 'stray.md'), '# not a plan dir\n'); // 디렉토리 아닌 파일
+  fs.mkdirSync(path.join(r, 'plans', '2026-07-01-nofm'), { recursive: true });
+  fs.writeFileSync(path.join(r, 'plans', '2026-07-01-nofm', 'nofm-plan.md'), 'no frontmatter here\n');
+  const res2 = spawnSync('node', [BRIEF], { env: { ...process.env, CLAUDE_BRIEF_REPO: r, ...SOFF } });
+  assert.strictEqual(res2.status, 0);
+  assert.strictEqual(res2.stdout.toString(), '');
+});
+ok('ⓦ 불량 plan 이 있어도 유효 stale plan 은 계속 보고(파일 단위 격리)', () => {
+  const r = initRepo();
+  commit(r, 'base');
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  fs.mkdirSync(path.join(r, 'plans'), { recursive: true });
+  fs.writeFileSync(path.join(r, 'plans', 'stray.md'), 'x\n');
+  writePlan(r, 'broken', 'in_progress', 'not-a-date');
+  writePlan(r, 'valid-one', 'in_progress', daysAgo(6));
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...SOFF });
+  assert.match(out, /valid-one\(6d\)/);
+});
+ok('ⓧ M 이 예외를 던져도 K·L 라인 보존(신호별 격리)', () => {
+  const r = initRepo();
+  commit(r, 'base');
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  git(r, ['checkout', '-b', 'feat-live']); commit(r, 'f1');
+  // plans 를 읽을 수 없게 만든다(디렉토리 자리에 파일) → M 경로에서 예외 유발
+  fs.writeFileSync(path.join(r, 'plans'), 'not a directory\n');
+  const out = run({ CLAUDE_BRIEF_REPO: r, CLAUDE_BRIEF_IMPROVE_OFF: '1' });
+  assert.match(out, /머지 대기/); // K 는 살아 있어야 한다
+  assert.match(out, /feat-live\(\+1\)/);
+});
+ok('ⓨ cap 5 초과 시 +N 표기 · 오래된 것 먼저', () => {
+  const r = initRepo();
+  commit(r, 'base');
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  for (let i = 1; i <= 7; i++) writePlan(r, `p${i}`, 'in_progress', daysAgo(3 + i));
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...SOFF });
+  assert.match(out, /p7\(10d\)/); // 가장 오래된 것이 먼저
+  assert.match(out, /\+2/); // 7건 중 5건 표시 + 2
+  assert.doesNotMatch(out, /p1\(4d\)/); // 가장 최근 건은 cap 밖
+});
+ok('ⓩ 실증: 소급 정리 4건과 동형(10·9·7·4d) → 기본 임계 3 으로 전건 검출', () => {
+  const r = initRepo();
+  commit(r, 'base');
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  const cases = [['plan-lint', 10], ['signal-detail', 9], ['codegraph-wt-doc-fix', 7], ['code-reviewer-absorb', 4]];
+  for (const [slug, d] of cases) writePlan(r, slug, 'in_progress', daysAgo(d));
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...SOFF });
+  for (const [slug, d] of cases) assert.match(out, new RegExp(`${slug}\\(${d}d\\)`), `${slug} 미검출`);
 });
 
 console.log(`session-brief.test.js: ${n} tests passed`);
