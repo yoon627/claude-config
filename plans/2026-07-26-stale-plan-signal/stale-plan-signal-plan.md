@@ -1,6 +1,6 @@
 ---
 title: stale-plan-signal — 머지됐는데 닫히지 않은 plan 을 세션 브리프로 알림
-status: in_progress
+status: done
 started: 2026-07-26
 updated: 2026-07-26
 ---
@@ -18,8 +18,12 @@ updated: 2026-07-26
   - Minor 처분: DST 전환 off-by-one(fix — UTC 자정 차분) · 존재하지 않는 날짜 롤오버 오보고 + 죽은 NaN 가드(fix — 롤오버 검증, 회귀 M-5) · `updated` 불량 시 영구 무음(fix — `started` 폴백, 회귀 M-4) · "파일 단위 격리"가 실제로 dir 단위(fix — try 를 파일 루프 안으로) · 브랜치 cap 누락(fix — `MAX_BRANCHES` 적용) · README "다머신 오탐 차단" 이 fetch 된 ref 한정(fix — 문구) · `hasOriginMain=false` 테스트 공백(fix — 회귀 M-6) · plan 문서 모순 3건(fix — 이 커밋).
   - Nit 처분: 테스트 헤더 K+L→K·L·M(fix) · `name==='HEAD'` 죽은 가드 → 실제 short 표기는 `origin`(fix) · 빈 slug 앵커 매칭(fix — 가드) · `SOFF`→`KLOFF` 네이밍 일관(fix) · §6 위반 주석(변경 경위) 제거(fix) · `daysAgo` 자정 경계 flake(**wontfix** — 확률 극소, 방어하려면 프로덕션 코드에 시각 주입 경로를 뚫어야 해서 비용이 크다).
 
+- 2026-07-26: **PR #105 머지 → `status: done`.** worktree·로컬·원격 브랜치는 §8(a) 조건 전부 충족으로 자동 정리(tip sha `780d932`).
+  - **머지 직후 신호가 곧바로 실동작을 증명했다**: main 반영본으로 `node scripts/session-brief.js` 실행 → `닫히지 않은 plan: worklog-per-worktree(4d)` 출력. 같은 날 머지된 PR #101 의 plan 이 안 닫힌 것을 **사람보다 먼저 잡았다** — 설계 근거였던 시나리오가 배포 당일 재현된 셈.
+  - 이 plan 자신은 `updated` 가 당일이라 경과 0일 < 임계 3 으로 미검출(정상 동작).
+
 # Next
-push → PR(main) → 리뷰·머지. 머지 후 §8(a) 조건 판정해 worktree 정리.
+(없음 — 완료)
 
 # Decisions
 - **위치 = `session-brief.js`** (별도 스크립트·CI·`/improve` 아님). 근거: ① 매 세션 자동 주입되는 유일 경로 ② 동일 성격 신호 2종이 이미 사는 곳 ③ `mergePendingLine` 과 정반대 축이라 나란히 두면 인지적으로 짝 ④ `plan-lint.js` 는 git 상태를 모르는 순수 함수(CI 에서 돌아 git 접근 부적절), `/improve` 는 주기적 호출이라 재발을 늦게 잡는다.

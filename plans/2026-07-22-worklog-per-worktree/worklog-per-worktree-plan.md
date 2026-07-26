@@ -1,8 +1,8 @@
 ---
 title: worklog-per-worktree — 같은 티켓의 worktree 별로 worklog 항목을 분리해 시간이 덮이지 않게
-status: in_progress
+status: done
 started: 2026-07-22
-updated: 2026-07-22
+updated: 2026-07-26
 ---
 
 # Goal
@@ -27,10 +27,12 @@ updated: 2026-07-22
 - 2026-07-22 최종 검증 통과(신규 21 + 기존 Python 24 + node 8종 + plan-lint + JSON).
   커밋 `6683d63` → push → PR #101 (https://github.com/yoon627/claude-config/pull/101).
 
+- 2026-07-26: **PR #101 머지 → `status: done`.** 원격 브랜치 `worklog-ticket-union` 은 `gh pr merge --delete-branch` 로 함께 정리(이 머신엔 로컬 worktree 가 없었다 — 다른 머신/세션에서 작업된 PR).
+  - 이 plan 이 **신설된 M 신호(PR #105 `stalePlanLine`)의 첫 실검출 대상**이 됐다: 머지 직후 main 반영본 실행에서 `닫히지 않은 plan: worklog-per-worktree(4d)` 로 잡혀 즉시 닫았다. 머지 세션과 plan 종료 주체가 갈리는 구조적 누락(§10)을 신호가 실제로 커버한 첫 사례.
+
 # Next
 
-PR #101 리뷰·머지. 머지되면 `status: done` 으로 바꾸고 worktree(`worklog-ticket-union`) 정리.
-그 다음 Deferred 의 `settings.json` pull 훅 문제를 별도 브랜치에서.
+(없음 — 완료). Deferred 의 `settings.json` pull 훅 항목은 별도 브랜치 작업으로 남아 있다.
 
 # Decisions
 
