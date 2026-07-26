@@ -1,6 +1,6 @@
 ---
 title: auto-cleanup-after-merge — 내가 직접 수행한 merge 직후 안전조건 충족 시 정리 자동화
-status: in_progress
+status: done
 started: 2026-07-21
 updated: 2026-07-26
 ---
@@ -14,8 +14,14 @@ updated: 2026-07-26
 - 2026-07-25: /e 마무리 — 정식 커밋 `724b8b9`(7파일, wip 아님·완료 상태). working tree clean.
 - 2026-07-26: `origin/main` merge(`eefb6b0`) — 예고된 충돌 1건 실현. **#98 이 `/e` 에 worklog 를 step5 로 삽입해 worktree 정리가 step6 으로 재번호** → 충돌(skills/e/SKILL.md)은 main 구조 채택 + 이 브랜치의 "§8(b) 독립 정리라 항상 ask" 문구를 step6 본문에 반영으로 해결. 이 브랜치가 추가한 step5 참조 2곳(CLAUDE.md:124·dlc:120) → step6 정정. 검증: plan-lint exit=0 · settings.json parse OK · `node --test scripts/*.test.js` 8파일 전건 pass · 충돌 마커 0(shellcheck 는 변경이 전부 `.md` 라 생략).
 
+- 2026-07-26: **PR #102 머지 완료 → `status: done`.** §8(a) 자동 정리 첫 실적용 결과(실관찰):
+  - `plan-status-sync` worktree — 조건 ②~⑥ 전부 충족 → **확인 없이 자동 정리** 성공(worktree→로컬 `branch -d`→원격 `push --delete`), 삭제한 원격 tip sha `eb874b9` 보고.
+  - 이 worktree(`auto-cleanup-after-merge`) — ⑥ 에서 ignored `.codegraph/` 검출 → **fail-safe 로 (b) 경로 이탈 → AskUserQuestion** 후 정리. 설계 의도대로 동작(재생성 가능한 인덱스 캐시라도 자동 판정은 보수적으로 멈춘다).
+  - 즉 (a)/(b) 분기가 양쪽 모두 의도대로 갈렸다.
+- 2026-07-26: **이 plan 자체가 §10 위반 사례가 됐다** — 머지(#102) 직후 `status: done` 전환을 빠뜨려 반나절 `in_progress` 로 남았고, 같은 날 만든 탐지 신호(PR #105 `stalePlanLine`)의 첫 실검출 대상이 될 상태였다. 발견 경로: PR #105 구현 중 실환경 실행 관찰 + plan-reviewer 지적("살아 있는 5번째 누락"). 소급 정리(#103)와 동일 원인 — 머지 시점에 plan 을 닫을 주체가 없다.
+
 # Next
-push → PR(main) 오픈 → 리뷰·머지. 이 PR 머지가 §8(a) 자동 정리의 첫 실적용 대상(머지 직후 이 worktree+로컬·원격 브랜치가 무확인 자동 정리 조건을 만족하는지 실관찰).
+(없음 — 완료)
 
 # Chosen Design (옵션 1, 2026-07-21 사용자 확정)
 **auto FULL cleanup(worktree+로컬+원격, 무확인) 트리거 = 아래 전부 AND:**
