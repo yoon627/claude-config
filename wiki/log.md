@@ -63,3 +63,7 @@
 ## [2026-07-19] update | codegraph (worktree 인덱스 watcher-부재/staleness)
 - [[codegraph]] "worktree-local 인덱스" 절에 init 스냅샷·live watcher 부재·조회 전 `codegraph sync <worktree>` 재-sync 필요를 반영(2026-07-19 실측: worktree init 후 새 심볼이 수동 sync 전 검색 불가, MCP projectPath 조회도 일회성, worktree 에 daemon.log 미생성).
 - 동반: skills/wt/references/codegraph-worktree.md("곧 sync"→최초 init 1회 한정 명확화 + staleness 절 watcher-부재 메커니즘), wiki/index.md 요약 동기화.
+
+## [2026-07-26] ingest | lesson-parser-precedent-partial-mirror (신규)
+- PR #105(session-brief M 신호) code-review 에서 CONFIRMED Major 2건이 같은 원인으로 확인됨 — 새 frontmatter 파서가 선례(`plan-lint.js`)의 정규식 모양만 가져오고 ① CRLF 정규화 전처리 ② `(\S+)` 첫-토큰 관용을 빠뜨려, `.gitattributes: * text=auto` 하의 Windows 체크아웃과 CLAUDE.md §10 정본 템플릿(`status: in_progress  # ...`)에서 각각 **무음 exit 0** 이 되던 문제.
+- 교훈 페이지 신설 + `wiki/index.md` 등재. 인접 lesson([[lesson-grep-absence-not-proof]])과 연계.
