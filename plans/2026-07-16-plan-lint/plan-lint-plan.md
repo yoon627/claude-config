@@ -1,8 +1,8 @@
 ---
 title: plan-lint — plan 참조 무결성 기계 검증 (Workstream E)
-status: in_progress
+status: done
 started: 2026-07-16
-updated: 2026-07-16
+updated: 2026-07-26
 ---
 
 # Goal
@@ -12,8 +12,10 @@ plan(§10) 무결성이 "모델 주의력"에만 의존하던 것을 기계 게�
 - 2026-07-16 (opus, 착수): plan-lint worktree 진입·baseline 7 test green. Explore — dlc-doc-drift.js(순수판정+exports 선례)·plan 실형태·참조패턴(①②·P4·# Acceptance) 확인. **발견: plans-sync(#83)가 .gitignore 만 un-ignore, plan 파일 미커밋(tracked 0) → CI 는 plan 커밋 시 유효화**(Deferred). 사용자 스코프 확정(CI+스킬통합). draft plan 작성.
 - 2026-07-16 (opus, 구현 완료): dlc 전체 — plan-review(codex 5 Major+Minor·Claude CONDITIONAL 반영)→TDD Red→구현(scripts/plan-lint.js 순수+CLI)→Green→통합(lint.yml diff기반 CI·/c 2·/e 3·improve.sh check8·README)→code-review(codex Major3·Claude Major 실증 false-negative)→fix loop 2회(apostrophe silent-miss·CI fetch·혼합run·한글 non-empty·frontmatter H1)→simplify(변경0)→최종검증. **plan-lint.test.js 27/27 PASS·dogfood clean·improve.sh check8 [ok]·baseline 전건**. 이 plan 을 tracked 커밋해 dogfood(CI/improve 실대상). status: 구현 done, 머지 대기.
 
+- 2026-07-26 (소급 동기화): **PR #86 이 2026-07-16 머지 완료** — 머지 시점에 `status: done` 전환이 누락돼 소급 반영(§10 "머지 그 시점에 즉시"). 브랜치 `plan-lint` 정리 완료(로컬·원격 없음).
+
 # Next
-구현·리뷰·검증 완료. **다음: push + PR → 머지**(사용자 확인, §8). 머지 후 이 plan(dogfood)이 tracked 로 남아 CI/improve check8 의 실대상. Deferred 의 plans-sync 완결(기존 plan 커밋)은 별건.
+(없음 — 완료)
 
 # Decisions
 - **scripts/plan-lint.js = 순수 모듈 + CLI** (dlc-doc-drift 패턴 + dlc-signal CLI 패턴): `lintPlan(text)`→위반 문자열 배열(빈=clean) export + `require.main===module` 시 파일 인자 CLI(위반 출력·있으면 exit 1). 파일 IO 는 CLI 만, 판정은 순수(테스트 용이).

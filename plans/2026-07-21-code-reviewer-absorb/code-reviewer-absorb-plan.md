@@ -1,8 +1,8 @@
 ---
 title: code-reviewer-absorb — 빌트인 /code-review 요소를 code-reviewer 자산에 흡수
-status: in_progress
+status: done
 started: 2026-07-21
-updated: 2026-07-22
+updated: 2026-07-26
 ---
 
 # Goal
@@ -16,8 +16,10 @@ updated: 2026-07-22
 - 2026-07-22: 구현(code-reviewer.md 6곳 + README) → plan-lint 통과 → fixture dry-run(acceptance8) 통과 → code-reviewer(+codex medium) = **REQUEST CHANGES**(Critical 1 실증: H3 heading 이 grep `^##?` 패턴에서 유실). fix loop 1회로 전 항목 반영(verdict collinear→반증결과만 재정의 · grep H2 복원 · ❌템플릿 제거 · failure_scenario 몰드 일반화 · Codex 독립입력 · 상태전이 고정 · 종합판단 매핑 · Opus4.8 모델비종속). C1 실증 재검증 통과(`## Critical` H2 매치, H3 잔재 0). 2회차 리뷰 생략(핵심 반영+실증). simplify 특이사항 없음(문서 지침).
 - 2026-07-22: 커밋(5978657) → push → **PR #97** 오픈(base main). Acceptance 9항목 evidence gate 통과.
 
+- 2026-07-26 (소급 동기화): **PR #97 이 2026-07-22 머지 완료** — 머지 시점 `status: done` 전환 누락분 소급 반영(§10). 브랜치·worktree 정리 완료.
+
 # Next
-PR #97 리뷰·머지 대기. 머지되면 worktree(code-reviewer-absorb) + 로컬·원격 브랜치 정리(/e step5).
+(없음 — 완료)
 
 # Decisions
 > v2 = plan-reviewer 지적 반영 재설계. v1의 "verdict로 확신도 통합"은 **철회**.
