@@ -117,7 +117,7 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 ## 필수 산출물 / 핵심 규칙
 - plan(CLAUDE.md §10): 매 턴 `Progress`/`Next` 갱신. **subagent 는 plan 안 씀** — 메인이 single writer, 쓰기 직전 re-read 후 외부 변경 merge.
 - **16 Report — recap+선택지로 닫기(CLAUDE.md §3-6)**: 증거 게이트 통과 후, 보고는 **결론 요약(≤3줄, 무엇이 끝났고 status)을 먼저** 내고 이어서 **선택지를 AskUserQuestion** 으로(작업 확인 / 마무리·정리(push·PR·머지·worktree 정리) / 다른 작업 이어가기(`/wt` 신규 — §8) / 종료 — 큰·낯선 변경이면 "변경 이해 리포트+퀴즈" 옵션 추가). **merged·완료면 "마무리·정리" 선택지는 아래 정리 판정 제안 그 자체**(별도 2차 질문 아님 — 마무리 1회 원칙). 최신 사용자 메시지에 지금 실행할 명시 액션이 있으면 선택지 생략(중복 질문 금지). recap 은 보고 형식일 뿐 16단계 표에 새 단계를 더하지 않는다.
-- **정리 판정(CLAUDE.md §8, wiki 유무 무관·always)**: 작업이 main 에 merged 되고 완료면 Report 에서 그 worktree 정리(worktree+로컬·원격 브랜치)를 **능동 제안**한다(방치·"선택사항" 언급만 금지). dlc 는 Report 가 종점이라 여기서 `/e` step5 로 넘기거나 직접 제안. 미머지·미완이면 제안 안 함(정확한 안전조건은 `/e` step5).
+- **정리 판정(CLAUDE.md §8, wiki 유무 무관·always)**: 작업이 main 에 merged 되고 완료면 Report 에서 worktree 정리(worktree+로컬·원격 브랜치)를 처리한다(방치·"선택사항" 언급만 금지). **내가 이 세션에서 직접 수행한 merge 직후 + §8(a) 안전조건 전부 충족(비-main·clean·fetch 후 remote-ahead 없음·base merged·산출물 안전)이면 확인 없이 자동 정리**(삭제한 원격 tip sha 1줄 보고). 그 외(우연 머지·안전조건 미충족/불확실)는 **능동 제안(AskUserQuestion)** — §8(b). dlc 는 Report 가 종점이라 여기서 `/e` step6 로 넘기거나 직접 실행. 미머지·미완이면 제안 안 함(정확한 조건은 §8·`/e` step6).
 - 검증 명령 미식별: README/package/pyproject/Makefile/CI 확인해도 없으면 "미식별" 기록 + 추측 실행 금지. 이 상태에서 "검증 완료" 금지. 식별한 명령은 runner 에 **문자열·worktree cwd 그대로** 전달(runner 는 재탐색·수리 안 함).
 - researcher 재진입: 어느 단계든 외부 사실(버전/API/CVE) 의문 시 호출.
 - TDD Red: 새 테스트가 의도한 이유로 실패하는지 확인(기존 baseline failure 와 분리).

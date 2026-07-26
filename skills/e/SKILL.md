@@ -50,7 +50,7 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
 - 보고 1줄: 등록 결과("CSTP1-xxxx 에 `<시간>` 등록" · "티켓 없음/토큰 없음 → preview 만" · "세션 활동 없음").
 
 ### 6. worktree 정리 제안 (조건부)
-마무리가 끝난 뒤, 현재 worktree 가 **역할을 다했고 안전하게 지울 수 있으면** 삭제를 제안한다 — **자동 삭제 안 함, 항상 AskUserQuestion**.
+마무리가 끝난 뒤, 현재 worktree 가 **역할을 다했고 안전하게 지울 수 있으면** 삭제를 제안한다 — **`/e` 경로는 자동 삭제 안 함, 항상 AskUserQuestion**(독립 정리 = CLAUDE.md §8(b)). *self-merge 직후 자동 정리*(§8(a) — 내가 이 세션에서 직접 수행한 merge + 안전조건 충족 시 worktree+로컬+원격 무확인 정리)는 `/e` 이전에 처리되는 **별개 경로**라 여기 해당 없음.
 - **제안 조건 (6가지 모두 충족 = AND)**: 2단계 이후 WIP 커밋·plan write 로 상태가 바뀌므로 **삭제 직전 `bash skills/e/collect-state.sh` 를 한 번 더 실행**해 그 신호로 판정(2단계 스냅샷 재사용 금지 — 재수집 invariant). **헬퍼 실패·필드 누락·파싱 불가면 제안 생략(보수)**.
   1. **비-메인 worktree**(`root` ≠ `mainWorktree`; 메인이면 제안 안 함)
   2. **`detached`=false + plan `status == done`**(4단계 확정)
