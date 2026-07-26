@@ -3,6 +3,7 @@
     "CLAUDE_CODE_EFFORT_LEVEL": "xhigh"
   },
   "permissions": {
+    "defaultMode": "auto",
     "allow": [
       "mcp__codegraph__codegraph_explore",
       "mcp__codegraph__codegraph_search",
@@ -148,7 +149,7 @@
     "command": "node ~/.claude/subagent-statusline.js"
   },
   "enabledPlugins": {
-    "pyright-lsp@claude-plugins-official": true
+    "pyright-lsp@claude-plugins-official": false
   },
   "extraKnownMarketplaces": {
     "openai-codex": {

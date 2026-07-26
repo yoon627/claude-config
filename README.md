@@ -402,6 +402,7 @@ UTF-8 (no BOM) + LF endings — Git Bash 가 인식. idempotent — 재실행 �
 
 머신 간 sync 의 source of truth. 핵심 키:
 - `theme`, `preferredNotifChannel` — Claude Code UI 설정
+- `permissions.defaultMode` — `auto`(기본 권한 모드). 매 액션 프롬프트 대신 안전 분류기가 판정한다. **user scope 전용** — 프로젝트/로컬 settings 의 `"auto"` 는 repo-controllable 이라 무시되고, 반대로 프로젝트가 *다른* 모드를 지정하면 그쪽이 이긴다(cascade user < project < local). 모델이 auto 미지원이면 CLI 가 안내와 함께 `default` 로 폴백.
 - `permissions.deny` — `git push origin main/master` 직접 푸시 차단
 - `permissions.ask` — 일반 `git push` 는 확인 후 실행
 - `statusLine`, `subagentStatusLine` — statusline 스크립트 등록 (`node ~/.claude/statusline.js`)
@@ -412,7 +413,7 @@ UTF-8 (no BOM) + LF endings — Git Bash 가 인식. idempotent — 재실행 �
 - `hooks.PostToolUse` — `Edit|Write|NotebookEdit|Bash` 에 `dlc-evidence-ledger.js` (변경·검증 명령 기록)
 - `hooks.Stop` — `dlc-early-stop.js`(검증 누락 + 문서 drift capped 경고) + `notify-hook.js Stop`(알림) 2개
 - `hooks.Notification` — 입력 대기 시 `notify-hook.js Notification` (cross-platform 알림)
-- `enabledPlugins`, `extraKnownMarketplaces` — Pyright LSP plugin + OpenAI Codex marketplace
+- `enabledPlugins`, `extraKnownMarketplaces` — Pyright LSP plugin(**`false` — 2026-07-26 `/doctor` 점검에서 lifetime 사용 0 으로 비활성**. Python 작업이 늘면 `true` 로 되돌린다) + OpenAI Codex marketplace
 - `theme`, `skipDangerousModePermissionPrompt`, `skipWorkflowUsageWarning`, `preferredNotifChannel` — Claude Code UI / 세션 기본값 (`model` 핀 없음 → 세션 기본 모델 상속)
 
 Path 표기 (cross-platform):
