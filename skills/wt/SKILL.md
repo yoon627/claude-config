@@ -119,7 +119,7 @@ worktree 세션 안에서 `EnterWorktree` 는 `.claude/worktrees/` 하위 대상
 
 ## 주의
 
-- `git worktree remove --force`, `git branch -D`, 원격 브랜치 삭제(`git push origin --delete`)는 사용자 명시 확인 없이 실행 금지. (`wt rm` 은 수동·독립 정리 = CLAUDE.md §8(b) — 항상 확인. 내가 직접 수행한 merge 직후의 무확인 자동 정리는 §8(a) 로 별개 경로이며 `wt rm` 이 아니다.)
+- `git worktree remove --force`, `git branch -D`, 원격 브랜치 삭제(`git push origin --delete`)는 사용자 명시 확인 없이 실행 금지. (`wt rm <이름>` 은 사용자가 대상을 직접 지목하는 경로 = CLAUDE.md §8(b) — **오타로 엉뚱한 worktree 를 지울 수 있어 항상 확인**. merged 면 묻지 않는 자동 정리는 §8(a) — `/e`·머지 직후 흐름이며 `wt rm` 이 아니다.)
 - 정확일치하지 않는 텍스트는 요청사항으로 간주해 worktree 를 새로 만든다 — 이름 오타로 의도치 않은 생성을 막기 위해 **생성 전 slug 확인(AskUserQuestion)** 을 반드시 거친다.
 - 요청사항 path 는 생성 후 `dlc` 를 자동 실행한다. worktree 를 만들 필요가 없는 단순 질문·탐색·읽기 전용 작업이면 `/wt` 대신 현재 worktree 에서 직접 처리.
 - EnterWorktree 후 후속 명령은 새 cwd 기준.
