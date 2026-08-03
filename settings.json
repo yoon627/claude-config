@@ -1,6 +1,6 @@
 {
   "env": {
-    "CLAUDE_CODE_EFFORT_LEVEL": "xhigh"
+    "CLAUDE_CODE_EFFORT_LEVEL": "high"
   },
   "permissions": {
     "defaultMode": "auto",
@@ -60,7 +60,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uname -s | grep -qi darwin && /Users/jongyoonlee/.claude/hooks/rtk-rewrite.sh || exit 0"
+            "command": "command -v rtk >/dev/null 2>&1 && rtk hook claude || exit 0",
+            "timeout": 10
           }
         ]
       },
@@ -265,7 +266,7 @@
       }
     }
   },
-  "effortLevel": "xhigh",
+  "effortLevel": "high",
   "tui": "fullscreen",
   "skipDangerousModePermissionPrompt": true,
   "skipWorkflowUsageWarning": true,
