@@ -76,3 +76,8 @@
 ## [2026-08-03] ingest | lesson-stale-tool-version (신규)
 - [[workflow-failures]] 의 rtk 오재작성 항목(6회 tracking)을 재현·근본원인 확정: 설치 rtk 0.28.2 의 `rtk read` 폴백 버그이며 상류가 0.35.0·0.39.0 에서 이미 수정(상류 최신 0.44.2). 표에 적혀 있던 수정 위치(`hooks/rtk-rewrite.sh`)는 규칙 없는 얇은 위임자 + untracked 라 **틀린 위치**였고, 이 오기록이 6회 방치의 직접 원인.
 - 교훈 페이지 신설 + 표 항목 정정(근본원인·수정위치·횟수 6·상태 proposed) + `wiki/index.md` 등재.
+
+## [2026-08-03] ingest | 도구 사용량 감사 (codegraph · headroom 갱신)
+- transcript 298개 전수 스캔으로 MCP 실사용을 측정해 [[codegraph]]·[[headroom]] 에 반영. codegraph 30회(70%가 coin-trading-bot), headroom MCP 41회(`compress` 0회) — headroom 의 가치는 프록시($103.87·13.7% 절감)와 번들 rtk(2.1M 토큰·64.7%)에 있고 MCP 표면엔 없음.
+- 조치: 이 repo `.codegraph/` 만 삭제(전역 MCP 는 유지 — 실사용처 보호), headroom `debug_400` 1.0GB→1.0MB 회수, rtk 심링크 0.44.2 재지정.
+- 처음엔 "codegraph 전역 제거"로 갈 뻔했으나 프로젝트별로 갈라 보니 실사용이 다른 repo 에 몰려 있어 판단을 뒤집었다 — 집계 단위를 섞으면 결론이 뒤집힌다는 사례.
