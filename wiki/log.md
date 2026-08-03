@@ -67,3 +67,8 @@
 ## [2026-07-26] ingest | lesson-parser-precedent-partial-mirror (신규)
 - PR #105(session-brief M 신호) code-review 에서 CONFIRMED Major 2건이 같은 원인으로 확인됨 — 새 frontmatter 파서가 선례(`plan-lint.js`)의 정규식 모양만 가져오고 ① CRLF 정규화 전처리 ② `(\S+)` 첫-토큰 관용을 빠뜨려, `.gitattributes: * text=auto` 하의 Windows 체크아웃과 CLAUDE.md §10 정본 템플릿(`status: in_progress  # ...`)에서 각각 **무음 exit 0** 이 되던 문제.
 - 교훈 페이지 신설 + `wiki/index.md` 등재. 인접 lesson([[lesson-grep-absence-not-proof]])과 연계.
+
+## [2026-08-03] ingest | risk-based-approval (신규)
+- 사용자가 `/wt` 의 slug 승인을 마찰로 지목 → graph engineering(2026)의 risk-based human-in-the-loop 원칙을 대조해 승인 기준을 가역성으로 일원화하는 결정을 적립.
+- 신규 [[risk-based-approval]] + [[dlc-wt-autoflow]] "생성은 확인" 결정 뒤집기(이유 병기) + [[worktree-per-task]] 흐름 문구 동기화, `wiki/index.md` 등재.
+- 근거: analyticsvidhya "Graph Engineering for AI Agents"(2026-07-29) — 노드/엣지·guard·checkpoint·interrupt 중 이 repo 에 없던 축이 interrupt 정책이었음.

@@ -23,7 +23,7 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 ## dlc → wt (비trivial 필수)
 비trivial 인데 **현재 작업 worktree 가 아니면**(main 이거나 밖) dlc 는 **다른 어떤 행동(Explore·구현 포함)보다 먼저, 예외 없이** `wt` 로 worktree 를 만들어 그 안에서 진행. main 직접·우회 금지 — **필수 게이트**.
 - **판정**: Setup(0단계)에서 worktree 위치를 *가장 먼저* 확인(코드 읽기·수정 전). `git worktree list --porcelain` 첫 worktree(=main) 와 cwd 비교, main 이면 wt.
-- **생성은 확인**: wt slug 확인(`AskUserQuestion`) 유지 — 무확인 생성 금지("자동"은 경로 선택 자동이지 생성 무확인 아님).
+- **생성은 무확인**: worktree/브랜치 생성은 로컬·가역이라 승인 대상이 아니다(위험기반 승인 — CLAUDE.md §1). 절차·보고 형식의 단일 소스는 `skills/wt/SKILL.md` request §3~§4 — dlc 는 재서술하지 않는다.
 - **순환 방지**: wt 가 dlc 를 invoke 한 경우는 이미 worktree 안이라 skip(wt→dlc 정상, dlc→wt 보강은 위치로 구분).
 - 이미 worktree 안이면 self-check 만 하고 진행(CLAUDE.md §3-1).
 
