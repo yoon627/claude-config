@@ -1,8 +1,8 @@
 # env-copy — wt 신규 생성 시 `.env` 자동 복사 메커닉 (참조)
 
-`wt` request 경로의 worktree 생성 §4.4 `.env` 자동 복사(옵트아웃 없음)의 **후보 선정·제외 규칙**을 담는다. SKILL 본문엔 "main 에서 basename `.env` 복사, 이미 있으면 skip, 실패 경고만"만 남기고 세부는 여기로.
+`wt` request 경로의 worktree 생성 §3.4 `.env` 자동 복사(옵트아웃 없음)의 **후보 선정·제외 규칙**을 담는다. SKILL 본문엔 "main 에서 basename `.env` 복사, 이미 있으면 skip, 실패 경고만"만 남기고 세부는 여기로.
 
-> 이 파일은 자동 로드되지 않는다 — `wt` 가 **worktree 를 새로 생성(request §4.4 `.env` 복사)할 때** 이 파일을 Read 한다. "복사한다·덮어쓰지 않는다·실패해도 worktree 유지"라는 동작 골격은 SKILL 본문이 단일 소스이고, 여기는 "어떤 파일을 후보로/제외로 고르나"만.
+> 이 파일은 자동 로드되지 않는다 — `wt` 가 **worktree 를 새로 생성(request §3.4 `.env` 복사)할 때** 이 파일을 Read 한다. "복사한다·덮어쓰지 않는다·실패해도 worktree 유지"라는 동작 골격은 SKILL 본문이 단일 소스이고, 여기는 "어떤 파일을 후보로/제외로 고르나"만.
 
 ## 후보 선정
 - **source = main worktree path** = `git worktree list --porcelain` 의 첫 `worktree <path>` 라인. 현재 cwd 가 worktree 안이어도 **항상 main 기준**.
