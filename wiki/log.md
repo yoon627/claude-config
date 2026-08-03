@@ -72,3 +72,7 @@
 - 사용자가 `/wt` 의 slug 승인을 마찰로 지목 → graph engineering(2026)의 risk-based human-in-the-loop 원칙을 대조해 승인 기준을 가역성으로 일원화하는 결정을 적립.
 - 신규 [[risk-based-approval]] + [[dlc-wt-autoflow]] "생성은 확인" 결정 뒤집기(이유 병기) + [[worktree-per-task]] 흐름 문구 동기화, `wiki/index.md` 등재.
 - 근거: analyticsvidhya "Graph Engineering for AI Agents"(2026-07-29) — 노드/엣지·guard·checkpoint·interrupt 중 이 repo 에 없던 축이 interrupt 정책이었음.
+
+## [2026-08-03] ingest | lesson-stale-tool-version (신규)
+- [[workflow-failures]] 의 rtk 오재작성 항목(6회 tracking)을 재현·근본원인 확정: 설치 rtk 0.28.2 의 `rtk read` 폴백 버그이며 상류가 0.35.0·0.39.0 에서 이미 수정(상류 최신 0.44.2). 표에 적혀 있던 수정 위치(`hooks/rtk-rewrite.sh`)는 규칙 없는 얇은 위임자 + untracked 라 **틀린 위치**였고, 이 오기록이 6회 방치의 직접 원인.
+- 교훈 페이지 신설 + 표 항목 정정(근본원인·수정위치·횟수 6·상태 proposed) + `wiki/index.md` 등재.
