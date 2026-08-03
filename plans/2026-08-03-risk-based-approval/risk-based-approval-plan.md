@@ -1,6 +1,6 @@
 ---
 title: risk-based-approval — 승인 게이트를 위험기반으로 일원화 (wt slug 확인 제거)
-status: in_progress
+status: done
 started: 2026-08-03
 updated: 2026-08-03
 ---
@@ -20,9 +20,11 @@ updated: 2026-08-03
 
 - 2026-08-03 재시도로 차단 해소: `wiki/pages/decision/risk-based-approval.md` 생성 + `CLAUDE.md` §1 bullet 적용 완료. index/log 등재·역링크 복원·README §1 요약 동기화까지 마침.
 
+- 2026-08-03 CI(lint) pass → **PR #110 머지 완료**(merge commit `cc83c59`). worktree·브랜치 정리 진행.
+
 # Next
 
-push → PR → 머지. 머지 후 main worktree 에서 `AGENTS.md`(ignored Codex 미러)에 §1 변경분 반영(`# Deferred`).
+(완료) 남은 후속은 `# Deferred` 의 `AGENTS.md` 동기화 1건 — main worktree 에서 §1 bullet 반영.
 
 # Decisions
 
