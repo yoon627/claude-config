@@ -1,6 +1,6 @@
 ---
 title: rtk-rewrite-guard — rtk 오재작성 6회 반복의 근본 원인 규명·기록 정정
-status: in_progress
+status: done
 started: 2026-08-03
 updated: 2026-08-03
 ---
