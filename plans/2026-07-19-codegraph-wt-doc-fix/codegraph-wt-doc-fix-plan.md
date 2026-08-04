@@ -1,8 +1,8 @@
 ---
 title: codegraph-wt-doc-fix — worktree 인덱스 watcher-부재/staleness 문서 정확화
-status: in_progress
+status: done
 started: 2026-07-19
-updated: 2026-07-19
+updated: 2026-07-26
 ---
 
 # Goal
@@ -13,8 +13,10 @@ worktree-local codegraph 인덱스가 **init 시점 스냅샷**(live watcher 없
 - 2026-07-19: 편집 4곳 완료(wt ref L16+staleness절, wiki codegraph page, wiki index, wiki log append). 검증: git diff 정확·일관, wiki page outbound 링크 2개 유지, 기존 실측 수치·근거 보존. parenthetical("cwd 바꿔도 MCP 서버 main 고정")을 MCP status(no-projectPath)=28파일=main 로 실측 확증. simplify: 편집 최소·중복 없음.
 - 2026-07-19: commit `68204de` → push → **PR #96** (https://github.com/yoon627/claude-config/pull/96) main 대상 오픈.
 
+- 2026-07-26 (소급 동기화): **PR #96 이 2026-07-19 머지 완료** — 머지 시점 `status: done` 전환 누락분 소급 반영(§10). 브랜치·worktree 정리 완료.
+
 # Next
-PR #96 리뷰·머지 대기. 머지되면 worktree/브랜치 정리(/e step5).
+(없음 — 완료)
 
 # Decisions
 - 규모 small(순수 문서, 로직/런타임 표면 없음) → TDD·code-reviewer subagent 생략, 대신 doc 일관성 자가검증. (이유: prose 정확성 검증이 acceptance)

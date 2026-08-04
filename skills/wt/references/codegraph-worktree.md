@@ -1,6 +1,6 @@
 # codegraph-worktree — wt 신규 생성 시 codegraph 인덱스 (참조)
 
-`wt` request 경로의 환경 셋업 §4.6 마지막 단계 **codegraph worktree-local 인덱스**의 조건·staleness·조회 지침을 담는다. SKILL 본문엔 "조건부·백그라운드 codegraph init" 1줄만 남기고 세부는 여기로.
+`wt` request 경로의 환경 셋업 §3.6 마지막 단계 **codegraph worktree-local 인덱스**의 조건·staleness·조회 지침을 담는다. SKILL 본문엔 "조건부·백그라운드 codegraph init" 1줄만 남기고 세부는 여기로.
 
 > 이 파일은 자동 로드되지 않는다 — `wt` 가 **worktree 생성 후 codegraph init 을 판단할 때**, 또는 그 worktree 에서 **codegraph 조회가 stale 해 보일 때** 이 파일을 Read 한다.
 

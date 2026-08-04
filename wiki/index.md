@@ -30,12 +30,15 @@
 - [[comment-and-commit-policy]] — 주석 최소·변경 경위는 커밋/PR 에 (#26·#34·#25).
 - [[codex-bash-invocation]] — codex 는 Bash 도구로 호출(PowerShell stdin hang 회피, #23).
 - [[evidence-gate]] — 검증 항목화 + 증거 충족 시만 완료(plan # Acceptance + Stop hook 보조, capped·fail-open).
-- [[dlc-wt-autoflow]] — dlc 가 비trivial 이면 wt worktree 자동 경유(순환 방지·slug 확인 유지).
+- [[dlc-wt-autoflow]] — dlc 가 비trivial 이면 wt worktree 자동 경유(순환 방지·생성은 무확인, 2026-08-03 확인 폐지).
+- [[risk-based-approval]] — 승인은 가역성으로 가른다: 비가역·외부공개·파괴적만 확인, 가역·로컬은 무확인 실행 후 되돌릴 정보 보고 (2026-08-03, graph engineering HITL 원칙).
 - [[fablize-adopted-disciplines]] — fablize 검증 규율 차용(grounding·investigation·early-stop), 플러그인 없이 직접 구현.
 - [[workflow-failures]] — 반복 workflow 실패 누적 추적(자동 신호는 telemetry, 표는 맥락), 2회+ 반복 시 wt 해결 제안.
 - [[ops-doc-slimming]] — 항상주입 운영문서 압축 상한 실측 ~11%(규칙손실0 유지 시), 30%+ 는 이관=범위확대; bytes 목표는 보조·규칙손실0 이 hard gate (#73). 후속 이관 실행(#89-92): 압축률∝1/규칙밀도(e −31%~CLAUDE −1.1%)·조건부로드 skill 이 참조하는 canonical 스펙 이관 금지(방향역전)·manifest+diff-U0+합집합grep 방법론.
 - [[git-hook-network-safety]] — git 클라이언트 훅은 동기·무timeout → 네트워크 작업은 poll 워치독+PROMPT=0+SSH ConnectTimeout 으로 상한(하니스 안전망 없음); ff-merge 는 post-checkout 재발동 안 함(재귀 없음, 실측) (#82).
-- [[lesson-grep-absence-not-proof]] — grep 무매칭을 부재로 단정 금지, 동기화 판정은 대상 파일 직접 확인 (§13 첫 lesson).
+- [[lesson-grep-absence-not-proof]] — grep 무매칭을 부재로 단정 금지, 동기화 판정은 대상 파일 직접 확인
+- [[lesson-parser-precedent-partial-mirror]] — 선례 파서 미러링은 전처리(CRLF)·토큰 관용까지, fixture 는 문서화된 정본 템플릿에서 (무음 결함 2건) (§13 첫 lesson).
+- [[lesson-stale-tool-version]] — 도구발 오류는 우회 전에 `--version` 을 상류 CHANGELOG 와 대조; 실패 표의 "수정 위치"는 확인된 것만 적는다 (rtk 0.28.2 로 6회 반복, 상류는 0.35.0·0.39.0 에서 이미 수정).
 
 ## source
 - [[fable-field-guide-unknowns]] — Thariq "A Field Guide to Fable: Finding Your Unknowns"(2026-07-04) 요약: unknowns 사분면·발굴 기법(Interviews·References·Mockups·Blind spot scans·Explainer&Quiz·Implementation Notes).

@@ -1,8 +1,8 @@
 ---
 title: signal-detail — dlc telemetry 신호에 trigger 파일 detail 기록 + doc-drift FP 추적
-status: in_progress
+status: done
 started: 2026-07-17
-updated: 2026-07-17
+updated: 2026-07-26
 ---
 
 # Goal
@@ -11,8 +11,10 @@ updated: 2026-07-17
 # Progress
 - 2026-07-17: Explore 완료. emit() 은 이미 detail 필드 지원 — 호출부만 채우면 됨. TDD Red→구현→Green(33·32·20). 커밋 07d2745. code-review(Claude APPROVE·codex 문제 없음) Critical/Major 0, Minor 2 처분(wontfix·defer). README 동기화. **acceptance 전 항목 증거 충족.**
 
+- 2026-07-26 (소급 동기화): **PR #93 이 2026-07-17 머지 완료**(브랜치 `worktree-signal-detail`) — 머지 시점 `status: done` 전환 누락분 소급 반영(§10). 브랜치·worktree 정리 완료.
+
 # Next
-- push → PR → merge → 정리 (사용자 확인 후)
+(없음 — 완료)
 
 # Decisions
 - **emit detail 인프라 재사용**: emit() 의 `detail: c.detail ? tildeify(c.detail) : null` 이미 존재 → 새 스키마 안 만들고 호출부만 채운다.
