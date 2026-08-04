@@ -450,4 +450,149 @@ ok('M-6 origin/main 부재 → 브랜치 있으면 제외·없으면 보고(보�
   assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r2, ...KLOFF }), '');
 });
 
+// ---------- N: 자동 pull 이 밀린 이유 ----------
+// 다른 신호를 끈 상태로 N 만 관찰. STALE_OFF 필수 — repoDir 의 plans/ 상태에 흔들리지 않게.
+const NOFF = {
+  CLAUDE_BRIEF_MERGE_OFF: '1',
+  CLAUDE_BRIEF_IMPROVE_OFF: '1',
+  CLAUDE_BRIEF_STALE_OFF: '1',
+};
+// origin/main 을 앞세운 뒤 로컬을 되감아 'behind n' 상태를 만든다.
+// opts.touchBase: 원격 커밋이 **base 에 이미 있던 tracked 파일**을 고치게 한다(사고 원본 형태).
+//   기본(false)은 원격이 새 파일을 추가하는 형태라, 로컬에서 같은 이름을 만들면 untracked 가 된다.
+function behindRepo(n, opts) {
+  const r = initRepo();
+  fs.writeFileSync(path.join(r, 'base.txt'), 'v0');
+  git(r, ['add', '-A']);
+  git(r, ['commit', '-m', 'base'], { GIT_AUTHOR_DATE: '2026-01-01T00:00:00', GIT_COMMITTER_DATE: '2026-01-01T00:00:00' });
+  const base = execFileSync('git', ['-C', r, 'rev-parse', 'HEAD']).toString().trim();
+  for (let i = 0; i < n; i++) {
+    if (opts && opts.touchBase) {
+      fs.writeFileSync(path.join(r, 'base.txt'), `remote${i}`);
+      git(r, ['add', '-A']);
+      git(r, ['commit', '-m', `remote${i}`], { GIT_AUTHOR_DATE: '2026-01-02T00:00:00', GIT_COMMITTER_DATE: '2026-01-02T00:00:00' });
+    } else {
+      commit(r, `remote${i}`);
+    }
+  }
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  git(r, ['reset', '--hard', base]);
+  return r;
+}
+
+ok('ⓝ1 최신이면 무음', () => {
+  const r = initRepo();
+  commit(r, 'base');
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...NOFF }), '');
+});
+
+ok('ⓝ2 behind 면 커밋 수를 알린다', () => {
+  const out = run({ CLAUDE_BRIEF_REPO: behindRepo(3), ...NOFF });
+  assert.match(out, /3커밋 뒤처짐/);
+});
+
+ok('ⓝ3 원격이 새로 추가하는 파일과 untracked 가 겹치면 지목한다', () => {
+  const r = behindRepo(2);
+  fs.writeFileSync(path.join(r, 'remote0.txt'), 'local-dirty'); // base 엔 없던 파일 = untracked
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...NOFF });
+  assert.match(out, /remote0\.txt/);
+});
+
+// 사고 원본 경로: base 에 있던 tracked 파일을 원격도 고치고 로컬도 고친 경우.
+// ⓝ3 은 untracked 만 덮으므로 이 둘이 없으면 diff/diff --cached 소스가 통째로 미검증이다.
+ok('ⓝ3b tracked 파일 수정이 원격 변경과 겹치면 지목한다', () => {
+  const r = behindRepo(1, { touchBase: true });
+  fs.writeFileSync(path.join(r, 'base.txt'), 'local-dirty');
+  assert.match(run({ CLAUDE_BRIEF_REPO: r, ...NOFF }), /base\.txt/);
+});
+
+ok('ⓝ3c staged 수정도 지목한다', () => {
+  const r = behindRepo(1, { touchBase: true });
+  fs.writeFileSync(path.join(r, 'base.txt'), 'local-dirty');
+  git(r, ['add', 'base.txt']);
+  assert.match(run({ CLAUDE_BRIEF_REPO: r, ...NOFF }), /base\.txt/);
+});
+
+ok('ⓝ4 무관한 파일만 더러우면 충돌로 지목하지 않는다', () => {
+  const r = behindRepo(2);
+  fs.writeFileSync(path.join(r, 'unrelated.txt'), 'x');
+  git(r, ['add', '-A']);
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...NOFF });
+  assert.match(out, /2커밋 뒤처짐/);
+  assert.ok(!/unrelated\.txt/.test(out), out);
+});
+
+ok('ⓝ5 main 이 아니면 그 사실을 알린다', () => {
+  const r = behindRepo(1);
+  git(r, ['checkout', '-q', '-b', 'feature-x']);
+  assert.match(run({ CLAUDE_BRIEF_REPO: r, ...NOFF }), /feature-x/);
+});
+
+ok('ⓝ6 detached HEAD 를 별도 사유로 구분한다', () => {
+  const r = behindRepo(1);
+  git(r, ['checkout', '-q', '--detach']);
+  assert.match(run({ CLAUDE_BRIEF_REPO: r, ...NOFF }), /detached/i);
+});
+
+ok('ⓝ7 kill-switch 로 끌 수 있다', () => {
+  const r = behindRepo(3);
+  assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...NOFF, CLAUDE_BRIEF_AUTOPULL_OFF: '1' }), '');
+});
+
+// 아래 4개는 "스스로 낫지 않는 원인"이다. 폴백("원인 미확인")으로 뭉뚱그리면 사용자가
+// 재시도되겠거니 하고 넘어가 무기한 stale 이 된다 — 이 신호가 없애려던 실패 모드 그 자체.
+ok('ⓝ9 diverge 는 ff 불가라고 명시한다(재시도로 안 풀림)', () => {
+  const r = behindRepo(2);
+  commit(r, 'local-only');
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...NOFF });
+  assert.match(out, /갈라져|ff-only/);
+  assert.ok(!/원인 미확인/.test(out), out);
+});
+
+ok('ⓝ10 rebase/merge 진행 중이면 그 사실을 말한다', () => {
+  const r = behindRepo(1);
+  fs.mkdirSync(path.join(r, '.git', 'rebase-merge'), { recursive: true });
+  assert.match(run({ CLAUDE_BRIEF_REPO: r, ...NOFF }), /rebase-merge/);
+});
+
+ok('ⓝ11 CLAUDE_AUTOPULL_OFF 로 꺼둔 상태를 구분한다', () => {
+  const r = behindRepo(1);
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...NOFF, CLAUDE_AUTOPULL_OFF: '1' });
+  assert.match(out, /CLAUDE_AUTOPULL_OFF/);
+});
+
+ok('ⓝ12 master 는 훅이 안 도는 브랜치임을 말한다(훅은 main 만)', () => {
+  const r = behindRepo(1);
+  git(r, ['branch', '-m', 'master']);
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...NOFF });
+  assert.match(out, /master/);
+  assert.ok(!/원인 미확인/.test(out), out);
+});
+
+ok('ⓝ13 로컬에 막는 요인이 없으면 원인을 단정하지 않는다', () => {
+  assert.match(run({ CLAUDE_BRIEF_REPO: behindRepo(2), ...NOFF }), /원인 미확인/);
+});
+
+ok('ⓝ14 충돌 파일이 cap 을 넘으면 +N 으로 줄인다', () => {
+  const r = initRepo();
+  fs.writeFileSync(path.join(r, 'seed.txt'), 'v0');
+  git(r, ['add', '-A']);
+  git(r, ['commit', '-m', 'base']);
+  const base = execFileSync('git', ['-C', r, 'rev-parse', 'HEAD']).toString().trim();
+  for (let i = 0; i < 7; i++) fs.writeFileSync(path.join(r, `f${i}.txt`), 'remote');
+  git(r, ['add', '-A']);
+  git(r, ['commit', '-m', 'remote-many']);
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  git(r, ['reset', '--hard', base]);
+  for (let i = 0; i < 7; i++) fs.writeFileSync(path.join(r, `f${i}.txt`), 'local');
+  assert.match(run({ CLAUDE_BRIEF_REPO: r, ...NOFF }), /\+2/);
+});
+
+ok('ⓝ8 origin/main 이 없으면 무음(판정 불가)', () => {
+  const r = initRepo();
+  commit(r, 'base');
+  assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...NOFF }), '');
+});
+
 console.log(`session-brief.test.js: ${n} tests passed`);
