@@ -2,7 +2,7 @@
 title: worklog-cwd-attribution — jira-worklog 시간 귀속을 줄 단위 cwd 기반 worktree별 분리로 개선
 status: in_progress
 started: 2026-07-22
-updated: 2026-07-22
+updated: 2026-08-04
 ---
 
 # Goal
@@ -11,6 +11,10 @@ updated: 2026-07-22
 # Progress
 - 2026-07-22: 문제 실증·원인 규명 완료(아래 Decisions 의 실측 근거). worktree `worklog-cwd-attribution` 생성, 이 plan 작성. 구현 미착수.
 - 2026-07-22: plan commit `b9e0a28` → `origin/worklog-cwd-attribution` push(PR 미오픈). 작업 트리 clean, WIP 커밋 없음.
+- 2026-08-04: 13일 방치 후 재개. worktree 재생성(`origin/worklog-cwd-attribution` 체크아웃), `origin/main@d38c70b` merge(`1b4d218`) — base 39커밋 뒤처짐 해소. PR 여전히 없음, plan-lint 통과.
+- 2026-08-04: **영향 규모 실측** (`~/.claude/projects` 301파일 / timestamped user·assistant 34,281줄). ① `cwd` 결측 줄 **0개(0.00%)** → 결측 방어는 필요하되 실데이터엔 없음. ② 파일당 distinct cwd 분포 `{0:8, 1:265, 2:6, 3:12, 4:5, 5:2, 9:2, 14:1}` → **28개 파일(9.3%)이 2개 이상**, 최대 14개. 정상 단일 cwd 265개는 회귀 보호 대상.
+- 2026-08-04: Codex rollout 362개 전수 스캔 → plan 의 Codex 근거 정정(아래 Decisions). 결론(현행 유지)은 유지.
+- 2026-08-04: **전제 재실증**(13일 경과 검증). 이 세션 파일 `03f014b5….jsonl` 이 worktree 폴더에 있는데 121줄 중 45줄의 `cwd` 가 main — 폴더 단위 귀속이면 main 시간이 worktree 로 계상된다(결과 ① 재현). `drop-codegraph`·`risk-based-approval`·`rtk-rewrite-guard` slug 폴더는 jsonl 0개(세션이 떠남). `session_time.py` 모듈 docstring 은 여전히 "worktree 에서 실행하면 그 worktree 세션들만 잡힌다"는 틀린 전제를 명시 → 미해결 확인.
 
 # Next
 구현 착수 시 첫 액션: `skills/jira-worklog/test_session_time.py`(신규, stdlib unittest — 기존 `skills/wt/test_heal_submodules.py` 스타일) 에 **회귀 테스트부터** 작성. 케이스: 한 jsonl 안에 worktree A 구간 → B 구간이 섞여 있을 때 A/B 가 각자의 시간만 받고 합이 이중계상되지 않을 것(Red 확인 후 구현).
@@ -33,8 +37,17 @@ updated: 2026-07-22
 - **cwd → worktree 매핑은 longest-prefix**. `git worktree list --porcelain`(`git_util.list_worktrees`) 의 path 목록과 비교해 가장 긴 접두 일치를 고른다. 이유: cwd 가 하위 디렉토리(`<wt>/skills/jira-worklog`)이거나 **worktree 안에 worktree 가 중첩**된 실사례(`.../CSTP1-2812/ingest-pipeline`)가 있어 단순 일치·짧은 접두로는 오귀속된다.
 - **worktree 경계를 넘는 interval 은 버린다**(직전 이벤트와 현재 이벤트의 worktree 가 다르면 skip). 이유: 그 구간은 "이동" 자체라 어느 쪽 것도 아니고, 어느 한쪽에 넣으면 이중계상 방향으로 틀어진다. 기존 제외 규칙(`max_gap` 초과, assistant→user 대기)은 그대로 유지.
 - **탐색 범위는 repo 접두로 제한한다.** worktree 는 `<main>/.claude/worktrees/<name>` 아래라 모든 관련 폴더의 slug 가 `project_slug(main경로)` 로 시작한다 → `~/.claude/projects/<mainslug>*/` 만 스캔하면 된다(전체 projects 스캔 회피). 이 접두에 안 걸리는 worktree 는 `git worktree list` 의 각 path slug 를 추가로 포함해 보완.
-- **Codex 는 현행 유지**(파일 단위 귀속). `session_meta.payload.cwd` 가 파일 첫 줄에만 있어 세션 중 이동을 나눌 수 없다(`codex_session.py:43-58`). 한계를 SKILL.md 에 1줄 명시. Codex 가 세션 중 이동을 어떻게 기록하는지는 ❌ 미확인 — 구현 전 rollout 파일 1건 확인만 하고, 불가면 그대로 둔다.
+- **Codex 는 현행 유지**(파일 단위 귀속) — **결론 유지, 근거는 2026-08-04 정정**.
+  - ❌ 폐기된 근거: "`session_meta.payload.cwd` 가 파일 첫 줄에만 있어 세션 중 이동을 나눌 수 없다". **틀렸다** — rollout 에는 `turn_context` 줄이 있고 여기에도 cwd 가 실린다(전수 362개 중 212개 파일이 보유).
+  - ✅ 정정된 근거(실측): rollout **362개 전수 스캔에서 cwd 가 2개 이상인 파일이 0개**다. Codex 는 Claude 의 `EnterWorktree` 같은 세션 중 cwd 이동 경로가 없어, 파일 단위 귀속이 현재 데이터에서 무손실이다. 즉 "나눌 수 없어서"가 아니라 **"나눌 것이 없어서"** 현행 유지다.
+  - 따라서 Codex 경로(`codex_session.py`)는 이번 변경에서 건드리지 않는다. 다만 SKILL.md 한계 명시는 **"Codex 는 세션 중 cwd 이동을 하지 않으므로 파일 단위로 충분"** 이라는 정확한 서술로 적는다(옛 서술을 그대로 옮기면 틀린 근거가 문서에 박힌다).
+  - 향후 Codex 가 세션 중 이동을 지원하게 되면 `turn_context` 로 같은 분리를 적용할 수 있다(경로는 열려 있음).
 - **호환**: 오가지 않은 세션(정상 케이스)은 결과가 달라지면 안 된다 — 기존 동작 회귀 테스트를 함께 둔다.
+
+## 인접 작업과의 경계 (2026-08-04 확인 — 중복 아님)
+- main 에 `worklog-per-worktree`(plan `status: done`, PR #101)가 머지돼 있다. 그 작업이 고친 것은 **등록 단계**의 문제 — 마커가 `(ticket, date)` 뿐이라 같은 티켓의 두 worktree 가 서로를 덮어쓰던 것을 worktree별 마커로 분리(`markers.py`·`worklog_register.py`, 테스트 `test_worklog_scope.py`).
+- 이 plan 이 고치는 것은 **측정 단계**의 문제 — 세션 파일이 cwd 를 따라 이동해 시간 자체가 엉뚱한 worktree 로 집계되는 것(`session_time.py`). 마커를 아무리 잘 나눠도 입력 시간이 틀리면 소용없으므로 두 작업은 직교하고, 순서상 이쪽이 뒤에 오는 게 맞다.
+- **회귀 주의**: `test_worklog_scope.py`(upsert scope·마커 검증)는 이번 변경 대상이 아니지만 통과 유지가 필요하다. 신규 `test_session_time.py` 는 측정 축만 담당.
 
 # Key Files
 - `skills/jira-worklog/jira_kit/session_time.py` — 핵심. `discover_sessions`/`find_session_files`(폴더 단위 탐색)와 `parse_message_events`/`ai_worklog_by_date`(cwd 미사용) 를 cwd 인지 방식으로 교체
