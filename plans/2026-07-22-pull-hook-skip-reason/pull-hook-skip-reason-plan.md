@@ -1,6 +1,6 @@
 ---
 title: pull-hook-skip-reason — SessionStart 자동 pull 이 조용히 skip 되는 문제
-status: blocked
+status: in_progress
 started: 2026-07-22
 updated: 2026-08-04
 ---
@@ -23,15 +23,18 @@ updated: 2026-08-04
 
 # Next
 
-열린 질문 2건 종결(A안 확정 · dirty 게이트 제거). plan-reviewer 진행 중 — 지적 처분 후 TDD:
-`scripts/pull-claude-config.js`(신규) + `scripts/pull-claude-config.test.js` 로 **분기별 사유 출력부터**
-Red 확인.
+plan-review 반영 완료, 출력 가시성 (c) 확정 → **구현 착수**. 순서:
 
-**테스트 전략은 선례를 그대로 미러링한다**(`session-brief.test.js`·`dlc-evidence-ledger.test.js`):
-`fs.mkdtempSync` + `git init` 으로 **실제 git fixture** 를 만들고 `spawnSync` 로 스크립트를 돌려
-stdout 을 관찰한다. 대상 repo 주입은 `CLAUDE_BRIEF_REPO` 선례를 따라 **`CLAUDE_PULL_REPO` env
-override**(미지정 시 `~/.claude`). CI 결정성을 위해 `GIT_DIR`/`GIT_WORK_TREE`/`GIT_INDEX_FILE`
-스크럽 + `commit.gpgsign=false` 도 선례대로 넣는다.
+1. **신호 N TDD** — `session-brief.test.js` 에 Red 부터. 사유 열거형별 fixture:
+   `not-main`/`detached`/`no-origin`/`behind`/`dirty-overlap`, 그리고 **최신이면 무음**.
+2. `session-brief.js` 에 신호 N 구현(네트워크 없음, 캐시 `origin/main`, 기존 `git()` timeout 2000·
+   예외 격리·`CLAUDE_BRIEF_REPO` override 를 그대로 재사용).
+3. `settings.json` 체인에서 dirty 게이트 2개 제거 + `CLAUDE_AUTOPULL_OFF` 존중.
+4. 문서 동기화(`README.md` 5곳 — 특히 410 "다음 세션부터 적용"·"dirty 면 skip" 서술).
+
+**테스트는 선례를 그대로 미러링한다**(`session-brief.test.js` 기존 패턴): `fs.mkdtempSync` +
+`git init` 으로 실제 git fixture, `spawnSync` 로 관찰, `CLAUDE_BRIEF_REPO` 로 repo 주입,
+`GIT_DIR`/`GIT_WORK_TREE`/`GIT_INDEX_FILE` 스크럽 + `commit.gpgsign=false`. **신규 테스트 파일 없음.**
 
 이어받기: `/wt pull-hook-skip-reason` → `/c`.
 
@@ -76,6 +79,22 @@ Goal 달성 여부를 좌우한다(아래 `## 출력 가시성` 참조).
 명시: `동기 hook(async 면 stdout 이 첫 턴 후 도달)`). 즉 사유 한 줄을 아무리 잘 만들어도 async 인 채로는
 사용자가 세션 시작 시점에 못 본다 → "이유를 말하게 한다"는 Goal 이 절반만 달성된다.
 
+**→ (c) 채택 (2026-08-04 사용자 결정).** 결과적으로 **A안(신규 스크립트 분리)은 대체·폐기**된다:
+진단·출력은 이미 동기이고 이미 테스트되는 `session-brief.js` 가 맡고, 네트워크 pull 은 async
+인라인 체인으로 남는다. 그래서 신규 스크립트·CI 등록·README 훅 진입점 추가가 **모두 불필요**해진다.
+
+작업 분해:
+1. **`session-brief.js` 에 신호 N 추가**(동기·네트워크 없음, 캐시된 `origin/main` 으로 판정) —
+   `~/.claude` 가 뒤처졌는데 자동 pull 이 안 먹고 있으면 그 **이유**를 한 줄로. 사유 열거형:
+   `not-main`/`detached`/`no-origin`/`behind`/`dirty-overlap`. 최신이면 **무음**.
+2. **`settings.json` async 체인에서 dirty 게이트 2개 제거** + `CLAUDE_AUTOPULL_OFF` 존중.
+   체인은 "시도만" 하고, *왜 안 됐는지*는 다음 세션 시작에 신호 N 이 동기로 말한다.
+3. 테스트는 `session-brief.test.js` 에 추가(기존 git fixture 패턴 재사용 — 신규 테스트 파일 없음).
+
+이 구성의 핵심 이점: **네트워크를 타는 쪽은 계속 async 라 hang 위험이 0**이고
+(`wiki/pages/decision/git-hook-network-safety.md` 결정 유지), 사용자가 보는 쪽은 동기라 세션 시작에
+즉시 보인다. B3(사유 판정)도 자연히 해결된다 — 신호 N 은 애초에 stderr 파싱이 아니라 상태 판정이다.
+
 세 갈래가 있고 어느 쪽이든 대가가 있다:
 - **(a) async 유지** — 안전(하니스가 timeout 으로 감싼다)하지만 사유가 첫 턴 뒤에 뜬다. Acceptance 를
   "첫 턴 이후라도 1회 표시"로 낮춰야 한다.
@@ -108,12 +127,12 @@ secret guard hooks` 에서 의도적으로 전환. 머신별·민감 설정은 g
 
 ## 방향
 
-- **A안 (유력): 훅 본문을 `scripts/` 의 스크립트로 분리**하고 settings.json 은 그 스크립트를
-  호출만 한다. 근거: 이 레포의 다른 훅 진입점이 전부 그 형태(`notify-hook.js`,
-  `session-brief.js`, `dlc-*.js`)이고, CI(`.github/workflows/lint.yml`)가 `node --check` +
-  단위테스트를 돌려준다. JSON 문자열 안의 긴 셸 체인은 테스트도 리뷰도 불가능하다.
-- **B안: 인라인 유지 + 분기마다 `|| echo`** — settings.json 한 줄이 더 길어지고 테스트 불가.
-  A안이 가능하면 택하지 않는다.
+- ~~**A안: 훅 본문을 `scripts/` 의 신규 스크립트로 분리**~~ → **2026-08-04 (c) 채택으로 대체·폐기**.
+  A안의 목적은 "테스트·리뷰 가능한 곳에 판정 로직을 두는 것"이었는데, (c)는 그 로직을 **이미 동기이고
+  이미 테스트되는** `session-brief.js` 에 얹어 같은 목적을 신규 파일 0개로 달성한다. async 체인은
+  판정을 갖지 않고 "시도만" 하므로 분리할 로직 자체가 없어진다.
+- ~~**B안: 인라인 유지 + 분기마다 `|| echo`**~~ → 폐기(같은 이유). 다만 (c)에서도 체인은 인라인으로
+  남되, **게이트를 덜어내 더 짧아진다**(판정을 안 하므로).
 - **fail-open 유지 필수** — 훅이 세션 시작을 막으면 안 된다(README 의 "모두 fail-open" 규약).
   이유를 출력하되 exit code 는 항상 0.
 - **dirty 게이트는 제거한다 — 항상 pull 을 시도한다** (2026-08-04 실험 + 사용자 결정으로 종결).
@@ -188,15 +207,16 @@ fetch 후 `rev-list origin/main..HEAD`(diverge) / `diff --name-only` ∩ `diff -
 
 # Blockers
 
-2026-08-04 plan-review CONDITIONAL — **구현 착수 정지**. 사용자 결정 1건.
+(없음 — 2026-08-04 출력 가시성 결정 (c) 채택으로 해소. 내용은 `# Decisions` 의 `## 출력 가시성`.)
+
+<!-- 해소된 blocker 기록
 
 1. **출력 가시성 전략** (`## 출력 가시성` 의 (a)/(b)/(c) 중 택1) — 훅이 `"async": true` 라 사유가
    첫 턴 이후에 도달한다. (a) async 유지+Acceptance 하향 / (b) 동기 전환+hang 방지 미러링 /
    (c) 로컬 판정은 동기 `session-brief.js` 에, 네트워크 pull 은 async 유지. 이 선택이 구조·스코프·
    Acceptance 를 모두 바꾸므로 먼저 확정해야 한다.
 
-나머지 blocker(사유 판정 방식·kill-switch·자기 배포 채널 방어·rollback)는 `# Decisions` 에 반영
-완료 — 추가 결정 불필요.
+나머지 blocker(사유 판정 방식·kill-switch·자기 배포 채널 방어·rollback)는 `# Decisions` 에 반영 완료. -->
 
 # Acceptance
 
