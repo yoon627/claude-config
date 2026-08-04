@@ -19,11 +19,26 @@ updated: 2026-08-04
 - 2026-08-04 13일 방치 후 재개. worktree 재생성(`origin/pull-hook-skip-reason` 체크아웃), `origin/main` merge(`97a7452`)로 base 39커밋 지연 해소. **훅 명령이 plan 스냅샷과 문자 그대로 일치함을 확인**(`settings.json` `hooks.SessionStart[0][0]`, 526자) — plan 은 stale 하지 않다. PR 없음, plan-lint 통과.
 - 2026-08-04 **A안 확정** — `scripts/*.js` + `node --check` + Unit tests 가 이 repo 의 정착된 훅 진입점 패턴이고(`lint.yml` 에 스크립트 14개 등록), Acceptance #5 도 그 형태를 요구한다. B안(인라인 유지) 폐기.
 - 2026-08-04 **plan-review CONDITIONAL**(claude plan-reviewer + codex medium 병행), blocker 4건. 메인이 직접 확인한 것: ① 훅에 **`"async": true`, `"timeout": 30`** 이 있는데 plan 스냅샷이 통째로 누락했다 — 앞선 "훅이 plan 과 문자 그대로 일치" 확인은 `command` **문자열**만 본 것이라 불완전했다. 같은 그룹 `session-brief.js` 는 async 없이 동기이고 그 파일 8번 줄이 `동기 hook(async 면 stdout 이 첫 턴 후 도달)` 을 계약으로 명시 → **이유를 출력해도 세션 시작 시점엔 안 보일 수 있다**(Goal 미달성 위험). ② `CLAUDE_AUTOPULL_OFF` 는 `install-hooks.sh/.ps1`(post-checkout)에만 존재 → **SessionStart pull 은 이 스위치로 안 꺼진다**(기존 불일치). ③ `# Key Files` 가 인용한 `plans/2026-05-13-track-settings-json/` 은 **실존하지 않는다**(`ls`·`git log --all --diff-filter=A` 모두 무결과).
+- 2026-08-04 **구현 완료** (`c20c246`) — (c) 안대로 신호 N(`session-brief.js` `autopullStalledLine`) + `settings.json` 체인 교체 + 문서 4곳. TDD Red→Green(신규 테스트 8개, 총 46개 통과), 기존 CI 스위트 7종 회귀 없음, `node --check`·JSON validation 통과.
+  - **설계를 성립시킨 실측**: pull 이 로컬 변경 충돌로 거부돼도 **fetch 는 먼저 일어나 `origin/main` ref 가 갱신된다**(9847506→32bfe8c, behind 0→1). 따라서 네트워크 없이 캐시 ref 로 behind 를 재는 신호 N 이 사고를 감지할 수 있다. 이게 거짓이었다면 (c) 안 자체가 무효였다.
+  - **테스트가 잡은 내 구현 누락**: 원격이 *새로 추가*하는 파일은 로컬에서 untracked 라 `git diff` 에 안 잡히는데 pull 은 거부된다 → `ls-files --others --exclude-standard` 를 충돌 후보에 추가.
+  - **체인 검증**: fixture 8케이스(clean·무관 dirty·충돌 dirty·최신·main 아님·kill-switch·rebase 중·비 git) 전부 기대대로이고 **모두 exit 0**(fail-open).
+  - **실제 관찰**: 현재 repo 최신 → 신호 N 무음(잡음 없음). 사고 재현 시 `~/.claude 1커밋 뒤처짐 — 로컬 변경과 충돌해 pull 거부됨: settings.json (커밋하거나 되돌리면 풀린다)`.
 - 2026-08-04 **dirty 게이트 실험** (임시 repo 3케이스, `scratchpad/probe_ffonly.sh`) — 아래 Decisions 에 결과. 열린 질문이던 게이트 존치를 근거 기반으로 종결.
 
 # Next
 
-plan-review 반영 완료, 출력 가시성 (c) 확정 → **구현 착수**. 순서:
+**구현 완료** (`c20c246`) — code-reviewer(+codex) 진행 중. 지적 처분 후 남는 것: Acceptance #9(새 세션
+1회 실측으로 신호 N 이 세션 시작에 실제로 보이는지 눈으로 확인 — 이 세션에서는 불가, 다음 세션 첫
+화면에서 확인) → 그 뒤 push·PR.
+
+**메인이 이미 확인한 잠재 결함 1건**(리뷰 결과와 함께 처분): `core.quotePath` 기본값 탓에 비ASCII
+경로가 `"\355\225\234…"` 로 이스케이프돼 **표시가 깨진다**(교집합 매칭은 양쪽이 같은 형식이라 무사).
+현재 이 repo 엔 비ASCII 추적 파일 0개라 잠재적이지만, 한국어 파일명이 생기면 바로 드러난다 →
+`-c core.quotePath=false` 로 처리 예정.
+
+---
+(완료된 착수 순서)
 
 1. **신호 N TDD** — `session-brief.test.js` 에 Red 부터. 사유 열거형별 fixture:
    `not-main`/`detached`/`no-origin`/`behind`/`dirty-overlap`, 그리고 **최신이면 무음**.
