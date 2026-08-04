@@ -17,7 +17,7 @@ trivial(오타·로그 1줄)이 아닌 모든 작업은 별도 git worktree에�
 한 repo에서 여러 작업을 섞으면 ① 같은 파일 동시 편집 ② 브랜치 전환 시 변경 누수 ③ 테스트가 다른 작업 코드와 상호작용해 결과 해석 불확실. worktree 격리로 셋 다 차단한다.
 
 ## wt skill
-`/wt <요청사항>` → slug 확인 → `.claude/worktrees/<name>/`에 prefix 없는 브랜치 생성 → main에서 `.env` 복사 → submodule heal + bootstrap → codegraph 인덱스 백그라운드 init → [[dlc-development-cycle]] 시작. `/wt <N>`·기존 이름은 이동, `?` 접두는 질문 모드.
+`/wt <요청사항>` → slug 파생(확인 없음 — [[risk-based-approval]]) → `.claude/worktrees/<name>/`에 prefix 없는 브랜치 생성 → main에서 `.env` 복사 → submodule heal + bootstrap → codegraph 인덱스 백그라운드 init → [[dlc-development-cycle]] 시작. `/wt <N>`·기존 이름은 이동, `?` 접두는 질문 모드.
 
 ## 안전장치
 - worktree 세션 guard hook: worktree 안에서 main repo 소스 Edit/Write 차단(실수 방지).

@@ -218,7 +218,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 
 14개 섹션 (0~13):
 0. 응답 언어 — 한국어, 의례적 preamble 금지
-1. 핵심 규칙 — 추측 금지, 코드 read 기반 답변, 근본 원인, 검증 후 "완료", 사용자 변경사항 보호, 운영 자산 자가 수정 금지
+1. 핵심 규칙 — 추측 금지, 코드 read 기반 답변, 근본 원인, 검증 후 "완료", 사용자 변경사항 보호, 승인은 위험기반(가역·로컬은 무확인 실행+보고 / 비가역·외부공개는 확인), 운영 자산 자가 수정 금지
 2. 컨텍스트 관리 — `/clear`, `/rewind`, subagent 위임 기준
 3. 작업 흐름 — Setup → Explore → Plan → Implement → Verify → Report
 4. 웹 검색 능동 사용 — 지식 컷오프 이후 정보, 라이브러리 버전별 동작 등
@@ -297,17 +297,17 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - uncommitted 변경은 작업 브랜치에 **임시(WIP) 커밋**으로 보존 — `main`/`master` 직접 커밋·push 는 안 함(§8), `.env`·key 등 위험 파일은 커밋 보류 후 확인.
 - `# Progress`/`# Next`/`# Decisions`/`status`/`updated` 를 사실 기반으로 갱신 → 다음 세션이 `/c` 로 곧장 이어받음.
 - done 자동 전환 안 함 (확정 완료 신호 + 사용자 확인 시만, 기본 `in_progress` 체크포인트). plan 없으면 새로 만들지 않음 — 임시 커밋 + 보고만.
-- worktree 에서 작업이 `done`·clean·pushed·merged(base 통합)이고 내부에 잃을 ignored 산출물(plan·`.env`)이 없으면 **worktree 삭제도 제안** (AskUserQuestion; worktree만/+로컬브랜치/+로컬·원격브랜치/유지). 삭제 시 main 으로 빠져나간 뒤 `git worktree remove`, 원격은 `git push origin --delete`, `--force`·`branch -D`·원격 삭제는 추가 확인. merge/done 후 정리를 방치하지 않고 능동 제안하는 규약은 CLAUDE.md §8.
-- **`collect-state.sh`** (헬퍼): 마무리 2단계·5단계의 읽기전용 git 신호(worktree 위치·dirty·upstream/unpushed·base merged·ignored)를 평문 `key:value` 로 1회에 수집 — 분산된 개별 git 호출의 왕복을 줄인다. read-only(판정·삭제·파괴 명령은 SKILL 메인), 각 점검 fail-safe(실패 필드 none/unknown), `unpushedStatus` 는 false 와 unknown 을 구분해 false-positive 삭제를 막는다.
+- worktree 에서 작업이 `done`·clean·pushed·merged(base 통합)이고 내부에 잃을 ignored 산출물(plan·`.env`)이 없으면 worktree 를 정리한다 — **분기(CLAUDE.md §8)**: **(a) 내가 이 세션에서 직접 수행/확인한 merge 직후 + 안전조건 충족**(대상≠main/master/`origin/HEAD`·clean·`git fetch` 후 remote-ahead 없음·base merged(squash 는 미머지 취급→(b))·산출물 안전)이면 worktree→로컬(`git branch -d`)→원격(`git push origin --delete`)을 **확인 없이 자동 정리**하고 삭제한 원격 tip sha 를 보고. **(b) 그 외**(우연 머지·`/e`·`wt rm` 독립 정리·안전조건 미충족/불확실)는 **AskUserQuestion**(worktree만/+로컬/+로컬·원격/유지) — 원격 삭제·`--force`·`branch -D` 는 추가 확인. 삭제 시 main 으로 빠져나간 뒤 `git worktree remove`. merge/done 후 정리를 방치하지 않는 규약은 CLAUDE.md §8.
+- **`collect-state.sh`** (헬퍼): 마무리 2단계·6단계의 읽기전용 git 신호(worktree 위치·dirty·upstream/unpushed·base merged·ignored)를 평문 `key:value` 로 1회에 수집 — 분산된 개별 git 호출의 왕복을 줄인다. read-only(판정·삭제·파괴 명령은 SKILL 메인), 각 점검 fail-safe(실패 필드 none/unknown), `unpushedStatus` 는 false 와 unknown 을 구분해 false-positive 삭제를 막는다.
 - **`docs/worktree-lifecycle.md`** (참조, 자동 로드 안 됨): `/e` 의 상태 수집 필드 카탈로그·worktree 삭제 판정 6조건 메커닉·정리 실행 폴백·복귀 pull 의 git 세부를 담는다. SKILL 본문엔 게이트·닫힌목록·안전 규칙만 남기고 세부는 여기로 이관(해당 분기 진입 시 Read — `docs/codex-review.md` 와 같은 참조 패턴).
 
 ### skills/wt/ — Git worktree 빠른 관리
 
-`/wt` (목록) · `/wt <N>` (N번째 worktree 로 이동) · `/wt <기존이름>` (정확일치 worktree 로 이동) · `/wt <요청사항>` (slug 확인 후 worktree 신규 생성 → 그 안에서 `dlc` 로 작업) · `/wt ? <막연한 설명>` (질문 모드 — 구체화 후 생성) · `/wt rm <name>` (제거) 로 worktree 관리. 컨벤션:
+`/wt` (목록) · `/wt <N>` (N번째 worktree 로 이동) · `/wt <기존이름>` (정확일치 worktree 로 이동) · `/wt <요청사항>` (확인 없이 worktree 신규 생성 → 그 안에서 `dlc` 로 작업) · `/wt ? <막연한 설명>` (질문 모드 — 구체화 후 생성) · `/wt rm <name>` (제거) 로 worktree 관리. 컨벤션:
 - worktree path: `.claude/worktrees/<name>` (현재 repo 기준)
 - 브랜치 이름 = worktree 이름 (1:1)
 - `EnterWorktree(path: <abs>)` 로 진입 — `name` 인자 사용 금지 (Claude Code 의 `worktree-` prefix 자동 부착 회피)
-- 정수·`rm`·기존 worktree 정확일치가 아닌 텍스트는 **요청사항**으로 간주 → 영문 kebab-case slug 파생 → AskUserQuestion 으로 확인 후 생성 → 요청사항 원문을 `dlc` task 로 전달 (dlc 없는 빈 worktree 단순 생성은 폐지)
+- 정수·`rm`·기존 worktree 정확일치가 아닌 텍스트는 **요청사항**으로 간주 → 영문 kebab-case slug 파생 → **확인 없이 생성**(위험기반 승인 — CLAUDE.md §1: 로컬·가역이라 묻지 않고, base·`.env`·stale·near-miss·`/wt rm <slug>` 되돌리기를 보고) → 요청사항 원문을 `dlc` task 로 전달 (dlc 없는 빈 worktree 단순 생성은 폐지). 삭제 계열(`rm`·`--force`·`branch -D`·원격 삭제)은 비가역이라 확인 유지
 - 접두 `?` (`/wt ? <막연한 설명>`)는 **질문 모드** — AskUserQuestion 으로 요구사항을 구체화한 뒤 같은 요청사항 생성 경로로 합류 (접미 `?` 는 의문형 요청과 충돌해 미사용)
 - `references/` (자동 로드 안 됨): SKILL 본문엔 절차 스텝·안전 게이트만 두고, 상세 메커닉은 해당 분기 진입 시 Read 하는 참조 doc 으로 분리 — `env-copy.md`(`.env` 복사 후보/제외)·`codegraph-worktree.md`(codegraph init 조건·staleness·projectPath)·`rm-recovery.md`(생성 git 시퀀스·self-heal·rm 실패 복구). `docs/codex-review.md`·`docs/worktree-lifecycle.md` 와 같은 참조 패턴.
 
@@ -322,6 +322,15 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - **`improve.sh deep`**(opt-in 광역 관측, 여전히 read-only·secret 미출력): ⑧ 주입·로드 표면 크기(`wc -c` — CLAUDE.md·SKILL·agent, 토큰 압박) · ⑨ 사용량 카운트(`node scripts/usage-count.js` — transcript JSONL 파싱해 skill·subagent·codex 호출 빈도, **카운트·slug 만**, 원문·파일명·경로·args 미출력) · ⑩ MCP 서버 인벤토리(`~/.claude.json` **이름만**, 값·env·secret 미출력). 판단·제안 경로는 기본 4단계와 동일(측정→제안, 수정 금지).
 - 의미 점검(LLM): 문서 간 모순 · 중복 trigger · 죽은 규칙 + wiki `workflow-failures` 표·MEMORY 인덱스·plan `# Workflow Findings` 대조.
 - **역할 경계**: README↔surface drift 는 `dlc-doc-drift` hook, wiki 내부 무결성은 `/wiki lint` 영역 — improve 는 재판정하지 않고 신호의 **사후 집계**만(중복 회피).
+
+### skills/jira-worklog/ — worktree 작업시간 → Jira worklog
+
+worktree 의 AI 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex/sessions`)에서 AI 가 실제 작업한 시간(사용자 응답 대기·긴 공백 제외)을 날짜별로 추정해 Jira worklog 에 기록. stdlib only(설치 불필요), 기본은 미리보기(dry-run)이고 실제 등록은 `--register`. `/e` 5단계가 마무리 시 호출한다.
+- 대상 티켓은 **worktree 디렉토리 이름 prefix**(anchored)에서 우선 추출, 없으면 브랜치명 fallback. 어느 쪽에도 없으면 등록 skip(안전).
+- **worklog 항목은 worktree 단위**: 마커 `[jira-kit] worklog <티켓> <날짜> (<worktree>)` 로 그 worktree 의 그날 항목만 upsert 한다(멱등). 같은 티켓을 `CSTP1-1234-abc`/`-def` 여러 worktree 에서 작업하면 항목이 각각 생기고 **티켓 총 작업시간은 Jira 가 합산** — 나중 등록이 이전 worktree 시간을 덮지 않는다. 병렬로 돌린 구간은 양쪽에 잡혀 합계가 실제 경과시간보다 커진다.
+- 마커 매칭은 ADF **줄 정확일치** — 부분문자열이면 사용자 `--comment` 본문이나 Jira UI 편집 텍스트에 마커가 섞인 항목을 자기 것으로 오인한다. 반대로 마커를 **놓치면** 새 항목이 생겨 조용히 이중계상되므로, 줄 추출은 UI 편집이 만드는 `hardBreak`·`codeBlock`·`heading`·앞뒤 공백까지 흡수한다.
+- author scoping(내 accountId 항목만) · 마커 중복 2건+ 중단 · worktree 없는 구 형식 항목 발견 시 중단(귀속 불명 → 수동 정리 요구).
+- 인증(`JIRA_BASE_URL`/`JIRA_EMAIL`/`JIRA_API_TOKEN`)은 환경변수 또는 `~/.jira-kit/.env`, 비민감 설정은 `~/.jira-kit/jira-kit.toml`. 토큰 없으면 미리보기만 되고 마무리 흐름은 안 막힌다.
 
 ### scripts/
 
@@ -356,7 +365,7 @@ dlc(`skills/dlc/`)의 evidence gate 를 보조하는 누락방지망. 모두 fai
 - **`dlc-doc-drift.js`** — 문서 drift 판정 **순수 모듈**(hook 아님). `resolveRoot`(`.claude`/worktree 한정, 타 repo no-op)·`classify`(root 기준 정확 경로)·`applyChange`(dirty 전이)·`evaluate`. early-stop·evidence-ledger 가 require. 단위테스트 `dlc-doc-drift.test.js`.
 - **`dlc-ledger.js`** — 위 hook 들이 공유하는 per-session 임시 장부(`%TEMP%/dlc-evidence-<sid>.json`) read/write/reset 모듈. `DEFAULT` 스키마 단일 소스(`changed/verified/blocks` + `readmeDirty/indexDirty/docBlocks` + `readmeTrigger/indexTrigger/changedTrigger` — 해당 dirty/changed 를 유발한 마지막 파일, 신호 `detail` 용). hook 으로 직접 등록되진 않음.
 - **`dlc-signal.js`** — 자기개선 loop 의 **신호 수집 모듈**(hook 아님, 위 dlc hook 3종 + `guard-worktree-edit.js` 가 require). hook 판정 발동(early-stop 경고·doc-drift·guard deny·guard main-edit ask·router 주입·plan `status: blocked` 전이·disposition 기록)을 `~/.claude/telemetry/dlc-signals.jsonl` 에 append-only 누적 — `/improve` 가 집계 소비. kind→axis(failure/activity) 단일 소스 `KINDS`, plan 신호는 substring 이 아니라 **상태 전이**로 판정(`detectPlanSignal` 순수 함수 — disposition 은 Review Disposition 섹션/placeholder 컨텍스트에서만). payload 는 kind·ts·session_id·cwd·`detail`(신호 유발 trigger 파일 — doc-drift 는 `readmeTrigger`/`indexTrigger`(repo-relative), early-stop 은 `changedTrigger`(basename); `/improve` 가 오탐 패턴(예 내부 dedup) 식별)만(`~` 축약, 프롬프트 원문·시크릿 없음 — 단 경로 메타데이터는 로컬 gitignored 파일에 남음, 전송·커밋 안 됨). fail-open + env 채널: `CLAUDE_DLC_SIGNAL_DIR`(redirect — 테스트 격리), `CLAUDE_DLC_SIGNAL_OFF=1`(무력화), `CLAUDE_DLC_SIGNAL_MAX_BYTES`(회전 임계, 기본 5MB `.1` 단일 회전 best-effort; summary 는 `.1` 도 함께 읽음). CLI `node scripts/dlc-signal.js summary`. 단위+통합테스트 `dlc-signal.test.js`.
-- **`session-brief.js`** (SessionStart hook — 위 hooks.SessionStart 참조) — 세션 시작 리마인더. K 머지 대기: `~/.claude` 의 origin/main 대비 ahead 로컬 브랜치(`for-each-ref`+`rev-list`, main/master 제외·oldest 순 cap5, fetch 안 함·git stderr 억제). L /improve 권장: `dlc-signal` 의 jsonl 을 직접 파싱해 마커(`last-improve` touch) 이후 failure 축 **unique 세션**(cross-kind dedup·회전분 합산) 이 임계(`CLAUDE_BRIEF_IMPROVE_MIN`, 기본5) 이상이면 nudge. 전부 fail-open. 테스트 `session-brief.test.js`.
+- **`session-brief.js`** (SessionStart hook — 위 hooks.SessionStart 참조) — 세션 시작 리마인더. K 머지 대기: `~/.claude` 의 origin/main 대비 ahead 로컬 브랜치(`for-each-ref`+`rev-list`, main/master 제외·oldest 순 cap5, fetch 안 함·git stderr 억제). L /improve 권장: `dlc-signal` 의 jsonl 을 직접 파싱해 마커(`last-improve` touch) 이후 failure 축 **unique 세션**(cross-kind dedup·회전분 합산) 이 임계(`CLAUDE_BRIEF_IMPROVE_MIN`, 기본5) 이상이면 nudge. **M 닫히지 않은 plan**: `plans/*/<slug>-plan.md` 중 `status: in_progress` 인데 작업이 끝난 것으로 보이는 것(= slug 앵커 매칭 브랜치가 **없음 OR 있어도 origin/main 대비 ahead 0**)이 `updated` 기준 임계(`CLAUDE_BRIEF_STALE_DAYS`, 기본3)일 이상 방치됐으면 알림 — **K 의 정반대 축**(K=코드는 됐는데 미머지, M=머지는 됐는데 §10 `status: done` 누락). 매칭은 `<slug>`·`worktree-<slug>`·`*-<slug>` 앵커만(free substring 금지 — 항상 존재하는 `main` 이 slug 에 main 이 든 plan 을 영구 억제한다), 로컬 + **fetch 된** 원격 ref 대상(다머신 진행분 오탐 차단 — fetch 전이면 "브랜치 없음"으로 볼 수 있다), `isDirectory()` 필터 **후** cap 적용(순서가 반대면 오래된 done 이 예산을 먹고 최신 plan 이 밀린다)·`*-plan.md` 한정·파일 단위 skip·frontmatter head 만 read(CRLF·BOM·YAML 인라인 주석 정규화)·`updated` 불량 시 `started` 폴백·oldest 순 cap5. **미탐 구간**: squash-merge 후 브랜치가 남아 있으면 ahead>0 이라 M 은 안 뜬다 — 그 구간은 K 가 "미머지 로컬"로 계속 알린다. 전부 fail-open + **신호별 예외 격리**(한 신호가 죽어도 나머지 라인 보존 — stdout write 가 마지막 1회라서). 테스트 `session-brief.test.js`.
 - **`usage-count.js`** (`improve.sh deep` ⑩ 가 호출, hook 아님) — transcript JSONL 을 파싱해 skill/subagent/codex tool_use 레코드만 집계. 프라이버시: 카운트+고정 slug 만 출력, 파일명·경로·원문·args 미출력(raw grep 대신 스키마 파싱). `CLAUDE_TRANSCRIPT_DIR` redirect(테스트). 테스트 `usage-count.test.js`.
 - **`plan-lint.js`** — §10 plan 참조 무결성 **순수 판정 + CLI**(hook 아님). `lintPlan(text)`→위반 배열: frontmatter 필수키 non-empty · `status` 값 · 6 H1 섹션 · **끊긴 Acceptance 참조**(본문의 "Acceptance N/①-⑳" ↔ `# Acceptance` 항목 수; frontmatter·헤더·# Acceptance 섹션·백틱/따옴표 인용은 스캔 제외해 자기참조 오탐 차단). 의미 판정(title↔Goal 정합)은 LLM 몫. 강제 3지점: CI `lint.yml`(그 PR 변경 plan 만·`continue-on-error` 비차단) · `/c` 2단계(채택 plan) · `/e` 3단계(active plan, write 후) · `improve.sh` 8(전 tracked plan). `CLAUDE_PLAN_LINT_OFF=1` 로 CLI no-op. 테스트 `plan-lint.test.js`.
 
@@ -393,17 +402,18 @@ UTF-8 (no BOM) + LF endings — Git Bash 가 인식. idempotent — 재실행 �
 
 머신 간 sync 의 source of truth. 핵심 키:
 - `theme`, `preferredNotifChannel` — Claude Code UI 설정
+- `permissions.defaultMode` — `auto`(기본 권한 모드). 매 액션 프롬프트 대신 안전 분류기가 판정한다. **user scope 전용** — 프로젝트/로컬 settings 의 `"auto"` 는 repo-controllable 이라 무시되고, 반대로 프로젝트가 *다른* 모드를 지정하면 그쪽이 이긴다(cascade user < project < local). 모델이 auto 미지원이면 CLI 가 안내와 함께 `default` 로 폴백.
 - `permissions.deny` — `git push origin main/master` 직접 푸시 차단
 - `permissions.ask` — 일반 `git push` 는 확인 후 실행
 - `statusLine`, `subagentStatusLine` — statusline 스크립트 등록 (`node ~/.claude/statusline.js`)
-- `env.CLAUDE_CODE_EFFORT_LEVEL` — Opus effort level (`xhigh`). docs 명시 값: `low|medium|high|xhigh|max`. `/effort` 나 `effortLevel` 키로는 세션 한정이지만 **env 변수로 설정할 때만 영구 적용**되므로 이 키로 둔다. env 가 `effortLevel` 키를 override.
-- `hooks.SessionStart` — 2개. (1) `~/.claude` 가 `main` 브랜치 + 클린 트리이면 `git pull --ff-only origin main` 으로 origin/main 자동 동기화 (ff-only·가드 실패 무음, async; `~` 확장 위해 sh/Git Bash 필요). pull 로 HEAD 가 바뀌면 한 줄 알림(`~/.claude updated …`) 출력. pull 내용은 **다음 세션부터** 적용. dirty/분기/다른 브랜치면 가드에 걸려 skip. **이 pull 훅은 세션 시작 시점만 커버 — 체크아웃 시점은 install-hooks 의 `post-checkout` git hook, 세션 중 main 복귀 시점은 `/e` 6단계가 각각 보완(main-autopull).** (2) `session-brief.js`(동기·timeout10) — 세션 시작 브리프 1~2줄: **머지 대기**(origin/main 대비 ahead 인 미머지 로컬 브랜치, oldest 순 cap5) + **`/improve` 권장**(마커 이후 failure 신호 임계 세션 이상). 전부 fail-open 무음, `CLAUDE_SESSION_BRIEF_OFF=1`(+ `CLAUDE_BRIEF_MERGE_OFF`·`CLAUDE_BRIEF_IMPROVE_OFF`)로 해제. (과거엔 `install-gwl.ps1` 을 자동 실행하는 command 가 있었으나 무서명 원격 스크립트 자동 실행 위험 때문에 제거 — gwl 등록은 위 `install-gwl.ps1` 수동 1회 실행으로.)
-- `hooks.PreToolUse` — `Edit|Write|NotebookEdit` 에 `guard-worktree-edit.js`(worktree 밖 main repo 편집 차단 + 비-worktree 세션의 main/master 추적파일 직접 편집 `ask`, `CLAUDE_MAIN_EDIT_GUARD_OFF=1` 로 해제), `Bash` 에 macOS 한정 `rtk-rewrite.sh`(RTK 명령 재작성, darwin 아니면 no-op)
+- `env.CLAUDE_CODE_EFFORT_LEVEL` — Opus effort level (`high`). docs 명시 값: `low|medium|high|xhigh|max`. `/effort` 나 `effortLevel` 키로는 세션 한정이지만 **env 변수로 설정할 때만 영구 적용**되므로 이 키로 둔다. env 가 `effortLevel` 키를 override. **`xhigh` 금지** — WebSearch/WebFetch 는 thinking 없는 보조 모델을 쓰는데 그 모델이 `xhigh` 를 거부해(`400 output_config.effort 'xhigh' is not supported when thinking is disabled`) 웹 검색이 통째로 막힌다(2026-08-03 관측).
+- `hooks.SessionStart` — 2개. (1) `~/.claude` 가 `main` 브랜치 + 클린 트리이면 `git pull --ff-only origin main` 으로 origin/main 자동 동기화 (ff-only·가드 실패 무음, async; `~` 확장 위해 sh/Git Bash 필요). pull 로 HEAD 가 바뀌면 한 줄 알림(`~/.claude updated …`) 출력. pull 내용은 **다음 세션부터** 적용. dirty/분기/다른 브랜치면 가드에 걸려 skip. **이 pull 훅은 세션 시작 시점만 커버 — 체크아웃 시점은 install-hooks 의 `post-checkout` git hook, 세션 중 main 복귀 시점은 `/e` 7단계가 각각 보완(main-autopull).** (2) `session-brief.js`(동기·timeout10) — 세션 시작 브리프 1~3줄: **머지 대기**(origin/main 대비 ahead 인 미머지 로컬 브랜치, oldest 순 cap5) + **`/improve` 권장**(마커 이후 failure 신호 임계 세션 이상) + **닫히지 않은 plan**(`in_progress` 인데 매칭 브랜치가 없거나 이미 머지된 plan 이 `updated` 기준 임계일 이상 방치 — §10 `status: done` 누락 감지). 전부 fail-open 무음 + 신호별 예외 격리, `CLAUDE_SESSION_BRIEF_OFF=1`(+ `CLAUDE_BRIEF_MERGE_OFF`·`CLAUDE_BRIEF_IMPROVE_OFF`·`CLAUDE_BRIEF_STALE_OFF`)로 해제, 임계는 `CLAUDE_BRIEF_IMPROVE_MIN`(기본5)·`CLAUDE_BRIEF_STALE_DAYS`(기본3). (과거엔 `install-gwl.ps1` 을 자동 실행하는 command 가 있었으나 무서명 원격 스크립트 자동 실행 위험 때문에 제거 — gwl 등록은 위 `install-gwl.ps1` 수동 1회 실행으로.)
+- `hooks.PreToolUse` — `Edit|Write|NotebookEdit` 에 `guard-worktree-edit.js`(worktree 밖 main repo 편집 차단 + 비-worktree 세션의 main/master 추적파일 직접 편집 `ask`, `CLAUDE_MAIN_EDIT_GUARD_OFF=1` 로 해제), `Bash` 에 `rtk hook claude`(RTK 명령 재작성; rtk 0.44.0+ 의 빌트인 훅 — 구 `hooks/rtk-rewrite.sh` 파일 훅은 `rtk init -g` 가 제거했다. `command -v rtk` 가드로 rtk 없는 환경에선 no-op)
 - `hooks.UserPromptSubmit` — `dlc-task-router.js` (디버깅/render discipline 주입 + evidence 장부 리셋)
 - `hooks.PostToolUse` — `Edit|Write|NotebookEdit|Bash` 에 `dlc-evidence-ledger.js` (변경·검증 명령 기록)
 - `hooks.Stop` — `dlc-early-stop.js`(검증 누락 + 문서 drift capped 경고) + `notify-hook.js Stop`(알림) 2개
 - `hooks.Notification` — 입력 대기 시 `notify-hook.js Notification` (cross-platform 알림)
-- `enabledPlugins`, `extraKnownMarketplaces` — Pyright LSP plugin + OpenAI Codex marketplace
+- `enabledPlugins`, `extraKnownMarketplaces` — Pyright LSP plugin(**`false` — 2026-07-26 `/doctor` 점검에서 lifetime 사용 0 으로 비활성**. Python 작업이 늘면 `true` 로 되돌린다) + OpenAI Codex marketplace
 - `theme`, `skipDangerousModePermissionPrompt`, `skipWorkflowUsageWarning`, `preferredNotifChannel` — Claude Code UI / 세션 기본값 (`model` 핀 없음 → 세션 기본 모델 상속)
 
 Path 표기 (cross-platform):
@@ -547,9 +557,14 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   │   └── references/             # 생성 시퀀스·codegraph·.env 복사·rm 복구 메커닉 (자동 로드 안 됨)
 │   ├── wiki/
 │   │   └── SKILL.md                # /wiki — LLM Wiki 운영 (ingest/query/lint)
-│   └── improve/
-│       ├── SKILL.md                # /improve — 자기개선 loop 분석 축 (구 /audit 흡수; read-only·랭킹·제안)
-│       └── improve.sh              # 자산 간 참조 정합 기계 점검 + dlc 신호 집계 (read-only)
+│   ├── improve/
+│   │   ├── SKILL.md                # /improve — 자기개선 loop 분석 축 (구 /audit 흡수; read-only·랭킹·제안)
+│   │   └── improve.sh              # 자산 간 참조 정합 기계 점검 + dlc 신호 집계 (read-only)
+│   └── jira-worklog/
+│       ├── SKILL.md                # worktree AI 작업시간 → Jira worklog (dry-run 기본)
+│       ├── jira_worklog.py         # CLI 진입점 (stdlib only)
+│       ├── jira_kit/               # 세션시간 추정·마커·Jira REST·설정 모듈
+│       └── test_worklog_scope.py   # worktree 단위 upsert 격리 테스트 (수동 실행)
 ├── scripts/
 │   ├── notify-hook.js              # notify 진입점 (cross-platform; mac 인라인, win→.ps1 위임)
 │   ├── notify.ps1                  # (Windows) Toast + 사운드 + flash
@@ -561,7 +576,7 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   ├── dlc-doc-drift.js            # 문서 drift 판정 순수 모듈 (+ .test.js)
 │   ├── dlc-ledger.js               # 위 dlc hook 공유 장부 모듈 (hook 미등록)
 │   ├── dlc-signal.js               # 자기개선 loop 신호 수집 모듈 — telemetry append (+ .test.js)
-│   ├── session-brief.js            # SessionStart — 머지 대기 + /improve 권장 브리프 (+ .test.js)
+│   ├── session-brief.js            # SessionStart — 머지 대기 + /improve 권장 + 닫히지 않은 plan 브리프 (+ .test.js)
 │   ├── usage-count.js              # improve.sh deep — transcript 사용량 카운트 (+ .test.js)
 │   ├── pre-commit-check.sh / .ps1  # settings.json secret guard (pre-commit + pre-push)
 │   ├── install-hooks.sh / .ps1     # .git/hooks/{pre-commit,pre-push,post-checkout} wrapper 생성

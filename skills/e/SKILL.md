@@ -45,12 +45,12 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
 ### 5. worklog 기록 (현재 worktree — 삭제·복귀 전)
 마무리 시 이 worktree 에서 한 AI 작업시간을 Jira worklog 에 기록한다. **세션이 아직 worktree 에 있을 때(cwd = 현재 worktree)** 실행 — 6단계 삭제·7단계 main 복귀 전이라 순서가 중요. `~/.claude/skills/jira-worklog/` 없으면 이 단계 skip + "worklog 스킬 없음" 1줄.
 - **실행**: `python ~/.claude/skills/jira-worklog/jira_worklog.py`(dry-run)로 날짜별 시간·대상 티켓 확인(cwd = 현재 worktree — main 에서 돌리면 그 worktree 시간 안 잡힘).
-- **등록**: 티켓이 잡히고(worktree 이름 prefix) `~/.jira-kit/.env` 에 토큰 있으면 이어서 `--register` — 그날 항목 upsert(멱등, /e 반복해도 중복 없음). **티켓 없음/토큰 없음/세션 활동 없음 → preview 만 하고 조용히 넘어감**(마무리 흐름 방해 금지). 사용자가 /e 에 이 동작을 넣은 것 = 등록 표준 동의(별도 AskUserQuestion 안 만듦, §3-6 1회 원칙).
+- **등록**: 티켓이 잡히고(worktree 이름 prefix) `~/.jira-kit/.env` 에 토큰 있으면 이어서 `--register` — **그 worktree 의** 그날 항목 upsert(멱등, /e 반복해도 중복 없음. 같은 티켓의 다른 worktree 항목은 건드리지 않고 티켓 총합은 Jira 가 합산). **티켓 없음/토큰 없음/세션 활동 없음 → preview 만 하고 조용히 넘어감**(마무리 흐름 방해 금지). 사용자가 /e 에 이 동작을 넣은 것 = 등록 표준 동의(별도 AskUserQuestion 안 만듦, §3-6 1회 원칙).
 - **비차단**: 조회·네트워크 실패는 보고 1줄만 하고 마무리는 계속(worklog 실패가 /e 를 막지 않는다).
 - 보고 1줄: 등록 결과("CSTP1-xxxx 에 `<시간>` 등록" · "티켓 없음/토큰 없음 → preview 만" · "세션 활동 없음").
 
 ### 6. worktree 정리 제안 (조건부)
-마무리가 끝난 뒤, 현재 worktree 가 **역할을 다했고 안전하게 지울 수 있으면** 삭제를 제안한다 — **자동 삭제 안 함, 항상 AskUserQuestion**.
+마무리가 끝난 뒤, 현재 worktree 가 **역할을 다했고 안전하게 지울 수 있으면** 삭제를 제안한다 — **`/e` 경로는 자동 삭제 안 함, 항상 AskUserQuestion**(독립 정리 = CLAUDE.md §8(b)). *self-merge 직후 자동 정리*(§8(a) — 내가 이 세션에서 직접 수행한 merge + 안전조건 충족 시 worktree+로컬+원격 무확인 정리)는 `/e` 이전에 처리되는 **별개 경로**라 여기 해당 없음.
 - **제안 조건 (6가지 모두 충족 = AND)**: 2단계 이후 WIP 커밋·plan write 로 상태가 바뀌므로 **삭제 직전 `bash skills/e/collect-state.sh` 를 한 번 더 실행**해 그 신호로 판정(2단계 스냅샷 재사용 금지 — 재수집 invariant). **헬퍼 실패·필드 누락·파싱 불가면 제안 생략(보수)**.
   1. **비-메인 worktree**(`root` ≠ `mainWorktree`; 메인이면 제안 안 함)
   2. **`detached`=false + plan `status == done`**(4단계 확정)

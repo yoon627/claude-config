@@ -63,3 +63,21 @@
 ## [2026-07-19] update | codegraph (worktree 인덱스 watcher-부재/staleness)
 - [[codegraph]] "worktree-local 인덱스" 절에 init 스냅샷·live watcher 부재·조회 전 `codegraph sync <worktree>` 재-sync 필요를 반영(2026-07-19 실측: worktree init 후 새 심볼이 수동 sync 전 검색 불가, MCP projectPath 조회도 일회성, worktree 에 daemon.log 미생성).
 - 동반: skills/wt/references/codegraph-worktree.md("곧 sync"→최초 init 1회 한정 명확화 + staleness 절 watcher-부재 메커니즘), wiki/index.md 요약 동기화.
+
+## [2026-07-26] ingest | lesson-parser-precedent-partial-mirror (신규)
+- PR #105(session-brief M 신호) code-review 에서 CONFIRMED Major 2건이 같은 원인으로 확인됨 — 새 frontmatter 파서가 선례(`plan-lint.js`)의 정규식 모양만 가져오고 ① CRLF 정규화 전처리 ② `(\S+)` 첫-토큰 관용을 빠뜨려, `.gitattributes: * text=auto` 하의 Windows 체크아웃과 CLAUDE.md §10 정본 템플릿(`status: in_progress  # ...`)에서 각각 **무음 exit 0** 이 되던 문제.
+- 교훈 페이지 신설 + `wiki/index.md` 등재. 인접 lesson([[lesson-grep-absence-not-proof]])과 연계.
+
+## [2026-08-03] ingest | risk-based-approval (신규)
+- 사용자가 `/wt` 의 slug 승인을 마찰로 지목 → graph engineering(2026)의 risk-based human-in-the-loop 원칙을 대조해 승인 기준을 가역성으로 일원화하는 결정을 적립.
+- 신규 [[risk-based-approval]] + [[dlc-wt-autoflow]] "생성은 확인" 결정 뒤집기(이유 병기) + [[worktree-per-task]] 흐름 문구 동기화, `wiki/index.md` 등재.
+- 근거: analyticsvidhya "Graph Engineering for AI Agents"(2026-07-29) — 노드/엣지·guard·checkpoint·interrupt 중 이 repo 에 없던 축이 interrupt 정책이었음.
+
+## [2026-08-03] ingest | lesson-stale-tool-version (신규)
+- [[workflow-failures]] 의 rtk 오재작성 항목(6회 tracking)을 재현·근본원인 확정: 설치 rtk 0.28.2 의 `rtk read` 폴백 버그이며 상류가 0.35.0·0.39.0 에서 이미 수정(상류 최신 0.44.2). 표에 적혀 있던 수정 위치(`hooks/rtk-rewrite.sh`)는 규칙 없는 얇은 위임자 + untracked 라 **틀린 위치**였고, 이 오기록이 6회 방치의 직접 원인.
+- 교훈 페이지 신설 + 표 항목 정정(근본원인·수정위치·횟수 6·상태 proposed) + `wiki/index.md` 등재.
+
+## [2026-08-03] ingest | 도구 사용량 감사 (codegraph · headroom 갱신)
+- transcript 298개 전수 스캔으로 MCP 실사용을 측정해 [[codegraph]]·[[headroom]] 에 반영. codegraph 30회(70%가 coin-trading-bot), headroom MCP 41회(`compress` 0회) — headroom 의 가치는 프록시($103.87·13.7% 절감)와 번들 rtk(2.1M 토큰·64.7%)에 있고 MCP 표면엔 없음.
+- 조치: 이 repo `.codegraph/` 만 삭제(전역 MCP 는 유지 — 실사용처 보호), headroom `debug_400` 1.0GB→1.0MB 회수, rtk 심링크 0.44.2 재지정.
+- 처음엔 "codegraph 전역 제거"로 갈 뻔했으나 프로젝트별로 갈라 보니 실사용이 다른 repo 에 몰려 있어 판단을 뒤집었다 — 집계 단위를 섞으면 결론이 뒤집힌다는 사례.

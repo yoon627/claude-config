@@ -1,6 +1,6 @@
 ---
 name: wt
-description: Git worktree 빠른 관리 — 목록/이동/생성+dlc/제거. `/wt <N>` 또는 기존 worktree 이름은 그 worktree 로 이동, 그 외 텍스트(요청사항)는 slug 확인 후 worktree 를 새로 만들고 그 안에서 `dlc` 로 작업. 접두 `?`(`/wt ? <막연한 설명>`)는 질문 모드 — AskUserQuestion 으로 요구사항을 구체화한 뒤 같은 생성 경로로 합류. 신규 생성 시 ignored `.env` 파일을 main worktree 에서 동일 상대경로로 자동 복사. `.claude/worktrees/<name>/` 에 prefix 없는 브랜치(`<name>`)로 생성하여 EnterWorktree 도구의 `worktree-` prefix 문제를 회피. 사용자가 `/wt`, `/wt <N>`, `/wt <기존이름>`, `/wt <요청사항>`, `/wt ? <막연한 설명>`, `/wt rm <name>` 형태로 호출할 때만 사용.
+description: Git worktree 빠른 관리 — 목록/이동/생성+dlc/제거. `/wt <N>` 또는 기존 worktree 이름은 그 worktree 로 이동, 그 외 텍스트(요청사항)는 확인 없이 slug 를 정해 worktree 를 새로 만들고 그 안에서 `dlc` 로 작업(생성은 로컬·가역이라 위험기반 승인 대상 아님 — 되돌릴 정보를 보고). 접두 `?`(`/wt ? <막연한 설명>`)는 질문 모드 — AskUserQuestion 으로 요구사항을 구체화한 뒤 같은 생성 경로로 합류. 신규 생성 시 ignored `.env` 파일을 main worktree 에서 동일 상대경로로 자동 복사. `.claude/worktrees/<name>/` 에 prefix 없는 브랜치(`<name>`)로 생성하여 EnterWorktree 도구의 `worktree-` prefix 문제를 회피. 사용자가 `/wt`, `/wt <N>`, `/wt <기존이름>`, `/wt <요청사항>`, `/wt ? <막연한 설명>`, `/wt rm <name>` 형태로 호출할 때만 사용.
 ---
 
 # wt — Git Worktree 관리
@@ -16,7 +16,7 @@ description: Git worktree 빠른 관리 — 목록/이동/생성+dlc/제거. `/w
 | `rm <name>` | remove |
 | 기존 worktree branch 와 **정확일치** | 그 worktree 로 switch |
 | 접두 `?` (`? <막연한 설명>`) | 질문 모드 — AskUserQuestion 으로 요구사항 구체화 후 '요청사항' 경로로 합류 |
-| 그 외 모든 텍스트 (요청사항) | slug 파생 → 확인 → worktree 생성 → 그 안에서 `dlc` 로 작업 |
+| 그 외 모든 텍스트 (요청사항) | slug 파생 → worktree 생성(무확인) → 그 안에서 `dlc` 로 작업 |
 
 - **해석 순서** (위에서부터 평가, **첫 매치에서 확정** 후 이후 규칙은 보지 않는다 — 표 행 순서가 아니라 이 순서가 우선순위의 단일 소스): ① 빈 인자 → list. ② 첫 토큰 `rm` → remove (worktree 이름으로 `rm` 사용 금지). ②.5 첫 비공백 문자가 `?` → **질문 모드** (ask 섹션 — `?` 제거한 나머지를 seed 로 구체화 후 request 합류). `?rm foo`·`?123` 등 첫 문자가 `?` 면 토큰/정수/정확일치 여부와 무관하게 질문 모드. ③ 인자 전체가 정수 → switch (범위 밖이면 안내 + list). ④ 인자 전체가 기존 worktree branch 와 정확일치 → switch. ⑤ 그 외 전부 → **요청사항**으로 간주 (request 섹션).
 - `rm` 뒤 인자 누락 등 형식 이상 → 위 표 출력 후 종료.
@@ -62,25 +62,26 @@ worktree 세션 안에서 `EnterWorktree` 는 `.claude/worktrees/` 하위 대상
 - 한글·비ASCII 요청은 핵심 의미를 영문으로 요약해 slug 화 (예: "로그인 리다이렉트 버그 수정" → `login-redirect-fix`).
 - 동사+대상 중심으로 간결하게, 불용어 제거.
 
-### 2. 충돌 검사 (확인 전)
-- 기존 브랜치(`git rev-parse --verify --quiet refs/heads/<slug>`) 또는 디렉토리(`.claude/worktrees/<slug>`) 존재 시 → `<slug>-2`, `<slug>-3` … 으로 비어있는 첫 후보를 제안값으로 사용하고, 충돌 사실을 확인 단계에 함께 표시.
+### 2. 충돌 검사
+- 기존 브랜치(`git rev-parse --verify --quiet refs/heads/<slug>`) 또는 디렉토리(`.claude/worktrees/<slug>`) 존재 시 → `<slug>-2`, `<slug>-3` … 으로 비어있는 첫 후보를 자동 채택하고, 충돌 사실을 §4 보고에 표시.
 
-### 3. 확인 (AskUserQuestion — "확인 후 생성")
-- 파생 slug 와 요청사항 원문을 제시. 옵션: **"`<slug>` 로 생성 후 dlc"**(기본) / **"취소"**. 사용자는 Other 로 커스텀 slug 직접 입력 가능.
-- 커스텀 slug 입력 시 동일 검증(`^[a-zA-Z0-9._/-]+$`) + 충돌 검사 재실행. 위반/충돌이면 다시 안내.
-- "취소" 또는 거부 → 아무것도 만들지 않고 종료.
-
-### 4. 생성 (확인된 slug 로)
+### 3. 생성 (확인 없이 — 위험기반 승인, CLAUDE.md §1)
+worktree 생성은 로컬·비파괴이고 `/wt rm <slug>` 한 번으로 되돌아가므로 **slug 승인을 묻지 않는다**. 대신 되돌리는 데 필요한 정보를 §4 보고에 담는다.
 1. base ref: `git symbolic-ref --short refs/remotes/origin/HEAD` → 실패 시 `origin/main` 폴백.
-2. `git fetch origin <default>` (실패해도 경고만).
+2. `git fetch origin <default>` (실패해도 경고만 — 단 **fetch 실패 사실은 §4 보고에 stale base 로 노출**). fetch 후 `git rev-parse --short <default>` 로 **base sha 를 캡처**(§4 보고값 — 어느 시점 base 위에 만들었는지가 되돌림 판단의 근거).
 3. `git worktree add --no-track -b <slug> .claude/worktrees/<slug> origin/<default>`. (`--no-track` 이유·첫 push autoSetupRemote 는 `references/rm-recovery.md` §A.)
 4. **`.env` 자동 복사** (옵트아웃 없음): **main worktree** 에서 basename 이 정확히 `.env` 인 ignored 파일을 **동일 상대경로**로 `.claude/worktrees/<slug>/` 안에 복사. **이미 있으면 skip(덮어쓰지 않음)**, 복사 실패(권한 등)는 경고만·worktree 유지. 후보 선정(`ls-files --others --ignored --exclude-standard`, basename `.env`)·제외 정규식은 `references/env-copy.md`.
 5. `EnterWorktree(path: <repo-root>/.claude/worktrees/<slug>)`.
 6. 새 cwd 에서 환경 셋업 (순서대로): **submodule self-heal**(`heal_submodules.py`) → **bootstrap**(`tools/bootstrap/bootstrap.py` 있으면, 없으면 skip) → **codegraph init**(조건부·백그라운드). heal 을 **bootstrap 보다 먼저**(중단 corrupt submodule 이 이후 단계를 죽이는 것 방지). 무엇이 실패해도 **worktree 유지·에러 그대로 보고**(사용자가 수동 재실행 결정). self-heal/bootstrap 상세는 `references/rm-recovery.md` §B, codegraph init 조건(PATH + **main** `.codegraph/`)·백그라운드·staleness·`projectPath` 지침은 `references/codegraph-worktree.md`.
 
-### 5. dlc 작업
+### 4. 보고 + dlc 작업
 - 생성·진입 완료 후, 새 worktree(현재 cwd)에서 **`dlc` Skill 을 요청사항 원문을 인자로 invoke** (Skill 도구, `skill: dlc`, `args: <요청사항 원문>`). 이후는 dlc 가 규모 gate 부터 파이프라인까지 진행한다.
-- dlc 시작 직전 한 줄 보고: "신규 생성: `<slug>`" + `.env: N copied, M skipped` (둘 다 0 이면 생략) + heal/bootstrap skip/실패 + "→ dlc 시작: <요청사항>".
+- **dlc 시작 직전 보고 (무확인 생성의 안전망 — 승인 대신 되돌릴 정보를 준다)**: "신규 생성: `<slug>` (base `<default>@<short-sha>`) — 되돌리기 `/wt rm <slug>`" + 해당될 때만 덧붙임:
+  - `.env: N copied, M skipped` (둘 다 0 이면 생략)
+  - `git fetch` 실패로 **stale base** 사용 / heal·bootstrap skip·실패 (§3.6 은 실패해도 worktree 유지 — 무엇이 실패했는지 반드시 노출)
+  - 충돌 suffix 채택(`<slug>` 이미 있어 `<slug>-2` 로 생성)
+  - **near-miss 주의** (오타 오생성 대비 — 묻지 말고 생성하되 되돌릴 길을 알린다): **요청사항 원문에 공백이 없을 때만** 판정한다. 정규화 = 소문자화 + `-`/`_`/`.` 제거. 정규화한 요청사항이 정규화한 기존 worktree branch 와 **일치하거나 Levenshtein 거리 ≤2** 인 후보를 모은다. **후보가 정확히 1개일 때만** 보고에 한 줄 덧붙인다: "기존 `<name>` 오타였다면 `/wt rm <slug>` 후 `/wt <name>`". 후보 0개면 침묵, **2개 이상이면 후보명만 나열**하고 되돌리기 명령은 붙이지 않는다(잘못된 후보를 지목해 오도하지 않기 위함).
+- 마지막 줄: "→ dlc 시작: <요청사항>".
 
 ## 질문 모드 (`?` 접두 → 구체화 → request)
 
@@ -96,7 +97,7 @@ worktree 세션 안에서 `EnterWorktree` 는 `.claude/worktrees/` 하위 대상
 - 추가로 물어도 범위·대상·완료 기준이 확정되지 않으면 request 로 넘기지 않는다 — 더 묻거나 종료한다 (모호한 채 §3 으로 넘기면 slug 파생·dlc task 가 부실해진다).
 
 ### 3. request 합류
-- 확정된 요구사항을 **요청사항 원문으로 삼아** 위 request 섹션 §1(slug 파생) → §5(dlc) 를 그대로 수행한다. 질문 모드는 이 앞단(요구사항 확정)만 더할 뿐, slug·충돌검사·생성·`.env` 복사·dlc 로직은 재사용한다.
+- 확정된 요구사항을 **요청사항 원문으로 삼아** 위 request 섹션 §1(slug 파생) → §4(보고+dlc) 를 그대로 수행한다. 질문 모드는 이 앞단(요구사항 확정)만 더할 뿐, slug·충돌검사·생성·`.env` 복사·dlc 로직은 재사용한다.
 
 ## rm `<name>`
 
@@ -119,7 +120,7 @@ worktree 세션 안에서 `EnterWorktree` 는 `.claude/worktrees/` 하위 대상
 
 ## 주의
 
-- `git worktree remove --force`, `git branch -D`, 원격 브랜치 삭제(`git push origin --delete`)는 사용자 명시 확인 없이 실행 금지.
-- 정확일치하지 않는 텍스트는 요청사항으로 간주해 worktree 를 새로 만든다 — 이름 오타로 의도치 않은 생성을 막기 위해 **생성 전 slug 확인(AskUserQuestion)** 을 반드시 거친다.
+- `git worktree remove --force`, `git branch -D`, 원격 브랜치 삭제(`git push origin --delete`)는 사용자 명시 확인 없이 실행 금지. (`wt rm` 은 수동·독립 정리 = CLAUDE.md §8(b) — 항상 확인. 내가 직접 수행한 merge 직후의 무확인 자동 정리는 §8(a) 로 별개 경로이며 `wt rm` 이 아니다.)
+- 정확일치하지 않는 텍스트는 요청사항으로 간주해 worktree 를 새로 만든다. **생성 전 확인은 묻지 않는다**(위험기반 승인 — CLAUDE.md §1): 이름 오타로 인한 오생성은 승인이 아니라 §4 의 near-miss 보고 + `/wt rm <slug>` 로 되돌린다. 반면 삭제 계열(아래 첫 bullet)은 비가역이라 확인을 유지한다 — **이 스킬 안에서 생성은 무확인·삭제는 확인**이 위험기반 기준의 적용 결과다.
 - 요청사항 path 는 생성 후 `dlc` 를 자동 실행한다. worktree 를 만들 필요가 없는 단순 질문·탐색·읽기 전용 작업이면 `/wt` 대신 현재 worktree 에서 직접 처리.
 - EnterWorktree 후 후속 명령은 새 cwd 기준.

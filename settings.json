@@ -1,8 +1,9 @@
 {
   "env": {
-    "CLAUDE_CODE_EFFORT_LEVEL": "xhigh"
+    "CLAUDE_CODE_EFFORT_LEVEL": "high"
   },
   "permissions": {
+    "defaultMode": "auto",
     "allow": [
       "mcp__codegraph__codegraph_explore",
       "mcp__codegraph__codegraph_search",
@@ -59,7 +60,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uname -s | grep -qi darwin && /Users/jongyoonlee/.claude/hooks/rtk-rewrite.sh || exit 0"
+            "command": "command -v rtk >/dev/null 2>&1 && rtk hook claude || exit 0",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh'; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "timeout": 10
           }
         ]
       }
@@ -73,6 +85,15 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh'; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -82,6 +103,16 @@
           {
             "type": "command",
             "command": "node ~/.claude/scripts/dlc-evidence-ledger.js",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh'; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
             "timeout": 10
           }
         ]
@@ -124,6 +155,15 @@
             "async": true
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh'; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "Notification": [
@@ -133,6 +173,74 @@
             "type": "command",
             "command": "node ~/.claude/scripts/notify-hook.js Notification",
             "async": true
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh'; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh'; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh'; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "TeammateIdle": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh'; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh'; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/jongyoonlee/.orca/agent-hooks/claude-hook.sh'; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "timeout": 10
           }
         ]
       }
@@ -148,7 +256,7 @@
     "command": "node ~/.claude/subagent-statusline.js"
   },
   "enabledPlugins": {
-    "pyright-lsp@claude-plugins-official": true
+    "pyright-lsp@claude-plugins-official": false
   },
   "extraKnownMarketplaces": {
     "openai-codex": {
@@ -158,7 +266,7 @@
       }
     }
   },
-  "effortLevel": "xhigh",
+  "effortLevel": "high",
   "tui": "fullscreen",
   "skipDangerousModePermissionPrompt": true,
   "skipWorkflowUsageWarning": true,

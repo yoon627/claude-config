@@ -19,6 +19,7 @@
 - **검증 후 "완료" 선언.** lint/typecheck/test/build 실행·통과 확인. 명령 없으면 README/CI 에서 찾고, 검증 불가면 이유+수동 절차 명시. 미검증이면 "완료" 금지. 통과해도 **목표 대비 충족 확인** — 통과 ≠ 완료.
 - **사용자가 틀리면 정중히 반박.** 아부 금지. 가정이 코드/로그/문서와 충돌하면 근거로 설명.
 - **사용자 변경사항 보호.** 작업 전 `git status --short`. 덮어쓰지 않는다. 변경 파일이 예상보다 많으면 즉시 멈추고 원인 확인.
+- **승인은 위험기반.** 확인(`AskUserQuestion`)은 **비가역·외부공개·파괴적**(push·머지·원격/강제 삭제·배포·DB write·외부 전송·비용 발생)에만 건다. 로컬에서 **한 명령으로 되돌릴 수 있고 기존 데이터를 지우지 않는** 액션(worktree/브랜치 생성, 파일 편집, 로컬 실행)은 **묻지 말고 실행한 뒤, 되돌리는 데 필요한 정보**(무엇을·어디에·되돌리는 명령·경고)를 보고에 담는다 — 무해한 단계마다 거는 승인은 안전을 늘리지 않고 마찰만 늘린다. 애매하면 확인(fail-safe). **방향 합의는 별개** — §3-3 plan 승인·요구 명확화는 위험도와 무관하게 그대로 한다. 상세는 wiki [[risk-based-approval]].
 - **운영 자산 자가 수정 금지.** Claude 운영 자산(`CLAUDE.md`·`agents/`·`skills/`·`settings` 등)은 **명시 요청 없이 수정하지 않는다** — 요청 = active plan `# Goal`/`# Key Files` 에 그 자산이 들었거나 사용자가 자산명+변경을 지시. 발견한 개선점은 Report 제안(문제+근거+제안)으로만, 적용은 승인 후 별도 작업.
 
 ---
@@ -118,7 +119,10 @@
 - **작업은 main/master 직접 말고 별도 브랜치/worktree 에서** (main push 는 deny 로 차단). commit 은 그 작업 plan 에 맞는 브랜치에서 작업 단위로 자유롭게. **trivial 이 아닌 작업은 — 무관 여부와 별개로 — 시작 시 별도 worktree(`/wt <요청사항>`)에서 한다.** 진행 중인 worktree 에 새 작업을 얹지 않는다(base·체크아웃 충돌, 변경 혼입, 동시 편집 위험). 무관한 변경을 한 브랜치에 섞지 않는다. push 는 요청 시만.
 - **worktree 작업은 그 worktree 세션에서 시작·마무리**(worklog 정확성): 한 세션에서 `EnterWorktree` 로 여러 worktree 를 오가면 AI 작업시간이 launch 프로젝트 로그에 뭉쳐 worktree 별 worklog(`/e` step5)가 부정확해진다. 새 worktree 작업은 새 세션(`/wt <name>` 진입)에서 시작하고, 그 worktree 에서 `/e` 로 마무리(worklog 기록 포함)한다.
 - **worktree 삭제 주의**: `git worktree remove` 는 gitignored 파일(`.env` 등 — whitelist `.gitignore` 라 `git status` 에 안 보임)을 **무경고 동반 삭제**한다. `plans/` 는 tracked(§10)라 미커밋 plan 은 `git status` 에 보이고 remove 가 거부하지만, **미커밋 plan 변경은 삭제 전 커밋·push 로 보존**한다. 삭제 전 `git status --porcelain --ignored` 점검(상세 `skills/e/SKILL.md`).
-- **머지/완료 후 정리는 능동**: 작업 브랜치가 main 에 merged 되고 정리해도 안전하면(완료·clean), 그 worktree 정리(worktree + **로컬·원격** 브랜치)를 방치하거나 "선택사항"으로만 언급하지 말고 **능동 제안**한다 — 특히 내가 직접 push/merge 를 수행했으면 그 직후. **정확한 안전조건·실행은 `/e` step5·worktree 정리 규칙**(로컬 `git branch -d/-D` + 원격 `git push origin --delete`, 모두 AskUserQuestion). 원격 삭제·`git branch -D` 는 명시 확인 없이 금지 — **단 사용자가 지시한 PR 머지에 `gh pr merge --delete-branch` 를 쓰는 것은 그 머지 지시에 원격 정리가 포함된 것으로 본다**(머지 자체가 확인). `/e`·wt 등 독립 정리 경로의 원격 삭제는 AskUserQuestion.
+- **머지/완료 후 정리 — 내가 한 merge 직후는 자동, 그 외는 확인**: 작업 브랜치가 main 에 merged·정리해도 안전하면 worktree 정리(worktree + **로컬·원격** 브랜치)를 방치·"선택사항" 언급만 하지 않는다. **분기**:
+  - **(a) 내가 이 세션에서 직접 수행/확인한 merge 직후 + 안전조건 전부 충족** — ①대상 ≠ `main`/`master`/`origin/HEAD` ②working tree clean(untracked 포함) ③`git fetch origin <branch>` 후 remote-ahead 없음(`git rev-list <branch>..origin/<branch>` 빔 — 다른 머신 push 유실 차단) ④base 에 merged(`git rev-list origin/<default>..<branch>` 빔; squash-merge 는 안 빔 → (b) 로) ⑤미보존 `.env`/ignored/미커밋 plan 없음 — 이면 **확인 없이** worktree→로컬 `git branch -d`→원격 `git push origin --delete` 순으로 **자동 정리** + **삭제한 원격 tip sha 를 보고**(merged 라 base history·`git push origin <sha>:refs/heads/<branch>` 로 복구 가능).
+  - **(b) 그 외** — 우연히 머지된 브랜치·안전조건 하나라도 미충족/불확실·`/e`·wt 등 **독립 정리** 경로 → **능동 제안(AskUserQuestion)**. 이 경로에서 원격 삭제·`git branch -D` 는 명시 확인 없이 금지(데이터 유실 방지).
+  - 조건·실행 세부는 `/e` step6·worktree 정리 규칙. 사용자가 지시한 PR 머지의 `gh pr merge --delete-branch` 는 (a) 와 동류(머지 지시에 원격 정리 포함). **main/master worktree 는 자동 정리 대상 아님.**
 - generated/lock file 변경은 필요할 때만 포함, 이유 설명.
 - `.env`/private key/token/password/인증서 원문을 답변·로그·테스트 fixture·snapshot 에 출력 금지.
 - 인증/인가/암호화 코드는 기존 보안 패턴 먼저 확인. 임시 우회·hardcoded credential·TLS 검증 비활성화 금지.
