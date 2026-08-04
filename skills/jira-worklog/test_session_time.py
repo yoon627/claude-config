@@ -149,8 +149,10 @@ class ParseEventsTest(unittest.TestCase):
 class BucketIntervalsTest(unittest.TestCase):
     """인접 쌍의 bucket 이 같을 때만 interval 을 발행한다."""
 
-    LIVE_BUCKET = Bucket(BucketKind.LIVE, "alive")
-    MAIN_BUCKET = Bucket(BucketKind.MAIN, None)
+    # bucket 은 분류기에서 얻는다 — 직접 조립하면 프로덕션이 겪은 "키 재구성" 결함을
+    # 테스트가 그대로 재현해 회귀를 못 잡는다.
+    LIVE_BUCKET = classify_cwd(LIVE_WT, ROOT, LIVE)
+    MAIN_BUCKET = classify_cwd(ROOT, ROOT, LIVE)
 
     def classify(self, text):
         return [
@@ -223,12 +225,20 @@ class BucketIntervalsTest(unittest.TestCase):
             line(10, "assistant", "/elsewhere/other"),
         )
         buckets, _ = bucket_intervals(self.classify(text))
-        self.assertIn(Bucket(BucketKind.UNMATCHED, None), buckets)
+        self.assertIn(classify_cwd("/elsewhere/other", ROOT, LIVE), buckets)
         self.assertNotIn(self.MAIN_BUCKET, buckets)
 
 
 class BucketLookupTest(unittest.TestCase):
     """CLI 가 worktree → bucket 을 찾는 규칙. 여기가 어긋나면 시간이 조용히 0 이 된다."""
+
+    def test_same_name_worktrees_are_separate_buckets(self):
+        # 이름만으로 가르면 두 worktree 시간이 합쳐져 양쪽에 통째로 등록된다(과다 등록).
+        live = [ROOT, "/repo/.claude/worktrees/A", "/elsewhere/A"]
+        inside = classify_cwd("/repo/.claude/worktrees/A", ROOT, live)
+        outside = classify_cwd("/elsewhere/A", ROOT, live)
+        self.assertEqual((inside.name, outside.name), ("A", "A"))
+        self.assertNotEqual(inside, outside)
 
     def test_main_worktree_is_main_bucket_not_live(self):
         # main 은 모든 worktree 의 조상이라 LIVE 후보에서 빠진다. 이름으로 LIVE 를 찾으면
@@ -301,7 +311,7 @@ class AiWorklogByBucketTest(unittest.TestCase):
             b = self.write(directory, "b.jsonl", jsonl(
                 line(30, "assistant", LIVE_WT), line(35, "assistant", LIVE_WT)))
             worklogs, _ = self.run_bucket([a, b])
-        total = sum(w.seconds for w in worklogs[Bucket(BucketKind.LIVE, "alive")])
+        total = sum(w.seconds for w in worklogs[classify_cwd(LIVE_WT, ROOT, LIVE)])
         self.assertEqual(total, 10 * 60)  # 25분 공백이 끼면 안 된다
 
     def test_unions_overlapping_intervals_across_files(self):
@@ -313,7 +323,7 @@ class AiWorklogByBucketTest(unittest.TestCase):
             b = self.write(directory, "b.jsonl", jsonl(
                 line(5, "assistant", LIVE_WT), line(15, "assistant", LIVE_WT)))
             worklogs, _ = self.run_bucket([a, b])
-        total = sum(w.seconds for w in worklogs[Bucket(BucketKind.LIVE, "alive")])
+        total = sum(w.seconds for w in worklogs[classify_cwd(LIVE_WT, ROOT, LIVE)])
         self.assertEqual(total, 15 * 60)
 
     def test_accumulates_boundary_stats_across_files(self):
@@ -331,7 +341,7 @@ class AiWorklogByBucketTest(unittest.TestCase):
             good = self.write(directory, "good.jsonl", jsonl(
                 line(0, "assistant", LIVE_WT), line(10, "assistant", LIVE_WT)))
             worklogs, _ = self.run_bucket([directory / "missing.jsonl", good])
-        self.assertIn(Bucket(BucketKind.LIVE, "alive"), worklogs)
+        self.assertIn(classify_cwd(LIVE_WT, ROOT, LIVE), worklogs)
 
     def test_dead_bucket_is_not_registrable(self):
         with tempfile.TemporaryDirectory() as tmp:

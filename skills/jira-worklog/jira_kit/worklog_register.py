@@ -104,7 +104,9 @@ def plan_worklog_changes(
             continue
         old = mine[0].get("timeSpentSeconds")
         worklog_id = mine[0].get("id")
-        if old != seconds and not worklog_id:
+        # upsert 는 시간 비교 **전에** id 를 본다. 조건을 다르게 두면(예: 갱신이 필요할 때만 검사)
+        # plan 은 unchanged 로 통과시키고 mutation 에서 처음 터져 앞 날짜가 이미 쓰인다.
+        if not worklog_id:
             raise JiraError(f"worklog id 없음 ({ticket} {day.day}) — 갱신 불가")
         action = "unchanged" if old == seconds else "updated"
         plans.append(PlannedChange(day, action, seconds, old, worklog_id, rivals))
@@ -135,7 +137,9 @@ def gate_reasons(
         if c.action == "created" and c.rival_worktrees:
             reasons.append(
                 f"{c.day.day}: 같은 날 내 다른 worktree 항목({', '.join(c.rival_worktrees)})이 "
-                f"있는데 이 worktree 마커는 없음 — rename 이면 새로 만들면 이중계상"
+                f"있는데 이 worktree 마커는 없음. worktree rename 이면 새로 만들 때 이중계상되고, "
+                f"두 worktree 를 같은 날 병렬로 돌린 정상 상황이면 그대로 진행하면 된다 "
+                f"(둘을 구분할 근거가 없어 사람에게 넘긴다)"
             )
     return reasons
 

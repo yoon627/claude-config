@@ -19,15 +19,14 @@ Codex 는 다르다 — rollout 전수에서 cwd 가 2개 이상인 파일이 0�
 from __future__ import annotations
 
 import os
-import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, tzinfo
 from enum import Enum
 from pathlib import Path, PurePath
 
-from ._sessionio import iter_jsonl_timestamped, mtime
-from .codex_session import codex_events, find_codex_session_files
+from ._sessionio import iter_jsonl_timestamped
+from .codex_session import codex_events
 from .worklog_core import DayWorklog
 
 _Interval = tuple[datetime, datetime]
@@ -48,10 +47,16 @@ class BucketKind(Enum):
 
 @dataclass(frozen=True)
 class Bucket:
-    """귀속 단위. ``kind`` 로 등록 가능 여부를 판정한다(이름만으로 구분하면 샌다)."""
+    """귀속 단위. ``kind`` 로 등록 가능 여부를 판정한다(이름만으로 구분하면 샌다).
+
+    동일성은 ``key``(정규화된 절대경로)로 가른다. ``name`` 만으로 가르면 이름이 같은 worktree
+    둘(`/repo/.claude/worktrees/A` 와 `/elsewhere/A`)의 시간이 한 bucket 으로 합쳐져 양쪽에
+    통째로 등록된다. ``name`` 은 **표시 전용**이다.
+    """
 
     kind: BucketKind
     name: str | None = None
+    key: str = ""  # LIVE/DEAD 의 정규화 경로. MAIN/UNMATCHED 는 유일하므로 비운다.
 
     @property
     def registrable(self) -> bool:
@@ -94,7 +99,7 @@ class WorktreeIndex:
 
     def __init__(self, root: str | Path, live_worktrees: Iterable[str | Path]) -> None:
         self._root = _resolved(root)
-        self._root_key = _compared(self._root)
+        self.root_key = self._root_key = _compared(self._root)
         self._live: list[_Candidate] = []
         for worktree in live_worktrees:
             path = _resolved(worktree)
@@ -129,9 +134,9 @@ class WorktreeIndex:
         # 더 깊은 쪽이 이긴다. 이름이 아니라 경로로 비교해야 상위 live 와 이름이 같은
         # 중첩 dead worktree 가 상위로 흡수되지 않는다(흡수되면 등록 가능으로 오판).
         if dead is not None and (live is None or len(dead[0].parts) > len(live[0].parts)):
-            return Bucket(BucketKind.DEAD, dead[1])
+            return Bucket(BucketKind.DEAD, dead[1], str(dead[0]))
         if live is not None:
-            return Bucket(BucketKind.LIVE, live[1])
+            return Bucket(BucketKind.LIVE, live[1], str(live[0]))
         if target.is_relative_to(self._root_key):
             return Bucket(BucketKind.MAIN)
         return _UNMATCHED
@@ -166,41 +171,6 @@ def classify_cwd(
     통째로 main 에 흡수된다(실측 3.5배 과다).
     """
     return WorktreeIndex(root, live_worktrees).classify(cwd)
-
-
-@dataclass(frozen=True)
-class SessionFiles:
-    """한 worktree 에 대해 발견한 소스별 세션 파일 묶음."""
-
-    claude: list[Path]
-    codex: list[Path]
-
-
-def discover_sessions(cwd: str | Path, home: Path | None = None) -> SessionFiles:
-    """worktree cwd 에 해당하는 Claude·Codex 세션 파일을 한 번에 발견한다.
-
-    통합 함수가 이 묶음을 받아 시간·토큰을 각각 산출하므로, CLI 한 실행에서 세션 트리를
-    두 번 스캔하지 않는다.
-    """
-    return SessionFiles(
-        claude=find_session_files(cwd, home),
-        codex=find_codex_session_files(cwd, home),
-    )
-
-
-def project_slug(path: str | Path) -> str:
-    """절대경로를 Claude Code projects slug 로 변환한다(비영숫자 → ``-``).
-
-    예: ``C:\\Users\\me\\Repos\\app\\.claude\\worktrees\\x``
-        → ``C--Users-me-Repos-app--claude-worktrees-x``
-    """
-    return re.sub(r"[^a-zA-Z0-9]", "-", str(Path(path).resolve()))
-
-
-def sessions_dir(cwd: str | Path, home: Path | None = None) -> Path:
-    """cwd 에 해당하는 Claude Code 세션 디렉토리(``~/.claude/projects/<slug>``)."""
-    base = (home or Path.home()) / ".claude" / "projects"
-    return base / project_slug(cwd)
 
 
 def _message_role(obj: dict) -> str | None:
@@ -346,21 +316,6 @@ def _split_by_date(intervals: list[_Interval]) -> dict[date, tuple[float, dateti
     return by_day
 
 
-def ai_worklog_by_date(
-    session_files: SessionFiles, tz: tzinfo, max_gap_minutes: int = 60
-) -> list[DayWorklog]:
-    """Claude·Codex 세션의 AI 작업구간을 union·자정분할해 날짜별 DayWorklog 로 반환한다."""
-    intervals: list[_Interval] = []
-    for path in session_files.claude:
-        try:
-            text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
-        intervals.extend(ai_intervals(parse_message_events(text, tz), max_gap_minutes))
-    intervals.extend(codex_intervals(session_files.codex, tz, max_gap_minutes))
-    return worklog_from_intervals(intervals)
-
-
 def codex_intervals(paths: list[Path], tz: tzinfo, max_gap_minutes: int = 60) -> list[_Interval]:
     """Codex rollout 들의 작업구간. 파일=독립 세션이라 파일별로 뽑는다(경계 gap 오염 방지).
 
@@ -385,8 +340,7 @@ def worklog_from_intervals(intervals: list[_Interval]) -> list[DayWorklog]:
 def bucket_intervals_from_files(
     claude_files: list[Path],
     tz: tzinfo,
-    root: str | Path,
-    live_worktrees: Iterable[str | Path],
+    index: WorktreeIndex,
     max_gap_minutes: int = 60,
 ) -> tuple[dict[Bucket, list[_Interval]], AttributionStats]:
     """Claude 세션 파일들을 한 번만 읽어 bucket 별 날짜 worklog 로 나눈다.
@@ -395,8 +349,7 @@ def bucket_intervals_from_files(
     ``--all`` 성능 기준의 전제다. Codex 는 줄 단위 cwd 이동이 없어(rollout 전수에서 cwd 가
     2개 이상인 파일 0건) 파일 단위 귀속을 그대로 쓰므로 여기서 다루지 않는다.
     """
-    index = WorktreeIndex(root, live_worktrees)
-    root_parts = len(_compared(_resolved(root)).parts)
+    root_parts = len(index.root_key.parts)
     per_bucket: dict[Bucket, list[_Interval]] = {}
     main_subroots: set[str] = set()
     dropped = 0
@@ -434,7 +387,7 @@ def ai_worklog_by_bucket(
     ``worklog_from_intervals`` 를 부른다 — 날짜 분할 후에는 union 이 불가능하다.
     """
     per_bucket, stats = bucket_intervals_from_files(
-        claude_files, tz, root, live_worktrees, max_gap_minutes
+        claude_files, tz, WorktreeIndex(root, live_worktrees), max_gap_minutes
     )
     return {b: worklog_from_intervals(iv) for b, iv in per_bucket.items()}, stats
 
@@ -454,11 +407,3 @@ def find_repo_session_files(home: Path | None = None) -> list[Path]:
         return sorted(p for d in base.iterdir() if d.is_dir() for p in d.glob("*.jsonl"))
     except OSError:
         return []
-
-
-def find_session_files(cwd: str | Path, home: Path | None = None) -> list[Path]:
-    """cwd 의 세션 디렉토리에서 세션 jsonl 파일 목록(수정시각 오름차순, stat 실패 방어)."""
-    directory = sessions_dir(cwd, home)
-    if not directory.is_dir():
-        return []
-    return sorted(directory.glob("*.jsonl"), key=mtime)

@@ -6,7 +6,7 @@
 줄 단위 cwd 기준**이다 — 세션 파일이 cwd 를 따라 폴더를 옮겨 다녀, 폴더로 귀속하면 오간 세션의
 시간이 마지막 위치 한 곳으로 몰린다. 코퍼스는 한 번만 스캔해 worktree 별로 나눈다. 삭제된 worktree
 시간은 표시만 하고 등록하지 않는다. 기본은 미리보기(dry-run). 실제 등록은 ``--register`` 이며,
-등록 전 diff·게이트를 거쳐 all-or-nothing 으로 반영한다.
+등록 전 diff·게이트를 거친다(게이트까지 all-or-nothing — 통과 후 HTTP 실패는 부분 반영 가능).
 (ticket, date, worktree) 마커로 **그 worktree 의** 본인 worklog 를 찾아 없으면 생성, 있으면 시간만
 갱신한다(upsert — 재실행 시 skip 아님). 같은 티켓을 여러 worktree 에서 작업하면 worktree 마다
 항목이 따로 생기고 티켓 총 작업시간은 Jira 가 합산한다. 인증·설정은 .env / 환경변수 / jira-kit.toml.
@@ -36,6 +36,7 @@ if isinstance(sys.stdout, io.TextIOWrapper):
 if isinstance(sys.stderr, io.TextIOWrapper):
     sys.stderr.reconfigure(encoding="utf-8")
 
+from jira_kit.codex_session import find_codex_session_files  # noqa: E402
 from jira_kit.config import Config, ConfigError, load_config, resolve_timezone  # noqa: E402
 from jira_kit.git_util import GitError, Worktree, current_worktree, list_worktrees  # noqa: E402
 from jira_kit.jira_client import JiraError, get_myself, get_worklogs  # noqa: E402
@@ -44,14 +45,15 @@ from jira_kit.session_time import (  # noqa: E402
     AttributionStats,
     Bucket,
     BucketKind,
+    WorktreeIndex,
     bucket_intervals_from_files,
     codex_intervals,
-    find_codex_session_files,
     find_repo_session_files,
     worklog_from_intervals,
 )
 from jira_kit.worklog_core import DayWorklog, extract_ticket, format_duration  # noqa: E402
 from jira_kit.worklog_register import (  # noqa: E402
+    PlannedChange,
     gate_reasons,
     plan_worklog_changes,
     upsert_worklog,
@@ -86,7 +88,7 @@ def _ticket_for(wt: Worktree, args: argparse.Namespace, config: Config) -> str |
     return ticket
 
 
-def _write_recovery_log(ticket: str, worktree: str, plans: list) -> None:
+def _write_recovery_log(ticket: str, worktree: str, plans: list[PlannedChange]) -> None:
     """등록 직전 값·worklog id 를 파일로 남긴다 — 수동 복구의 유일한 근거다.
 
     stdout 만이면 `/e` 가 자동 실행할 때 유실된다. 토큰·PII 는 담지 않는다(§8).
@@ -116,6 +118,9 @@ def _register(
 ) -> int:
     """그 worktree 의 날짜별 worklog 를 upsert 한다(insert-once 아님). 실패 건수 반환.
 
+    게이트까지는 all-or-nothing 이다 — 통과 전에는 한 건도 쓰지 않는다. 통과 후 개별 요청이
+    HTTP 오류로 실패하면 앞 날짜는 이미 반영된 상태로 남는다(Jira 에 트랜잭션이 없다).
+
     create/update/unchanged 판정·author-scoping·comment 조립은 upsert_worklog 가 담당한다.
     사용자/기존 worklog 조회가 실패하면 안전하게 전량 skip(오등록 방지).
     """
@@ -138,12 +143,16 @@ def _register(
         old = f"{p.old_seconds // 60}m" if p.old_seconds is not None else "없음"
         print(f"    [{p.action}] {p.day.day} {old} → {p.new_seconds // 60}m")
     reasons = gate_reasons(plans)
-    if reasons and not allow_large:
-        print("    등록 차단 — 변동이 커서 사람이 한 번 봐야 한다:", file=sys.stderr)
+    if reasons:
+        head = "등록 차단 — 사람이 한 번 봐야 한다:" if not allow_large else (
+            "게이트 사유(--allow-large-change 로 강행):"
+        )
+        print(f"    {head}", file=sys.stderr)
         for r in reasons:
             print(f"      {r}", file=sys.stderr)
-        print("    확인했으면 --allow-large-change 로 다시 실행", file=sys.stderr)
-        return len(days)
+        if not allow_large:
+            print("    확인했으면 --allow-large-change 로 다시 실행", file=sys.stderr)
+            return len(days)
 
     _write_recovery_log(ticket, worktree, plans)
     failures = 0
@@ -206,7 +215,6 @@ def process(
 def _report_unregistrable(
     per_bucket: dict[Bucket, list[tuple[datetime, datetime]]],
     stats: AttributionStats,
-    tz: tzinfo,
 ) -> None:
     """등록되지 않는 시간을 보여준다 — 유실이 안 보이면 감시가 안 된다.
 
@@ -233,7 +241,7 @@ def _report_unregistrable(
             f"{format_duration(int(stats.boundary_seconds))} 폐기 (어느 쪽 것도 아니라 버린다)"
         )
     # 규약 밖 삭제 worktree 는 이름 복원이 안 돼 main 으로 흡수된다 — 낯선 항목이 보이면 신호다.
-    if len(stats.main_subroots) > 1:
+    if stats.main_subroots:
         shown = ", ".join(sorted(stats.main_subroots)[:8])
         more = f" +{len(stats.main_subroots) - 8}" if len(stats.main_subroots) > 8 else ""
         print(f"main 에 귀속된 cwd 갈래: {shown}{more}")
@@ -296,25 +304,19 @@ def main(argv: list[str] | None = None) -> int:
         root = live[0].path if live else str(Path.cwd())
         max_gap = args.max_gap if args.max_gap is not None else config.max_gap_minutes
         # 코퍼스를 **한 번만** 읽는다. worktree 마다 다시 읽으면 N배 스캔이 된다.
-        per_bucket, stats = bucket_intervals_from_files(
-            find_repo_session_files(), tz, root, [w.path for w in live], max_gap
-        )
+        index = WorktreeIndex(root, [w.path for w in live])
+        per_bucket, stats = bucket_intervals_from_files(find_repo_session_files(), tz, index, max_gap)
         failures = 0
-        root_key = Path(root).resolve()
         for wt in worktrees:
-            # main worktree 는 LIVE 후보에서 빠져(모든 worktree 의 조상이라) MAIN bucket 에 담긴다.
-            # 이름으로만 찾으면 main 시간이 통째로 0 이 된다.
-            bucket = (
-                Bucket(BucketKind.MAIN)
-                if Path(wt.path).resolve() == root_key
-                else Bucket(BucketKind.LIVE, Path(wt.path).name)
-            )
+            # bucket 키는 **인덱스가 단일 소스**다. CLI 가 이름으로 재구성하면 정규화·중복 이름에서
+            # 어긋나 시간이 조용히 0 이 되거나 남의 bucket 을 집는다(실제로 겪었다).
+            bucket = index.classify(wt.path)
             try:
                 failures += process(wt, args, config, tz, register, per_bucket.get(bucket, []))
             except GitError as exc:
                 print(f"[{Path(wt.path).name}] git 오류 → skip: {exc}", file=sys.stderr)
                 failures += 1
-        _report_unregistrable(per_bucket, stats, tz)
+        _report_unregistrable(per_bucket, stats)
     except GitError as exc:
         print(f"git 오류: {exc}", file=sys.stderr)
         return 2

@@ -57,10 +57,11 @@ JIRA_API_TOKEN=<Atlassian API token>
 - 대상 티켓은 **worktree 디렉토리 이름(prefix)** 에서 우선 추출(anchored), 없으면 브랜치명으로 fallback 한다(기본 `[A-Z][A-Z0-9]+-\d+`). detached HEAD 처럼 브랜치가 없어도 worktree 이름의 티켓으로 잡힌다. 어느 쪽에도 매치가 없으면 등록을 skip 한다(안전).
 - `--all` 모든 worktree 미리보기 · `--max-gap` idle gap(분) · `--ticket-pattern` 패턴 · `--timezone` IANA 타임존 · `--comment` worklog 코멘트.
 - 실제 등록(`--register`)은 외부 반영이니 **먼저 미리보기로 확인**할 것.
-- **등록 게이트 (all-or-nothing)**: 등록 전에 전 날짜의 `old → new` diff 를 출력하고, 아래에 걸리면 **한 건도 쓰지 않고** 중단한다. Jira 쓰기는 코드 revert 로 되돌릴 수 없어 부분 등록이 남으면 수습이 어렵다.
+- **등록 게이트**: 등록 전에 전 날짜의 `old → new` diff 를 출력하고, 아래에 걸리면 **한 건도 쓰지 않고** 중단한다. Jira 쓰기는 코드 revert 로 되돌릴 수 없어 부분 등록이 남으면 수습이 어렵다. (범위 주의: all-or-nothing 은 **게이트까지**다 — 게이트를 통과한 뒤 개별 요청이 HTTP 오류로 실패하면 앞 날짜는 이미 반영된다. Jira 에 트랜잭션이 없어 mutation 원자성은 달성할 수 없다.)
   - 기존값 대비 **30분 이상 & 50% 초과** 변동 — **증가·감소 양쪽 다**. 매핑 버그의 대표 증상이 과다 흡수라 방향만으로는 안전을 판단할 수 없고, billable 에선 과다 등록이 더 위험하다.
   - 같은 (티켓, 날짜)에 **내 다른 worktree 항목**이 있는데 이 worktree 마커는 없는 경우 — worktree rename 이면 새로 만들 때 이중계상된다.
-  - 확인했으면 `--allow-large-change` 로 진행. 등록 직전 값·worklog id 는 `~/.claude/logs/jira-worklog-<날짜>.jsonl` 에 남아 수동 복구의 근거가 된다.
+  - rival 신호는 rename 과 **정상적인 병렬 worktree 작업**(같은 티켓 두 worktree 를 같은 날)을 구분하지 못한다 — 후자면 그대로 `--allow-large-change` 로 진행하면 된다.
+  - 확인했으면 `--allow-large-change` 로 진행(강행 시에도 사유는 출력된다). 등록 직전 값·worklog id 는 `~/.claude/logs/jira-worklog-<날짜>.jsonl` 에 남아 수동 복구의 근거가 된다.
 - **upsert(멱등)**: (티켓, 날짜, worktree) 마커로 **그 worktree 의** 본인 worklog 를 찾아 없으면 생성, 있으면 시간만 갱신한다(재실행해도 중복 없음). 갱신 시 기존 comment 는 보존. 타인의 worklog(같은 마커·다른 author)는 건드리지 않는다.
 - **같은 티켓 · 여러 worktree**: `CSTP1-1234-abc` 와 `CSTP1-1234-def` 처럼 한 티켓을 여러 worktree 에서 작업하면 **worktree 마다 worklog 항목이 따로** 생긴다. 티켓의 총 작업시간은 Jira 가 항목들을 합산하므로 각 worktree 시간이 서로 덮이지 않고 누적된다. 두 worktree 를 **같은 시각에 병렬로** 돌렸다면 겹치는 시간이 양쪽에 각각 잡혀 합계가 실제 경과시간보다 커진다.
 - worktree 를 지워도 그 항목은 Jira 에 남는다(코드가 정정·삭제하지 않음 — 필요하면 수동 정리). 반대로 worktree 도입 전 형식(worktree 없는 마커)의 **본인** 항목이 남아 있으면 귀속을 알 수 없어 그 (티켓, 날짜) 등록을 중단하고 수동 정리를 요구한다.

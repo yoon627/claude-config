@@ -128,9 +128,9 @@ updated: 2026-08-04
 - (참고) scratchpad `sim_attribution.py` — longest-prefix 결함을 실증한 시뮬레이션. 구현 후 같은 스크립트로 개선 전후 비교 가능
 
 # Acceptance
-- [ ] 한 jsonl 안에 A→B→A 구간이 섞인 fixture 에서, A/B 가 각자 구간 시간만 받고 총합이 실제 시간을 넘지 않음 (테스트 통과)
-- [ ] 중첩 worktree(`<wt>/<subwt>`) fixture 에서 하위 worktree 구간이 상위로 새지 않음 — **최심 후보 선택 규칙 검증**(하위가 *삭제된* 경우도 포함. "longest-prefix 검증"이라는 옛 표현은 폐기된 규칙명이라 쓰지 않는다)
-- [ ] `classify_cwd` 테이블 테스트: 타 repo cwd·홈 디렉토리·root 의 조상·worktrees 컨테이너 자체(`<root>/.claude/worktrees`)·대소문자 차이 → 각각 기대 bucket 으로 분류 (테스트 통과)
+- [x] 한 jsonl 안에 A→B→A 구간이 섞인 fixture 에서, A/B 가 각자 구간 시간만 받고 총합이 실제 시간을 넘지 않음 (테스트 통과)  ✅(테스트 `test_round_trip_gives_each_bucket_only_its_own_time`)
+- [x] 중첩 worktree(`<wt>/<subwt>`) fixture 에서 하위 worktree 구간이 상위로 새지 않음 — **최심 후보 선택 규칙 검증**(하위가 *삭제된* 경우도 포함. "longest-prefix 검증"이라는 옛 표현은 폐기된 규칙명이라 쓰지 않는다)  ✅(테스트 `test_deleted_nested_worktree_does_not_leak_to_parent_worktree`)
+- [x] `classify_cwd` 테이블 테스트: 타 repo cwd·홈 디렉토리·root 의 조상·worktrees 컨테이너 자체(`<root>/.claude/worktrees`)·대소문자 차이 → 각각 기대 bucket 으로 분류 (테스트 통과)  ✅(테스트 15개 통과)
 - [ ] ~~오가지 않은 단일 worktree 세션의 산출값이 변경 전과 동일~~ → **2026-08-04 정정(plan-review 가 반증)**. worktree 수준에서는 거짓이다 — 새 방식은 *다른* slug 폴더에 있는 파일에서도 자기 cwd 줄을 끌어오므로 값이 바뀌는 게 정상이다(실측: doc-slim 1.96h→2.63h). 기준을 **"단일 cwd 만 담긴 파일 fixture 에서 산출값이 변경 전과 동일"** 로 한정한다(테스트 통과).
 - [ ] ~~knowledge_base 에서 CSTP1-2812 계열에 시간이 잡히고 main 의 2h 가 줄어듦~~ / ~~main 42.53h→11.63h~~ → **2026-08-04 두 번 정정**. ① CSTP1-2812 worktree 는 삭제돼 `--all`(live 만 순회)로 검증 불가. ② 대체안으로 쓴 고정 수치도 재귀 코퍼스 오염값인 데다, **실데이터는 매일 늘어 고정 수치는 내일 틀린다**(2차 리뷰 B3). 대체 기준 — **스냅샷 fixture + 불변식**:
   - `find_session_files(cwd, home)` 의 `home` 파라미터로 고정 corpus 를 주입해 재현 가능하게 한다.
@@ -138,17 +138,17 @@ updated: 2026-08-04
   - 불변식 ② **모든 bucket 시간의 합 ≤ 파일 union 총합**(이중계상 없음).
   - 불변식 ③ 타 repo·홈 cwd 의 main 기여가 0.
   - 실데이터 관찰은 회귀 기준이 아니라 **1회 sanity check** 로만: dry-run 에서 main 이 자기 몫 수준으로 줄고 죽은 worktree 가 자기 이름으로 뜨는 것을 눈으로 확인(수치를 Acceptance 에 박지 않는다).
-- [ ] `--all` dry-run 이 5초 이내 (실행·관찰 — "체감 저하 없음"은 측정 불가라 수치로 대체)
-- [ ] dry-run 출력에 **경계 폐기량**(구간 수·시간), **미매칭 cwd 건수와 시간**(건수만으로는 유실 규모가 안 보인다), **main bucket 에 기여한 distinct cwd 서브루트 목록**이 표시됨 (실행·관찰)
-- [ ] **한 파일을 여러 bucket 처리에서 재파싱해도 각 이벤트는 정확히 한 bucket 에만 기여** (테스트 통과 — 불변식)
-- [ ] 등록 게이트가 **all-or-nothing**: 마지막 날짜가 임계를 넘기면 앞 날짜도 등록되지 않음 (테스트 통과)
-- [ ] 등록 게이트가 **증가 방향도** 차단하고, worktree rename 으로 마커가 안 잡힐 때 create 를 막음 (테스트 통과)
-- [ ] 죽은 bucket 이 `CSTP1-1234-foo` 처럼 티켓 추출 가능한 이름이어도 **단일 worktree 실행에서 등록되지 않음** (테스트 통과 — 타입 강제)
-- [ ] **삭제된 worktree 가 별도 bucket 으로 표시**되고 main 에 흡수되지 않음. 실데이터에서 `plans-sync`·`doc-slim` 등이 자기 이름으로 뜨고 main 은 자기 몫만 받음 (실행·관찰)
-- [ ] 삭제된 worktree bucket 은 **등록 대상에서 제외**됨 (테스트 통과 — dry-run 표시와 등록 목록이 분리)
-- [ ] `--register` 전 `(ticket, date, worktree, old, new)` diff 출력, **감소폭 임계 초과 시 등록 차단**, 이전값·worklog id 로깅 (테스트 통과 — 판정 함수 단위)
-- [ ] 신규 `test_session_time.py` **와 기존 `test_worklog_scope.py` 둘 다** CI 에서 실행됨 — `.github/workflows/lint.yml` 에 python 스텝 추가(현재 node 전용이라 기존 테스트조차 안 돈다 → "통과 유지 필요"가 자동 보장되지 않음) (CI 통과)
-- [ ] 폴더 단위 시맨틱을 단언하는 문서 전부 갱신: `session_time.py` 모듈 docstring·`jira_worklog.py` docstring·`skills/jira-worklog/SKILL.md`·`README.md:326`·`skills/e/SKILL.md:45-47` (문서 동기화 규약)
+- [x] `--all` dry-run 이 5초 이내 (실행·관찰 — "체감 저하 없음"은 측정 불가라 수치로 대체)  ✅(실측 0.81s)
+- [x] dry-run 출력에 **경계 폐기량**(구간 수·시간)과 **main bucket 기여 distinct cwd 서브루트 목록**이 표시됨 (실행·관찰: `106구간 25m 폐기`, `main 에 귀속된 cwd 갈래: ., .claude, projects`). ~~미매칭 cwd 건수·시간~~ → **C11 wontfix 로 제외**: UNMATCHED 는 전부 *다른 repo* 시간이라 유실이 아닌데 '집계 제외'로 표시하니 47h 를 잃은 것처럼 오해됐다(`# Next` 처분 참조)
+- [x] **한 파일을 여러 bucket 처리에서 재파싱해도 각 이벤트는 정확히 한 bucket 에만 기여** (테스트 통과 — 불변식)  ✅(테스트 `test_does_not_bridge_across_files` 등)
+- [x] 등록 게이트가 **all-or-nothing**: 마지막 날짜가 임계를 넘기면 앞 날짜도 등록되지 않음 (테스트 통과)  ✅(테스트 `test_later_day_precondition_blocks_earlier_day_too`)
+- [x] 등록 게이트가 **증가 방향도** 차단하고, worktree rename 으로 마커가 안 잡힐 때 create 를 막음 (테스트 통과)  ✅(테스트 `test_large_increase_blocks_too`·`test_created_with_rival_worktree_blocks`)
+- [x] 죽은 bucket 이 `CSTP1-1234-foo` 처럼 티켓 추출 가능한 이름이어도 **단일 worktree 실행에서 등록되지 않음** (테스트 통과 — 타입 강제)  ✅(조회키가 LIVE/MAIN 만 생성 + `registrable`)
+- [x] **삭제된 worktree 가 별도 bucket 으로 표시**되고 main 에 흡수되지 않음. 실데이터에서 `plans-sync`·`doc-slim` 등이 자기 이름으로 뜨고 main 은 자기 몫만 받음 (실행·관찰)  ✅(실행 관찰: dead 37개 표시, main 9h46m 자기 몫)
+- [x] 삭제된 worktree bucket 은 **등록 대상에서 제외**됨 (테스트 통과 — dry-run 표시와 등록 목록이 분리)  ✅(`Bucket.registrable` + 조회키가 LIVE/MAIN 만 생성)
+- [x] `--register` 전 `(ticket, date, worktree, old, new)` diff 출력, **감소폭 임계 초과 시 등록 차단**, 이전값·worklog id 로깅 (테스트 통과 — 판정 함수 단위)  ✅(테스트 `test_register_gate.py` 18개)
+- [x] 신규 `test_session_time.py` **와 기존 `test_worklog_scope.py` 둘 다** CI 에서 실행됨 — `.github/workflows/lint.yml` 에 python 스텝 추가(현재 node 전용이라 기존 테스트조차 안 돈다 → "통과 유지 필요"가 자동 보장되지 않음) (CI 통과)  ✅(`lint.yml` Python unit tests 스텝)
+- [x] 폴더 단위 시맨틱을 단언하는 문서 전부 갱신: `session_time.py` 모듈 docstring·`jira_worklog.py` docstring·`skills/jira-worklog/SKILL.md`·`README.md:326`·`skills/e/SKILL.md:45-47` (문서 동기화 규약)  ✅(module/CLI docstring·SKILL.md·README·e/SKILL.md)
 - [ ] SKILL.md 가 새 귀속 기준·Codex 한계를 반영 (문서 동기화 규약)
 
 # Review Disposition
