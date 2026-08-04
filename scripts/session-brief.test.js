@@ -34,10 +34,32 @@ function commit(dir, msg, date) {
   const d = date || '2026-01-01T00:00:00';
   git(dir, ['commit', '-m', msg], { GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d });
 }
+// repo 를 안 준 테스트가 실제 ~/.claude 를 보지 않도록 쓰는 빈 fixture.
+// 예전엔 실 repo 가 우연히 조용해서 통과했지만, 그 repo 가 뒤처지거나 미머지 브랜치가 생기면
+// 관계없는 테스트가 깨진다(실제로 겪었다 — 자동 pull 신호 추가 후 L 축 테스트가 무너졌다).
+let _blankRepo;
+function blankRepo() {
+  if (!_blankRepo) {
+    _blankRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'sb-blank-'));
+    execFileSync('git', ['init', '-q', '-b', 'main', _blankRepo], { stdio: 'ignore' });
+  }
+  return _blankRepo;
+}
+let _blankSignalDir;
+function blankSignalDir() {
+  if (!_blankSignalDir) _blankSignalDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sb-blanksig-'));
+  return _blankSignalDir;
+}
+
 // run brief; returns stdout string.
 function run(env) {
+  const merged = { ...process.env, ...env };
+  // 테스트가 명시하지 않은 입력은 실 환경이 아니라 빈 fixture 를 보게 한다
+  // (process.env 에 값이 있어도 테스트 기본값이 이기도록 병합 후 덮어쓴다).
+  if (!env || !env.CLAUDE_BRIEF_REPO) merged.CLAUDE_BRIEF_REPO = blankRepo();
+  if (!env || !env.CLAUDE_DLC_SIGNAL_DIR) merged.CLAUDE_DLC_SIGNAL_DIR = blankSignalDir();
   try {
-    return execFileSync('node', [BRIEF], { env: { ...process.env, ...env } }).toString();
+    return execFileSync('node', [BRIEF], { env: merged }).toString();
   } catch (e) {
     return e.stdout ? e.stdout.toString() : '';
   }
@@ -593,6 +615,11 @@ ok('ⓝ8 origin/main 이 없으면 무음(판정 불가)', () => {
   const r = initRepo();
   commit(r, 'base');
   assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...NOFF }), '');
+});
+
+ok('격리: repo 를 안 주면 실 ~/.claude 가 아니라 빈 fixture 를 본다', () => {
+  // 이게 깨지면 실 repo 상태(뒤처짐·미머지 브랜치·방치된 plan)가 무관한 테스트를 흔든다.
+  assert.strictEqual(run({}), '');
 });
 
 console.log(`session-brief.test.js: ${n} tests passed`);

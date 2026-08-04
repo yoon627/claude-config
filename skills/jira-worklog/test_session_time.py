@@ -1,0 +1,358 @@
+#!/usr/bin/env python3
+"""세션 시간의 worktree 귀속 단위 테스트 (stdlib unittest, 의존성 0).
+
+수동 실행 (이 디렉터리에서):
+    uv run --no-project python test_session_time.py
+
+점검 대상 불변식: 한 세션 파일이 여러 worktree 를 오가더라도 각 구간이 자기 worktree
+에만 귀속된다. 세션 파일은 cwd 를 따라 폴더를 옮겨 다니므로 파일이 놓인 폴더가 아니라
+**줄 단위 cwd** 가 귀속의 근거다.
+
+``classify_cwd`` 는 이 귀속의 급소라 테이블 테스트로 고정한다. 특히 main 은 모든
+worktree 경로의 조상이면서 자신도 worktree 목록에 있어, 매칭 실패를 조상으로 폴백하면
+삭제된 worktree 의 시간이 통째로 main 에 흡수된다(실측 3.5배 과다).
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+import tempfile
+import unittest
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from jira_kit.session_time import (  # noqa: E402
+    Bucket,
+    BucketKind,
+    ai_intervals,
+    ai_worklog_by_bucket,
+    bucket_intervals,
+    classify_cwd,
+    parse_message_events,
+    worklog_from_intervals,
+)
+
+ROOT = "/repo"
+LIVE_WT = "/repo/.claude/worktrees/alive"
+NESTED_WT = "/repo/.claude/worktrees/alive/.claude/worktrees/nested"
+LIVE = [ROOT, LIVE_WT]
+
+TZ = timezone.utc
+T0 = datetime(2026, 8, 4, 10, 0, tzinfo=TZ)
+
+
+def line(minutes: int, kind: str, cwd: str | None) -> str:
+    """세션 jsonl 한 줄. cwd 가 None 이면 필드 자체를 뺀다(실데이터의 메타 줄 모사)."""
+    obj: dict = {
+        "type": kind,
+        "timestamp": (T0 + timedelta(minutes=minutes)).isoformat().replace("+00:00", "Z"),
+    }
+    if cwd is not None:
+        obj["cwd"] = cwd
+    if kind == "user":
+        obj["message"] = {"content": "hi"}
+    return json.dumps(obj)
+
+
+def jsonl(*lines: str) -> str:
+    return "\n".join(lines) + "\n"
+
+
+def seconds(intervals) -> float:
+    return sum((end - start).total_seconds() for start, end in intervals)
+
+
+class ClassifyCwdTest(unittest.TestCase):
+    """cwd → bucket 분류. 각 케이스는 실데이터에서 관찰된 경로 형태다."""
+
+    def assert_bucket(self, cwd, kind, name, live=None):
+        bucket = classify_cwd(cwd, ROOT, live if live is not None else LIVE)
+        self.assertEqual(bucket.kind, kind, f"{cwd} → kind")
+        self.assertEqual(bucket.name, name, f"{cwd} → name")
+
+    def test_repo_root_itself_is_main(self):
+        self.assert_bucket(ROOT, BucketKind.MAIN, None)
+
+    def test_subdirectory_of_root_is_main(self):
+        self.assert_bucket("/repo/skills/jira-worklog", BucketKind.MAIN, None)
+
+    def test_live_worktree(self):
+        self.assert_bucket(LIVE_WT, BucketKind.LIVE, "alive")
+
+    def test_subdirectory_of_live_worktree_belongs_to_it(self):
+        # 실데이터에 <wt>/.claude/plans/... 같은 하위 cwd 가 흔하다.
+        self.assert_bucket(f"{LIVE_WT}/skills/wt", BucketKind.LIVE, "alive")
+
+    def test_deleted_worktree_is_dead_not_absorbed_into_main(self):
+        # 급소: live 목록에 없지만 <root>/.claude/worktrees/<name> 규약으로 복원된다.
+        self.assert_bucket("/repo/.claude/worktrees/gone", BucketKind.DEAD, "gone")
+
+    def test_subdirectory_of_deleted_worktree_is_dead(self):
+        self.assert_bucket("/repo/.claude/worktrees/gone/src", BucketKind.DEAD, "gone")
+
+    def test_nested_worktree_picks_deepest_candidate(self):
+        # <root>, alive, nested 가 모두 매치된다 — 가장 깊은 것을 골라야 한다.
+        self.assert_bucket(NESTED_WT, BucketKind.LIVE, "nested", live=[*LIVE, NESTED_WT])
+
+    def test_deleted_nested_worktree_does_not_leak_to_parent_worktree(self):
+        # nested 가 삭제돼도 상위 live worktree(alive) 로 흡수되면 과다등록이 된다.
+        self.assert_bucket(NESTED_WT, BucketKind.DEAD, "nested")
+
+    def test_worktrees_container_itself_is_main(self):
+        # 실데이터에 존재하는 중간 경로. 어떤 worktree 도 아니므로 main.
+        self.assert_bucket("/repo/.claude/worktrees", BucketKind.MAIN, None)
+
+    def test_other_repo_is_unmatched_not_main(self):
+        # 선검증이 없으면 타 repo 시간이 통째로 main 으로 간다.
+        self.assert_bucket("/elsewhere/other-repo", BucketKind.UNMATCHED, None)
+
+    def test_ancestor_of_root_is_unmatched(self):
+        # 홈 디렉토리 cwd 가 실데이터에 있다. root 의 조상이지 하위가 아니다.
+        self.assert_bucket("/", BucketKind.UNMATCHED, None)
+
+    def test_sibling_with_shared_prefix_is_unmatched(self):
+        # 문자열 접두 비교였다면 /repo 가 /repo-backup 에 걸린다.
+        self.assert_bucket("/repo-backup", BucketKind.UNMATCHED, None)
+
+    def test_worktree_sibling_with_shared_prefix(self):
+        # /repo/.claude/worktrees/alive 가 .../alive-2 의 접두다.
+        self.assert_bucket("/repo/.claude/worktrees/alive-2", BucketKind.DEAD, "alive-2")
+
+    def test_missing_cwd_is_unmatched(self):
+        self.assert_bucket(None, BucketKind.UNMATCHED, None)
+
+
+class ParseEventsTest(unittest.TestCase):
+    """이벤트에 cwd 가 함께 실려야 bucket 분리가 가능하다."""
+
+    def test_events_carry_cwd(self):
+        text = jsonl(
+            line(0, "assistant", LIVE_WT),
+            line(1, "assistant", ROOT),
+        )
+        events = parse_message_events(text, TZ)
+        self.assertEqual([e[2] for e in events], [LIVE_WT, ROOT])
+
+    def test_missing_cwd_is_none_not_inherited(self):
+        # 앞줄 cwd 를 물려받으면 경계가 사라져 오귀속이 된다.
+        text = jsonl(
+            line(0, "assistant", LIVE_WT),
+            line(1, "assistant", None),
+        )
+        events = parse_message_events(text, TZ)
+        self.assertEqual([e[2] for e in events], [LIVE_WT, None])
+
+
+class BucketIntervalsTest(unittest.TestCase):
+    """인접 쌍의 bucket 이 같을 때만 interval 을 발행한다."""
+
+    # bucket 은 분류기에서 얻는다 — 직접 조립하면 프로덕션이 겪은 "키 재구성" 결함을
+    # 테스트가 그대로 재현해 회귀를 못 잡는다.
+    LIVE_BUCKET = classify_cwd(LIVE_WT, ROOT, LIVE)
+    MAIN_BUCKET = classify_cwd(ROOT, ROOT, LIVE)
+
+    def classify(self, text):
+        return [
+            (moment, role, classify_cwd(cwd, ROOT, LIVE))
+            for moment, role, cwd in parse_message_events(text, TZ)
+        ]
+
+    def test_round_trip_gives_each_bucket_only_its_own_time(self):
+        # main(0~10) → worktree(10~30) → main(30~40). 이동 구간 2개는 폐기된다.
+        text = jsonl(
+            line(0, "assistant", ROOT),
+            line(10, "assistant", ROOT),
+            line(20, "assistant", LIVE_WT),
+            line(30, "assistant", LIVE_WT),
+            line(40, "assistant", ROOT),
+            line(50, "assistant", ROOT),
+        )
+        buckets, stats = bucket_intervals(self.classify(text))
+        self.assertEqual(seconds(buckets[self.MAIN_BUCKET]), 20 * 60)
+        self.assertEqual(seconds(buckets[self.LIVE_BUCKET]), 10 * 60)
+        self.assertEqual(stats.boundary_dropped, 2)
+        self.assertEqual(stats.boundary_seconds, 20 * 60)
+
+    def test_total_never_exceeds_elapsed(self):
+        text = jsonl(
+            line(0, "assistant", ROOT),
+            line(10, "assistant", LIVE_WT),
+            line(20, "assistant", ROOT),
+        )
+        buckets, _ = bucket_intervals(self.classify(text))
+        total = sum(seconds(v) for v in buckets.values())
+        self.assertLessEqual(total, 20 * 60)
+
+    def test_no_bridging_across_other_bucket(self):
+        # main 이벤트 두 개 사이에 worktree 구간이 끼면, main 을 가로질러 이어붙이면 안 된다.
+        text = jsonl(
+            line(0, "assistant", ROOT),
+            line(5, "assistant", LIVE_WT),
+            line(10, "assistant", ROOT),
+        )
+        buckets, _ = bucket_intervals(self.classify(text))
+        self.assertNotIn(self.MAIN_BUCKET, buckets)
+
+    def test_single_cwd_file_matches_legacy_total(self):
+        # 회귀: 오가지 않은 파일은 기존 ai_intervals 결과와 같아야 한다.
+        text = jsonl(
+            line(0, "assistant", LIVE_WT),
+            line(10, "assistant", LIVE_WT),
+            line(70, "assistant", LIVE_WT),  # 60분 초과 gap → 기존 규칙대로 제외
+            line(75, "user", LIVE_WT),       # assistant→user 대기 → 제외
+        )
+        events = parse_message_events(text, TZ)
+        legacy = ai_intervals(events)
+        buckets, stats = bucket_intervals(self.classify(text))
+        self.assertEqual(seconds(buckets[self.LIVE_BUCKET]), seconds(legacy))
+        self.assertEqual(stats.boundary_dropped, 0)
+
+    def test_missing_cwd_acts_as_boundary(self):
+        text = jsonl(
+            line(0, "assistant", LIVE_WT),
+            line(5, "assistant", None),
+            line(10, "assistant", LIVE_WT),
+        )
+        buckets, _ = bucket_intervals(self.classify(text))
+        self.assertNotIn(self.LIVE_BUCKET, buckets)
+
+    def test_unmatched_is_kept_separately_not_merged_into_main(self):
+        text = jsonl(
+            line(0, "assistant", "/elsewhere/other"),
+            line(10, "assistant", "/elsewhere/other"),
+        )
+        buckets, _ = bucket_intervals(self.classify(text))
+        self.assertIn(classify_cwd("/elsewhere/other", ROOT, LIVE), buckets)
+        self.assertNotIn(self.MAIN_BUCKET, buckets)
+
+
+class BucketLookupTest(unittest.TestCase):
+    """CLI 가 worktree → bucket 을 찾는 규칙. 여기가 어긋나면 시간이 조용히 0 이 된다."""
+
+    def test_same_name_worktrees_are_separate_buckets(self):
+        # 이름만으로 가르면 두 worktree 시간이 합쳐져 양쪽에 통째로 등록된다(과다 등록).
+        live = [ROOT, "/repo/.claude/worktrees/A", "/elsewhere/A"]
+        inside = classify_cwd("/repo/.claude/worktrees/A", ROOT, live)
+        outside = classify_cwd("/elsewhere/A", ROOT, live)
+        self.assertEqual((inside.name, outside.name), ("A", "A"))
+        self.assertNotEqual(inside, outside)
+
+    def test_main_worktree_is_main_bucket_not_live(self):
+        # main 은 모든 worktree 의 조상이라 LIVE 후보에서 빠진다. 이름으로 LIVE 를 찾으면
+        # main 시간이 통째로 0 이 된다(실제로 겪은 버그).
+        bucket = classify_cwd(ROOT, ROOT, LIVE)
+        self.assertEqual(bucket.kind, BucketKind.MAIN)
+        self.assertNotEqual(bucket, Bucket(BucketKind.LIVE, Path(ROOT).name))
+
+    def test_main_bucket_is_not_registrable(self):
+        # main 은 티켓이 없는 게 보통이지만, 등록 가능 판정은 kind 로만 한다.
+        self.assertFalse(classify_cwd(ROOT, ROOT, LIVE).registrable)
+
+
+class WorklogFromIntervalsTest(unittest.TestCase):
+    def test_splits_by_date_and_sums(self):
+        start = datetime(2026, 8, 4, 23, 30, tzinfo=TZ)
+        worklogs = worklog_from_intervals([(start, start + timedelta(hours=1))])
+        self.assertEqual([w.day.day for w in worklogs], [4, 5])
+        self.assertEqual(sum(w.seconds for w in worklogs), 3600)
+
+
+class NestedAndOutOfRootTest(unittest.TestCase):
+    """리뷰가 재현한 오귀속 두 건의 회귀 방지."""
+
+    def test_nested_dead_with_same_name_as_parent_live_is_not_registrable(self):
+        # 이름으로 비교하면 상위 live 로 흡수돼 죽은 worktree 가 등록 대상이 된다.
+        bucket = classify_cwd(
+            "/repo/.claude/worktrees/A/.claude/worktrees/A", ROOT,
+            [ROOT, "/repo/.claude/worktrees/A"],
+        )
+        self.assertEqual(bucket.kind, BucketKind.DEAD)
+        self.assertFalse(bucket.registrable)
+
+    def test_live_worktree_outside_root_is_not_lost(self):
+        # root 소속 검증을 live 매칭보다 먼저 하면 규약 밖 worktree 시간이 통째로 사라진다.
+        bucket = classify_cwd("/elsewhere/wt", ROOT, [ROOT, "/elsewhere/wt"])
+        self.assertEqual(bucket.kind, BucketKind.LIVE)
+        self.assertEqual(bucket.name, "wt")
+
+    def test_bucket_name_preserves_case(self):
+        # 소문자화되면 extract_ticket 의 대문자 패턴이 어긋나 조용히 미등록된다.
+        bucket = classify_cwd(
+            "/repo/.claude/worktrees/CSTP1-2812-Foo", ROOT, [ROOT],
+        )
+        self.assertEqual(bucket.name, "CSTP1-2812-Foo")
+
+    def test_malformed_cwd_does_not_abort(self):
+        # cwd 는 로그에서 온 외부 입력이다. 한 줄이 전체 집계를 죽이면 안 된다.
+        self.assertEqual(classify_cwd("/repo/\0bad", ROOT, [ROOT]).kind, BucketKind.UNMATCHED)
+
+
+class AiWorklogByBucketTest(unittest.TestCase):
+    """파일을 가로지르는 집계 — 여기서만 드러나는 불변식이 있다."""
+
+    def write(self, directory: Path, name: str, text: str) -> Path:
+        path = directory / name
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def run_bucket(self, paths):
+        return ai_worklog_by_bucket(paths, TZ, ROOT, LIVE)
+
+    def test_does_not_bridge_across_files(self):
+        # 파일 = 독립 세션. 서로 다른 파일의 이벤트를 이어붙이면 세션 사이 공백이
+        # 작업시간으로 잡힌다.
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            a = self.write(directory, "a.jsonl", jsonl(
+                line(0, "assistant", LIVE_WT), line(5, "assistant", LIVE_WT)))
+            b = self.write(directory, "b.jsonl", jsonl(
+                line(30, "assistant", LIVE_WT), line(35, "assistant", LIVE_WT)))
+            worklogs, _ = self.run_bucket([a, b])
+        total = sum(w.seconds for w in worklogs[classify_cwd(LIVE_WT, ROOT, LIVE)])
+        self.assertEqual(total, 10 * 60)  # 25분 공백이 끼면 안 된다
+
+    def test_unions_overlapping_intervals_across_files(self):
+        # 동시에 돌던 두 세션의 겹치는 시간은 한 번만 센다.
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            a = self.write(directory, "a.jsonl", jsonl(
+                line(0, "assistant", LIVE_WT), line(10, "assistant", LIVE_WT)))
+            b = self.write(directory, "b.jsonl", jsonl(
+                line(5, "assistant", LIVE_WT), line(15, "assistant", LIVE_WT)))
+            worklogs, _ = self.run_bucket([a, b])
+        total = sum(w.seconds for w in worklogs[classify_cwd(LIVE_WT, ROOT, LIVE)])
+        self.assertEqual(total, 15 * 60)
+
+    def test_accumulates_boundary_stats_across_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            text = jsonl(line(0, "assistant", ROOT), line(5, "assistant", LIVE_WT))
+            paths = [self.write(directory, f"{i}.jsonl", text) for i in range(3)]
+            _, stats = self.run_bucket(paths)
+        self.assertEqual(stats.boundary_dropped, 3)
+        self.assertEqual(stats.boundary_seconds, 3 * 5 * 60)
+
+    def test_unreadable_file_is_skipped_not_fatal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            good = self.write(directory, "good.jsonl", jsonl(
+                line(0, "assistant", LIVE_WT), line(10, "assistant", LIVE_WT)))
+            worklogs, _ = self.run_bucket([directory / "missing.jsonl", good])
+        self.assertIn(classify_cwd(LIVE_WT, ROOT, LIVE), worklogs)
+
+    def test_dead_bucket_is_not_registrable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            dead = "/repo/.claude/worktrees/gone"
+            path = self.write(directory, "a.jsonl", jsonl(
+                line(0, "assistant", dead), line(10, "assistant", dead)))
+            worklogs, _ = self.run_bucket([path])
+        registrable = [b for b in worklogs if b.registrable]
+        self.assertEqual(registrable, [])
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
