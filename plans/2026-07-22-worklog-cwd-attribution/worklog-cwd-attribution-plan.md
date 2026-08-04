@@ -13,6 +13,11 @@ updated: 2026-08-04
 - 2026-07-22: plan commit `b9e0a28` → `origin/worklog-cwd-attribution` push(PR 미오픈). 작업 트리 clean, WIP 커밋 없음.
 - 2026-08-04: 13일 방치 후 재개. worktree 재생성(`origin/worklog-cwd-attribution` 체크아웃), `origin/main@d38c70b` merge(`1b4d218`) — base 39커밋 뒤처짐 해소. PR 여전히 없음, plan-lint 통과.
 - 2026-08-04: **plan-review NO-GO**(claude plan-reviewer + codex medium 병행). 핵심 blocker 를 메인이 독립 시뮬레이션으로 재현 — plan 의 longest-prefix 규칙을 실데이터에 적용하면 main 귀속이 실제 자기 몫의 **3.5배**가 된다. 원인: main 경로가 모든 worktree 경로의 조상이고 main 자신도 `git worktree list` 에 있어, **삭제된 worktree 의 cwd 가 매핑 실패가 아니라 main 으로 흡수**된다(`plans-sync` 4.57h·`doc-slim` 2.63h·`main-autopull` 2.61h·`improve-loop` 2.26h …). 고치려던 오귀속이 되레 커지는 설계라 구현 중단. 시뮬레이션 스크립트는 scratchpad(`sim_attribution.py`).
+- 2026-08-04: **구현 5~7/7 완료** (`838fa95`, `7d7f919`, `1e2ea0b`) — 7단계 전부 끝. code-reviewer 진행 중.
+  - **5단계(CLI 연결)**: 코퍼스 단일 패스 → bucket 별 분배. Codex 는 worktree 별로 뽑아 **날짜 분할 전** union(분할 후 합치면 이중계상). 삭제 worktree 표시·경계 폐기량·main 기여 cwd 갈래 출력. 실측 단일 0.68s / `--all` 0.81s(기준 5초). **실행 중 발견한 버그**: main worktree 를 `Bucket(LIVE, 이름)` 으로 조회해 시간이 0 이 됐다(main 은 조상이라 LIVE 후보에서 빠지고 MAIN bucket 에 담긴다) → 분기 + 회귀 테스트 2개. 정적 점검으로는 안 보였고 `--all` 실행으로 잡았다.
+  - **6단계(등록 게이트)**: `plan_worklog_changes`(전 날짜 사전계산) + `gate_reasons`(순수 함수). 양방향 임계(30분 & 50%), rename 사각지대 차단, 60초 하한 통일, 복구 로그 파일. **자체 발견 blocker**: `upsert_worklog` 의 사전 검사 3종이 계획 단계에 없어 게이트 통과 후 2일차 예외 시 1일차가 이미 쓰인 채 중단됐다 → 검사를 계획 단계로 이동, 회귀 테스트 4개.
+  - **7단계(CI·문서)**: `lint.yml` 에 Python unit tests 스텝 신설(신규 2 + **기존 `test_worklog_scope.py` 도 여태 CI 미등록이었다**). 폴더 단위 시맨틱 단언 문서 전부 정정(module docstring·CLI docstring·SKILL.md·README 설명+트리). `e/SKILL.md` 5단계는 "삭제·복귀 전" → **"삭제 전"**(줄 단위 귀속이라 복귀 후에도 정확하지만, 삭제되면 `--all` 순회에서 빠져 등록 불가).
+  - 검증: 테스트 52개(session_time 34 + register_gate 18) + 기존 21개 통과, ruff 통과, CLI 실행 관찰.
 - 2026-08-04: **push + PR #118 생성** (`origin/worklog-cwd-attribution`, 14커밋). 측정 로직(4/7)만 담긴 중간 상태이고 CLI 미연결이라 기존 동작 불변 — PR 본문에 그 사실과 남은 5~7단계, `--register` 사용 금지 경고를 명시했다.
 - 2026-08-04: **code-review 지적 수정 완료** (`af40cf0`). CONFIRMED Major 5건을 메인이 전부 재현한 뒤 수정 — 중첩 dead 흡수(이름→경로 비교), root 밖 live 유실(매칭 순서), Windows 소문자화(비교용/표시용 분리), 분류 성능(`WorktreeIndex` hoist+캐시, 20wt 5.61s→0.001s·실코퍼스 1.48s→0.55s), `ai_worklog_by_bucket` 테스트 0→5. 테스트 32개 통과, 기존 21개 회귀 없음, ruff 통과, 실코퍼스 bucket 결과·불변식 동일. 처분표는 `# Review Disposition`.
 - 2026-08-04: **구현 2~4/7 완료** (`96de12f`) — `parse_message_events` 가 cwd 를 싣고, `bucket_intervals`(인접 쌍 동일 bucket 시에만 발행) + `worklog_from_intervals` + `ai_worklog_by_bucket`(단일 패스) 추가. gap/대기 판정은 `_is_work_gap` 술어로 뽑아 Codex 공용 `ai_intervals` 와 공유(규칙 중복 제거). 테스트 23개 통과(신규 9), 기존 21개 회귀 없음, ruff 통과, **CLI dry-run 출력 불변 확인**(아직 미연결). **실데이터 관찰**: 38파일 단일 패스 **1.48s**(기준 5초), main 9.72h·dead 24.88h(이름별 분리)·unmatched 28.20h·live 0.95h(등록가능 1개), 경계 폐기 99구간 0.41h(0.47%), 불변식 "bucket 합 63.75h ≤ 파일 union 87.41h" 성립. main 이 앞선 시뮬레이션 10.95h 보다 낮은 것은 새 경로가 `merge_intervals` 로 동시 세션 겹침을 union 제거하기 때문(기존 의미론과 동일, 시뮬레이션은 raw 합).
@@ -23,9 +28,17 @@ updated: 2026-08-04
 - 2026-08-04: **전제 재실증**(13일 경과 검증). 이 세션 파일 `03f014b5….jsonl` 이 worktree 폴더에 있는데 121줄 중 45줄의 `cwd` 가 main — 폴더 단위 귀속이면 main 시간이 worktree 로 계상된다(결과 ① 재현). `drop-codegraph`·`risk-based-approval`·`rtk-rewrite-guard` slug 폴더는 jsonl 0개(세션이 떠남). `session_time.py` 모듈 docstring 은 여전히 "worktree 에서 실행하면 그 worktree 세션들만 잡힌다"는 틀린 전제를 명시 → 미해결 확인.
 
 # Next
+**구현 7/7 완료.** code-reviewer(+codex) 진행 중 — 지적 처분 후 PR #118 갱신 push → 머지.
+
+<!-- 완료된 이전 Next
 **구현 1~4/7 + code-review 수정 완료** (`a10a433`, `96de12f`, `af40cf0`) — 측정 로직 완성, CLI 미연결이라 기존 동작 불변.
 
 다음 액션: **순서 5단계** — 단일 패스 스캔으로 `process()` 재구성, dead/unmatched 표시(폐기량·미매칭 시간·main 기여 서브루트 목록 포함), `--all` 5초 실측. 그 뒤 6단계(등록 게이트), 7단계(CI·문서). 5단계에서 함께 처리할 이월 2건: UNMATCHED 를 "cwd 결측"과 "repo 밖"으로 분리 표시할지(C11), 파일 읽기 실패 건수를 `AttributionStats` 에 넣을지(C12).
+-->
+
+**이월 2건 처분 (5단계에서 결정)**:
+- **C11 (UNMATCHED 분리)** → **wontfix**. UNMATCHED 는 전부 *이 repo 밖* cwd 라 유실이 아니고, 그 repo 에서 돌리면 정상 집계된다. 오히려 "집계 제외"로 표시하니 47h 를 잃은 것처럼 오해돼 **출력에서 뺐다**. cwd 결측은 실데이터 0건이고 결측 시 UNMATCHED 로 떨어져도 무해하다. 대신 **main 기여 cwd 갈래 목록**을 넣어 진짜 위험(규약 밖 삭제 worktree 의 main 흡수)을 감시한다.
+- **C12 (파일 읽기 실패 건수)** → **wontfix**. 기존 `ai_worklog_by_date` 와 동일하게 `except OSError: continue` 다. 읽기 실패는 세션 파일이 회전·삭제되는 정상 경합이라 상시 노이즈가 되고, 실제 유실은 behind 수치로 드러나지 않는다. 필요해지면 별건.
 
 ---
 2차 plan-review CONDITIONAL → blocker 4건(B1 repo 소속 선검증 / B2 최심 후보 선택 / B3 코퍼스 정정 / B4 등록 원자성) 을 `# Decisions`·`# Acceptance` 에 반영 완료. **구현 착수 가능.**
