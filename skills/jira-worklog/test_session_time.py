@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import sys
+import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -27,6 +28,7 @@ from jira_kit.session_time import (  # noqa: E402
     Bucket,
     BucketKind,
     ai_intervals,
+    ai_worklog_by_bucket,
     bucket_intervals,
     classify_cwd,
     parse_message_events,
@@ -231,6 +233,100 @@ class WorklogFromIntervalsTest(unittest.TestCase):
         worklogs = worklog_from_intervals([(start, start + timedelta(hours=1))])
         self.assertEqual([w.day.day for w in worklogs], [4, 5])
         self.assertEqual(sum(w.seconds for w in worklogs), 3600)
+
+
+class NestedAndOutOfRootTest(unittest.TestCase):
+    """리뷰가 재현한 오귀속 두 건의 회귀 방지."""
+
+    def test_nested_dead_with_same_name_as_parent_live_is_not_registrable(self):
+        # 이름으로 비교하면 상위 live 로 흡수돼 죽은 worktree 가 등록 대상이 된다.
+        bucket = classify_cwd(
+            "/repo/.claude/worktrees/A/.claude/worktrees/A", ROOT,
+            [ROOT, "/repo/.claude/worktrees/A"],
+        )
+        self.assertEqual(bucket.kind, BucketKind.DEAD)
+        self.assertFalse(bucket.registrable)
+
+    def test_live_worktree_outside_root_is_not_lost(self):
+        # root 소속 검증을 live 매칭보다 먼저 하면 규약 밖 worktree 시간이 통째로 사라진다.
+        bucket = classify_cwd("/elsewhere/wt", ROOT, [ROOT, "/elsewhere/wt"])
+        self.assertEqual(bucket.kind, BucketKind.LIVE)
+        self.assertEqual(bucket.name, "wt")
+
+    def test_bucket_name_preserves_case(self):
+        # 소문자화되면 extract_ticket 의 대문자 패턴이 어긋나 조용히 미등록된다.
+        bucket = classify_cwd(
+            "/repo/.claude/worktrees/CSTP1-2812-Foo", ROOT, [ROOT],
+        )
+        self.assertEqual(bucket.name, "CSTP1-2812-Foo")
+
+    def test_malformed_cwd_does_not_abort(self):
+        # cwd 는 로그에서 온 외부 입력이다. 한 줄이 전체 집계를 죽이면 안 된다.
+        self.assertEqual(classify_cwd("/repo/\0bad", ROOT, [ROOT]).kind, BucketKind.UNMATCHED)
+
+
+class AiWorklogByBucketTest(unittest.TestCase):
+    """파일을 가로지르는 집계 — 여기서만 드러나는 불변식이 있다."""
+
+    def write(self, directory: Path, name: str, text: str) -> Path:
+        path = directory / name
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def run_bucket(self, paths):
+        return ai_worklog_by_bucket(paths, TZ, ROOT, LIVE)
+
+    def test_does_not_bridge_across_files(self):
+        # 파일 = 독립 세션. 서로 다른 파일의 이벤트를 이어붙이면 세션 사이 공백이
+        # 작업시간으로 잡힌다.
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            a = self.write(directory, "a.jsonl", jsonl(
+                line(0, "assistant", LIVE_WT), line(5, "assistant", LIVE_WT)))
+            b = self.write(directory, "b.jsonl", jsonl(
+                line(30, "assistant", LIVE_WT), line(35, "assistant", LIVE_WT)))
+            worklogs, _ = self.run_bucket([a, b])
+        total = sum(w.seconds for w in worklogs[Bucket(BucketKind.LIVE, "alive")])
+        self.assertEqual(total, 10 * 60)  # 25분 공백이 끼면 안 된다
+
+    def test_unions_overlapping_intervals_across_files(self):
+        # 동시에 돌던 두 세션의 겹치는 시간은 한 번만 센다.
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            a = self.write(directory, "a.jsonl", jsonl(
+                line(0, "assistant", LIVE_WT), line(10, "assistant", LIVE_WT)))
+            b = self.write(directory, "b.jsonl", jsonl(
+                line(5, "assistant", LIVE_WT), line(15, "assistant", LIVE_WT)))
+            worklogs, _ = self.run_bucket([a, b])
+        total = sum(w.seconds for w in worklogs[Bucket(BucketKind.LIVE, "alive")])
+        self.assertEqual(total, 15 * 60)
+
+    def test_accumulates_boundary_stats_across_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            text = jsonl(line(0, "assistant", ROOT), line(5, "assistant", LIVE_WT))
+            paths = [self.write(directory, f"{i}.jsonl", text) for i in range(3)]
+            _, stats = self.run_bucket(paths)
+        self.assertEqual(stats.boundary_dropped, 3)
+        self.assertEqual(stats.boundary_seconds, 3 * 5 * 60)
+
+    def test_unreadable_file_is_skipped_not_fatal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            good = self.write(directory, "good.jsonl", jsonl(
+                line(0, "assistant", LIVE_WT), line(10, "assistant", LIVE_WT)))
+            worklogs, _ = self.run_bucket([directory / "missing.jsonl", good])
+        self.assertIn(Bucket(BucketKind.LIVE, "alive"), worklogs)
+
+    def test_dead_bucket_is_not_registrable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            dead = "/repo/.claude/worktrees/gone"
+            path = self.write(directory, "a.jsonl", jsonl(
+                line(0, "assistant", dead), line(10, "assistant", dead)))
+            worklogs, _ = self.run_bucket([path])
+        registrable = [b for b in worklogs if b.registrable]
+        self.assertEqual(registrable, [])
 
 
 if __name__ == "__main__":

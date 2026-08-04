@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 import re
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, tzinfo
 from enum import Enum
@@ -56,61 +57,111 @@ class Bucket:
 _UNMATCHED = Bucket(BucketKind.UNMATCHED)
 
 
-def _normalized(path: str | Path) -> PurePath:
-    """비교용 정규화: 절대경로 + 플랫폼별 대소문자 정규화.
+def _resolved(path: str | Path) -> Path:
+    """절대경로화 + symlink 해소(``/tmp`` → ``/private/tmp``).
 
-    ``resolve()`` 로 symlink(``/tmp`` → ``/private/tmp``)를, ``normcase`` 로 Windows·APFS
-    의 대소문자 차이를 흡수한다. 존재하지 않는 경로도 다뤄야 하므로 strict 는 쓰지 않는다.
+    존재하지 않는 경로(삭제된 worktree)도 다뤄야 하므로 strict 는 쓰지 않는다.
     """
-    return PurePath(os.path.normcase(str(Path(path).resolve())))
+    return Path(path).resolve()
 
 
-def _dead_worktree_name(cwd: PurePath, root: PurePath) -> str | None:
-    """`<root>/.claude/worktrees/<name>` 규약에서 worktree 이름을 복원한다.
+def _compared(path: Path) -> PurePath:
+    """비교 전용 정규화.
 
-    중첩 worktree 가 있으므로 **마지막** 출현을 기준으로 삼는다 — 그래야 하위 worktree 가
-    상위 이름으로 잘못 복원되지 않는다.
+    ``normcase`` 는 **Windows 에서만** 의미가 있다(구분자 통일 + 소문자화). POSIX 에선
+    항등이라 macOS 의 대소문자 무시 파일시스템은 덮지 못한다 — 대소문자만 다른 cwd 는
+    매칭에 실패한다. 소문자화된 결과는 비교에만 쓰고 표시·티켓 추출에는 원본을 쓴다
+    (worktree 이름이 소문자가 되면 ``extract_ticket`` 의 대문자 패턴이 어긋난다).
     """
-    parts = cwd.relative_to(root).parts
-    last = None
-    for i in range(len(parts) - len(_WORKTREES_SEGMENTS)):
-        if parts[i:i + len(_WORKTREES_SEGMENTS)] == _WORKTREES_SEGMENTS:
-            last = i + len(_WORKTREES_SEGMENTS)
-    if last is None or last >= len(parts):
-        return None
-    return parts[last]
+    return PurePath(os.path.normcase(str(path)))
 
 
-def classify_cwd(cwd: str | Path | None, root: str | Path, live_worktrees) -> Bucket:
-    """세션 줄의 cwd 를 귀속 bucket 으로 분류한다.
+# (비교용 경로, 표시용 이름)
+_Candidate = tuple[PurePath, str]
+
+
+class WorktreeIndex:
+    """cwd → bucket 분류기. 정규화를 한 번만 하고 cwd 문자열 단위로 캐시한다.
+
+    이벤트마다 root 와 live worktree 전부를 ``resolve()`` 하면 O(이벤트 × worktree) 의
+    syscall 이 된다(실측 live 20개 × 2만 이벤트 = 5.8s — ``--all`` 5초 기준을 분류 단독으로
+    넘긴다). 실코퍼스는 2.6만 이벤트에 distinct cwd 가 77개뿐이라 캐시가 잘 듣는다.
+    """
+
+    def __init__(self, root: str | Path, live_worktrees: Iterable[str | Path]) -> None:
+        self._root = _resolved(root)
+        self._root_key = _compared(self._root)
+        self._live: list[_Candidate] = []
+        for worktree in live_worktrees:
+            path = _resolved(worktree)
+            key = _compared(path)
+            if key != self._root_key:  # root 자신은 폴백 대상이지 후보가 아니다
+                self._live.append((key, path.name))
+        self._cache: dict[str, Bucket] = {}
+
+    def classify(self, cwd: str | Path | None) -> Bucket:
+        if cwd is None:
+            return _UNMATCHED
+        key = str(cwd)
+        bucket = self._cache.get(key)
+        if bucket is None:
+            bucket = self._cache[key] = self._classify(key)
+        return bucket
+
+    def _classify(self, cwd: str) -> Bucket:
+        try:
+            resolved = _resolved(cwd)
+        except (OSError, ValueError):
+            # cwd 는 로그에서 온 외부 입력이라 신뢰하지 않는다. 한 줄이 전체 집계를 죽이면 안 된다.
+            return _UNMATCHED
+        target = _compared(resolved)
+
+        live = max(
+            (c for c in self._live if target.is_relative_to(c[0])),
+            key=lambda c: len(c[0].parts),
+            default=None,
+        )
+        dead = self._dead_candidate(resolved, target)
+        # 더 깊은 쪽이 이긴다. 이름이 아니라 경로로 비교해야 상위 live 와 이름이 같은
+        # 중첩 dead worktree 가 상위로 흡수되지 않는다(흡수되면 등록 가능으로 오판).
+        if dead is not None and (live is None or len(dead[0].parts) > len(live[0].parts)):
+            return Bucket(BucketKind.DEAD, dead[1])
+        if live is not None:
+            return Bucket(BucketKind.LIVE, live[1])
+        if target.is_relative_to(self._root_key):
+            return Bucket(BucketKind.MAIN)
+        return _UNMATCHED
+
+    def _dead_candidate(self, resolved: Path, target: PurePath) -> _Candidate | None:
+        """`<root>/.claude/worktrees/<name>` 규약으로 삭제된 worktree 를 복원한다.
+
+        중첩이 있으므로 **이름이 뒤따르는 마지막 출현**을 쓴다. 표시용 이름은 정규화 이전
+        경로에서 뽑아 대소문자를 보존한다.
+        """
+        if not target.is_relative_to(self._root_key):
+            return None
+        parts = target.parts
+        display = resolved.parts
+        width = len(_WORKTREES_SEGMENTS)
+        found = None
+        for i in range(len(self._root_key.parts), len(parts) - width + 1):
+            if parts[i:i + width] == _WORKTREES_SEGMENTS and i + width < len(parts):
+                found = i + width
+        if found is None:
+            return None
+        return PurePath(*parts[:found + 1]), display[found]
+
+
+def classify_cwd(
+    cwd: str | Path | None, root: str | Path, live_worktrees: Iterable[str | Path]
+) -> Bucket:
+    """단발 분류 편의 함수. 반복 호출은 ``WorktreeIndex`` 를 재사용하라(정규화 비용).
 
     조상 폴백을 하지 않는 것이 핵심이다. main 은 모든 worktree 의 조상이면서 자신도
     worktree 목록에 있으므로, 매칭 실패를 조상으로 흘려보내면 삭제된 worktree 의 시간이
     통째로 main 에 흡수된다(실측 3.5배 과다).
     """
-    if cwd is None:
-        return _UNMATCHED
-    target = _normalized(cwd)
-    repo_root = _normalized(root)
-    if not target.is_relative_to(repo_root):
-        return _UNMATCHED
-
-    deepest = max(
-        (
-            candidate
-            for worktree in live_worktrees
-            if (candidate := _normalized(worktree)) != repo_root
-            and target.is_relative_to(candidate)
-        ),
-        key=lambda p: len(p.parts),
-        default=None,
-    )
-    dead_name = _dead_worktree_name(target, repo_root)
-    if dead_name is not None and (deepest is None or deepest.name != dead_name):
-        return Bucket(BucketKind.DEAD, dead_name)
-    if deepest is not None:
-        return Bucket(BucketKind.LIVE, deepest.name)
-    return Bucket(BucketKind.MAIN)
+    return WorktreeIndex(root, live_worktrees).classify(cwd)
 
 
 @dataclass(frozen=True)
@@ -188,7 +239,10 @@ def parse_message_events(jsonl_text: str, tz: tzinfo) -> list[tuple[datetime, st
     return events
 
 
-def _is_work_gap(prev: tuple, cur: tuple, max_gap: float) -> bool:
+_Event = Sequence  # (시각, role[, cwd|bucket]) — 뒤 요소는 소비자마다 다르다
+
+
+def _is_work_gap(prev: _Event, cur: _Event, max_gap: float) -> bool:
     """인접 두 이벤트 사이가 'AI 작업 구간'인지.
 
     gap 이 max_gap 초과면 중단, 진짜 사용자 입력 직전(assistant→user)이면 대기 → 둘 다 아님.
@@ -199,7 +253,7 @@ def _is_work_gap(prev: tuple, cur: tuple, max_gap: float) -> bool:
     return not (cur[1] == "user" and prev[1] == "assistant")
 
 
-def ai_intervals(events, max_gap_minutes: int = 60) -> list[_Interval]:
+def ai_intervals(events: Sequence[_Event], max_gap_minutes: int = 60) -> list[_Interval]:
     """이벤트에서 'AI 작업 구간' [prev, cur] 목록을 뽑는다.
 
     events 는 (시각, role) 또는 (시각, role, cwd) — 3번째 요소는 무시한다. Codex 이벤트는
@@ -311,7 +365,7 @@ def ai_worklog_by_bucket(
     claude_files: list[Path],
     tz: tzinfo,
     root: str | Path,
-    live_worktrees,
+    live_worktrees: Iterable[str | Path],
     max_gap_minutes: int = 60,
 ) -> tuple[dict[Bucket, list[DayWorklog]], AttributionStats]:
     """Claude 세션 파일들을 한 번만 읽어 bucket 별 날짜 worklog 로 나눈다.
@@ -320,6 +374,7 @@ def ai_worklog_by_bucket(
     ``--all`` 성능 기준의 전제다. Codex 는 줄 단위 cwd 이동이 없어(rollout 전수에서 cwd 가
     2개 이상인 파일 0건) 파일 단위 귀속을 그대로 쓰므로 여기서 다루지 않는다.
     """
+    index = WorktreeIndex(root, live_worktrees)
     per_bucket: dict[Bucket, list[_Interval]] = {}
     dropped = 0
     dropped_seconds = 0.0
@@ -329,7 +384,7 @@ def ai_worklog_by_bucket(
         except OSError:
             continue
         events = [
-            (moment, role, classify_cwd(cwd, root, live_worktrees))
+            (moment, role, index.classify(cwd))
             for moment, role, cwd in parse_message_events(text, tz)
         ]
         buckets, stats = bucket_intervals(events, max_gap_minutes)
