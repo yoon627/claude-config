@@ -450,4 +450,73 @@ ok('M-6 origin/main 부재 → 브랜치 있으면 제외·없으면 보고(보�
   assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r2, ...KLOFF }), '');
 });
 
+// ---------- N: 자동 pull 이 밀린 이유 ----------
+// 다른 신호를 끈 상태로 N 만 관찰. STALE_OFF 필수 — repoDir 의 plans/ 상태에 흔들리지 않게.
+const NOFF = {
+  CLAUDE_BRIEF_MERGE_OFF: '1',
+  CLAUDE_BRIEF_IMPROVE_OFF: '1',
+  CLAUDE_BRIEF_STALE_OFF: '1',
+};
+// origin/main 을 base 로 고정한 뒤 로컬을 되감아 'behind n' 상태를 만든다.
+function behindRepo(n) {
+  const r = initRepo();
+  commit(r, 'base');
+  const base = execFileSync('git', ['-C', r, 'rev-parse', 'HEAD']).toString().trim();
+  for (let i = 0; i < n; i++) commit(r, `remote${i}`);
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  git(r, ['reset', '--hard', base]);
+  return r;
+}
+
+ok('ⓝ1 최신이면 무음', () => {
+  const r = initRepo();
+  commit(r, 'base');
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...NOFF }), '');
+});
+
+ok('ⓝ2 behind 면 커밋 수를 알린다', () => {
+  const out = run({ CLAUDE_BRIEF_REPO: behindRepo(3), ...NOFF });
+  assert.match(out, /3커밋 뒤처짐/);
+});
+
+ok('ⓝ3 원격이 바꾼 파일이 로컬에서도 더러우면 그 파일을 지목한다', () => {
+  const r = behindRepo(2);
+  fs.writeFileSync(path.join(r, 'remote0.txt'), 'local-dirty'); // 원격도 건드린 파일
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...NOFF });
+  assert.match(out, /remote0\.txt/);
+});
+
+ok('ⓝ4 무관한 파일만 더러우면 충돌로 지목하지 않는다', () => {
+  const r = behindRepo(2);
+  fs.writeFileSync(path.join(r, 'unrelated.txt'), 'x');
+  git(r, ['add', '-A']);
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...NOFF });
+  assert.match(out, /2커밋 뒤처짐/);
+  assert.ok(!/unrelated\.txt/.test(out), out);
+});
+
+ok('ⓝ5 main 이 아니면 그 사실을 알린다', () => {
+  const r = behindRepo(1);
+  git(r, ['checkout', '-q', '-b', 'feature-x']);
+  assert.match(run({ CLAUDE_BRIEF_REPO: r, ...NOFF }), /feature-x/);
+});
+
+ok('ⓝ6 detached HEAD 를 별도 사유로 구분한다', () => {
+  const r = behindRepo(1);
+  git(r, ['checkout', '-q', '--detach']);
+  assert.match(run({ CLAUDE_BRIEF_REPO: r, ...NOFF }), /detached/i);
+});
+
+ok('ⓝ7 kill-switch 로 끌 수 있다', () => {
+  const r = behindRepo(3);
+  assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...NOFF, CLAUDE_BRIEF_AUTOPULL_OFF: '1' }), '');
+});
+
+ok('ⓝ8 origin/main 이 없으면 무음(판정 불가)', () => {
+  const r = initRepo();
+  commit(r, 'base');
+  assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...NOFF }), '');
+});
+
 console.log(`session-brief.test.js: ${n} tests passed`);

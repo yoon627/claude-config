@@ -242,6 +242,46 @@ function stalePlanLine(repoDir, env, now) {
   return `닫히지 않은 plan: ${shown.join(', ')}${more}`;
 }
 
+// N: ~/.claude 가 origin/main 보다 뒤처졌을 때 **왜 자동 pull 이 못 따라잡았는지** 한 줄.
+// SessionStart 의 pull 훅은 async 라 그 stdout 이 첫 턴 뒤에야 도달한다 → 사용자가 세션 시작에
+// 보려면 동기인 이 브리프가 말해야 한다. 네트워크는 쓰지 않는다(캐시된 origin/main 으로 판정).
+// 판정이 성립하는 근거: `git pull` 은 fetch 를 먼저 하고 merge 만 거부하므로, pull 이 로컬 변경과
+// 충돌해 실패해도 origin/main ref 는 갱신된다(실측 확인).
+function autopullStalledLine(repoDir) {
+  let behind;
+  try {
+    behind = Number(git(repoDir, ['rev-list', '--count', 'HEAD..refs/remotes/origin/main']).trim());
+  } catch {
+    return null; // origin/main 없음·비 git → 판정 불가라 무음
+  }
+  if (!behind) return null; // 최신 = 정상 무음(매 세션 잡음 금지)
+
+  const head = `~/.claude ${behind}커밋 뒤처짐`;
+  const branch = git(repoDir, ['rev-parse', '--abbrev-ref', 'HEAD']).trim();
+  if (branch === 'HEAD') return `${head} — detached HEAD 라 자동 pull 이 돌지 않는다`;
+  if (!MAINLINE.has(branch)) return `${head} — 브랜치가 ${branch} 라 자동 pull 이 돌지 않는다`;
+
+  // 원격이 바꾼 파일을 로컬에서도 건드렸으면 ff 가 거부된다 — 그 파일이 곧 원인이다.
+  // untracked 도 포함해야 한다: 원격이 *새로 추가*하는 파일과 이름이 겹치면 git 이
+  // "Please move or remove them before you merge" 로 거부하는데, 이건 diff 에 안 잡힌다.
+  const dirty = new Set(
+    [
+      ...git(repoDir, ['diff', '--name-only']).split('\n'),
+      ...git(repoDir, ['diff', '--cached', '--name-only']).split('\n'),
+      ...git(repoDir, ['ls-files', '--others', '--exclude-standard']).split('\n'),
+    ].filter(Boolean),
+  );
+  const blocking = git(repoDir, ['diff', '--name-only', 'HEAD..refs/remotes/origin/main'])
+    .split('\n')
+    .filter((f) => f && dirty.has(f));
+  if (blocking.length) {
+    const shown = blocking.slice(0, MERGE_CAP).join(', ');
+    const more = blocking.length > MERGE_CAP ? ` +${blocking.length - MERGE_CAP}` : '';
+    return `${head} — 로컬 변경과 충돌해 pull 거부됨: ${shown}${more} (커밋하거나 되돌리면 풀린다)`;
+  }
+  return `${head} — pull 대기 중(네트워크 실패였다면 다음 세션에 재시도)`;
+}
+
 function main() {
   const env = process.env;
   if (env.CLAUDE_SESSION_BRIEF_OFF === '1') return;
@@ -260,6 +300,7 @@ function main() {
   collect('CLAUDE_BRIEF_MERGE_OFF', () => mergePendingLine(repoDir));
   collect('CLAUDE_BRIEF_IMPROVE_OFF', () => improveNudgeLine(env));
   collect('CLAUDE_BRIEF_STALE_OFF', () => stalePlanLine(repoDir, env, new Date()));
+  collect('CLAUDE_BRIEF_AUTOPULL_OFF', () => autopullStalledLine(repoDir));
   if (lines.length) process.stdout.write(lines.join('\n') + '\n');
 }
 
