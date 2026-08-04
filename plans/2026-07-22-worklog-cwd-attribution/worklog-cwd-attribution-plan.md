@@ -37,7 +37,7 @@ updated: 2026-08-04
 5. CLI 표시 — 단일 패스 스캔으로 `process()` 재구성, dead/unmatched 표시, `--all` 5초 실측.
 6. 등록 사전계산 + 게이트(순수 판정 함수, 양방향 임계, all-or-nothing, rename 방어, 60초 하한 통일).
 7. CI python 스텝(신규+기존 테스트) + 문서 동기화.
-이어받기: `/wt worklog-cwd-attribution` → `/c`.
+이어받기: `/wt worklog-cwd-attribution` → `/c`. **WIP 커밋 없음**(작업 트리 clean, 이어붙이거나 squash 할 것 없음). 2026-08-04 기준 `origin/worklog-cwd-attribution` 대비 **10커밋 미push** — 다른 머신에서 이어받으려면 먼저 push 필요. PR 은 아직 없다.
 
 # Decisions
 
