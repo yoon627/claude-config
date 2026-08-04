@@ -72,8 +72,8 @@ Goal 달성 여부를 좌우한다(아래 `## 출력 가시성` 참조).
 
 ## 출력 가시성 (2026-08-04 plan-review B1 — 미결, `# Blockers` 결정 1)
 
-훅이 `"async": true` 라 **stdout 이 첫 턴 이후에 도달**한다(`scripts/session-blueprint` 아님 —
-`scripts/session-brief.js:8` 이 계약으로 명시). 즉 사유 한 줄을 아무리 잘 만들어도 async 인 채로는
+훅이 `"async": true` 라 **stdout 이 첫 턴 이후에 도달**한다(`scripts/session-brief.js:8` 이 계약으로
+명시: `동기 hook(async 면 stdout 이 첫 턴 후 도달)`). 즉 사유 한 줄을 아무리 잘 만들어도 async 인 채로는
 사용자가 세션 시작 시점에 못 본다 → "이유를 말하게 한다"는 Goal 이 절반만 달성된다.
 
 세 갈래가 있고 어느 쪽이든 대가가 있다:
@@ -89,16 +89,22 @@ Goal 달성 여부를 좌우한다(아래 `## 출력 가시성` 참조).
 
 ## 왜 working tree 가 만성적으로 dirty 한가 (근본 원인 후보)
 
-`settings.json` 은 **tracked** 다(`plans/2026-05-13-track-settings-json/` 에서 의도적으로 전환,
-`status: done`. 머신별·민감 설정은 gitignored `settings.local.json` 으로 분리).
+`settings.json` 은 **tracked** 다(커밋 `543455b`, 2026-05-14 `Track settings.json directly; add
+secret guard hooks` 에서 의도적으로 전환. 머신별·민감 설정은 gitignored `settings.local.json` 으로 분리).
 
 그런데 Claude Code CLI 자신이 `/config` 등으로 `settings.json` 에 쓴다 — 이번 사고에서 dirty 를
 만든 것도 CLI 가 넣은 `"effortLevel": "xhigh"` 였다. 즉 **도구가 자동으로 고치는 파일을 tracked
-로 두고, 그 파일이 더러우면 자동 pull 을 끄는** 구조라 skip 이 상시화된다.
+로 두고, 그 파일이 더러우면 자동 pull 을 끄는** 구조라 skip 이 잦아진다.
 
-→ 이유 출력(A안)은 증상 가시화이고, dirty 상시화 자체를 없애려면 CLI 가 쓰는 키를
-`settings.local.json` 쪽으로 옮기는 별도 판단이 필요하다. **이번 스코프는 A안까지**로 하고,
-키 분리는 아래 `# Deferred` 에 둔다(사용자 결정 필요 — effort 값은 동작에 영향).
+**2026-08-04 정정 (리뷰)**: "만성적/상시"는 과장이다 — 지금 `~/.claude` 는 clean 하고 `effortLevel`
+은 `high` 로 커밋돼 있다(`78a6715`). 다만 메커니즘은 실재하고 **출처가 CLI 단독도 아니다**
+(`f4011a5 chore(settings): Orca agent-hooks 주입분 반영` 처럼 외부 도구도 쓴다) → **"간헐적·다중
+출처"** 가 정확하다.
+
+→ **deferral 근거도 갱신한다.** 원래는 "A안은 증상 가시화니 근본 원인은 나중에"였는데, dirty 게이트를
+없애기로 한 지금은 **dirty 가 staleness 의 원인 경로에서 빠진다**(더 이상 pull 을 막지 못한다). 남는 건
+커밋 노이즈뿐이므로 deferral 이 오히려 더 정당해졌다. 3 Whys 상 근본 원인은 "게이트가 dirty 를 pull
+차단 조건으로 삼은 설계"이고 **그건 이번에 고친다**. 키 분리는 `# Deferred` 유지.
 
 ## 방향
 
