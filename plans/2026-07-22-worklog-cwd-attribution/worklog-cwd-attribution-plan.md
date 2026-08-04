@@ -13,6 +13,7 @@ updated: 2026-08-04
 - 2026-07-22: plan commit `b9e0a28` → `origin/worklog-cwd-attribution` push(PR 미오픈). 작업 트리 clean, WIP 커밋 없음.
 - 2026-08-04: 13일 방치 후 재개. worktree 재생성(`origin/worklog-cwd-attribution` 체크아웃), `origin/main@d38c70b` merge(`1b4d218`) — base 39커밋 뒤처짐 해소. PR 여전히 없음, plan-lint 통과.
 - 2026-08-04: **plan-review NO-GO**(claude plan-reviewer + codex medium 병행). 핵심 blocker 를 메인이 독립 시뮬레이션으로 재현 — plan 의 longest-prefix 규칙을 실데이터에 적용하면 main 귀속이 실제 자기 몫의 **3.5배**가 된다. 원인: main 경로가 모든 worktree 경로의 조상이고 main 자신도 `git worktree list` 에 있어, **삭제된 worktree 의 cwd 가 매핑 실패가 아니라 main 으로 흡수**된다(`plans-sync` 4.57h·`doc-slim` 2.63h·`main-autopull` 2.61h·`improve-loop` 2.26h …). 고치려던 오귀속이 되레 커지는 설계라 구현 중단. 시뮬레이션 스크립트는 scratchpad(`sim_attribution.py`).
+- 2026-08-04: **구현 2~4/7 완료** (`96de12f`) — `parse_message_events` 가 cwd 를 싣고, `bucket_intervals`(인접 쌍 동일 bucket 시에만 발행) + `worklog_from_intervals` + `ai_worklog_by_bucket`(단일 패스) 추가. gap/대기 판정은 `_is_work_gap` 술어로 뽑아 Codex 공용 `ai_intervals` 와 공유(규칙 중복 제거). 테스트 23개 통과(신규 9), 기존 21개 회귀 없음, ruff 통과, **CLI dry-run 출력 불변 확인**(아직 미연결). **실데이터 관찰**: 38파일 단일 패스 **1.48s**(기준 5초), main 9.72h·dead 24.88h(이름별 분리)·unmatched 28.20h·live 0.95h(등록가능 1개), 경계 폐기 99구간 0.41h(0.47%), 불변식 "bucket 합 63.75h ≤ 파일 union 87.41h" 성립. main 이 앞선 시뮬레이션 10.95h 보다 낮은 것은 새 경로가 `merge_intervals` 로 동시 세션 겹침을 union 제거하기 때문(기존 의미론과 동일, 시뮬레이션은 raw 합).
 - 2026-08-04: **구현 1/7 완료** (`a10a433`) — `classify_cwd` + `BucketKind`/`Bucket` 순수 함수. TDD Red(ImportError) → Green. 신규 테스트 14개 통과, 기존 `test_worklog_scope.py` 21개 회귀 없음, ruff 통과. **실데이터 검증(실행·관찰)**: 이전 설계라면 main 이 10,728줄을 먹을 것을 3,514줄(자기 몫)로 분리, dead bucket 7,214줄이 이름별로 복원(`plans-sync` 869·`doc-slim` 824·`ledger-fix` 494 …), 타 repo 14,986줄은 unmatched 로 main 에 안 샘. 호출부 미연결이라 기존 동작 불변.
 - 2026-08-04: **위 수치 정정 (2차 리뷰 B3 — 내 코퍼스가 오염돼 있었다)**. 1차 측정은 `rglob` 재귀 스캔이라 `<slug>/<sid>/subagents/*.jsonl` 이 섞였다. 프로덕션 `find_session_files` 는 **비재귀**(`session_time.py:172-177`)라 실제 가시 코퍼스는 **38파일**이다. 비재귀로 재측정: longest-prefix 적용 시 main **38.56h** vs 실제 자기 몫 **10.95h**. (폐기 수치: 42.53h/11.63h — 재귀 오염값이라 인용 금지.) **교훈: 측정 코퍼스를 프로덕션 탐색 규칙과 일치시킬 것.**
 - 2026-08-04: **영향 규모 실측·정정** (프로덕션 비재귀 코퍼스 38파일 / timestamped user·assistant 25,914줄). ① `cwd` 결측 줄 **0개(0.00%)** → 결측 방어는 필요하되 실데이터엔 없음. ② 파일당 distinct cwd 분포 `{0:1, 1:8, 2:7, 3:12, 4:5, 5:2, 9:2, 14:1}` → **단일 cwd 는 8개뿐이고 29개(76%)가 다중 cwd**, 최대 14개. **앞서 적은 "단일 265개가 회귀 보호 대상, 다중은 9.3%"는 재귀 코퍼스 기준이라 틀렸다 — 실제로는 오귀속이 예외가 아니라 다수 케이스다.**
@@ -20,7 +21,9 @@ updated: 2026-08-04
 - 2026-08-04: **전제 재실증**(13일 경과 검증). 이 세션 파일 `03f014b5….jsonl` 이 worktree 폴더에 있는데 121줄 중 45줄의 `cwd` 가 main — 폴더 단위 귀속이면 main 시간이 worktree 로 계상된다(결과 ① 재현). `drop-codegraph`·`risk-based-approval`·`rtk-rewrite-guard` slug 폴더는 jsonl 0개(세션이 떠남). `session_time.py` 모듈 docstring 은 여전히 "worktree 에서 실행하면 그 worktree 세션들만 잡힌다"는 틀린 전제를 명시 → 미해결 확인.
 
 # Next
-**구현 1/7 완료** (`a10a433`). 다음 액션: **순서 2단계** — `parse_message_events` 가 `(t, role, cwd)` 를 반환하도록 바꾸고, 단일 cwd fixture 회귀를 테스트로 고정(Red 먼저).
+**구현 1~4/7 완료** (`a10a433`, `96de12f`) — 측정 로직 완성, CLI 미연결이라 기존 동작 불변. code-reviewer(+codex) 진행 중.
+
+다음 액션: 리뷰 지적 처분 후 **순서 5단계** — 단일 패스 스캔으로 `process()` 재구성, dead/unmatched 표시(폐기량·미매칭 시간·main 기여 서브루트 목록 포함), `--all` 5초 실측. 그 뒤 6단계(등록 게이트), 7단계(CI·문서).
 
 ---
 2차 plan-review CONDITIONAL → blocker 4건(B1 repo 소속 선검증 / B2 최심 후보 선택 / B3 코퍼스 정정 / B4 등록 원자성) 을 `# Decisions`·`# Acceptance` 에 반영 완료. **구현 착수 가능.**
