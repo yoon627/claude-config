@@ -22,7 +22,17 @@ updated: 2026-08-04
 
 # Next
 
-구현 착수 전 `# Decisions` 의 A안(스크립트 분리) 확정 여부 결정. 그 뒤 TDD 로 판정 로직 작성.
+열린 질문 2건 종결(A안 확정 · dirty 게이트 제거). plan-reviewer 진행 중 — 지적 처분 후 TDD:
+`scripts/pull-claude-config.js`(신규) + `scripts/pull-claude-config.test.js` 로 **분기별 사유 출력부터**
+Red 확인.
+
+**테스트 전략은 선례를 그대로 미러링한다**(`session-brief.test.js`·`dlc-evidence-ledger.test.js`):
+`fs.mkdtempSync` + `git init` 으로 **실제 git fixture** 를 만들고 `spawnSync` 로 스크립트를 돌려
+stdout 을 관찰한다. 대상 repo 주입은 `CLAUDE_BRIEF_REPO` 선례를 따라 **`CLAUDE_PULL_REPO` env
+override**(미지정 시 `~/.claude`). CI 결정성을 위해 `GIT_DIR`/`GIT_WORK_TREE`/`GIT_INDEX_FILE`
+스크럽 + `commit.gpgsign=false` 도 선례대로 넣는다.
+
+이어받기: `/wt pull-hook-skip-reason` → `/c`.
 
 # Decisions
 
