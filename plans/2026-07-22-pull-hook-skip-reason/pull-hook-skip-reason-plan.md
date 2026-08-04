@@ -19,6 +19,7 @@ updated: 2026-08-04
 - 2026-08-04 13일 방치 후 재개. worktree 재생성(`origin/pull-hook-skip-reason` 체크아웃), `origin/main` merge(`97a7452`)로 base 39커밋 지연 해소. **훅 명령이 plan 스냅샷과 문자 그대로 일치함을 확인**(`settings.json` `hooks.SessionStart[0][0]`, 526자) — plan 은 stale 하지 않다. PR 없음, plan-lint 통과.
 - 2026-08-04 **A안 확정** — `scripts/*.js` + `node --check` + Unit tests 가 이 repo 의 정착된 훅 진입점 패턴이고(`lint.yml` 에 스크립트 14개 등록), Acceptance #5 도 그 형태를 요구한다. B안(인라인 유지) 폐기.
 - 2026-08-04 **plan-review CONDITIONAL**(claude plan-reviewer + codex medium 병행), blocker 4건. 메인이 직접 확인한 것: ① 훅에 **`"async": true`, `"timeout": 30`** 이 있는데 plan 스냅샷이 통째로 누락했다 — 앞선 "훅이 plan 과 문자 그대로 일치" 확인은 `command` **문자열**만 본 것이라 불완전했다. 같은 그룹 `session-brief.js` 는 async 없이 동기이고 그 파일 8번 줄이 `동기 hook(async 면 stdout 이 첫 턴 후 도달)` 을 계약으로 명시 → **이유를 출력해도 세션 시작 시점엔 안 보일 수 있다**(Goal 미달성 위험). ② `CLAUDE_AUTOPULL_OFF` 는 `install-hooks.sh/.ps1`(post-checkout)에만 존재 → **SessionStart pull 은 이 스위치로 안 꺼진다**(기존 불일치). ③ `# Key Files` 가 인용한 `plans/2026-05-13-track-settings-json/` 은 **실존하지 않는다**(`ls`·`git log --all --diff-filter=A` 모두 무결과).
+- 2026-08-04 **push + PR #117 생성, CI(lint) 통과**. 코드 작업 완료 — 남은 것은 Acceptance 9(새 세션 1회 육안 확인)뿐.
 - 2026-08-04 **code-review 지적 수정 완료** (`f2bccef`). CONFIRMED Major 3건을 메인이 전부 재현 후 수정.
   - **C1 (핵심)**: 폴백 문장이 diverge·rebase 중·`CLAUDE_AUTOPULL_OFF`·`master` 를 전부 "네트워크 실패였다면 다음 세션에 재시도"로 **오진**했다(4종 재현 확인). 이 신호가 없애려던 실패 모드를 문장만 바꿔 재생산한 것이고, `# Acceptance` 1번이 요구한 "ff 불가(diverge) 별도 사유"도 누락돼 있었다 → 훅이 pull 을 포기하는 순서대로 분기, 미해당이면 원인 단정 금지("원인 미확인"). 훅이 `grep -qx main` 이라 **master 도 skip** 임을 반영.
   - **C2**: ⓝ3 이 tracked 수정을 덮는 것처럼 읽히지만 실제로는 **untracked 경로만** 검증(`reset --hard` 로 파일이 사라지므로) → `diff`/`diff --cached` 두 소스가 미검증이었다. `behindRepo(n, {touchBase})` 추가로 사고 원본 경로 + 오진 4원인 + 폴백 + cap 회귀를 덮음(8→16개).
@@ -43,7 +44,7 @@ updated: 2026-08-04
 자체로는 신호 검증이 안 되므로, 굳이 확인하려면 main worktree 에서 `git reset --hard HEAD~1` 없이
 `git fetch` 만 해 origin/main 을 앞세운 뒤 새 세션을 열면 된다).
 
-그 뒤 push·PR.
+push·PR 은 완료 — **PR #117**, CI(lint) 통과. Acceptance 9 를 확인하면 머지 가능.
 
 ---
 (완료된 착수 순서)
