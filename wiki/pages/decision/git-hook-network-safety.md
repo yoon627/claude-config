@@ -13,6 +13,7 @@ main-autopull(post-checkout 자동 ff, PR #82)에서 도출. git 클라이언트
 ## 1. 훅은 동기·무timeout — checkout 을 hang 시킬 수 있다
 git `post-checkout`(및 대부분의 클라이언트 훅)은 **동기 실행**이고 git 은 훅이 끝날 때까지 무한 대기하며 **자체 timeout 수단이 없다**. 훅 안의 `git pull` 이 죽은 네트워크(DNS/TCP/TLS connect blackhole)나 자격증명 프롬프트에 걸리면 `git checkout` 이 수 초~수십 초 hang 된다(브랜치 전환은 이미 끝났고 pull 만 매달림 — Ctrl-C 로 회복은 되나 "never blocks" 계약 파손).
 - **`settings.json` 의 SessionStart 훅에는 이 문제가 없다** — 하니스가 `async:true`+`timeout` 으로 감싸 강제 종료하기 때문. **git 클라이언트 훅에는 그 안전망이 없다** — 스스로 상한을 걸어야 한다.
+- **다만 `async:true` 는 공짜가 아니다 (2026-08-04 추가)** — async 훅의 stdout 은 **첫 턴 이후에야 도달**한다(`scripts/session-brief.js` 상단 계약). 즉 hang 안전을 얻는 대신 **그 훅은 세션 시작 시점에 사용자에게 말할 수 없다**. 그래서 "자동 pull 이 왜 밀렸나" 같은 *시작 시점에 알아야 하는* 정보는 async 훅에 두면 안 되고, 동기 훅(`session-brief`)이 로컬 상태로 판정해 말해야 한다. **일반화: 네트워크는 async 로, 사용자에게 보여야 할 판정은 동기로 나눈다.** 동기로 바꿔 해결하려 들면 위 hang 안전망을 스스로 재구현해야 한다(그게 이 페이지의 §1).
 - **macOS 는 GNU `timeout(1)`/`gtimeout` 이 기본 부재** → `timeout 20 git pull` 식 래핑이 stock macOS 에서 dead. `http.lowSpeedLimit/Time` 은 *전송 중 stall* 만 끊고 connect 단계는 못 막으며 SSH 엔 무의미.
 
 **대응(병행)**:
