@@ -14,16 +14,103 @@ Claude·Codex 모두 cwd(worktree 포함)별로 세션 로그를 남긴다(Claud
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, tzinfo
-from pathlib import Path
+from enum import Enum
+from pathlib import Path, PurePath
 
 from ._sessionio import iter_jsonl_timestamped, mtime
 from .codex_session import codex_events, find_codex_session_files
 from .worklog_core import DayWorklog
 
 _Interval = tuple[datetime, datetime]
+
+# worktree 는 `<root>/.claude/worktrees/<name>` 에 만들어진다(skills/wt/SKILL.md).
+# 삭제된 worktree 는 `git worktree list` 에 없으므로 이 규약으로 이름을 되살린다.
+_WORKTREES_SEGMENTS = (".claude", "worktrees")
+
+
+class BucketKind(Enum):
+    """cwd 가 귀속되는 단위."""
+
+    LIVE = "live"  # 현존하는 worktree
+    DEAD = "dead"  # 삭제됐지만 경로 규약으로 이름을 복원한 worktree
+    MAIN = "main"  # repo 루트 (어떤 worktree 에도 속하지 않음)
+    UNMATCHED = "unmatched"  # repo 밖 (타 repo·홈 등)
+
+
+@dataclass(frozen=True)
+class Bucket:
+    """귀속 단위. ``kind`` 로 등록 가능 여부를 판정한다(이름만으로 구분하면 샌다)."""
+
+    kind: BucketKind
+    name: str | None = None
+
+    @property
+    def registrable(self) -> bool:
+        return self.kind is BucketKind.LIVE
+
+
+_UNMATCHED = Bucket(BucketKind.UNMATCHED)
+
+
+def _normalized(path: str | Path) -> PurePath:
+    """비교용 정규화: 절대경로 + 플랫폼별 대소문자 정규화.
+
+    ``resolve()`` 로 symlink(``/tmp`` → ``/private/tmp``)를, ``normcase`` 로 Windows·APFS
+    의 대소문자 차이를 흡수한다. 존재하지 않는 경로도 다뤄야 하므로 strict 는 쓰지 않는다.
+    """
+    return PurePath(os.path.normcase(str(Path(path).resolve())))
+
+
+def _dead_worktree_name(cwd: PurePath, root: PurePath) -> str | None:
+    """`<root>/.claude/worktrees/<name>` 규약에서 worktree 이름을 복원한다.
+
+    중첩 worktree 가 있으므로 **마지막** 출현을 기준으로 삼는다 — 그래야 하위 worktree 가
+    상위 이름으로 잘못 복원되지 않는다.
+    """
+    parts = cwd.relative_to(root).parts
+    last = None
+    for i in range(len(parts) - len(_WORKTREES_SEGMENTS)):
+        if parts[i:i + len(_WORKTREES_SEGMENTS)] == _WORKTREES_SEGMENTS:
+            last = i + len(_WORKTREES_SEGMENTS)
+    if last is None or last >= len(parts):
+        return None
+    return parts[last]
+
+
+def classify_cwd(cwd: str | Path | None, root: str | Path, live_worktrees) -> Bucket:
+    """세션 줄의 cwd 를 귀속 bucket 으로 분류한다.
+
+    조상 폴백을 하지 않는 것이 핵심이다. main 은 모든 worktree 의 조상이면서 자신도
+    worktree 목록에 있으므로, 매칭 실패를 조상으로 흘려보내면 삭제된 worktree 의 시간이
+    통째로 main 에 흡수된다(실측 3.5배 과다).
+    """
+    if cwd is None:
+        return _UNMATCHED
+    target = _normalized(cwd)
+    repo_root = _normalized(root)
+    if not target.is_relative_to(repo_root):
+        return _UNMATCHED
+
+    deepest = max(
+        (
+            candidate
+            for worktree in live_worktrees
+            if (candidate := _normalized(worktree)) != repo_root
+            and target.is_relative_to(candidate)
+        ),
+        key=lambda p: len(p.parts),
+        default=None,
+    )
+    dead_name = _dead_worktree_name(target, repo_root)
+    if dead_name is not None and (deepest is None or deepest.name != dead_name):
+        return Bucket(BucketKind.DEAD, dead_name)
+    if deepest is not None:
+        return Bucket(BucketKind.LIVE, deepest.name)
+    return Bucket(BucketKind.MAIN)
 
 
 @dataclass(frozen=True)
