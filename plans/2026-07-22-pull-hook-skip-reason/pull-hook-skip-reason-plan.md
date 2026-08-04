@@ -19,6 +19,12 @@ updated: 2026-08-04
 - 2026-08-04 13일 방치 후 재개. worktree 재생성(`origin/pull-hook-skip-reason` 체크아웃), `origin/main` merge(`97a7452`)로 base 39커밋 지연 해소. **훅 명령이 plan 스냅샷과 문자 그대로 일치함을 확인**(`settings.json` `hooks.SessionStart[0][0]`, 526자) — plan 은 stale 하지 않다. PR 없음, plan-lint 통과.
 - 2026-08-04 **A안 확정** — `scripts/*.js` + `node --check` + Unit tests 가 이 repo 의 정착된 훅 진입점 패턴이고(`lint.yml` 에 스크립트 14개 등록), Acceptance #5 도 그 형태를 요구한다. B안(인라인 유지) 폐기.
 - 2026-08-04 **plan-review CONDITIONAL**(claude plan-reviewer + codex medium 병행), blocker 4건. 메인이 직접 확인한 것: ① 훅에 **`"async": true`, `"timeout": 30`** 이 있는데 plan 스냅샷이 통째로 누락했다 — 앞선 "훅이 plan 과 문자 그대로 일치" 확인은 `command` **문자열**만 본 것이라 불완전했다. 같은 그룹 `session-brief.js` 는 async 없이 동기이고 그 파일 8번 줄이 `동기 hook(async 면 stdout 이 첫 턴 후 도달)` 을 계약으로 명시 → **이유를 출력해도 세션 시작 시점엔 안 보일 수 있다**(Goal 미달성 위험). ② `CLAUDE_AUTOPULL_OFF` 는 `install-hooks.sh/.ps1`(post-checkout)에만 존재 → **SessionStart pull 은 이 스위치로 안 꺼진다**(기존 불일치). ③ `# Key Files` 가 인용한 `plans/2026-05-13-track-settings-json/` 은 **실존하지 않는다**(`ls`·`git log --all --diff-filter=A` 모두 무결과).
+- 2026-08-04 **code-review 지적 수정 완료** (`f2bccef`). CONFIRMED Major 3건을 메인이 전부 재현 후 수정.
+  - **C1 (핵심)**: 폴백 문장이 diverge·rebase 중·`CLAUDE_AUTOPULL_OFF`·`master` 를 전부 "네트워크 실패였다면 다음 세션에 재시도"로 **오진**했다(4종 재현 확인). 이 신호가 없애려던 실패 모드를 문장만 바꿔 재생산한 것이고, `# Acceptance` 1번이 요구한 "ff 불가(diverge) 별도 사유"도 누락돼 있었다 → 훅이 pull 을 포기하는 순서대로 분기, 미해당이면 원인 단정 금지("원인 미확인"). 훅이 `grep -qx main` 이라 **master 도 skip** 임을 반영.
+  - **C2**: ⓝ3 이 tracked 수정을 덮는 것처럼 읽히지만 실제로는 **untracked 경로만** 검증(`reset --hard` 로 파일이 사라지므로) → `diff`/`diff --cached` 두 소스가 미검증이었다. `behindRepo(n, {touchBase})` 추가로 사고 원본 경로 + 오진 4원인 + 폴백 + cap 회귀를 덮음(8→16개).
+  - **C3**: 셸 체인 회귀 테스트 0개(CI 는 `JSON.parse` 만) → `scripts/session-start-pull.test.js` 신규 9케이스, `lint.yml` 양쪽 등록.
+  - 부수: 파일명 `-z` 수신(비ASCII·공백·개행 안전), `LIST_CAP` 분리, 헤더 주석 "세 종"→"네 종", README skip 조건 `master` 명시·부트스트랩 한계 명시.
+  - 검증: 테스트 63개(session-brief 54 + session-start-pull 9), CI 스위트 9종 전부 통과, `node --check`·JSON validation 통과.
 - 2026-08-04 **구현 완료** (`c20c246`) — (c) 안대로 신호 N(`session-brief.js` `autopullStalledLine`) + `settings.json` 체인 교체 + 문서 4곳. TDD Red→Green(신규 테스트 8개, 총 46개 통과), 기존 CI 스위트 7종 회귀 없음, `node --check`·JSON validation 통과.
   - **설계를 성립시킨 실측**: pull 이 로컬 변경 충돌로 거부돼도 **fetch 는 먼저 일어나 `origin/main` ref 가 갱신된다**(9847506→32bfe8c, behind 0→1). 따라서 네트워크 없이 캐시 ref 로 behind 를 재는 신호 N 이 사고를 감지할 수 있다. 이게 거짓이었다면 (c) 안 자체가 무효였다.
   - **테스트가 잡은 내 구현 누락**: 원격이 *새로 추가*하는 파일은 로컬에서 untracked 라 `git diff` 에 안 잡히는데 pull 은 거부된다 → `ls-files --others --exclude-standard` 를 충돌 후보에 추가.
@@ -28,14 +34,16 @@ updated: 2026-08-04
 
 # Next
 
-**구현 완료** (`c20c246`) — code-reviewer(+codex) 진행 중. 지적 처분 후 남는 것: Acceptance #9(새 세션
-1회 실측으로 신호 N 이 세션 시작에 실제로 보이는지 눈으로 확인 — 이 세션에서는 불가, 다음 세션 첫
-화면에서 확인) → 그 뒤 push·PR.
+**구현 + code-review 수정 완료** (`c20c246`, `f2bccef`). 코드 작업은 끝났다.
 
-**메인이 이미 확인한 잠재 결함 1건**(리뷰 결과와 함께 처분): `core.quotePath` 기본값 탓에 비ASCII
-경로가 `"\355\225\234…"` 로 이스케이프돼 **표시가 깨진다**(교집합 매칭은 양쪽이 같은 형식이라 무사).
-현재 이 repo 엔 비ASCII 추적 파일 0개라 잠재적이지만, 한국어 파일명이 생기면 바로 드러난다 →
-`-c core.quotePath=false` 로 처리 예정.
+**남은 것 1건 — `# Acceptance` 9 (이 세션에서 수행 불가)**: 신호 N 이 **세션 시작 시점에 실제로
+보이는지** 새 세션 1회로 눈 확인. 지금 repo 는 최신이라 무음이 정상이고, 훅 출력은 세션이 시작될 때만
+나오므로 현재 세션에서는 관찰할 수 없다. **확인 방법**: 다음 세션을 열었을 때 `~/.claude` 가 뒤처져
+있으면 첫 화면에 `~/.claude N커밋 뒤처짐 — …` 이 뜨는지 본다(뒤처지지 않았다면 무음이 정상 — 그
+자체로는 신호 검증이 안 되므로, 굳이 확인하려면 main worktree 에서 `git reset --hard HEAD~1` 없이
+`git fetch` 만 해 origin/main 을 앞세운 뒤 새 세션을 열면 된다).
+
+그 뒤 push·PR.
 
 ---
 (완료된 착수 순서)
