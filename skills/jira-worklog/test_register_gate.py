@@ -87,6 +87,46 @@ class PlanTest(unittest.TestCase):
         self.assertEqual(p.rival_worktrees, ("CSTP1-1234-beta",))
 
 
+class PreconditionTest(unittest.TestCase):
+    """upsert 가 던지는 조건은 **계획 단계에서** 잡아야 한다.
+
+    mutation 루프에서 처음 터지면 앞 날짜는 이미 Jira 에 쓰인 뒤라 부분 등록이 남는다.
+    """
+
+    def test_legacy_marker_aborts_before_any_write(self):
+        from jira_kit.markers import legacy_worklog_marker
+
+        existing = [worklog(legacy_worklog_marker(TICKET, DAY), 600)]
+        with self.assertRaises(JiraError):
+            plan_worklog_changes(TICKET, WT, [day_worklog(600)], existing, ME)
+
+    def test_duplicate_marker_aborts(self):
+        marker = worklog_marker(TICKET, DAY, WT)
+        existing = [worklog(marker, 600, wid="1"), worklog(marker, 900, wid="2")]
+        with self.assertRaises(JiraError):
+            plan_worklog_changes(TICKET, WT, [day_worklog(600)], existing, ME)
+
+    def test_missing_worklog_id_aborts_when_update_needed(self):
+        existing = [worklog(worklog_marker(TICKET, DAY, WT), 600, wid="1")]
+        del existing[0]["id"]
+        with self.assertRaises(JiraError):
+            plan_worklog_changes(TICKET, WT, [day_worklog(1200)], existing, ME)
+
+    def test_later_day_precondition_blocks_earlier_day_too(self):
+        # 핵심: 2일차가 막히면 1일차도 쓰이지 않아야 한다.
+        from jira_kit.markers import legacy_worklog_marker
+
+        d1, d2 = date(2026, 8, 3), date(2026, 8, 4)
+        existing = [
+            worklog(worklog_marker(TICKET, d1, WT), 600, wid="1"),
+            worklog(legacy_worklog_marker(TICKET, d2), 600, wid="2"),
+        ]
+        with self.assertRaises(JiraError):
+            plan_worklog_changes(
+                TICKET, WT, [day_worklog(700, d1), day_worklog(700, d2)], existing, ME
+            )
+
+
 class GateTest(unittest.TestCase):
     def existing_update(self, old: int, new: int):
         existing = [worklog(worklog_marker(TICKET, DAY, WT), old)]

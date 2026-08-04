@@ -81,17 +81,33 @@ def plan_worklog_changes(
     plans = []
     for day in days:
         marker = worklog_marker(ticket, day.day, worktree)
+        # upsert 의 사전 검사를 **여기서 먼저** 한다. mutation 단계에서 처음 터지면 앞 날짜는
+        # 이미 Jira 에 쓰인 뒤라 all-or-nothing 이 깨지고, diff 도 그 날짜를 created 로 잘못 보인다.
+        legacy = _mine(existing_worklogs, legacy_worklog_marker(ticket, day.day), my_account_id)
+        if legacy:
+            ids = ", ".join(str(w.get("id")) for w in legacy)
+            raise JiraError(
+                f"worktree 없는 구 형식 worklog {len(legacy)}건 ({ticket} {day.day}: {ids}) — "
+                f'귀속 worktree 를 알 수 없어 중단. 마커 줄을 정확히 "{marker}" 로 바꾸면 이 '
+                f"worktree 항목으로 흡수된다(시간은 이번 계산값으로 치환)"
+            )
         mine = _mine(existing_worklogs, marker, my_account_id)
+        if len(mine) > 1:
+            ids = ", ".join(str(w.get("id")) for w in mine)
+            raise JiraError(
+                f"worklog 마커 중복 {len(mine)}건 ({ticket} {day.day} {worktree}: {ids}) — 수동 정리 필요"
+            )
         seconds = max(day.seconds, MIN_SECONDS)
         rivals = _rival_worktrees(existing_worklogs, ticket, day.day, worktree, my_account_id)
         if not mine:
             plans.append(PlannedChange(day, "created", seconds, rival_worktrees=rivals))
             continue
         old = mine[0].get("timeSpentSeconds")
+        worklog_id = mine[0].get("id")
+        if old != seconds and not worklog_id:
+            raise JiraError(f"worklog id 없음 ({ticket} {day.day}) — 갱신 불가")
         action = "unchanged" if old == seconds else "updated"
-        plans.append(
-            PlannedChange(day, action, seconds, old, mine[0].get("id"), rivals)
-        )
+        plans.append(PlannedChange(day, action, seconds, old, worklog_id, rivals))
     return plans
 
 
