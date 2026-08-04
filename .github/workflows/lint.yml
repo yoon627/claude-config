@@ -53,6 +53,12 @@ jobs:
           node scripts/install-hooks.test.js
           node scripts/plan-lint.test.js
 
+      - name: Python unit tests
+        run: |
+          python3 skills/jira-worklog/test_session_time.py
+          python3 skills/jira-worklog/test_worklog_scope.py
+          python3 skills/jira-worklog/test_register_gate.py
+
       - name: Plan integrity (changed plans, non-blocking)
         if: github.event_name == 'pull_request'
         continue-on-error: true

@@ -10,8 +10,10 @@ worklog 만** 대상으로 삼아 타인의 worklog 를 덮지 않는다(get_mys
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from .jira_client import JiraConfig, JiraError, add_worklog, update_worklog
-from .markers import find_worklogs_by_marker, legacy_worklog_marker, worklog_marker
+from .markers import adf_lines, find_worklogs_by_marker, legacy_worklog_marker, worklog_marker
 from .worklog_core import DayWorklog
 
 
@@ -20,6 +22,106 @@ def _mine(worklogs: list[dict], marker: str, my_account_id: str) -> list[dict]:
         w for w in find_worklogs_by_marker(worklogs, marker)
         if isinstance(w.get("author"), dict) and w["author"].get("accountId") == my_account_id
     ]
+
+
+MIN_SECONDS = 60  # Jira 최소 기록 단위 — 비교는 이 하한을 적용한 뒤에 한다
+
+
+@dataclass(frozen=True)
+class PlannedChange:
+    """등록 전에 계산한 변경 1건. mutation 없이 diff·게이트 판정에 쓴다."""
+
+    day: DayWorklog
+    action: str  # created | updated | unchanged
+    new_seconds: int
+    old_seconds: int | None = None
+    worklog_id: str | None = None
+    rival_worktrees: tuple[str, ...] = ()  # 같은 (ticket,날짜)의 내 **다른** worktree 마커
+
+    @property
+    def delta(self) -> int:
+        return self.new_seconds - (self.old_seconds or 0)
+
+
+def _rival_worktrees(worklogs: list[dict], ticket: str, day, worktree: str, me: str) -> tuple[str, ...]:
+    """같은 (ticket, 날짜)에 달린 **내** worklog 중 다른 worktree 마커의 이름들.
+
+    worktree 를 rename 하면 마커가 안 잡혀 `created` 로 새 항목이 생기고, old 가 없으니 감소
+    게이트도 침묵한다 — 결과는 조용한 이중계상이다. 그 신호가 이 목록이다.
+    """
+    prefix = legacy_worklog_marker(ticket, day) + " ("
+    mine_marker = worklog_marker(ticket, day, worktree)
+    found = []
+    for w in worklogs:
+        if not (isinstance(w.get("author"), dict) and w["author"].get("accountId") == me):
+            continue
+        if w.get("comment") is None:
+            continue
+        for line in adf_lines(w["comment"]):
+            line = line.strip()
+            if line.startswith(prefix) and line.endswith(")") and line != mine_marker:
+                found.append(line[len(prefix):-1])
+    return tuple(sorted(set(found)))
+
+
+def plan_worklog_changes(
+    ticket: str,
+    worktree: str,
+    days: list[DayWorklog],
+    existing_worklogs: list[dict],
+    my_account_id: str | None,
+) -> list[PlannedChange]:
+    """전 날짜의 변경을 **먼저 전부** 계산한다(mutation 없음).
+
+    날짜 루프 안에서 곧바로 upsert 하면 뒷 날짜가 게이트에 걸려도 앞 날짜는 이미 Jira 에 반영된
+    채 중단된다 — Jira 쓰기는 코드 revert 로 되돌릴 수 없으므로 all-or-nothing 이어야 한다.
+    """
+    if not my_account_id:
+        raise JiraError("현재 사용자 accountId 확인 불가 — 등록 계획 중단(오귀속 방지)")
+    plans = []
+    for day in days:
+        marker = worklog_marker(ticket, day.day, worktree)
+        mine = _mine(existing_worklogs, marker, my_account_id)
+        seconds = max(day.seconds, MIN_SECONDS)
+        rivals = _rival_worktrees(existing_worklogs, ticket, day.day, worktree, my_account_id)
+        if not mine:
+            plans.append(PlannedChange(day, "created", seconds, rival_worktrees=rivals))
+            continue
+        old = mine[0].get("timeSpentSeconds")
+        action = "unchanged" if old == seconds else "updated"
+        plans.append(
+            PlannedChange(day, action, seconds, old, mine[0].get("id"), rivals)
+        )
+    return plans
+
+
+def gate_reasons(
+    changes: list[PlannedChange], *, ratio: float = 0.5, floor_seconds: int = 1800
+) -> list[str]:
+    """등록을 막아야 할 이유들(빈 리스트면 통과). **순수 함수** — 네트워크·상태 없음.
+
+    ① 큰 폭 변동은 **증가·감소 양쪽** 모두 막는다. 이번 변경의 정상 방향은 과다분 감소지만,
+       매핑 버그의 대표 증상도 과다 흡수라 방향만으로는 구분되지 않는다. billable 에서는 과다
+       등록이 과소보다 위험하다.
+    ② rename 으로 마커를 놓쳐 새 항목을 만드는 경우 — old 가 없어 ①이 침묵하는 사각지대다.
+    비율과 절대값을 **둘 다** 넘을 때만 막는다(작은 값의 큰 비율 변동으로 매번 걸리지 않게).
+    """
+    reasons = []
+    for c in changes:
+        if c.action == "updated" and c.old_seconds:
+            delta = abs(c.delta)
+            if delta >= floor_seconds and delta / c.old_seconds > ratio:
+                direction = "증가" if c.delta > 0 else "감소"
+                reasons.append(
+                    f"{c.day.day}: {c.old_seconds // 60}m → {c.new_seconds // 60}m "
+                    f"({direction} {delta // 60}m)"
+                )
+        if c.action == "created" and c.rival_worktrees:
+            reasons.append(
+                f"{c.day.day}: 같은 날 내 다른 worktree 항목({', '.join(c.rival_worktrees)})이 "
+                f"있는데 이 worktree 마커는 없음 — rename 이면 새로 만들면 이중계상"
+            )
+    return reasons
 
 
 def upsert_worklog(
@@ -61,7 +163,7 @@ def upsert_worklog(
             f"이중계상된다"
         )
     mine = _mine(existing_worklogs, marker, my_account_id)
-    seconds = max(day.seconds, 60)
+    seconds = max(day.seconds, MIN_SECONDS)
 
     if len(mine) > 1:
         ids = ", ".join(str(w.get("id")) for w in mine)

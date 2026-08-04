@@ -325,7 +325,11 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 ### skills/jira-worklog/ — worktree 작업시간 → Jira worklog
 
-worktree 의 AI 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex/sessions`)에서 AI 가 실제 작업한 시간(사용자 응답 대기·긴 공백 제외)을 날짜별로 추정해 Jira worklog 에 기록. stdlib only(설치 불필요), 기본은 미리보기(dry-run)이고 실제 등록은 `--register`. `/e` 5단계가 마무리 시 호출한다.
+AI 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex/sessions`)에서 AI 가 실제 작업한 시간(사용자 응답 대기·긴 공백 제외)을 날짜별로 추정해 Jira worklog 에 기록. stdlib only(설치 불필요), 기본은 미리보기(dry-run)이고 실제 등록은 `--register`. `/e` 5단계가 마무리 시 호출한다.
+- **귀속은 줄 단위 `cwd` 기준**(폴더 아님). Claude 세션 파일은 cwd 를 따라 slug 폴더를 **이동**하므로 파일 위치로 귀속하면 오간 세션의 시간이 마지막 위치 한 곳으로 몰린다(실측상 다중 cwd 파일이 다수 — 예외가 아니라 기본 케이스). 이벤트마다 cwd 를 읽어 bucket(live/dead/main/unmatched)으로 나누고, **인접 이벤트 쌍의 bucket 이 같을 때만** 구간을 발행한다(bucket 별로 먼저 거르면 A→B→A 왕복이 A 를 가로질러 이어붙어 이중계상). 코퍼스는 **한 번만** 스캔한다(worktree 마다 재스캔하면 N배).
+- **삭제된 worktree**: `<root>/.claude/worktrees/<name>` 규약으로 이름을 복원해 **표시만** 하고 등록하지 않는다. 등록 가능 여부는 이름이 아니라 `Bucket.kind` 로 판정한다 — 죽은 worktree 이름이 티켓형(`CSTP1-…`)이면 이름 기준 필터로는 샌다. main 은 모든 worktree 의 조상이라 **조상 폴백을 하지 않는다**(하면 삭제된 worktree 시간이 통째로 main 에 흡수된다).
+- **Codex 는 파일 단위 귀속** — rollout 전수에서 세션 중 cwd 이동이 0건이라 나눌 것이 없다. 단 Codex 는 cwd **정확일치**라 worktree 하위 디렉토리에서 시작한 세션은 누락된다(Claude 쪽은 하위 포함) — 두 소스 기준이 비대칭.
+- **등록 게이트(all-or-nothing)**: 전 날짜 `old → new` diff 출력 후, 30분 이상 & 50% 초과 변동(**증가·감소 양쪽**)이나 rename 의심(같은 날 내 다른 worktree 항목 존재 + 이 마커 없음)이면 **한 건도 쓰지 않고** 중단. `--allow-large-change` 로 진행하며, 직전 값·worklog id 는 `~/.claude/logs/jira-worklog-<날짜>.jsonl` 에 남는다(Jira 쓰기는 code revert 로 복구 불가).
 - 대상 티켓은 **worktree 디렉토리 이름 prefix**(anchored)에서 우선 추출, 없으면 브랜치명 fallback. 어느 쪽에도 없으면 등록 skip(안전).
 - **worklog 항목은 worktree 단위**: 마커 `[jira-kit] worklog <티켓> <날짜> (<worktree>)` 로 그 worktree 의 그날 항목만 upsert 한다(멱등). 같은 티켓을 `CSTP1-1234-abc`/`-def` 여러 worktree 에서 작업하면 항목이 각각 생기고 **티켓 총 작업시간은 Jira 가 합산** — 나중 등록이 이전 worktree 시간을 덮지 않는다. 병렬로 돌린 구간은 양쪽에 잡혀 합계가 실제 경과시간보다 커진다.
 - 마커 매칭은 ADF **줄 정확일치** — 부분문자열이면 사용자 `--comment` 본문이나 Jira UI 편집 텍스트에 마커가 섞인 항목을 자기 것으로 오인한다. 반대로 마커를 **놓치면** 새 항목이 생겨 조용히 이중계상되므로, 줄 추출은 UI 편집이 만드는 `hardBreak`·`codeBlock`·`heading`·앞뒤 공백까지 흡수한다.
@@ -564,7 +568,9 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │       ├── SKILL.md                # worktree AI 작업시간 → Jira worklog (dry-run 기본)
 │       ├── jira_worklog.py         # CLI 진입점 (stdlib only)
 │       ├── jira_kit/               # 세션시간 추정·마커·Jira REST·설정 모듈
-│       └── test_worklog_scope.py   # worktree 단위 upsert 격리 테스트 (수동 실행)
+│       ├── test_worklog_scope.py   # worktree 단위 upsert 격리 테스트 (CI)
+│       ├── test_session_time.py    # cwd → bucket 귀속·구간 발행 테스트 (CI)
+│       └── test_register_gate.py   # 등록 diff·게이트 판정 테스트 (CI)
 ├── scripts/
 │   ├── notify-hook.js              # notify 진입점 (cross-platform; mac 인라인, win→.ps1 위임)
 │   ├── notify.ps1                  # (Windows) Toast + 사운드 + flash

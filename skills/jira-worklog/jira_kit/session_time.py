@@ -1,10 +1,14 @@
 """AI 세션 작업시간 측정 (Claude·Codex 세션 로그 기반, stdlib only).
 
-Claude·Codex 모두 cwd(worktree 포함)별로 세션 로그를 남긴다(Claude 는 slug 디렉토리
-``~/.claude/projects/<slug>/``, Codex 는 ``~/.codex/sessions`` 아래 rollout 파일의
-``session_meta.cwd``). 그래서 **worktree 에서 실행하면 그 worktree 세션들만** 잡혀 worktree↔
-티켓 매핑이 자동으로 된다(worktree 이름/브랜치명에서 티켓 추출). ``discover_sessions`` 가 두 소스를 한 번에
-발견하고, 시간은 union 한다. 소스별 파싱은 Claude 는 이 모듈, Codex 는 ``codex_session`` 이 담당한다.
+**귀속은 폴더가 아니라 줄 단위 ``cwd`` 로 한다.** Claude 세션 파일은 세션 중 cwd 가 바뀌면
+slug 폴더를 **따라 이동**하므로(복사가 아니라 이동), 파일이 놓인 폴더로 귀속하면 한 세션이 여러
+worktree 를 오갔을 때 시간이 마지막 위치 한 곳으로 몰린다. 실측상 다중 cwd 파일이 다수라
+예외가 아니라 기본 케이스다. 그래서 이벤트마다 ``cwd`` 를 읽어 ``classify_cwd`` 로 bucket 을
+정하고, **인접 이벤트 쌍의 bucket 이 같을 때만** 구간을 발행한다.
+
+Codex 는 다르다 — rollout 전수에서 cwd 가 2개 이상인 파일이 0건이라 세션 중 이동이 없고,
+``session_meta``/``turn_context`` 의 cwd 로 파일 단위 귀속이 무손실이다(``codex_session``).
+두 소스의 구간은 **날짜 분할 전에** union 한다.
 
 각 세션의 user/assistant 메시지 timestamp 로 '실제 AI 가 작업한 구간'을 뽑는다:
 연속 이벤트 gap 중 **진짜 사용자 입력 직전 gap(대기)** 과 **max_gap 초과 gap(중단)** 은 제외한다.

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """AI 세션 로그 기반 AI 작업시간을 Jira worklog 로 등록/미리보기하는 CLI.
 
-그 worktree 의 세션 로그(Claude ``~/.claude/projects/<slug>`` + Codex ``~/.codex/sessions``)
-에서 AI 가 실제 작업한 시간(사용자 응답 대기·긴 공백 제외)을 날짜별로 추정한다. 두 소스가 다
-있으면 시간을 union 한다. 어느 소스도 세션이 없으면 '세션 활동 없음'. 기본은 미리보기(dry-run).
-실제 등록은 ``--register``.
+세션 로그(Claude ``~/.claude/projects/<slug>`` + Codex ``~/.codex/sessions``)에서 AI 가 실제
+작업한 시간(사용자 응답 대기·긴 공백 제외)을 날짜별로 추정한다. **귀속은 파일이 놓인 폴더가 아니라
+줄 단위 cwd 기준**이다 — 세션 파일이 cwd 를 따라 폴더를 옮겨 다녀, 폴더로 귀속하면 오간 세션의
+시간이 마지막 위치 한 곳으로 몰린다. 코퍼스는 한 번만 스캔해 worktree 별로 나눈다. 삭제된 worktree
+시간은 표시만 하고 등록하지 않는다. 기본은 미리보기(dry-run). 실제 등록은 ``--register`` 이며,
+등록 전 diff·게이트를 거쳐 all-or-nothing 으로 반영한다.
 (ticket, date, worktree) 마커로 **그 worktree 의** 본인 worklog 를 찾아 없으면 생성, 있으면 시간만
 갱신한다(upsert — 재실행 시 skip 아님). 같은 티켓을 여러 worktree 에서 작업하면 worktree 마다
 항목이 따로 생기고 티켓 총 작업시간은 Jira 가 합산한다. 인증·설정은 .env / 환경변수 / jira-kit.toml.
@@ -19,9 +21,10 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import os
 import sys
-from datetime import datetime, tzinfo
+from datetime import date, datetime, tzinfo
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -48,7 +51,11 @@ from jira_kit.session_time import (  # noqa: E402
     worklog_from_intervals,
 )
 from jira_kit.worklog_core import DayWorklog, extract_ticket, format_duration  # noqa: E402
-from jira_kit.worklog_register import upsert_worklog  # noqa: E402
+from jira_kit.worklog_register import (  # noqa: E402
+    gate_reasons,
+    plan_worklog_changes,
+    upsert_worklog,
+)
 
 
 def select_worktrees(name: str | None, all_worktrees: bool) -> list[Worktree]:
@@ -79,8 +86,33 @@ def _ticket_for(wt: Worktree, args: argparse.Namespace, config: Config) -> str |
     return ticket
 
 
+def _write_recovery_log(ticket: str, worktree: str, plans: list) -> None:
+    """등록 직전 값·worklog id 를 파일로 남긴다 — 수동 복구의 유일한 근거다.
+
+    stdout 만이면 `/e` 가 자동 실행할 때 유실된다. 토큰·PII 는 담지 않는다(§8).
+    """
+    try:
+        log_dir = Path.home() / ".claude" / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        path = log_dir / f"jira-worklog-{date.today().isoformat()}.jsonl"
+        with path.open("a", encoding="utf-8") as fh:
+            for p in plans:
+                fh.write(json.dumps({
+                    "ticket": ticket, "worktree": worktree, "day": p.day.day.isoformat(),
+                    "action": p.action, "old_seconds": p.old_seconds,
+                    "new_seconds": p.new_seconds, "worklog_id": p.worklog_id,
+                }, ensure_ascii=False) + "\n")
+    except OSError as exc:  # 로그 실패가 등록을 막지는 않는다
+        print(f"    복구 로그 기록 실패(등록은 진행): {exc}", file=sys.stderr)
+
+
 def _register(
-    config: Config, ticket: str, worktree: str, days: list[DayWorklog], user_comment: str | None
+    config: Config,
+    ticket: str,
+    worktree: str,
+    days: list[DayWorklog],
+    user_comment: str | None,
+    allow_large: bool = False,
 ) -> int:
     """그 worktree 의 날짜별 worklog 를 upsert 한다(insert-once 아님). 실패 건수 반환.
 
@@ -94,6 +126,26 @@ def _register(
     except JiraError as exc:
         print(f"    worklog 조회 실패 → 등록 skip: {exc}", file=sys.stderr)
         return len(days)
+
+    # 전 날짜를 먼저 계산해 diff 를 보이고 게이트를 통과한 뒤에만 쓴다(all-or-nothing).
+    # Jira 쓰기는 코드 revert 로 되돌릴 수 없어 부분 등록이 남으면 수습이 어렵다.
+    try:
+        plans = plan_worklog_changes(ticket, worktree, days, existing, my_account_id)
+    except JiraError as exc:
+        print(f"    등록 계획 실패 → skip: {exc}", file=sys.stderr)
+        return len(days)
+    for p in plans:
+        old = f"{p.old_seconds // 60}m" if p.old_seconds is not None else "없음"
+        print(f"    [{p.action}] {p.day.day} {old} → {p.new_seconds // 60}m")
+    reasons = gate_reasons(plans)
+    if reasons and not allow_large:
+        print("    등록 차단 — 변동이 커서 사람이 한 번 봐야 한다:", file=sys.stderr)
+        for r in reasons:
+            print(f"      {r}", file=sys.stderr)
+        print("    확인했으면 --allow-large-change 로 다시 실행", file=sys.stderr)
+        return len(days)
+
+    _write_recovery_log(ticket, worktree, plans)
     failures = 0
     for day in days:
         try:
@@ -147,7 +199,7 @@ def process(
         print("    티켓 매치 없음 → 등록 skip (--ticket-pattern 또는 worktree 이름/브랜치명 확인)")
         return 0
     if register and config.jira is not None and ticket:
-        return _register(config, ticket, name, days, args.comment)
+        return _register(config, ticket, name, days, args.comment, args.allow_large_change)
     return 0
 
 
@@ -205,6 +257,10 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
                         help="티켓 추출 정규식. 미지정 시 설정값")
     parser.add_argument("--timezone", default=None, help="IANA 타임존(예: Asia/Seoul). 미지정 시 설정값")
     parser.add_argument("--comment", default=None, help="worklog 코멘트(마커와 함께 기록)")
+    parser.add_argument(
+        "--allow-large-change", action="store_true", dest="allow_large_change",
+        help="변동 폭이 커서 차단된 등록을 확인 후 진행",
+    )
     return parser.parse_args(argv)
 
 
