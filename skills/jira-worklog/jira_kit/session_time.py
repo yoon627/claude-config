@@ -169,38 +169,85 @@ def _message_role(obj: dict) -> str | None:
     return None
 
 
-def parse_message_events(jsonl_text: str, tz: tzinfo) -> list[tuple[datetime, str]]:
-    """세션 jsonl 텍스트에서 (시각, role) 이벤트를 시간순으로 뽑는다.
+def parse_message_events(jsonl_text: str, tz: tzinfo) -> list[tuple[datetime, str, str | None]]:
+    """세션 jsonl 텍스트에서 (시각, role, cwd) 이벤트를 시간순으로 뽑는다.
 
     role 은 'user'(진짜 사용자 입력) / 'assistant'(AI 응답 + 도구결과)로 정규화한다.
+    cwd 는 귀속 근거다 — 세션 파일은 cwd 를 따라 폴더를 옮겨 다니므로 파일이 놓인 위치가
+    아니라 줄마다 기록된 cwd 로 나눠야 한다. 결측이면 앞줄에서 물려받지 않고 ``None`` 이다
+    (물려받으면 worktree 경계가 사라져 오귀속이 된다).
     """
-    events: list[tuple[datetime, str]] = []
+    events: list[tuple[datetime, str, str | None]] = []
     for obj, moment in iter_jsonl_timestamped(jsonl_text, tz):
         role = _message_role(obj)
         if role is None:
             continue
-        events.append((moment, role))
+        cwd = obj.get("cwd")
+        events.append((moment, role, cwd if isinstance(cwd, str) and cwd else None))
     events.sort(key=lambda e: e[0])
     return events
 
 
-def ai_intervals(events: list[tuple[datetime, str]], max_gap_minutes: int = 60) -> list[_Interval]:
+def _is_work_gap(prev: tuple, cur: tuple, max_gap: float) -> bool:
+    """인접 두 이벤트 사이가 'AI 작업 구간'인지.
+
+    gap 이 max_gap 초과면 중단, 진짜 사용자 입력 직전(assistant→user)이면 대기 → 둘 다 아님.
+    """
+    gap = (cur[0] - prev[0]).total_seconds()
+    if gap <= 0 or gap > max_gap:
+        return False
+    return not (cur[1] == "user" and prev[1] == "assistant")
+
+
+def ai_intervals(events, max_gap_minutes: int = 60) -> list[_Interval]:
     """이벤트에서 'AI 작업 구간' [prev, cur] 목록을 뽑는다.
 
-    gap 이 max_gap 초과면 중단, 진짜 사용자 입력 직전(assistant→user)이면 대기 → 둘 다 제외.
+    events 는 (시각, role) 또는 (시각, role, cwd) — 3번째 요소는 무시한다. Codex 이벤트는
+    cwd 를 줄 단위로 갖지 않아 2-튜플이라 양쪽을 받는다.
     """
     max_gap = max_gap_minutes * 60
-    intervals: list[_Interval] = []
+    return [
+        (events[i - 1][0], events[i][0])
+        for i in range(1, len(events))
+        if _is_work_gap(events[i - 1], events[i], max_gap)
+    ]
+
+
+@dataclass(frozen=True)
+class AttributionStats:
+    """귀속 과정에서 버린 양 — dry-run 에 노출해 과소계상을 감시한다."""
+
+    boundary_dropped: int = 0
+    boundary_seconds: float = 0.0
+
+
+def bucket_intervals(
+    events: list[tuple[datetime, str, Bucket]], max_gap_minutes: int = 60
+) -> tuple[dict[Bucket, list[_Interval]], AttributionStats]:
+    """bucket 을 단 이벤트에서 bucket 별 작업구간을 뽑는다.
+
+    **인접 쌍의 bucket 이 같을 때만** 구간을 발행한다. bucket 별로 이벤트를 먼저 걸러
+    스트림을 만들면, A→B→A 왕복이 max_gap 안에 들어올 때 A 의 두 이벤트가 B 구간을
+    가로질러 이어져 이중계상된다. 경계 구간은 '이동' 자체라 어느 쪽 것도 아니므로 버리고,
+    버린 양은 통계로 돌려준다.
+
+    호출 측이 **파일별로** 부르는 것을 전제한다(파일 = 독립 세션). 여러 파일 이벤트를 한
+    스트림으로 합치면 서로 다른 세션 사이 공백이 작업시간으로 잡힌다.
+    """
+    max_gap = max_gap_minutes * 60
+    buckets: dict[Bucket, list[_Interval]] = {}
+    dropped = 0
+    dropped_seconds = 0.0
     for i in range(1, len(events)):
-        prev_t, prev_role = events[i - 1]
-        cur_t, cur_role = events[i]
-        gap = (cur_t - prev_t).total_seconds()
-        if gap <= 0 or gap > max_gap:
+        prev, cur = events[i - 1], events[i]
+        if not _is_work_gap(prev, cur, max_gap):
             continue
-        if cur_role == "user" and prev_role == "assistant":
+        if prev[2] != cur[2]:
+            dropped += 1
+            dropped_seconds += (cur[0] - prev[0]).total_seconds()
             continue
-        intervals.append((prev_t, cur_t))
-    return intervals
+        buckets.setdefault(prev[2], []).append((prev[0], cur[0]))
+    return buckets, AttributionStats(dropped, dropped_seconds)
 
 
 def merge_intervals(intervals: list[_Interval]) -> list[_Interval]:
@@ -248,12 +295,50 @@ def ai_worklog_by_date(
     for path in session_files.codex:
         # 파일=독립 세션이라 파일별로 interval 을 뽑는다(파일 경계 gap 오염 방지).
         intervals.extend(ai_intervals(codex_events([path], tz), max_gap_minutes))
-    merged = merge_intervals(intervals)
-    by_day = _split_by_date(merged)
+    return worklog_from_intervals(intervals)
+
+
+def worklog_from_intervals(intervals: list[_Interval]) -> list[DayWorklog]:
+    """작업구간들을 union·자정분할해 날짜별 DayWorklog 로 만든다."""
+    by_day = _split_by_date(merge_intervals(intervals))
     return [
         DayWorklog(day=day, seconds=int(by_day[day][0]), started=by_day[day][1])
         for day in sorted(by_day)
     ]
+
+
+def ai_worklog_by_bucket(
+    claude_files: list[Path],
+    tz: tzinfo,
+    root: str | Path,
+    live_worktrees,
+    max_gap_minutes: int = 60,
+) -> tuple[dict[Bucket, list[DayWorklog]], AttributionStats]:
+    """Claude 세션 파일들을 한 번만 읽어 bucket 별 날짜 worklog 로 나눈다.
+
+    코퍼스를 worktree 마다 다시 읽으면 worktree 수만큼 스캔이 반복된다 — 단일 패스가
+    ``--all`` 성능 기준의 전제다. Codex 는 줄 단위 cwd 이동이 없어(rollout 전수에서 cwd 가
+    2개 이상인 파일 0건) 파일 단위 귀속을 그대로 쓰므로 여기서 다루지 않는다.
+    """
+    per_bucket: dict[Bucket, list[_Interval]] = {}
+    dropped = 0
+    dropped_seconds = 0.0
+    for path in claude_files:
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        events = [
+            (moment, role, classify_cwd(cwd, root, live_worktrees))
+            for moment, role, cwd in parse_message_events(text, tz)
+        ]
+        buckets, stats = bucket_intervals(events, max_gap_minutes)
+        for bucket, intervals in buckets.items():
+            per_bucket.setdefault(bucket, []).extend(intervals)
+        dropped += stats.boundary_dropped
+        dropped_seconds += stats.boundary_seconds
+    worklogs = {bucket: worklog_from_intervals(iv) for bucket, iv in per_bucket.items()}
+    return worklogs, AttributionStats(dropped, dropped_seconds)
 
 
 def find_session_files(cwd: str | Path, home: Path | None = None) -> list[Path]:
