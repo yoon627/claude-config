@@ -1,6 +1,6 @@
 ---
 title: worklog-cwd-attribution — jira-worklog 시간 귀속을 줄 단위 cwd 기반 worktree별 분리로 개선
-status: in_progress
+status: done
 started: 2026-07-22
 updated: 2026-08-04
 ---
@@ -9,6 +9,7 @@ updated: 2026-08-04
 한 세션이 여러 worktree 를 오갈 때 AI 작업시간이 **마지막에 머문 worktree 한 곳으로 전부 몰리는** 오귀속을 없앤다. 세션 로그의 **줄 단위 `cwd`** 로 이벤트를 worktree 별로 쪼개 귀속시켜, 오가더라도 각 worktree 가 실제로 자기 시간만 받게 한다. (이번 세션 산출물 = plan 만. 구현은 다음 세션.)
 
 # Progress
+- 2026-08-04: **PR #118 머지 완료**(merge commit `6eb4798`) → `status: done`. worktree·로컬·원격 브랜치 정리 완료.
 - 2026-07-22: 문제 실증·원인 규명 완료(아래 Decisions 의 실측 근거). worktree `worklog-cwd-attribution` 생성, 이 plan 작성. 구현 미착수.
 - 2026-07-22: plan commit `b9e0a28` → `origin/worklog-cwd-attribution` push(PR 미오픈). 작업 트리 clean, WIP 커밋 없음.
 - 2026-08-04: 13일 방치 후 재개. worktree 재생성(`origin/worklog-cwd-attribution` 체크아웃), `origin/main@d38c70b` merge(`1b4d218`) — base 39커밋 뒤처짐 해소. PR 여전히 없음, plan-lint 통과.

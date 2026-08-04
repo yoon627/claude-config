@@ -1,6 +1,6 @@
 ---
 title: pull-hook-skip-reason — SessionStart 자동 pull 이 조용히 skip 되는 문제
-status: in_progress
+status: done
 started: 2026-07-22
 updated: 2026-08-04
 ---
@@ -11,6 +11,7 @@ updated: 2026-08-04
 말하게** 한다. 지금은 실패와 "이미 최신"이 구분되지 않아 레포가 밀려도 알 수 없다.
 
 # Progress
+- 2026-08-04: **PR #117 머지 완료**(merge commit `9aa8fbf`) → `status: done`. worktree·로컬·원격 브랜치 정리 완료.
 
 - 2026-07-22 발견 — worklog 작업 중 `~/.claude` 가 **origin/main 보다 132 커밋 뒤처져** 있는 걸
   확인. 자동 pull 훅이 도는데도 밀려 있었다. 원인은 `settings.json` 미커밋 변경(`effortLevel`)
