@@ -13,6 +13,7 @@ updated: 2026-08-04
 - 2026-07-22: plan commit `b9e0a28` → `origin/worklog-cwd-attribution` push(PR 미오픈). 작업 트리 clean, WIP 커밋 없음.
 - 2026-08-04: 13일 방치 후 재개. worktree 재생성(`origin/worklog-cwd-attribution` 체크아웃), `origin/main@d38c70b` merge(`1b4d218`) — base 39커밋 뒤처짐 해소. PR 여전히 없음, plan-lint 통과.
 - 2026-08-04: **plan-review NO-GO**(claude plan-reviewer + codex medium 병행). 핵심 blocker 를 메인이 독립 시뮬레이션으로 재현 — plan 의 longest-prefix 규칙을 실데이터에 적용하면 main 귀속이 실제 자기 몫의 **3.5배**가 된다. 원인: main 경로가 모든 worktree 경로의 조상이고 main 자신도 `git worktree list` 에 있어, **삭제된 worktree 의 cwd 가 매핑 실패가 아니라 main 으로 흡수**된다(`plans-sync` 4.57h·`doc-slim` 2.63h·`main-autopull` 2.61h·`improve-loop` 2.26h …). 고치려던 오귀속이 되레 커지는 설계라 구현 중단. 시뮬레이션 스크립트는 scratchpad(`sim_attribution.py`).
+- 2026-08-04: **code-review 지적 수정 완료** (`af40cf0`). CONFIRMED Major 5건을 메인이 전부 재현한 뒤 수정 — 중첩 dead 흡수(이름→경로 비교), root 밖 live 유실(매칭 순서), Windows 소문자화(비교용/표시용 분리), 분류 성능(`WorktreeIndex` hoist+캐시, 20wt 5.61s→0.001s·실코퍼스 1.48s→0.55s), `ai_worklog_by_bucket` 테스트 0→5. 테스트 32개 통과, 기존 21개 회귀 없음, ruff 통과, 실코퍼스 bucket 결과·불변식 동일. 처분표는 `# Review Disposition`.
 - 2026-08-04: **구현 2~4/7 완료** (`96de12f`) — `parse_message_events` 가 cwd 를 싣고, `bucket_intervals`(인접 쌍 동일 bucket 시에만 발행) + `worklog_from_intervals` + `ai_worklog_by_bucket`(단일 패스) 추가. gap/대기 판정은 `_is_work_gap` 술어로 뽑아 Codex 공용 `ai_intervals` 와 공유(규칙 중복 제거). 테스트 23개 통과(신규 9), 기존 21개 회귀 없음, ruff 통과, **CLI dry-run 출력 불변 확인**(아직 미연결). **실데이터 관찰**: 38파일 단일 패스 **1.48s**(기준 5초), main 9.72h·dead 24.88h(이름별 분리)·unmatched 28.20h·live 0.95h(등록가능 1개), 경계 폐기 99구간 0.41h(0.47%), 불변식 "bucket 합 63.75h ≤ 파일 union 87.41h" 성립. main 이 앞선 시뮬레이션 10.95h 보다 낮은 것은 새 경로가 `merge_intervals` 로 동시 세션 겹침을 union 제거하기 때문(기존 의미론과 동일, 시뮬레이션은 raw 합).
 - 2026-08-04: **구현 1/7 완료** (`a10a433`) — `classify_cwd` + `BucketKind`/`Bucket` 순수 함수. TDD Red(ImportError) → Green. 신규 테스트 14개 통과, 기존 `test_worklog_scope.py` 21개 회귀 없음, ruff 통과. **실데이터 검증(실행·관찰)**: 이전 설계라면 main 이 10,728줄을 먹을 것을 3,514줄(자기 몫)로 분리, dead bucket 7,214줄이 이름별로 복원(`plans-sync` 869·`doc-slim` 824·`ledger-fix` 494 …), 타 repo 14,986줄은 unmatched 로 main 에 안 샘. 호출부 미연결이라 기존 동작 불변.
 - 2026-08-04: **위 수치 정정 (2차 리뷰 B3 — 내 코퍼스가 오염돼 있었다)**. 1차 측정은 `rglob` 재귀 스캔이라 `<slug>/<sid>/subagents/*.jsonl` 이 섞였다. 프로덕션 `find_session_files` 는 **비재귀**(`session_time.py:172-177`)라 실제 가시 코퍼스는 **38파일**이다. 비재귀로 재측정: longest-prefix 적용 시 main **38.56h** vs 실제 자기 몫 **10.95h**. (폐기 수치: 42.53h/11.63h — 재귀 오염값이라 인용 금지.) **교훈: 측정 코퍼스를 프로덕션 탐색 규칙과 일치시킬 것.**
@@ -21,9 +22,9 @@ updated: 2026-08-04
 - 2026-08-04: **전제 재실증**(13일 경과 검증). 이 세션 파일 `03f014b5….jsonl` 이 worktree 폴더에 있는데 121줄 중 45줄의 `cwd` 가 main — 폴더 단위 귀속이면 main 시간이 worktree 로 계상된다(결과 ① 재현). `drop-codegraph`·`risk-based-approval`·`rtk-rewrite-guard` slug 폴더는 jsonl 0개(세션이 떠남). `session_time.py` 모듈 docstring 은 여전히 "worktree 에서 실행하면 그 worktree 세션들만 잡힌다"는 틀린 전제를 명시 → 미해결 확인.
 
 # Next
-**구현 1~4/7 완료** (`a10a433`, `96de12f`) — 측정 로직 완성, CLI 미연결이라 기존 동작 불변. code-reviewer(+codex) 진행 중.
+**구현 1~4/7 + code-review 수정 완료** (`a10a433`, `96de12f`, `af40cf0`) — 측정 로직 완성, CLI 미연결이라 기존 동작 불변.
 
-다음 액션: 리뷰 지적 처분 후 **순서 5단계** — 단일 패스 스캔으로 `process()` 재구성, dead/unmatched 표시(폐기량·미매칭 시간·main 기여 서브루트 목록 포함), `--all` 5초 실측. 그 뒤 6단계(등록 게이트), 7단계(CI·문서).
+다음 액션: **순서 5단계** — 단일 패스 스캔으로 `process()` 재구성, dead/unmatched 표시(폐기량·미매칭 시간·main 기여 서브루트 목록 포함), `--all` 5초 실측. 그 뒤 6단계(등록 게이트), 7단계(CI·문서). 5단계에서 함께 처리할 이월 2건: UNMATCHED 를 "cwd 결측"과 "repo 밖"으로 분리 표시할지(C11), 파일 읽기 실패 건수를 `AttributionStats` 에 넣을지(C12).
 
 ---
 2차 plan-review CONDITIONAL → blocker 4건(B1 repo 소속 선검증 / B2 최심 후보 선택 / B3 코퍼스 정정 / B4 등록 원자성) 을 `# Decisions`·`# Acceptance` 에 반영 완료. **구현 착수 가능.**
@@ -178,6 +179,26 @@ updated: 2026-08-04
 | B14 | old 산출이 author-scoping·legacy 마커와 같은 순서여야 (codex) | **fix** — 등록 게이트 절에 명시 |
 | B15 | 규약 밖 삭제 worktree(`<root>/tmp-wt`)는 복원 불가 (누락 시나리오) | **완화만** — main 기여 cwd 서브루트 목록 출력 |
 | B16 | `_split_by_date` DST 무한루프 소지 (기존 결함) | **defer** — `# Deferred`, 이번 변경이 만든 것 아님 |
+
+2026-08-04 **code-review** (claude code-reviewer + codex high 병행), 대상 `a10a433`+`96de12f`. Critical 0, CONFIRMED Major 5 — **전부 메인이 직접 재현 후 fix**(`af40cf0`).
+
+| # | finding | 처분 |
+|---|---|---|
+| C1 | 중첩 dead 가 동명 상위 live 로 흡수 → `registrable=True` 과다등록 (major) | **fix** — 이름 비교 → 경로 깊이 비교. 재현·수정 확인 |
+| C2 | root 밖 live worktree 가 UNMATCHED 로 유실(기존 대비 회귀) (major) | **fix** — live 매칭을 root 검증보다 먼저. 재현·수정 확인 |
+| C3 | Windows `normcase` 소문자화 → `extract_ticket` 실패로 조용한 미등록 (major) | **fix** — 비교용/표시용 분리, 이름은 원본 대소문자 보존 |
+| C4 | 분류가 O(이벤트×worktree) → `--all` 5초 위협(20wt 5.61s 실측) (major) | **fix** — `WorktreeIndex` 로 hoist+캐시. 5.61s→0.001s, 실코퍼스 1.48s→0.55s |
+| C5 | `ai_worklog_by_bucket` 테스트 0개, "파일 경계 미연결" 불변식 미고정 (major) | **fix** — 테스트 5개 추가(파일간 미연결·union·stats 누적·읽기실패 skip·dead 등록제외) |
+| C6 | POSIX `normcase` 는 항등인데 docstring 이 APFS 도 덮는다고 서술 (minor) | **fix** — docstring 정정, macOS 대소문자 미지원을 명시 |
+| C7 | `_dead_worktree_name` off-by-one + 도달 불가 분기 (minor) | **fix** — 재작성하며 해소(이름 뒤따르는 마지막 출현으로 명시) |
+| C8 | 새 API 타입 힌트 누락, `live_worktrees` 계약 불명 (minor) | **fix** — `Iterable[str \| Path]` 등 명시. `list_worktrees()` 가 `Worktree` 객체를 주는 footgun 대비 |
+| C9 | malformed cwd(NUL) → `ValueError` 전파로 전체 집계 중단 (plausible) | **fix** — `(OSError, ValueError)` → UNMATCHED 격리 + 테스트 |
+| C10 | `parse_message_events` 시그니처 breaking 정책 미기록 (minor) | **fix** — 외부 소비자 0(rg 전수 확인)이라 시그니처 변경 채택, 여기 기록으로 갈음 |
+| C11 | UNMATCHED 가 "cwd 결측"과 "타 repo"를 한 bucket 으로 합침 (minor) | **defer to step 5** — dry-run 표시 설계 시 분리 여부 결정. 현 코퍼스 결측 0건이라 무해 |
+| C12 | 파일 읽기 실패를 로그 없이 삼킴 (nit) | **defer to step 5** — `AttributionStats` 에 읽기 실패 건수 추가를 표시 설계와 함께 |
+| C13 | 인접쌍 순회 골격이 두 함수에 중복 (nit) | **wontfix** — 반환 형태(단일 리스트 vs bucket 딕셔너리)가 달라 통합하면 되레 복잡. simplify 체크에서 재판단 |
+
+refuted 6건(`ai_worklog_by_date` 동작 변경·Codex 2-튜플 파손·bucket 이중계상 등)은 리뷰가 반증 근거와 함께 기록 — 별도 조치 없음.
 
 # Blockers
 (없음 — 2026-08-04 결정 3건 확정으로 해소. 내용은 `# Decisions` 에 반영)
