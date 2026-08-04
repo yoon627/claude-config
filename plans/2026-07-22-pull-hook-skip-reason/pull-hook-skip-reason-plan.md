@@ -2,7 +2,7 @@
 title: pull-hook-skip-reason — SessionStart 자동 pull 이 조용히 skip 되는 문제
 status: in_progress
 started: 2026-07-22
-updated: 2026-07-22
+updated: 2026-08-04
 ---
 
 # Goal
@@ -16,6 +16,9 @@ updated: 2026-07-22
   확인. 자동 pull 훅이 도는데도 밀려 있었다. 원인은 `settings.json` 미커밋 변경(`effortLevel`)
   으로 `git diff --quiet` 게이트가 실패했고, 체인 끝의 `|| true` 가 이유를 삼킨 것.
 - 2026-07-22 이 plan 만 작성해 push (구현 없음 — 사용자 지시).
+- 2026-08-04 13일 방치 후 재개. worktree 재생성(`origin/pull-hook-skip-reason` 체크아웃), `origin/main` merge(`97a7452`)로 base 39커밋 지연 해소. **훅 명령이 plan 스냅샷과 문자 그대로 일치함을 확인**(`settings.json` `hooks.SessionStart[0][0]`, 526자) — plan 은 stale 하지 않다. PR 없음, plan-lint 통과.
+- 2026-08-04 **A안 확정** — `scripts/*.js` + `node --check` + Unit tests 가 이 repo 의 정착된 훅 진입점 패턴이고(`lint.yml` 에 스크립트 14개 등록), Acceptance #5 도 그 형태를 요구한다. B안(인라인 유지) 폐기.
+- 2026-08-04 **dirty 게이트 실험** (임시 repo 3케이스, `scratchpad/probe_ffonly.sh`) — 아래 Decisions 에 결과. 열린 질문이던 게이트 존치를 근거 기반으로 종결.
 
 # Next
 
@@ -75,10 +78,22 @@ git -C ~/.claude rev-parse --abbrev-ref HEAD 2>/dev/null | grep -qx main
   A안이 가능하면 택하지 않는다.
 - **fail-open 유지 필수** — 훅이 세션 시작을 막으면 안 된다(README 의 "모두 fail-open" 규약).
   이유를 출력하되 exit code 는 항상 0.
-- **2번(dirty) 을 skip 사유로 계속 둘 것인가**는 열린 질문. `git pull --ff-only` 는 로컬 변경을
-  덮어쓸 때만 거부하므로, 게이트를 없애고 pull 을 시도한 뒤 실패 사유를 출력하는 편이 실제로
-  더 자주 최신화된다. 다만 이번 사례는 origin 이 `settings.json` 을 바꿔서 어차피 거부됐을 것.
-  → 구현 시 결정하고 이유를 기록한다.
+- **dirty 게이트는 제거한다 — 항상 pull 을 시도한다** (2026-08-04 실험 + 사용자 결정으로 종결).
+  근거(임시 repo 3케이스 실측, `scratchpad/probe_ffonly.sh`):
+
+  | 상황 | `git pull --ff-only` 결과 |
+  |---|---|
+  | dirty 파일 ≠ 원격 변경 파일 | exit 0, ff 완료, **로컬 변경 보존** |
+  | dirty 파일 = 원격 변경 파일 | exit 1 `local changes would be overwritten by merge: Aborting`, **변경 보존·HEAD 불변** |
+  | staged(무관 파일) | exit 0, ff 완료, **staged 보존** |
+
+  즉 **git 자체가 보호하므로 게이트는 중복 방어**이고, 로컬 변경이 유실되는 경로가 없다. 반면
+  게이트를 두면 사고 당시처럼 origin 이 `settings.json` 을 건드리지 않은 경우에도 무조건 skip 되어
+  레포가 계속 밀린다. 게이트 제거는 *가시화*를 넘어 **staleness 자체를 고친다**.
+  - 이 결정으로 skip 사유 분류가 바뀐다: dirty 는 더 이상 *사전* skip 사유가 아니라 **pull 실패
+    사유**로 보고된다(`# Acceptance` 1번 수정 반영).
+  - 원래 사고 사례(origin 이 `settings.json` 변경 + 로컬 dirty)는 여전히 거부되지만, 이제
+    **이유가 출력**되므로 사용자가 알아채고 커밋·stash 할 수 있다.
 
 # Key Files
 
@@ -92,8 +107,10 @@ git -C ~/.claude rev-parse --abbrev-ref HEAD 2>/dev/null | grep -qx main
 
 # Acceptance
 
-1. main 아님 / unstaged dirty / staged dirty / pull 실패 각각에서 **서로 다른 사유 한 줄**이
-   출력된다.
+1. ~~main 아님 / unstaged dirty / staged dirty / pull 실패~~ → **2026-08-04 수정**(dirty 게이트
+   제거로 분류가 바뀜). **main 아님 / origin 부재·네트워크 실패 / pull 거부(로컬 변경 덮어씀) /
+   ff 불가(diverge)** 각각에서 **서로 다른 사유 한 줄**이 출력된다. dirty 는 사전 skip 사유가
+   아니라 pull 거부 사유로만 나타난다.
 2. 이미 최신이면 **무음**(현재 동작 유지 — 매 세션 잡음 금지).
 3. 실제로 pull 되면 기존과 같은 형식으로 before→after 를 보고한다.
 4. 어떤 경로에서도 exit code 0 (fail-open) — 세션 시작을 막지 않는다.
