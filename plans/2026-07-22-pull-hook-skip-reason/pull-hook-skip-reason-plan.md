@@ -1,6 +1,6 @@
 ---
 title: pull-hook-skip-reason — SessionStart 자동 pull 이 조용히 skip 되는 문제
-status: in_progress
+status: blocked
 started: 2026-07-22
 updated: 2026-08-04
 ---
@@ -18,6 +18,7 @@ updated: 2026-08-04
 - 2026-07-22 이 plan 만 작성해 push (구현 없음 — 사용자 지시).
 - 2026-08-04 13일 방치 후 재개. worktree 재생성(`origin/pull-hook-skip-reason` 체크아웃), `origin/main` merge(`97a7452`)로 base 39커밋 지연 해소. **훅 명령이 plan 스냅샷과 문자 그대로 일치함을 확인**(`settings.json` `hooks.SessionStart[0][0]`, 526자) — plan 은 stale 하지 않다. PR 없음, plan-lint 통과.
 - 2026-08-04 **A안 확정** — `scripts/*.js` + `node --check` + Unit tests 가 이 repo 의 정착된 훅 진입점 패턴이고(`lint.yml` 에 스크립트 14개 등록), Acceptance #5 도 그 형태를 요구한다. B안(인라인 유지) 폐기.
+- 2026-08-04 **plan-review CONDITIONAL**(claude plan-reviewer + codex medium 병행), blocker 4건. 메인이 직접 확인한 것: ① 훅에 **`"async": true`, `"timeout": 30`** 이 있는데 plan 스냅샷이 통째로 누락했다 — 앞선 "훅이 plan 과 문자 그대로 일치" 확인은 `command` **문자열**만 본 것이라 불완전했다. 같은 그룹 `session-brief.js` 는 async 없이 동기이고 그 파일 8번 줄이 `동기 hook(async 면 stdout 이 첫 턴 후 도달)` 을 계약으로 명시 → **이유를 출력해도 세션 시작 시점엔 안 보일 수 있다**(Goal 미달성 위험). ② `CLAUDE_AUTOPULL_OFF` 는 `install-hooks.sh/.ps1`(post-checkout)에만 존재 → **SessionStart pull 은 이 스위치로 안 꺼진다**(기존 불일치). ③ `# Key Files` 가 인용한 `plans/2026-05-13-track-settings-json/` 은 **실존하지 않는다**(`ls`·`git log --all --diff-filter=A` 모두 무결과).
 - 2026-08-04 **dirty 게이트 실험** (임시 repo 3케이스, `scratchpad/probe_ffonly.sh`) — 아래 Decisions 에 결과. 열린 질문이던 게이트 존치를 근거 기반으로 종결.
 
 # Next
@@ -52,6 +53,10 @@ git -C ~/.claude rev-parse --abbrev-ref HEAD 2>/dev/null | grep -qx main
   || true
 ```
 
+**2026-08-04 정정 — 위 스냅샷은 `command` 문자열만이다.** 실물 훅 항목에는 `"timeout": 30`,
+`"statusMessage": "Checking ~/.claude for updates"`, **`"async": true`** 가 함께 있다. 이 누락이
+Goal 달성 여부를 좌우한다(아래 `## 출력 가시성` 참조).
+
 체인이 끊기는 지점이 5가지인데 **출력이 전부 동일(무음)** 이다:
 
 | # | 끊기는 지점 | 무음이 옳은가 |
@@ -64,6 +69,23 @@ git -C ~/.claude rev-parse --abbrev-ref HEAD 2>/dev/null | grep -qx main
 
 5번만 무음이어야 하는데 2·3·4 가 5번과 구분되지 않는다. 사용자는 "훅이 돌고 있으니 최신"
 이라고 믿게 된다(실제로 132커밋 밀림).
+
+## 출력 가시성 (2026-08-04 plan-review B1 — 미결, `# Blockers` 결정 1)
+
+훅이 `"async": true` 라 **stdout 이 첫 턴 이후에 도달**한다(`scripts/session-blueprint` 아님 —
+`scripts/session-brief.js:8` 이 계약으로 명시). 즉 사유 한 줄을 아무리 잘 만들어도 async 인 채로는
+사용자가 세션 시작 시점에 못 본다 → "이유를 말하게 한다"는 Goal 이 절반만 달성된다.
+
+세 갈래가 있고 어느 쪽이든 대가가 있다:
+- **(a) async 유지** — 안전(하니스가 timeout 으로 감싼다)하지만 사유가 첫 턴 뒤에 뜬다. Acceptance 를
+  "첫 턴 이후라도 1회 표시"로 낮춰야 한다.
+- **(b) 동기 전환** — 세션 시작에 보이지만 `wiki/pages/decision/git-hook-network-safety.md` 의
+  "async+timeout 이 감싸므로 hang 없음" 결정이 **무효화**된다. 그러면 `scripts/install-hooks.sh:70-86`
+  의 hang 방지 3종(`GIT_TERMINAL_PROMPT=0` · SSH `ConnectTimeout` · HTTP low-speed)과 20초 자체
+  워치독을 **그대로 미러링해야** 한다(macOS 는 `timeout(1)` 부재).
+- **(c) 분리** — 네트워크 없는 로컬 판정(브랜치 아님·dirty↔원격 충돌·behind N)은 이미 **동기**인
+  `session-brief.js` 에 신호로 얹고, 네트워크 pull 은 async 로 둔다. 동기 출력 경로를 얻으면서 hang
+  위험 0, CI·README 신규 등록 0건. 대신 pull *실패* 사유 일부는 여전히 다음 턴에 뜬다.
 
 ## 왜 working tree 가 만성적으로 dirty 한가 (근본 원인 후보)
 
@@ -103,7 +125,43 @@ git -C ~/.claude rev-parse --abbrev-ref HEAD 2>/dev/null | grep -qx main
   - 이 결정으로 skip 사유 분류가 바뀐다: dirty 는 더 이상 *사전* skip 사유가 아니라 **pull 실패
     사유**로 보고된다(`# Acceptance` 1번 수정 반영).
   - 원래 사고 사례(origin 이 `settings.json` 변경 + 로컬 dirty)는 여전히 거부되지만, 이제
-    **이유가 출력**되므로 사용자가 알아채고 커밋·stash 할 수 있다.
+    **이유가 출력**되므로 사용자가 알아채고 커밋·stash 할 수 있다(단 가시성은 위 `## 출력 가시성`
+    결정에 달렸다).
+  - **표현 하향 (2026-08-04 리뷰)**: "로컬 변경이 유실되는 경로가 없다"는 과일반화다 →
+    **"검증한 4케이스에서 유실 없음"**. 리뷰가 4번째 케이스를 추가 실측했다(원격이 새로 추가하는
+    파일과 같은 이름의 untracked 로컬 파일 → `Please move or remove them` · rc=1 · 파일 보존).
+    submodule·sparse-checkout·pull 중 CLI 동시 write 는 미검증.
+  - **신규 부작용 (리뷰 지적, 반드시 문서화)**: 게이트를 없애면 세션 중 base repo 의
+    `scripts/*.js`·`skills/`·`CLAUDE.md` 가 실제로 교체되는 빈도가 급증한다. 훅 스크립트는 매
+    이벤트마다 파일에서 읽히므로 **같은 세션 안에서 동작이 바뀐다** → `README.md:410` 의 "pull 내용은
+    다음 세션부터 적용" 서술이 거짓이 되므로 같이 고쳐야 한다.
+  - **동시 세션 race (리뷰 지적)**: 이 사용자는 worktree 세션을 상시 병행한다. 게이트 제거로 매 세션이
+    반드시 네트워크 pull 을 시도하므로 `index.lock` 경합 확률이 오른다. lock 계열 실패는 `busy` 로
+    분류해 **무음/저노이즈** 처리한다 — 정상 상황에서 사유가 뜨면 알람 피로로 다시 무시하게 되어
+    원래 문제가 재발한다. rebase/merge/bisect 중 skip 가드도 `install-hooks.sh:60-62` 대로 넣는다.
+
+## 사유 판정은 stderr 파싱이 아니라 사전 상태 판정 (2026-08-04 리뷰 B3)
+4분류는 전부 `git pull` **exit 1** 로 수렴하므로 stderr 문자열 매칭이 필요해지는데, 이는 git 버전·
+`LANG` 에 따라 깨진다. 대신 pull *전에* 상태로 판정한다: `git remote get-url origin`(origin 부재) /
+`rev-parse --abbrev-ref HEAD`(브랜치 아님 · **detached 는 `HEAD` 를 반환하므로 별도 사유**) /
+fetch 후 `rev-list origin/main..HEAD`(diverge) / `diff --name-only` ∩ `diff --name-only HEAD..origin/main`
+(덮어쓰기 충돌). 부득이 stderr 를 쓰면 `LC_ALL=C` 고정 + 미분류는 `unknown` 폴백.
+결과 모델을 **열거형으로 먼저 정의**한다(codex 제안): `not-main`/`detached`/`no-origin`/`busy`/
+`up-to-date`/`updated`/`dirty-overlap`/`diverged`/`network-or-auth`/`unknown-failure`.
+
+## kill-switch 와 자기 배포 채널 위험 (2026-08-04 리뷰 B4)
+- **`CLAUDE_AUTOPULL_OFF=1` 을 SessionStart 에도 적용한다.** 현재 이 스위치는 post-checkout 만 끄는데
+  (`install-hooks.sh:57`), 사용자는 "auto-pull 껐다"고 믿는다 — **기존 불일치**를 같이 닫는다.
+  선행 plan `plans/2026-07-05-main-autopull/main-autopull-plan.md:57` 이 이미 P3 로 지적한 항목이다.
+- **이 훅은 자기 자신의 업데이트 배포 경로다.** 새 스크립트가 pull 전에 throw 하거나 node 가 없으면
+  `|| true` 로 무음 exit 0 → **모든 머신이 조용히 업데이트를 멈춘다**. 이번 사고(132커밋)와 같은
+  실패 모드를 한 층 위에서 재생산하는 것이다. 따라서 ① **pull 시도를 판정보다 먼저** 배치 ② node 내부
+  catch 에서도 **한 줄은 출력**(fail-open ≠ fail-silent) ③ `|| true` 는 node 부재 대비로만 남기고 그
+  경우도 stderr 한 줄 ④ CI `node --check` 등록(Acceptance #5).
+- **rollback 3단** (plan 에 없던 항목): ① `CLAUDE_AUTOPULL_OFF=1`(즉시·머신별·파일 수정 없음)
+  ② `settings.json` 훅 command 를 이전 인라인 체인으로 revert(1커밋) ③ 이미 pull 된 내용은
+  `git reflog` 와 출력된 `before` SHA 로 복원. **`reset --hard` 를 rollback 절차로 쓰지 않는다**(§8).
+  Acceptance #3 의 `before→after` 출력이 이 복원의 기준점임을 명시한다.
 
 # Key Files
 
@@ -111,9 +169,28 @@ git -C ~/.claude rev-parse --abbrev-ref HEAD 2>/dev/null | grep -qx main
 - `scripts/notify-hook.js` · `scripts/session-brief.js` — 훅 진입점 스크립트 선례(형식·fail-open).
 - `.github/workflows/lint.yml` — 새 스크립트는 `node --check` + `Unit tests` 목록에 추가해야 함.
 - `README.md` `### scripts/` — 훅 진입점 목록에 등재 필요(문서 동기화).
-- `plans/2026-05-13-track-settings-json/` — settings.json 을 tracked 로 만든 선행 결정(done).
+- ~~`plans/2026-05-13-track-settings-json/`~~ → **2026-08-04 정정: 실존하지 않는 인용**(`ls`·
+  `git log --all --diff-filter=A` 무결과). 실제 근거는 커밋 `543455b`(2026-05-14)
+  `Track settings.json directly; add secret guard hooks`.
+- `scripts/install-hooks.sh:51-95` — **미러링 대상 선례**. post-checkout main-autopull 의 hang 방지
+  3종 + 20초 워치독 + rebase/merge/bisect 가드 + `CLAUDE_AUTOPULL_OFF` kill-switch.
+- `plans/2026-07-05-main-autopull/main-autopull-plan.md` — 동일 문제의 선행 plan(게이트 순서·fixture
+  테스트·detached HEAD·P3 rollback 지적).
+- `wiki/pages/decision/git-hook-network-safety.md` — "SessionStart 는 async+timeout 이라 hang 없음"
+  확정 기록. **동기 전환 시 이 결정이 무효화되므로 같이 갱신**.
+- `scripts/session-brief.js` — 동기 훅 선례이자 (c)안 채택 시 신호를 얹을 대상.
 
 # Blockers
+
+2026-08-04 plan-review CONDITIONAL — **구현 착수 정지**. 사용자 결정 1건.
+
+1. **출력 가시성 전략** (`## 출력 가시성` 의 (a)/(b)/(c) 중 택1) — 훅이 `"async": true` 라 사유가
+   첫 턴 이후에 도달한다. (a) async 유지+Acceptance 하향 / (b) 동기 전환+hang 방지 미러링 /
+   (c) 로컬 판정은 동기 `session-brief.js` 에, 네트워크 pull 은 async 유지. 이 선택이 구조·스코프·
+   Acceptance 를 모두 바꾸므로 먼저 확정해야 한다.
+
+나머지 blocker(사유 판정 방식·kill-switch·자기 배포 채널 방어·rollback)는 `# Decisions` 에 반영
+완료 — 추가 결정 불필요.
 
 # Acceptance
 
@@ -125,7 +202,15 @@ git -C ~/.claude rev-parse --abbrev-ref HEAD 2>/dev/null | grep -qx main
 3. 실제로 pull 되면 기존과 같은 형식으로 before→after 를 보고한다.
 4. 어떤 경로에서도 exit code 0 (fail-open) — 세션 시작을 막지 않는다.
 5. 새 스크립트가 CI(`node --check` + `Unit tests`)에 등록되고 단위테스트가 위 분기를 덮는다.
-6. README `### scripts/` 훅 진입점 목록 동기화.
+6. ~~README `### scripts/` 1곳~~ → **2026-08-04 확대(리뷰)**. 실제 갱신 지점: `README.md` **5곳**
+   (337 훅 진입점 열거 · 368 부근 스크립트 불릿 · **410 "가드 실패 무음"·"dirty 면 skip" 서술이
+   거짓이 됨** · 470 rollback 절 · 579 트리) + `wiki/pages/decision/git-hook-network-safety.md`
+   (동기 전환 시) + `wiki/index.md`(§11 동반) + `.github/workflows/lint.yml` **2곳**
+   (`node --check` 에 `.js`·`.test.js`, `Unit tests` 에 테스트).
+7. **kill-switch**: `CLAUDE_AUTOPULL_OFF=1` 이면 SessionStart pull 도 skip (테스트 통과).
+8. **자기 배포 채널 방어**: 스크립트가 예외로 죽어도 한 줄은 출력되고 exit 0 (테스트 통과).
+9. **실제 관찰**(정적 점검 불가, CLAUDE.md §3-5): 마커 문구를 넣고 **새 세션 1회**를 열어 사유 줄이
+   실제로 어디에(세션 시작 / 첫 턴 이후) 뜨는지 눈으로 확인. async 유지 결정의 전제를 실증한다.
 
 # Deferred
 
