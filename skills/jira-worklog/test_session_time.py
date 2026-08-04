@@ -227,6 +227,21 @@ class BucketIntervalsTest(unittest.TestCase):
         self.assertNotIn(self.MAIN_BUCKET, buckets)
 
 
+class BucketLookupTest(unittest.TestCase):
+    """CLI 가 worktree → bucket 을 찾는 규칙. 여기가 어긋나면 시간이 조용히 0 이 된다."""
+
+    def test_main_worktree_is_main_bucket_not_live(self):
+        # main 은 모든 worktree 의 조상이라 LIVE 후보에서 빠진다. 이름으로 LIVE 를 찾으면
+        # main 시간이 통째로 0 이 된다(실제로 겪은 버그).
+        bucket = classify_cwd(ROOT, ROOT, LIVE)
+        self.assertEqual(bucket.kind, BucketKind.MAIN)
+        self.assertNotEqual(bucket, Bucket(BucketKind.LIVE, Path(ROOT).name))
+
+    def test_main_bucket_is_not_registrable(self):
+        # main 은 티켓이 없는 게 보통이지만, 등록 가능 판정은 kind 로만 한다.
+        self.assertFalse(classify_cwd(ROOT, ROOT, LIVE).registrable)
+
+
 class WorklogFromIntervalsTest(unittest.TestCase):
     def test_splits_by_date_and_sums(self):
         start = datetime(2026, 8, 4, 23, 30, tzinfo=TZ)

@@ -269,10 +269,17 @@ def ai_intervals(events: Sequence[_Event], max_gap_minutes: int = 60) -> list[_I
 
 @dataclass(frozen=True)
 class AttributionStats:
-    """귀속 과정에서 버린 양 — dry-run 에 노출해 과소계상을 감시한다."""
+    """귀속 과정에서 버린 양 — dry-run 에 노출해 과소계상을 감시한다.
+
+    ``main_subroots``: main bucket 에 기여한 cwd 의 **root 바로 아래 첫 경로 요소** 모음.
+    `<root>/.claude/worktrees/<name>` 규약을 안 따르고 root 안에 있던 삭제 worktree 는 이름을
+    복원할 수 없어 main 으로 흡수되는데(닫지 못한 잔여 위험), 이 목록에 낯선 항목이 뜨면 사람이
+    알아챌 수 있다.
+    """
 
     boundary_dropped: int = 0
     boundary_seconds: float = 0.0
+    main_subroots: frozenset[str] = frozenset()
 
 
 def bucket_intervals(
@@ -346,10 +353,20 @@ def ai_worklog_by_date(
         except OSError:
             continue
         intervals.extend(ai_intervals(parse_message_events(text, tz), max_gap_minutes))
-    for path in session_files.codex:
-        # 파일=독립 세션이라 파일별로 interval 을 뽑는다(파일 경계 gap 오염 방지).
-        intervals.extend(ai_intervals(codex_events([path], tz), max_gap_minutes))
+    intervals.extend(codex_intervals(session_files.codex, tz, max_gap_minutes))
     return worklog_from_intervals(intervals)
+
+
+def codex_intervals(paths: list[Path], tz: tzinfo, max_gap_minutes: int = 60) -> list[_Interval]:
+    """Codex rollout 들의 작업구간. 파일=독립 세션이라 파일별로 뽑는다(경계 gap 오염 방지).
+
+    Codex 는 줄 단위 cwd 이동이 없어(rollout 전수에서 cwd 2개 이상인 파일 0건) bucket 분리 대상이
+    아니다 — 파일 단위로 이미 worktree 가 갈린다.
+    """
+    out: list[_Interval] = []
+    for path in paths:
+        out.extend(ai_intervals(codex_events([path], tz), max_gap_minutes))
+    return out
 
 
 def worklog_from_intervals(intervals: list[_Interval]) -> list[DayWorklog]:
@@ -361,13 +378,13 @@ def worklog_from_intervals(intervals: list[_Interval]) -> list[DayWorklog]:
     ]
 
 
-def ai_worklog_by_bucket(
+def bucket_intervals_from_files(
     claude_files: list[Path],
     tz: tzinfo,
     root: str | Path,
     live_worktrees: Iterable[str | Path],
     max_gap_minutes: int = 60,
-) -> tuple[dict[Bucket, list[DayWorklog]], AttributionStats]:
+) -> tuple[dict[Bucket, list[_Interval]], AttributionStats]:
     """Claude 세션 파일들을 한 번만 읽어 bucket 별 날짜 worklog 로 나눈다.
 
     코퍼스를 worktree 마다 다시 읽으면 worktree 수만큼 스캔이 반복된다 — 단일 패스가
@@ -375,7 +392,9 @@ def ai_worklog_by_bucket(
     2개 이상인 파일 0건) 파일 단위 귀속을 그대로 쓰므로 여기서 다루지 않는다.
     """
     index = WorktreeIndex(root, live_worktrees)
+    root_parts = len(_compared(_resolved(root)).parts)
     per_bucket: dict[Bucket, list[_Interval]] = {}
+    main_subroots: set[str] = set()
     dropped = 0
     dropped_seconds = 0.0
     for path in claude_files:
@@ -383,17 +402,54 @@ def ai_worklog_by_bucket(
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        events = [
-            (moment, role, index.classify(cwd))
-            for moment, role, cwd in parse_message_events(text, tz)
-        ]
+        events = []
+        for moment, role, cwd in parse_message_events(text, tz):
+            bucket = index.classify(cwd)
+            if bucket.kind is BucketKind.MAIN and cwd:
+                parts = Path(cwd).resolve().parts[root_parts:]
+                main_subroots.add(parts[0] if parts else ".")
+            events.append((moment, role, bucket))
         buckets, stats = bucket_intervals(events, max_gap_minutes)
         for bucket, intervals in buckets.items():
             per_bucket.setdefault(bucket, []).extend(intervals)
         dropped += stats.boundary_dropped
         dropped_seconds += stats.boundary_seconds
-    worklogs = {bucket: worklog_from_intervals(iv) for bucket, iv in per_bucket.items()}
-    return worklogs, AttributionStats(dropped, dropped_seconds)
+    return per_bucket, AttributionStats(dropped, dropped_seconds, frozenset(main_subroots))
+
+
+def ai_worklog_by_bucket(
+    claude_files: list[Path],
+    tz: tzinfo,
+    root: str | Path,
+    live_worktrees: Iterable[str | Path],
+    max_gap_minutes: int = 60,
+) -> tuple[dict[Bucket, list[DayWorklog]], AttributionStats]:
+    """bucket 별 날짜 worklog. Codex 를 합칠 필요가 없는 표시 경로용 편의 함수.
+
+    Codex 와 union 해야 하면 ``bucket_intervals_from_files`` 로 구간을 받아 합친 뒤
+    ``worklog_from_intervals`` 를 부른다 — 날짜 분할 후에는 union 이 불가능하다.
+    """
+    per_bucket, stats = bucket_intervals_from_files(
+        claude_files, tz, root, live_worktrees, max_gap_minutes
+    )
+    return {b: worklog_from_intervals(iv) for b, iv in per_bucket.items()}, stats
+
+
+def find_repo_session_files(home: Path | None = None) -> list[Path]:
+    """모든 slug 폴더의 Claude 세션 파일(비재귀).
+
+    slug 로 미리 거르지 않는다: ``project_slug`` 는 ``/``·``-``·``.`` 를 모두 ``-`` 로 뭉개는
+    비단사 변환이라 slug 접두가 repo 경계를 보장하지 못하고, 세션 파일은 cwd 를 따라 폴더를
+    옮겨 다녀 어느 폴더에 있을지도 정해져 있지 않다. 소속 판정은 폴더 이름이 아니라 **파일 내용의
+    cwd** 로 한다(``classify_cwd``) — 여기서는 후보만 모은다.
+    ``<slug>/<session-id>/subagents/*.jsonl`` 을 집지 않도록 **비재귀**를 유지한다(부모의
+    tool_use→tool_result 구간과 이중계상된다).
+    """
+    base = (home or Path.home()) / ".claude" / "projects"
+    try:
+        return sorted(p for d in base.iterdir() if d.is_dir() for p in d.glob("*.jsonl"))
+    except OSError:
+        return []
 
 
 def find_session_files(cwd: str | Path, home: Path | None = None) -> list[Path]:

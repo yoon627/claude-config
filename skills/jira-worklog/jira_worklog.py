@@ -21,7 +21,7 @@ import argparse
 import io
 import os
 import sys
-from datetime import tzinfo
+from datetime import datetime, tzinfo
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -37,7 +37,16 @@ from jira_kit.config import Config, ConfigError, load_config, resolve_timezone  
 from jira_kit.git_util import GitError, Worktree, current_worktree, list_worktrees  # noqa: E402
 from jira_kit.jira_client import JiraError, get_myself, get_worklogs  # noqa: E402
 from jira_kit.markers import worklog_marker  # noqa: E402
-from jira_kit.session_time import SessionFiles, ai_worklog_by_date, discover_sessions  # noqa: E402
+from jira_kit.session_time import (  # noqa: E402
+    AttributionStats,
+    Bucket,
+    BucketKind,
+    bucket_intervals_from_files,
+    codex_intervals,
+    find_codex_session_files,
+    find_repo_session_files,
+    worklog_from_intervals,
+)
 from jira_kit.worklog_core import DayWorklog, extract_ticket, format_duration  # noqa: E402
 from jira_kit.worklog_register import upsert_worklog  # noqa: E402
 
@@ -56,9 +65,7 @@ def select_worktrees(name: str | None, all_worktrees: bool) -> list[Worktree]:
     return [current]
 
 
-def _days_for(
-    wt: Worktree, args: argparse.Namespace, config: Config, tz: tzinfo, sessions: SessionFiles
-) -> tuple[str | None, list[DayWorklog]]:
+def _ticket_for(wt: Worktree, args: argparse.Namespace, config: Config) -> str | None:
     # AI 작업시간: 이 worktree 의 Claude·Codex 세션 로그에서 추정(사용자 대기 제외).
     # 티켓은 worktree 디렉토리 이름의 prefix 에서 우선 뽑는다(anchored) — worklog 는 그
     # worktree 세션 시간이라 대상 티켓도 worktree 자체로 정한다. dir prefix 규약
@@ -69,9 +76,7 @@ def _days_for(
     ticket = extract_ticket(Path(wt.path).name, pattern, anchored=True)
     if ticket is None and wt.branch:
         ticket = extract_ticket(wt.branch, pattern)
-    max_gap = args.max_gap if args.max_gap is not None else config.max_gap_minutes
-    days = ai_worklog_by_date(sessions, tz, max_gap)
-    return ticket, days
+    return ticket
 
 
 def _register(
@@ -104,12 +109,22 @@ def _register(
 
 
 def process(
-    wt: Worktree, args: argparse.Namespace, config: Config, tz: tzinfo, register: bool
+    wt: Worktree,
+    args: argparse.Namespace,
+    config: Config,
+    tz: tzinfo,
+    register: bool,
+    claude_intervals: list[tuple[datetime, datetime]],
 ) -> int:
     # register 는 main 이 계산한 실효값(--all 이면 False) — args.register 를 직접 보지 않는다.
+    # claude_intervals 는 main 이 코퍼스를 한 번만 읽어 이 worktree bucket 으로 나눠준 것.
+    # Codex 는 줄 단위 cwd 이동이 없어 파일 단위로 이미 갈리므로 여기서 합친다 —
+    # 날짜 분할 **전에** union 해야 두 소스의 겹치는 시간이 이중계상되지 않는다.
     name = Path(wt.path).name
-    sessions = discover_sessions(wt.path)
-    ticket, days = _days_for(wt, args, config, tz, sessions)
+    max_gap = args.max_gap if args.max_gap is not None else config.max_gap_minutes
+    codex = codex_intervals(find_codex_session_files(wt.path), tz, max_gap)
+    days = worklog_from_intervals([*claude_intervals, *codex])
+    ticket = _ticket_for(wt, args, config)
     if not days:
         print(f"[{name}] 세션 활동 없음 → skip")
         return 0
@@ -134,6 +149,42 @@ def process(
     if register and config.jira is not None and ticket:
         return _register(config, ticket, name, days, args.comment)
     return 0
+
+
+def _report_unregistrable(
+    per_bucket: dict[Bucket, list[tuple[datetime, datetime]]],
+    stats: AttributionStats,
+    tz: tzinfo,
+) -> None:
+    """등록되지 않는 시간을 보여준다 — 유실이 안 보이면 감시가 안 된다.
+
+    삭제된 worktree(dead)는 이름을 복원해 표시만 하고 **등록하지 않는다**(등록 가능 여부는
+    이름이 아니라 ``Bucket.kind`` 로 판정 — 티켓형 이름의 죽은 worktree 가 새지 않도록).
+    """
+    dead = sorted(
+        ((b, worklog_from_intervals(iv)) for b, iv in per_bucket.items() if b.kind is BucketKind.DEAD),
+        key=lambda r: -sum(d.seconds for d in r[1]),
+    )
+    if dead:
+        print("\n삭제된 worktree 의 시간 (표시만 — 등록 대상 아님):")
+        for bucket, days in dead[:10]:
+            total = sum(d.seconds for d in days)
+            print(f"    {format_duration(total):>8}  {bucket.name}")
+        if len(dead) > 10:
+            print(f"    … 외 {len(dead) - 10}개")
+
+    # 경계 이동 구간만 "폐기"다. repo 밖 cwd 는 **다른 repo 의 시간**이라 유실이 아니고,
+    # 거기서 이 CLI 를 돌리면 정상 집계된다 — "제외"로 묶으면 뭔가 잃은 것처럼 오해된다.
+    if stats.boundary_dropped:
+        print(
+            f"\nworktree 경계 이동 {stats.boundary_dropped}구간 "
+            f"{format_duration(int(stats.boundary_seconds))} 폐기 (어느 쪽 것도 아니라 버린다)"
+        )
+    # 규약 밖 삭제 worktree 는 이름 복원이 안 돼 main 으로 흡수된다 — 낯선 항목이 보이면 신호다.
+    if len(stats.main_subroots) > 1:
+        shown = ", ".join(sorted(stats.main_subroots)[:8])
+        more = f" +{len(stats.main_subroots) - 8}" if len(stats.main_subroots) > 8 else ""
+        print(f"main 에 귀속된 cwd 갈래: {shown}{more}")
 
 
 def _non_negative_int(value: str) -> int:
@@ -185,13 +236,29 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         worktrees = select_worktrees(args.name, args.all)
+        live = list_worktrees()
+        root = live[0].path if live else str(Path.cwd())
+        max_gap = args.max_gap if args.max_gap is not None else config.max_gap_minutes
+        # 코퍼스를 **한 번만** 읽는다. worktree 마다 다시 읽으면 N배 스캔이 된다.
+        per_bucket, stats = bucket_intervals_from_files(
+            find_repo_session_files(), tz, root, [w.path for w in live], max_gap
+        )
         failures = 0
+        root_key = Path(root).resolve()
         for wt in worktrees:
+            # main worktree 는 LIVE 후보에서 빠져(모든 worktree 의 조상이라) MAIN bucket 에 담긴다.
+            # 이름으로만 찾으면 main 시간이 통째로 0 이 된다.
+            bucket = (
+                Bucket(BucketKind.MAIN)
+                if Path(wt.path).resolve() == root_key
+                else Bucket(BucketKind.LIVE, Path(wt.path).name)
+            )
             try:
-                failures += process(wt, args, config, tz, register)
+                failures += process(wt, args, config, tz, register, per_bucket.get(bucket, []))
             except GitError as exc:
                 print(f"[{Path(wt.path).name}] git 오류 → skip: {exc}", file=sys.stderr)
                 failures += 1
+        _report_unregistrable(per_bucket, stats, tz)
     except GitError as exc:
         print(f"git 오류: {exc}", file=sys.stderr)
         return 2
