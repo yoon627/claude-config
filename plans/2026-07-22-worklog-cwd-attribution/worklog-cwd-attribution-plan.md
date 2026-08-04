@@ -13,6 +13,7 @@ updated: 2026-08-04
 - 2026-07-22: plan commit `b9e0a28` → `origin/worklog-cwd-attribution` push(PR 미오픈). 작업 트리 clean, WIP 커밋 없음.
 - 2026-08-04: 13일 방치 후 재개. worktree 재생성(`origin/worklog-cwd-attribution` 체크아웃), `origin/main@d38c70b` merge(`1b4d218`) — base 39커밋 뒤처짐 해소. PR 여전히 없음, plan-lint 통과.
 - 2026-08-04: **plan-review NO-GO**(claude plan-reviewer + codex medium 병행). 핵심 blocker 를 메인이 독립 시뮬레이션으로 재현 — plan 의 longest-prefix 규칙을 실데이터에 적용하면 main 귀속이 실제 자기 몫의 **3.5배**가 된다. 원인: main 경로가 모든 worktree 경로의 조상이고 main 자신도 `git worktree list` 에 있어, **삭제된 worktree 의 cwd 가 매핑 실패가 아니라 main 으로 흡수**된다(`plans-sync` 4.57h·`doc-slim` 2.63h·`main-autopull` 2.61h·`improve-loop` 2.26h …). 고치려던 오귀속이 되레 커지는 설계라 구현 중단. 시뮬레이션 스크립트는 scratchpad(`sim_attribution.py`).
+- 2026-08-04: **push + PR #118 생성** (`origin/worklog-cwd-attribution`, 14커밋). 측정 로직(4/7)만 담긴 중간 상태이고 CLI 미연결이라 기존 동작 불변 — PR 본문에 그 사실과 남은 5~7단계, `--register` 사용 금지 경고를 명시했다.
 - 2026-08-04: **code-review 지적 수정 완료** (`af40cf0`). CONFIRMED Major 5건을 메인이 전부 재현한 뒤 수정 — 중첩 dead 흡수(이름→경로 비교), root 밖 live 유실(매칭 순서), Windows 소문자화(비교용/표시용 분리), 분류 성능(`WorktreeIndex` hoist+캐시, 20wt 5.61s→0.001s·실코퍼스 1.48s→0.55s), `ai_worklog_by_bucket` 테스트 0→5. 테스트 32개 통과, 기존 21개 회귀 없음, ruff 통과, 실코퍼스 bucket 결과·불변식 동일. 처분표는 `# Review Disposition`.
 - 2026-08-04: **구현 2~4/7 완료** (`96de12f`) — `parse_message_events` 가 cwd 를 싣고, `bucket_intervals`(인접 쌍 동일 bucket 시에만 발행) + `worklog_from_intervals` + `ai_worklog_by_bucket`(단일 패스) 추가. gap/대기 판정은 `_is_work_gap` 술어로 뽑아 Codex 공용 `ai_intervals` 와 공유(규칙 중복 제거). 테스트 23개 통과(신규 9), 기존 21개 회귀 없음, ruff 통과, **CLI dry-run 출력 불변 확인**(아직 미연결). **실데이터 관찰**: 38파일 단일 패스 **1.48s**(기준 5초), main 9.72h·dead 24.88h(이름별 분리)·unmatched 28.20h·live 0.95h(등록가능 1개), 경계 폐기 99구간 0.41h(0.47%), 불변식 "bucket 합 63.75h ≤ 파일 union 87.41h" 성립. main 이 앞선 시뮬레이션 10.95h 보다 낮은 것은 새 경로가 `merge_intervals` 로 동시 세션 겹침을 union 제거하기 때문(기존 의미론과 동일, 시뮬레이션은 raw 합).
 - 2026-08-04: **구현 1/7 완료** (`a10a433`) — `classify_cwd` + `BucketKind`/`Bucket` 순수 함수. TDD Red(ImportError) → Green. 신규 테스트 14개 통과, 기존 `test_worklog_scope.py` 21개 회귀 없음, ruff 통과. **실데이터 검증(실행·관찰)**: 이전 설계라면 main 이 10,728줄을 먹을 것을 3,514줄(자기 몫)로 분리, dead bucket 7,214줄이 이름별로 복원(`plans-sync` 869·`doc-slim` 824·`ledger-fix` 494 …), 타 repo 14,986줄은 unmatched 로 main 에 안 샘. 호출부 미연결이라 기존 동작 불변.
@@ -37,7 +38,7 @@ updated: 2026-08-04
 5. CLI 표시 — 단일 패스 스캔으로 `process()` 재구성, dead/unmatched 표시, `--all` 5초 실측.
 6. 등록 사전계산 + 게이트(순수 판정 함수, 양방향 임계, all-or-nothing, rename 방어, 60초 하한 통일).
 7. CI python 스텝(신규+기존 테스트) + 문서 동기화.
-이어받기: `/wt worklog-cwd-attribution` → `/c`. **WIP 커밋 없음**(작업 트리 clean, 이어붙이거나 squash 할 것 없음). 2026-08-04 기준 `origin/worklog-cwd-attribution` 대비 **10커밋 미push** — 다른 머신에서 이어받으려면 먼저 push 필요. PR 은 아직 없다.
+이어받기: `/wt worklog-cwd-attribution` → `/c`. **WIP 커밋 없음**(작업 트리 clean). 2026-08-04 **push 완료 + PR #118 (CI 통과)** — 다른 머신에서 그대로 이어받을 수 있다.
 
 # Decisions
 
