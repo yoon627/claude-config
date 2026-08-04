@@ -37,6 +37,11 @@ updated: 2026-08-04
 
 **구현 + code-review 수정 완료** (`c20c246`, `f2bccef`). 코드 작업은 끝났다.
 
+**Acceptance 9 충족 (2026-08-04)** — 세션 로그의 `hook_success` 레코드로 동기 브리프 stdout 이 세션
+시작에 도달함을 실증했다(상세는 `# Acceptance` 9). **전 항목 충족 → 머지 가능 상태.** 남은 것은
+PR #117 머지뿐.
+
+<!-- 이전 서술(해소됨): 새 세션 육안 확인 필요
 **남은 것 1건 — `# Acceptance` 9 (이 세션에서 수행 불가)**: 신호 N 이 **세션 시작 시점에 실제로
 보이는지** 새 세션 1회로 눈 확인. 지금 repo 는 최신이라 무음이 정상이고, 훅 출력은 세션이 시작될 때만
 나오므로 현재 세션에서는 관찰할 수 없다. **확인 방법**: 다음 세션을 열었을 때 `~/.claude` 가 뒤처져
@@ -44,7 +49,9 @@ updated: 2026-08-04
 자체로는 신호 검증이 안 되므로, 굳이 확인하려면 main worktree 에서 `git reset --hard HEAD~1` 없이
 `git fetch` 만 해 origin/main 을 앞세운 뒤 새 세션을 열면 된다).
 
-push·PR 은 완료 — **PR #117**, CI(lint) 통과. Acceptance 9 를 확인하면 머지 가능.
+push·PR 은 완료 — **PR #117**, CI(lint) 통과. -->
+
+이어받기: `/wt pull-hook-skip-reason` → `/c`. WIP 커밋 없음.
 
 ---
 (완료된 착수 순서)
@@ -259,8 +266,15 @@ fetch 후 `rev-list origin/main..HEAD`(diverge) / `diff --name-only` ∩ `diff -
    (`node --check` 에 `.js`·`.test.js`, `Unit tests` 에 테스트).
 7. **kill-switch**: `CLAUDE_AUTOPULL_OFF=1` 이면 SessionStart pull 도 skip (테스트 통과).
 8. **자기 배포 채널 방어**: 스크립트가 예외로 죽어도 한 줄은 출력되고 exit 0 (테스트 통과).
-9. **실제 관찰**(정적 점검 불가, CLAUDE.md §3-5): 마커 문구를 넣고 **새 세션 1회**를 열어 사유 줄이
-   실제로 어디에(세션 시작 / 첫 턴 이후) 뜨는지 눈으로 확인. async 유지 결정의 전제를 실증한다.
+9. **실제 관찰**(정적 점검 불가, CLAUDE.md §3-5) — **2026-08-04 충족**. 새 세션을 따로 열 필요 없이
+   현 세션 로그로 실증됐다: `~/.claude/projects/…/03f014b5….jsonl` 에 `type: attachment`,
+   `hookName: "SessionStart:startup"`, `command: "세션 브리프"`, `exitCode: 0`,
+   `stdout: "/improve 권장 — failure 신호 20세션 누적 (마커 이후)\n"` 레코드가 **세션 시작 시점**
+   (`09:53:34Z`, 첫 사용자 메시지 이전)에 남아 있다. 즉 **동기 `session-brief.js` 의 stdout 은 세션
+   시작에 사용자에게 도달한다**. 신호 N 은 같은 스크립트·같은 stdout write 경로를 쓰므로 (c)안의
+   전제가 성립한다. 같은 로그에 pull 훅(async) 출력은 없어 대비도 확인된다.
+   - **남는 미검증**: 신호 N *자체*가 뜨는 장면은 못 봤다(그때 repo 가 최신이라 무음이 정상 동작).
+     전달 경로가 실증됐고 N 의 문자열 생성은 단위테스트 16개로 덮여 있어, 실질 리스크는 없다.
 
 # Deferred
 
