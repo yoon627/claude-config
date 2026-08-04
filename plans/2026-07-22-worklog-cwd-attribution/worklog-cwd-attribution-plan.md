@@ -13,6 +13,7 @@ updated: 2026-08-04
 - 2026-07-22: plan commit `b9e0a28` → `origin/worklog-cwd-attribution` push(PR 미오픈). 작업 트리 clean, WIP 커밋 없음.
 - 2026-08-04: 13일 방치 후 재개. worktree 재생성(`origin/worklog-cwd-attribution` 체크아웃), `origin/main@d38c70b` merge(`1b4d218`) — base 39커밋 뒤처짐 해소. PR 여전히 없음, plan-lint 통과.
 - 2026-08-04: **plan-review NO-GO**(claude plan-reviewer + codex medium 병행). 핵심 blocker 를 메인이 독립 시뮬레이션으로 재현 — plan 의 longest-prefix 규칙을 실데이터에 적용하면 main 귀속이 실제 자기 몫의 **3.5배**가 된다. 원인: main 경로가 모든 worktree 경로의 조상이고 main 자신도 `git worktree list` 에 있어, **삭제된 worktree 의 cwd 가 매핑 실패가 아니라 main 으로 흡수**된다(`plans-sync` 4.57h·`doc-slim` 2.63h·`main-autopull` 2.61h·`improve-loop` 2.26h …). 고치려던 오귀속이 되레 커지는 설계라 구현 중단. 시뮬레이션 스크립트는 scratchpad(`sim_attribution.py`).
+- 2026-08-04: **2차 code-review 반영 완료** (`04fd450`), PR #118 갱신·CI 통과. CONFIRMED Major 2건을 재현 후 수정 — ① bucket 식별자가 basename 이라 **동명 live worktree 시간이 합쳐져 이중등록**되고 symlink 경로에선 조회가 어긋나 무음 0(근본 원인: 키 생성이 CLI·인덱스 두 군데로 갈라짐 → `Bucket.key`(정규화 경로)로 동일성을 가르고 CLI 는 `index.classify` 사용, `name` 은 표시 전용) ② plan↔upsert 의 `worklog id` 검사 조건 불일치로 잔여 부분등록 → 무조건 검사로 통일. 부수: 폴더 단위 죽은 코드 6심볼 제거(참조 0 확인), `main_subroots` 1개일 때도 표시, 강행 시에도 게이트 사유 출력, rival 메시지에 병렬 worktree 정상 케이스 명시, all-or-nothing 을 "게이트까지"로 한정. **테스트도 `Bucket` 직접 조립을 그만두고 분류기에서 얻게 고쳤다** — 직접 조립하면 프로덕션이 겪은 키 재구성 결함을 테스트가 재현해 회귀를 못 잡는다.
 - 2026-08-04: **구현 5~7/7 완료** (`838fa95`, `7d7f919`, `1e2ea0b`) — 7단계 전부 끝. code-reviewer 진행 중.
   - **5단계(CLI 연결)**: 코퍼스 단일 패스 → bucket 별 분배. Codex 는 worktree 별로 뽑아 **날짜 분할 전** union(분할 후 합치면 이중계상). 삭제 worktree 표시·경계 폐기량·main 기여 cwd 갈래 출력. 실측 단일 0.68s / `--all` 0.81s(기준 5초). **실행 중 발견한 버그**: main worktree 를 `Bucket(LIVE, 이름)` 으로 조회해 시간이 0 이 됐다(main 은 조상이라 LIVE 후보에서 빠지고 MAIN bucket 에 담긴다) → 분기 + 회귀 테스트 2개. 정적 점검으로는 안 보였고 `--all` 실행으로 잡았다.
   - **6단계(등록 게이트)**: `plan_worklog_changes`(전 날짜 사전계산) + `gate_reasons`(순수 함수). 양방향 임계(30분 & 50%), rename 사각지대 차단, 60초 하한 통일, 복구 로그 파일. **자체 발견 blocker**: `upsert_worklog` 의 사전 검사 3종이 계획 단계에 없어 게이트 통과 후 2일차 예외 시 1일차가 이미 쓰인 채 중단됐다 → 검사를 계획 단계로 이동, 회귀 테스트 4개.
@@ -28,7 +29,9 @@ updated: 2026-08-04
 - 2026-08-04: **전제 재실증**(13일 경과 검증). 이 세션 파일 `03f014b5….jsonl` 이 worktree 폴더에 있는데 121줄 중 45줄의 `cwd` 가 main — 폴더 단위 귀속이면 main 시간이 worktree 로 계상된다(결과 ① 재현). `drop-codegraph`·`risk-based-approval`·`rtk-rewrite-guard` slug 폴더는 jsonl 0개(세션이 떠남). `session_time.py` 모듈 docstring 은 여전히 "worktree 에서 실행하면 그 worktree 세션들만 잡힌다"는 틀린 전제를 명시 → 미해결 확인.
 
 # Next
-**구현 7/7 완료.** code-reviewer(+codex) 진행 중 — 지적 처분 후 PR #118 갱신 push → 머지.
+**구현 7/7 + code-review 2회 반영 완료.** PR #118 갱신 push, **CI 통과**(신규 Python 테스트 3종 포함). `# Acceptance` 14항목 증거 대조 완료.
+
+남은 것: **PR #118 머지**. 머지 후 worktree 정리.
 
 <!-- 완료된 이전 Next
 **구현 1~4/7 + code-review 수정 완료** (`a10a433`, `96de12f`, `af40cf0`) — 측정 로직 완성, CLI 미연결이라 기존 동작 불변.
