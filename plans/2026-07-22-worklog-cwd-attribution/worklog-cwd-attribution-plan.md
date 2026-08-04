@@ -1,6 +1,6 @@
 ---
 title: worklog-cwd-attribution — jira-worklog 시간 귀속을 줄 단위 cwd 기반 worktree별 분리로 개선
-status: blocked
+status: in_progress
 started: 2026-07-22
 updated: 2026-08-04
 ---
@@ -18,8 +18,7 @@ updated: 2026-08-04
 - 2026-08-04: **전제 재실증**(13일 경과 검증). 이 세션 파일 `03f014b5….jsonl` 이 worktree 폴더에 있는데 121줄 중 45줄의 `cwd` 가 main — 폴더 단위 귀속이면 main 시간이 worktree 로 계상된다(결과 ① 재현). `drop-codegraph`·`risk-based-approval`·`rtk-rewrite-guard` slug 폴더는 jsonl 0개(세션이 떠남). `session_time.py` 모듈 docstring 은 여전히 "worktree 에서 실행하면 그 worktree 세션들만 잡힌다"는 틀린 전제를 명시 → 미해결 확인.
 
 # Next
-**구현 착수 금지 — 설계 재확정 먼저.** plan-review(2026-08-04) 가 NO-GO. 아래 `# Blockers` 의 3개 결정(죽은 worktree 처리 / Jira 등록 게이트 / 과거 오귀속 reconciliation)을 사용자와 확정한 뒤, 수정된 `# Decisions` 로 plan-reviewer 를 재실행(dlc 7단계 "구조 바뀌면 4~6 재실행")한다.
-그 다음에야 TDD: `skills/jira-worklog/test_session_time.py`(신규, stdlib unittest — 기존 `test_worklog_scope.py` 스타일) 에 회귀 테스트부터 Red 확인.
+설계 결정 3건 확정 완료(2026-08-04). **수정된 `# Decisions` 로 plan-reviewer 재실행**(dlc 7단계 "구조 바뀌면 4~6 재실행") → 통과하면 TDD: `skills/jira-worklog/test_session_time.py`(신규, stdlib unittest — 기존 `test_worklog_scope.py` 스타일) 에 회귀 테스트부터 Red 확인.
 이어받기: `/wt worklog-cwd-attribution` → `/c`.
 
 # Decisions
@@ -38,7 +37,7 @@ updated: 2026-08-04
 - **Claude 세션은 줄 단위 `cwd` 로 분리한다.** 각 줄에 `cwd` 필드가 존재함을 실측 확인 → 데이터는 이미 있다. 이벤트마다 cwd 를 읽어 소속 worktree 를 정하고, **worktree 별로 따로** interval 을 뽑아 union 한다.
 - ~~**cwd → worktree 매핑은 longest-prefix**~~ → **2026-08-04 폐기 (plan-review blocker, 메인 시뮬레이션으로 재현)**. live `git worktree list` 만으로 longest-prefix 를 하면 **삭제된 worktree 의 cwd 가 조상인 main 으로 흡수**된다(main 42.53h vs 실제 몫 11.63h). main 은 모든 worktree 의 조상이자 자신도 목록에 있으므로 "매칭 실패 → 조상으로 폴백"이 곧 오귀속이다. billable 티켓 worktree 하위에 중첩 worktree 가 있던 실사례(`.../CSTP1-2812/ingest-pipeline`)에서는 **과다 등록**으로 이어진다.
   - **대체 규칙 (확정)**: ① 비교는 `Path.resolve()` 후 **경로 요소 단위**(`is_relative_to`) — 문자열 접두는 `/wt/foo` 가 `/wt/foobar` 에 걸린다. ② 매핑 후보는 live worktree 뿐 아니라 **`<root>/.claude/worktrees/<name>` 규약으로 식별한 historical bucket** 을 포함한다(`skills/wt/SKILL.md:29`). ③ **조상 폴백 금지** — 어떤 worktree 디렉토리 아래에도 안 들어가는 cwd 만 그 repo 루트(main)에 귀속한다. 즉 `<main>/.claude/worktrees/<X>` 는 X 가 살아있든 삭제됐든 **절대 main 으로 가지 않는다**.
-  - 죽은 worktree bucket 을 drop 할지·별도 보고할지는 `# Blockers` 결정 1.
+  - **죽은 worktree 는 별도 bucket 으로 집계·표시한다 (2026-08-04 사용자 결정)**. `<root>/.claude/worktrees/<name>` 규약으로 이름을 복원해 dry-run 출력에 `(삭제됨)` 표시와 함께 시간을 보여주되, **Jira 등록은 하지 않는다**. 이유: drop 하면 billable repo 에서 중첩 worktree 를 지웠을 때 시간이 조용히 사라지는데, 표시해 두면 유실이 눈에 보이고 사후 수동 등록도 가능하다. `--worktree-path` 로 직접 등록하는 경로는 이번 스코프에서 제외(CLI 표면 증가).
 - **worktree 경계를 넘는 interval 은 버린다**(직전 이벤트와 현재 이벤트의 worktree 가 다르면 skip). 이유: 그 구간은 "이동" 자체라 어느 쪽 것도 아니고, 어느 한쪽에 넣으면 이중계상 방향으로 틀어진다. 기존 제외 규칙(`max_gap` 초과, assistant→user 대기)은 그대로 유지.
   - **interval 발행 규칙 명시 (2026-08-04 추가 — plan-review #4)**: **파일별 타임라인을 유지한 채**(파일 = 독립 세션 불변식, `session_time.py:155-163`) **인접 이벤트 쌍의 귀속키가 같을 때만** interval 을 발행한다. 금지되는 두 오구현: (a) worktree 별로 이벤트를 먼저 걸러 스트림을 만들면 A→B→A 왕복이 60분 이내일 때 A 의 두 이벤트가 B 구간을 가로질러 이어져 **이중계상**된다. (b) 여러 파일 이벤트를 한 스트림으로 합치면 서로 다른 세션 사이 공백이 **허위 작업시간**이 된다.
   - **경계 폐기 손실 정량**(실측): 전체 100.26h 중 5구간 0.01h(**0.01%**). 무시 가능하나 dry-run 에 폐기량을 표시해 과소계상을 감시한다.
@@ -51,6 +50,16 @@ updated: 2026-08-04
   - 향후 Codex 가 세션 중 이동을 지원하게 되면 `turn_context` 로 같은 분리를 적용할 수 있다(경로는 열려 있음).
 - **호환**: 오가지 않은 세션(정상 케이스)은 결과가 달라지면 안 된다 — 기존 동작 회귀 테스트를 함께 둔다.
 
+## 등록 안전장치 (2026-08-04 사용자 결정 — 이번 스코프 포함)
+`upsert_worklog` 는 기존 `timeSpentSeconds` 를 새 계산값으로 **덮어쓴다**(`worklog_register.py:81-85`). 이번 변경은 귀속 값을 크게 바꾸므로, 코드 revert 로 되돌릴 수 없는 Jira 쪽 사고를 막을 최소 게이트를 **같은 브랜치에** 넣는다.
+- `--register` 전 `(ticket, date, worktree, old, new)` diff 를 stdout 에 출력한다.
+- **감소폭 임계 초과 시 등록 차단** — 기존값 대비 크게 줄면(임계는 구현 시 확정, 기본 보수적으로) 자동 등록을 멈추고 명시 플래그를 요구한다. 근거: 이번 변경의 정상 방향은 "과다분 감소"라 감소 자체는 정상이지만, 매핑 버그로 인한 대량 소실과 구분이 안 되므로 사람이 한 번 본다.
+- 등록 시 **이전 값과 worklog id 를 로그에 남겨** 수동 복구 경로를 확보한다.
+- 이 게이트는 측정 로직과 독립적으로 테스트 가능해야 한다(순수 판정 함수로 분리).
+
+## 스코프 제외 (후속)
+- **과거 오귀속 worklog 의 reconciliation** — 2026-08-04 사용자 결정으로 **후속 분리**. 이번은 앞으로의 측정을 바로잡는 데 집중한다. 이미 등록된 main 항목의 과다분은 자동으로 사라지지 않으므로, 필요해지면 별도 작업으로 감지·보고를 만든다(`# Deferred` 참조).
+
 ## 인접 작업과의 경계 (2026-08-04 확인 — 중복 아님)
 - main 에 `worklog-per-worktree`(plan `status: done`, PR #101)가 머지돼 있다. 그 작업이 고친 것은 **등록 단계**의 문제 — 마커가 `(ticket, date)` 뿐이라 같은 티켓의 두 worktree 가 서로를 덮어쓰던 것을 worktree별 마커로 분리(`markers.py`·`worklog_register.py`, 테스트 `test_worklog_scope.py`).
 - 이 plan 이 고치는 것은 **측정 단계**의 문제 — 세션 파일이 cwd 를 따라 이동해 시간 자체가 엉뚱한 worktree 로 집계되는 것(`session_time.py`). 마커를 아무리 잘 나눠도 입력 시간이 틀리면 소용없으므로 두 작업은 직교하고, 순서상 이쪽이 뒤에 오는 게 맞다.
@@ -62,8 +71,12 @@ updated: 2026-08-04
 - `skills/jira-worklog/jira_worklog.py` — `process()`/`_days_for()` 가 worktree 1개 = 폴더 1개 전제. `--all` 은 한 번 스캔해 worktree 별로 나누는 쪽이 효율적
 - `skills/jira-worklog/jira_kit/codex_session.py` — 변경 없음(한계 문서화 대상)
 - `skills/jira-worklog/SKILL.md` — 동작 설명 갱신(귀속 기준, Codex 한계)
-- `skills/e/SKILL.md:45-46` — "main 복귀 전 실행" 근거가 약해지면 문구 재검토(삭제 아님 — Codex 는 여전히 파일 단위)
+- `skills/e/SKILL.md:45-47` — "삭제·복귀 전 실행" 규약은 **유지**(삭제 후에는 대상이 사라져 영구 소실). 복귀 관련 서술만 정확히 갱신
+- `skills/jira-worklog/jira_kit/worklog_register.py:63-85` — `upsert_worklog` 가 기존 시간을 덮어씀. 등록 게이트(old/new diff·감소폭 차단·이전값 로깅) 추가 지점
+- `README.md:326` — 폴더 단위 귀속을 단언하는 서술. 문서 동기화 대상
+- `.github/workflows/lint.yml` — 현재 node 테스트만 실행. python 테스트 추가 필요(안 하면 신규 테스트의 회귀 방지 효과 0)
 - (신규) `skills/jira-worklog/test_session_time.py` — stdlib unittest, `uv run --no-project python test_session_time.py`
+- (참고) scratchpad `sim_attribution.py` — longest-prefix 결함을 실증한 시뮬레이션. 구현 후 같은 스크립트로 개선 전후 비교 가능
 
 # Acceptance
 - [ ] 한 jsonl 안에 A→B→A 구간이 섞인 fixture 에서, A/B 가 각자 구간 시간만 받고 총합이 실제 시간을 넘지 않음 (테스트 통과)
@@ -72,6 +85,11 @@ updated: 2026-08-04
 - [ ] ~~knowledge_base 에서 CSTP1-2812 계열에 시간이 잡히고 main 의 2h 가 줄어듦~~ → **2026-08-04 정정(검증 불가)**. CSTP1-2812 worktree 는 이미 삭제됐고 `--all` 은 live 만 순회한다. 대체 기준: **live worktree 쌍**(main + 현재 worktree)으로 dry-run 시 ⓐ main 귀속이 42.53h→11.63h 수준으로 감소하고 ⓑ 죽은 worktree 시간이 main 에 흡수되지 않음을 수치로 확인(실행·관찰).
 - [ ] `--all` dry-run 이 5초 이내 (실행·관찰 — "체감 저하 없음"은 측정 불가라 수치로 대체)
 - [ ] dry-run 출력에 **경계 폐기량**(구간 수·시간)과 **미매칭 cwd 건수**가 표시됨 — 과소계상·매핑 누락을 조용히 넘기지 않기 위함 (실행·관찰)
+- [ ] **삭제된 worktree 가 별도 bucket 으로 표시**되고 main 에 흡수되지 않음. 실데이터에서 `plans-sync`·`doc-slim` 등이 자기 이름으로 뜨고 main 은 자기 몫만 받음 (실행·관찰)
+- [ ] 삭제된 worktree bucket 은 **등록 대상에서 제외**됨 (테스트 통과 — dry-run 표시와 등록 목록이 분리)
+- [ ] `--register` 전 `(ticket, date, worktree, old, new)` diff 출력, **감소폭 임계 초과 시 등록 차단**, 이전값·worklog id 로깅 (테스트 통과 — 판정 함수 단위)
+- [ ] 신규 `test_session_time.py` 가 **CI 에서 실행됨** — `.github/workflows/lint.yml` 에 python 테스트 추가(현재 node 만 돌아 회귀 방지 효과 0) (CI 통과)
+- [ ] 폴더 단위 시맨틱을 단언하는 문서 전부 갱신: `session_time.py` 모듈 docstring·`jira_worklog.py` docstring·`skills/jira-worklog/SKILL.md`·`README.md:326`·`skills/e/SKILL.md:45-47` (문서 동기화 규약)
 - [ ] SKILL.md 가 새 귀속 기준·Codex 한계를 반영 (문서 동기화 규약)
 
 # Review Disposition
@@ -97,14 +115,11 @@ updated: 2026-08-04
 | 16 | Codex 실측 주장 재현됨 | **no-change** — 이미 정정 반영 |
 
 # Blockers
-2026-08-04 plan-review NO-GO 로 **구현 착수 정지**. 아래 3개는 사용자 결정이 필요하다(스코프·비가역성 판단).
-
-1. **삭제된 worktree 의 시간을 어떻게 처리하나** — 조상(main) 흡수는 폐기 확정이나, 그 다음이 미정: (a) 그냥 drop 하고 dry-run 에 "미매칭 N건 Xh" 만 보고 (b) `<root>/.claude/worktrees/<name>` 규약으로 이름을 복원해 별도 bucket 으로 집계·표시(등록은 안 함) (c) 삭제된 worktree 도 지정 등록할 수 있게 `--worktree-path` 추가. 이 repo 는 main 에 티켓이 없어 영향이 없지만, billable repo(중첩 worktree 실사례)에서는 (a) 가 시간 유실이 된다.
-2. **Jira 등록 비가역성 게이트를 이번 스코프에 넣나** — `upsert_worklog` 는 기존 `timeSpentSeconds` 를 **덮어쓴다**(`worklog_register.py:81-85`). 코드를 revert 해도 Jira 값은 안 돌아온다. 최소 안전장치(첫 `--register` 전 old/new diff 출력, 감소폭 임계 초과 시 차단, 이전 값·worklog id 로깅)를 같이 넣을지, 별도 작업으로 뺄지.
-3. **과거 오귀속 worklog 의 reconciliation** (codex 지적) — 이미 등록된 main 항목의 과다분은 자동으로 사라지지 않고 새 worktree 항목이 더해져 티켓 총합이 부풀 수 있다. 이번 스코프인지 후속인지.
+(없음 — 2026-08-04 결정 3건 확정으로 해소. 내용은 `# Decisions` 에 반영)
 
 부수 정정(결정 불필요, 반영 완료): `skills/e/SKILL.md:45-47` 의 "삭제·복귀 전 실행" 규약은 **여전히 필수**다 — 새 방식은 *복귀* 후에는 정확해지지만 *삭제* 후에는 대상이 사라져 영구 소실이다. plan `# Deferred` 에 있던 "§8 규율 강제 필요성이 낮아진다"는 삭제 순서에 대해 틀렸다.
 
 # Deferred
 - CLAUDE.md §8 의 설명 부정확: "여러 worktree 를 오가면 **launch 프로젝트** 로그에 뭉친다" → 실측은 "**마지막 위치**로 뭉친다". 결론(한 세션 = 한 worktree)은 유효하나 근거 서술이 틀림. 운영 자산이라 승인 후 별건 처리(§1). 심각도 낮음(운영 규율은 그대로 안전 방향).
-- 이 개선이 들어가면 §8 규율("한 세션 = 한 worktree")의 강제 필요성이 낮아진다 — 규칙 완화 여부는 구현·검증 후 별도 판단.
+- ~~이 개선이 들어가면 §8 규율("한 세션 = 한 worktree")의 강제 필요성이 낮아진다~~ → **2026-08-04 정정(plan-review #7)**. **삭제 순서에 대해서는 틀렸다** — 새 방식은 *main 복귀* 후에는 정확해지지만, worktree 를 *삭제*하면 매핑 대상이 사라져(`--all` 은 live 만 순회) 시간이 영구 소실된다. 죽은 worktree bucket 표시로 유실이 보이게는 되지만 등록은 여전히 불가. 따라서 `/e` 의 "삭제 전 worklog 실행"은 계속 필수이고, 완화 가능한 것은 "복귀 전" 쪽뿐이다.
+- **과거 오귀속 worklog reconciliation** (2026-08-04 사용자 결정 — 후속 분리). 이미 등록된 main 항목의 과다분은 이번 변경으로 자동 정정되지 않고, 새 worktree 항목이 더해져 티켓 총합이 부풀 수 있다. 실제 Jira 등록 이력이 있는지부터 확인한 뒤 필요하면 별도 작업. 심각도: 등록 이력이 없으면 0.
