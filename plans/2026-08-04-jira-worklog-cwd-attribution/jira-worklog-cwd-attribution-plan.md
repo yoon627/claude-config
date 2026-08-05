@@ -17,10 +17,11 @@ Claude 세션 하나가 여러 worktree를 오갈 때 세션 파일이 마지막
 - 2026-08-05: 실제 `jira_worklog.py --all --timezone UTC`가 exit 0으로 실행됐고 `.claude`와 `plan-done-cleanup` worktree를 별도 결과로 출력했다. 환경에 `tzdata`가 없어 UTC 해석 경고만 발생했다.
 - 2026-08-05: `skills/jira-worklog/SKILL.md`, `skills/e/SKILL.md`, `README.md`에 Claude 줄 단위 귀속·Codex 파일 단위 한계·`--all` 단일 계산 경로를 동기화했다.
 - 2026-08-05: 최종 검증 중 Codex fixture의 동일 `mtime` 순서 가정을 발견해 포함 집합 검증으로 고쳤고, 세션 귀속 7개·기존 worklog 21개·`py_compile`·`ruff`·`git diff --check`를 다시 통과했다.
+- 2026-08-05: 커밋 `dbac703`을 `jira-worklog-cwd-attribution` 브랜치에 push하고 main 대상 PR #120을 열었다. merge는 수행하지 않았다.
 
 # Next
 
-구현·문서·검증 결과를 현재 worktree에 보존하고 사용자에게 handoff한다. merge/push는 하지 않는다.
+PR #120 리뷰를 기다린다. 사용자 지시에 따라 merge는 수행하지 않으며, 추가 리뷰 지적이 있을 때만 이 worktree에서 반영한다.
 
 # Decisions
 
