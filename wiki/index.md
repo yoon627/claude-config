@@ -15,13 +15,17 @@
 - [[unknowns-discovery]] — 구현 전 unknowns(unknown unknowns) 능동 발굴 기법→dlc 매핑(blind-spot·질문우선순위·프로토타입-우선·퀴즈·deviations).
 
 ## entity
-- [[anthropic-claude-models]] — Opus4.8/Sonnet4.6/Haiku4.5 가격·effort 지원(2026-06).
+- [[anthropic-claude-models]] — Claude 5 세대 가격·Fable 주간 50% 캡·벤치 구도(닫힌 코딩 Opus5≥Fable)·effort 지원 (2026-08).
 - [[claude-code-subagent-config]] — subagent frontmatter model/effort·env 우선순위·Haiku effort.
+- [[claude-code-model-selection]] — alias(opusplan, fableplan 없음)·advisor tool 공식 수치·/model 저장·subagent model 함정(inherit×Fable).
+- [[claude-code-oss-frameworks]] — OSS 하네스 생태계 스냅샷(2026-08): 커버리지 부분적·프레임워크 후퇴·내부 확장이 정책 안전.
 - [[codegraph]] — 코드 심볼 그래프 MCP(npm @colbymchenry/codegraph)·worktree-local 인덱스(init 스냅샷·watcher 없어 stale→조회 전 재-sync).
 - [[headroom]] — 컨텍스트 최적화 proxy(token mode·launchd)·MCP·rtk 번들.
 
 ## decision
 - [[effort-global-xhigh]] — effort xhigh 전역 단일 유지, subagent model 은 opus 명시→`inherit`(세션 상속, 2026-07-04) (#66·#67·#68).
+- [[model-stage-tiering]] — dlc 단계별 모델 배치(2026-08-05): Fable=plan/설계만(50% 캡), 구현 opus(촘촘한 plan은 sonnet), 리뷰 opus, 조사 sonnet.
+- [[harness-keep-and-borrow]] — 자작 하네스 유지+부품 차용 결정(2026-08-05): 대체 OSS 부재·프레임워크 후퇴·정책 안전성; 유지비 감시·네이티브 중복 역정리 조건.
 - [[subagent-model-effort-tiering]] — (superseded by [[effort-global-xhigh]]) reviewer opus+max / simplifier sonnet / researcher haiku 차등 (#51).
 - [[effort-os-env-single-source]] — OS env > settings.json env, effort 단일소스화; env 가 frontmatter effort 도 override.
 - [[dual-review-plan-and-code]] — plan 리뷰(구현 전) + code 리뷰(구현 후) 관점 분리.

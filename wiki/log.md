@@ -98,3 +98,6 @@
 - 근본 원인은 도구의 실수가 아니라 **채널 설계의 공백**: `plans/` 매칭(§10)은 *자기 branch → plan dir* 방향이라 남이 다른 브랜치에서 연 plan 은 안 보이고, 새 브랜치로 시작한 도구는 기존 plan 을 못 찾아 새로 만든다. 채널의 목표가 "이어받기"였지 "동시 착수 감지"가 아니었다.
 - 행동 규칙(memory 인덱스로 승격): 비trivial 착수 전 `gh pr list --state open`·원격 브랜치·`status: in_progress` plan 확인. **plan 매칭 실패를 "없다"의 근거로 쓰지 않는다.**
 - "#120 을 Codex 가 만들었다"는 ⚠️추정으로만 표기(커밋에 Claude 트레일러 부재라는 정황뿐) — 단정하지 않았다.
+
+## [2026-08-05] ingest | 모델 단계별 배치 + OSS 하네스 판단
+- 신규: entity/claude-code-model-selection, entity/claude-code-oss-frameworks, decision/model-stage-tiering, decision/harness-keep-and-borrow. 갱신: entity/anthropic-claude-models (Claude 5 세대·Fable 50% 캡·벤치 구도). 출처: 본 세션 researcher 조사 2건.
