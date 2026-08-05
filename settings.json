@@ -3,7 +3,6 @@
     "CLAUDE_CODE_EFFORT_LEVEL": "high"
   },
   "permissions": {
-    "defaultMode": "auto",
     "allow": [
       "mcp__codegraph__codegraph_explore",
       "mcp__codegraph__codegraph_search",
@@ -41,7 +40,8 @@
       "Bash(git push *)",
       "PowerShell(git push)",
       "PowerShell(git push *)"
-    ]
+    ],
+    "defaultMode": "auto"
   },
   "hooks": {
     "PreToolUse": [
@@ -256,7 +256,8 @@
     "command": "node ~/.claude/subagent-statusline.js"
   },
   "enabledPlugins": {
-    "pyright-lsp@claude-plugins-official": false
+    "pyright-lsp@claude-plugins-official": false,
+    "claude-md-management@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "openai-codex": {

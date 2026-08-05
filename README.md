@@ -417,7 +417,7 @@ UTF-8 (no BOM) + LF endings — Git Bash 가 인식. idempotent — 재실행 �
 - `hooks.PostToolUse` — `Edit|Write|NotebookEdit|Bash` 에 `dlc-evidence-ledger.js` (변경·검증 명령 기록)
 - `hooks.Stop` — `dlc-early-stop.js`(검증 누락 + 문서 drift capped 경고) + `notify-hook.js Stop`(알림) 2개
 - `hooks.Notification` — 입력 대기 시 `notify-hook.js Notification` (cross-platform 알림)
-- `enabledPlugins`, `extraKnownMarketplaces` — Pyright LSP plugin(**`false` — 2026-07-26 `/doctor` 점검에서 lifetime 사용 0 으로 비활성**. Python 작업이 늘면 `true` 로 되돌린다) + OpenAI Codex marketplace
+- `enabledPlugins`, `extraKnownMarketplaces` — Pyright LSP plugin(**`false` — 2026-07-26 `/doctor` 점검에서 lifetime 사용 0 으로 비활성**. Python 작업이 늘면 `true` 로 되돌린다) + `claude-md-management`(**`true` — 2026-08-05 도입**. `claude-md-improver` 스킬로 CLAUDE.md↔코드베이스 정합성을 주기 점검. 동봉된 `/revise-claude-md` 는 §12 feedback memory·§13 lesson wiki·`/e` 와 역할이 겹쳐 쓰지 않는다) + OpenAI Codex marketplace
 - `theme`, `skipDangerousModePermissionPrompt`, `skipWorkflowUsageWarning`, `preferredNotifChannel` — Claude Code UI / 세션 기본값 (`model` 핀 없음 → 세션 기본 모델 상속)
 
 Path 표기 (cross-platform):
