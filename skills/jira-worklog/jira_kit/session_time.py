@@ -8,6 +8,8 @@ worktree 를 오갔을 때 시간이 마지막 위치 한 곳으로 몰린다. �
 
 Codex 는 다르다 — rollout 전수에서 cwd 가 2개 이상인 파일이 0건이라 세션 중 이동이 없고,
 ``session_meta``/``turn_context`` 의 cwd 로 파일 단위 귀속이 무손실이다(``codex_session``).
+단 **어느 bucket 이냐는 같은 ``classify_cwd`` 로 정한다** — 소스마다 규칙이 갈리면 같은 cwd 가
+다른 bucket 으로 가고, 정확일치만 보던 옛 규칙은 worktree 하위에서 시작한 세션을 버렸다.
 두 소스의 구간은 **날짜 분할 전에** union 한다.
 
 각 세션의 user/assistant 메시지 timestamp 로 '실제 AI 가 작업한 구간'을 뽑는다:
@@ -319,13 +321,34 @@ def _split_by_date(intervals: list[_Interval]) -> dict[date, tuple[float, dateti
 def codex_intervals(paths: list[Path], tz: tzinfo, max_gap_minutes: int = 60) -> list[_Interval]:
     """Codex rollout 들의 작업구간. 파일=독립 세션이라 파일별로 뽑는다(경계 gap 오염 방지).
 
-    Codex 는 줄 단위 cwd 이동이 없어(rollout 전수에서 cwd 2개 이상인 파일 0건) bucket 분리 대상이
-    아니다 — 파일 단위로 이미 worktree 가 갈린다.
+    Codex 는 줄 단위 cwd 이동이 없어(rollout 전수에서 cwd 2개 이상인 파일 0건) 파일 하나가
+    통째로 한 bucket 이다 — 어느 bucket 인지는 ``bucket_codex_intervals`` 가 정한다.
     """
     out: list[_Interval] = []
     for path in paths:
         out.extend(ai_intervals(codex_events([path], tz), max_gap_minutes))
     return out
+
+
+def bucket_codex_intervals(
+    sessions: Iterable[tuple[Path, str]],
+    tz: tzinfo,
+    index: WorktreeIndex,
+    max_gap_minutes: int = 60,
+) -> dict[Bucket, list[_Interval]]:
+    """rollout ``(파일, cwd)`` 들을 **Claude 와 같은 분류기**로 bucket 별 구간으로 나눈다.
+
+    소스마다 귀속 규칙이 다르면 같은 cwd 가 서로 다른 bucket 으로 간다. 특히 정확일치만
+    보면 worktree **하위** 디렉토리에서 시작한 세션이 어디에도 못 가고 사라진다(실측 26건,
+    전부 삭제된 worktree 행이라 표시에서 누락됐다).
+    """
+    grouped: dict[Bucket, list[Path]] = {}
+    for path, cwd in sessions:
+        grouped.setdefault(index.classify(cwd), []).append(path)
+    return {
+        bucket: codex_intervals(paths, tz, max_gap_minutes)
+        for bucket, paths in grouped.items()
+    }
 
 
 def worklog_from_intervals(intervals: list[_Interval]) -> list[DayWorklog]:
@@ -346,8 +369,8 @@ def bucket_intervals_from_files(
     """Claude 세션 파일들을 한 번만 읽어 bucket 별 날짜 worklog 로 나눈다.
 
     코퍼스를 worktree 마다 다시 읽으면 worktree 수만큼 스캔이 반복된다 — 단일 패스가
-    ``--all`` 성능 기준의 전제다. Codex 는 줄 단위 cwd 이동이 없어(rollout 전수에서 cwd 가
-    2개 이상인 파일 0건) 파일 단위 귀속을 그대로 쓰므로 여기서 다루지 않는다.
+    ``--all`` 성능 기준의 전제다. Codex 는 줄이 아니라 파일 단위로 갈리므로 여기가 아니라
+    ``bucket_codex_intervals`` 가 같은 분류기로 나눈다(그쪽도 스캔 1회).
     """
     root_parts = len(index.root_key.parts)
     per_bucket: dict[Bucket, list[_Interval]] = {}

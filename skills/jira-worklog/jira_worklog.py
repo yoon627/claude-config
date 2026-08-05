@@ -4,7 +4,8 @@
 세션 로그(Claude ``~/.claude/projects/<slug>`` + Codex ``~/.codex/sessions``)에서 AI 가 실제
 작업한 시간(사용자 응답 대기·긴 공백 제외)을 날짜별로 추정한다. **귀속은 파일이 놓인 폴더가 아니라
 줄 단위 cwd 기준**이다 — 세션 파일이 cwd 를 따라 폴더를 옮겨 다녀, 폴더로 귀속하면 오간 세션의
-시간이 마지막 위치 한 곳으로 몰린다. 코퍼스는 한 번만 스캔해 worktree 별로 나눈다. 삭제된 worktree
+시간이 마지막 위치 한 곳으로 몰린다. Claude·Codex 두 코퍼스 모두 **각각 한 번만** 스캔해 같은
+분류기로 worktree 별로 나눈다(worktree 마다 다시 읽으면 N배 스캔이 된다). 삭제된 worktree
 시간은 표시만 하고 등록하지 않는다. 기본은 미리보기(dry-run). 실제 등록은 ``--register`` 이며,
 등록 전 diff·게이트를 거친다(게이트까지 all-or-nothing — 통과 후 HTTP 실패는 부분 반영 가능).
 (ticket, date, worktree) 마커로 **그 worktree 의** 본인 worklog 를 찾아 없으면 생성, 있으면 시간만
@@ -24,7 +25,7 @@ import io
 import json
 import os
 import sys
-from datetime import date, datetime, tzinfo
+from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -36,7 +37,7 @@ if isinstance(sys.stdout, io.TextIOWrapper):
 if isinstance(sys.stderr, io.TextIOWrapper):
     sys.stderr.reconfigure(encoding="utf-8")
 
-from jira_kit.codex_session import find_codex_session_files  # noqa: E402
+from jira_kit.codex_session import find_codex_sessions  # noqa: E402
 from jira_kit.config import Config, ConfigError, load_config, resolve_timezone  # noqa: E402
 from jira_kit.git_util import GitError, Worktree, current_worktree, list_worktrees  # noqa: E402
 from jira_kit.jira_client import JiraError, get_myself, get_worklogs  # noqa: E402
@@ -46,8 +47,8 @@ from jira_kit.session_time import (  # noqa: E402
     Bucket,
     BucketKind,
     WorktreeIndex,
+    bucket_codex_intervals,
     bucket_intervals_from_files,
-    codex_intervals,
     find_repo_session_files,
     worklog_from_intervals,
 )
@@ -173,18 +174,15 @@ def process(
     wt: Worktree,
     args: argparse.Namespace,
     config: Config,
-    tz: tzinfo,
     register: bool,
-    claude_intervals: list[tuple[datetime, datetime]],
+    intervals: list[tuple[datetime, datetime]],
 ) -> int:
     # register 는 main 이 계산한 실효값(--all 이면 False) — args.register 를 직접 보지 않는다.
-    # claude_intervals 는 main 이 코퍼스를 한 번만 읽어 이 worktree bucket 으로 나눠준 것.
-    # Codex 는 줄 단위 cwd 이동이 없어 파일 단위로 이미 갈리므로 여기서 합친다 —
-    # 날짜 분할 **전에** union 해야 두 소스의 겹치는 시간이 이중계상되지 않는다.
+    # intervals 는 main 이 Claude·Codex 코퍼스를 각각 한 번만 읽어 이 worktree bucket 으로
+    # 나눠 합쳐준 것 — 두 소스의 union 이 날짜 분할 **전에** 끝나야 겹친 시간이 이중계상되지
+    # 않는다(worklog_from_intervals 가 union 후 분할한다).
     name = Path(wt.path).name
-    max_gap = args.max_gap if args.max_gap is not None else config.max_gap_minutes
-    codex = codex_intervals(find_codex_session_files(wt.path), tz, max_gap)
-    days = worklog_from_intervals([*claude_intervals, *codex])
+    days = worklog_from_intervals(intervals)
     ticket = _ticket_for(wt, args, config)
     if not days:
         print(f"[{name}] 세션 활동 없음 → skip")
@@ -303,16 +301,21 @@ def main(argv: list[str] | None = None) -> int:
         live = list_worktrees()
         root = live[0].path if live else str(Path.cwd())
         max_gap = args.max_gap if args.max_gap is not None else config.max_gap_minutes
-        # 코퍼스를 **한 번만** 읽는다. worktree 마다 다시 읽으면 N배 스캔이 된다.
+        # 두 코퍼스를 **각각 한 번만** 읽는다. worktree 마다 다시 읽으면 N배 스캔이 된다.
         index = WorktreeIndex(root, [w.path for w in live])
         per_bucket, stats = bucket_intervals_from_files(find_repo_session_files(), tz, index, max_gap)
+        # Codex 를 같은 dict 로 합쳐야 삭제된 worktree 의 Codex 시간도 _report_unregistrable
+        # 에 잡힌다(따로 두면 등록 대상만 보이고 유실은 안 보인다).
+        codex_per_bucket = bucket_codex_intervals(find_codex_sessions(), tz, index, max_gap)
+        for codex_bucket, codex_iv in codex_per_bucket.items():
+            per_bucket.setdefault(codex_bucket, []).extend(codex_iv)
         failures = 0
         for wt in worktrees:
             # bucket 키는 **인덱스가 단일 소스**다. CLI 가 이름으로 재구성하면 정규화·중복 이름에서
             # 어긋나 시간이 조용히 0 이 되거나 남의 bucket 을 집는다(실제로 겪었다).
             bucket = index.classify(wt.path)
             try:
-                failures += process(wt, args, config, tz, register, per_bucket.get(bucket, []))
+                failures += process(wt, args, config, register, per_bucket.get(bucket, []))
             except GitError as exc:
                 print(f"[{Path(wt.path).name}] git 오류 → skip: {exc}", file=sys.stderr)
                 failures += 1
