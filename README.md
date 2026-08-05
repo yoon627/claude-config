@@ -325,8 +325,9 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 ### skills/jira-worklog/ — worktree 작업시간 → Jira worklog
 
-worktree 의 AI 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex/sessions`)에서 AI 가 실제 작업한 시간(사용자 응답 대기·긴 공백 제외)을 날짜별로 추정해 Jira worklog 에 기록. stdlib only(설치 불필요), 기본은 미리보기(dry-run)이고 실제 등록은 `--register`. `/e` 5단계가 마무리 시 호출한다.
+worktree 의 AI 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex/sessions`)에서 AI 가 실제 작업한 시간(사용자 응답 대기·긴 공백 제외)을 날짜별로 추정해 Jira worklog 에 기록. Claude는 각 로그 줄의 top-level `cwd`를 가장 구체적인 worktree에 귀속하므로 한 세션의 A→B→A 이동도 분리하고, Codex는 rollout 첫 `session_meta.payload.cwd` 기준 파일 단위로 귀속한다. stdlib only(설치 불필요), 기본은 미리보기(dry-run)이고 실제 등록은 `--register`. `/e` 5단계가 마무리 시 호출한다.
 - 대상 티켓은 **worktree 디렉토리 이름 prefix**(anchored)에서 우선 추출, 없으면 브랜치명 fallback. 어느 쪽에도 없으면 등록 skip(안전).
+- `--all`은 관련 세션을 저장소 단위로 한 번 탐색·계산한 뒤 worktree별 결과를 출력한다. 현재 worktree에서 실행하면 대상 티켓 선택과 Codex 파일 귀속이 정확하다.
 - **worklog 항목은 worktree 단위**: 마커 `[jira-kit] worklog <티켓> <날짜> (<worktree>)` 로 그 worktree 의 그날 항목만 upsert 한다(멱등). 같은 티켓을 `CSTP1-1234-abc`/`-def` 여러 worktree 에서 작업하면 항목이 각각 생기고 **티켓 총 작업시간은 Jira 가 합산** — 나중 등록이 이전 worktree 시간을 덮지 않는다. 병렬로 돌린 구간은 양쪽에 잡혀 합계가 실제 경과시간보다 커진다.
 - 마커 매칭은 ADF **줄 정확일치** — 부분문자열이면 사용자 `--comment` 본문이나 Jira UI 편집 텍스트에 마커가 섞인 항목을 자기 것으로 오인한다. 반대로 마커를 **놓치면** 새 항목이 생겨 조용히 이중계상되므로, 줄 추출은 UI 편집이 만드는 `hardBreak`·`codeBlock`·`heading`·앞뒤 공백까지 흡수한다.
 - author scoping(내 accountId 항목만) · 마커 중복 2건+ 중단 · worktree 없는 구 형식 항목 발견 시 중단(귀속 불명 → 수동 정리 요구).
@@ -564,6 +565,7 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │       ├── SKILL.md                # worktree AI 작업시간 → Jira worklog (dry-run 기본)
 │       ├── jira_worklog.py         # CLI 진입점 (stdlib only)
 │       ├── jira_kit/               # 세션시간 추정·마커·Jira REST·설정 모듈
+│       ├── test_session_time.py     # 세션 cwd 귀속·worktree 분리 회귀 테스트
 │       └── test_worklog_scope.py   # worktree 단위 upsert 격리 테스트 (수동 실행)
 ├── scripts/
 │   ├── notify-hook.js              # notify 진입점 (cross-platform; mac 인라인, win→.ps1 위임)

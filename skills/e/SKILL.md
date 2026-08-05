@@ -43,8 +43,8 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
 - **recap 형식(CLAUDE.md §3-6)**: 위 보고는 **결론 요약(≤3줄, 무엇이 끝났고 status)을 먼저**. **`/e` 호출 자체가 "마무리" 지시**이므로 §3-6 예외(사용자가 이미 다음 지시를 준 흐름 → 선택지 생략)에 따라 **새 AskUserQuestion(4선택지)을 만들지 않는다**(마무리 시점 1회 원칙). 마무리 액션은 아래 6단계 worktree 정리 제안(조건 충족 시)과 7단계 "다음 세션 `/c`" 안내가 담당한다 — step6 는 조건부(done·plan-in-worktree)라 안 뜰 수 있고 그때도 별도 질문을 새로 만들지 않는다.
 
 ### 5. worklog 기록 (현재 worktree — 삭제·복귀 전)
-마무리 시 이 worktree 에서 한 AI 작업시간을 Jira worklog 에 기록한다. **세션이 아직 worktree 에 있을 때(cwd = 현재 worktree)** 실행 — 6단계 삭제·7단계 main 복귀 전이라 순서가 중요. `~/.claude/skills/jira-worklog/` 없으면 이 단계 skip + "worklog 스킬 없음" 1줄.
-- **실행**: `python ~/.claude/skills/jira-worklog/jira_worklog.py`(dry-run)로 날짜별 시간·대상 티켓 확인(cwd = 현재 worktree — main 에서 돌리면 그 worktree 시간 안 잡힘).
+마무리 시 이 worktree 에서 한 AI 작업시간을 Jira worklog 에 기록한다. **세션이 아직 worktree 에 있을 때(cwd = 현재 worktree)** 실행 — 6단계 삭제·7단계 main 복귀 전이라 순서가 중요하다. Claude 로그는 각 이벤트의 top-level `cwd`로 worktree를 나누므로 세션이 중간에 이동해도 분리된다. Codex rollout은 첫 `session_meta.payload.cwd` 기준 파일 단위라 한 세션 중 이동은 나누지 못한다. `~/.claude/skills/jira-worklog/` 없으면 이 단계 skip + "worklog 스킬 없음" 1줄.
+- **실행**: `python ~/.claude/skills/jira-worklog/jira_worklog.py`(dry-run)로 날짜별 시간·대상 티켓 확인(cwd = 현재 worktree — 대상 티켓 선택과 Codex 파일 귀속에 필요).
 - **등록**: 티켓이 잡히고(worktree 이름 prefix) `~/.jira-kit/.env` 에 토큰 있으면 이어서 `--register` — **그 worktree 의** 그날 항목 upsert(멱등, /e 반복해도 중복 없음. 같은 티켓의 다른 worktree 항목은 건드리지 않고 티켓 총합은 Jira 가 합산). **티켓 없음/토큰 없음/세션 활동 없음 → preview 만 하고 조용히 넘어감**(마무리 흐름 방해 금지). 사용자가 /e 에 이 동작을 넣은 것 = 등록 표준 동의(별도 AskUserQuestion 안 만듦, §3-6 1회 원칙).
 - **비차단**: 조회·네트워크 실패는 보고 1줄만 하고 마무리는 계속(worklog 실패가 /e 를 막지 않는다).
 - 보고 1줄: 등록 결과("CSTP1-xxxx 에 `<시간>` 등록" · "티켓 없음/토큰 없음 → preview 만" · "세션 활동 없음").

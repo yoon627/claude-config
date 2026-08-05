@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """AI 세션 로그 기반 AI 작업시간을 Jira worklog 로 등록/미리보기하는 CLI.
 
-그 worktree 의 세션 로그(Claude ``~/.claude/projects/<slug>`` + Codex ``~/.codex/sessions``)
-에서 AI 가 실제 작업한 시간(사용자 응답 대기·긴 공백 제외)을 날짜별로 추정한다. 두 소스가 다
-있으면 시간을 union 한다. 어느 소스도 세션이 없으면 '세션 활동 없음'. 기본은 미리보기(dry-run).
-실제 등록은 ``--register``.
+저장소 worktree들의 세션 로그(Claude ``~/.claude/projects/<slug>`` + Codex ``~/.codex/sessions``)
+에서 AI 가 실제 작업한 시간(사용자 응답 대기·긴 공백 제외)을 날짜별로 추정한다. Claude는
+로그 줄의 cwd, Codex는 rollout 첫 줄의 cwd로 worktree별 귀속 후 각 worktree 안에서 union 한다.
+어느 소스도 세션이 없으면 '세션 활동 없음'. 기본은 미리보기(dry-run). 실제 등록은 ``--register``.
 (ticket, date, worktree) 마커로 **그 worktree 의** 본인 worklog 를 찾아 없으면 생성, 있으면 시간만
 갱신한다(upsert — 재실행 시 skip 아님). 같은 티켓을 여러 worktree 에서 작업하면 worktree 마다
 항목이 따로 생기고 티켓 총 작업시간은 Jira 가 합산한다. 인증·설정은 .env / 환경변수 / jira-kit.toml.
@@ -21,7 +21,6 @@ import argparse
 import io
 import os
 import sys
-from datetime import tzinfo
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -37,7 +36,11 @@ from jira_kit.config import Config, ConfigError, load_config, resolve_timezone  
 from jira_kit.git_util import GitError, Worktree, current_worktree, list_worktrees  # noqa: E402
 from jira_kit.jira_client import JiraError, get_myself, get_worklogs  # noqa: E402
 from jira_kit.markers import worklog_marker  # noqa: E402
-from jira_kit.session_time import SessionFiles, ai_worklog_by_date, discover_sessions  # noqa: E402
+from jira_kit.session_time import (  # noqa: E402
+    ai_worklogs_by_worktree,
+    discover_sessions,
+    worktree_key,
+)
 from jira_kit.worklog_core import DayWorklog, extract_ticket, format_duration  # noqa: E402
 from jira_kit.worklog_register import upsert_worklog  # noqa: E402
 
@@ -57,9 +60,12 @@ def select_worktrees(name: str | None, all_worktrees: bool) -> list[Worktree]:
 
 
 def _days_for(
-    wt: Worktree, args: argparse.Namespace, config: Config, tz: tzinfo, sessions: SessionFiles
+    wt: Worktree,
+    args: argparse.Namespace,
+    config: Config,
+    days_by_worktree: dict[str, list[DayWorklog]],
 ) -> tuple[str | None, list[DayWorklog]]:
-    # AI 작업시간: 이 worktree 의 Claude·Codex 세션 로그에서 추정(사용자 대기 제외).
+    # AI 작업시간: Claude 이벤트의 줄 단위 cwd와 Codex 파일 cwd로 이 worktree에 귀속된 결과.
     # 티켓은 worktree 디렉토리 이름의 prefix 에서 우선 뽑는다(anchored) — worklog 는 그
     # worktree 세션 시간이라 대상 티켓도 worktree 자체로 정한다. dir prefix 규약
     # (CSTP1-<id>-<slug>)을 앵커해 이름 중간에 박힌 다른 티켓의 오귀속(billable)을 막는다.
@@ -69,8 +75,7 @@ def _days_for(
     ticket = extract_ticket(Path(wt.path).name, pattern, anchored=True)
     if ticket is None and wt.branch:
         ticket = extract_ticket(wt.branch, pattern)
-    max_gap = args.max_gap if args.max_gap is not None else config.max_gap_minutes
-    days = ai_worklog_by_date(sessions, tz, max_gap)
+    days = days_by_worktree.get(worktree_key(wt.path), [])
     return ticket, days
 
 
@@ -104,12 +109,15 @@ def _register(
 
 
 def process(
-    wt: Worktree, args: argparse.Namespace, config: Config, tz: tzinfo, register: bool
+    wt: Worktree,
+    args: argparse.Namespace,
+    config: Config,
+    register: bool,
+    days_by_worktree: dict[str, list[DayWorklog]],
 ) -> int:
     # register 는 main 이 계산한 실효값(--all 이면 False) — args.register 를 직접 보지 않는다.
     name = Path(wt.path).name
-    sessions = discover_sessions(wt.path)
-    ticket, days = _days_for(wt, args, config, tz, sessions)
+    ticket, days = _days_for(wt, args, config, days_by_worktree)
     if not days:
         print(f"[{name}] 세션 활동 없음 → skip")
         return 0
@@ -185,10 +193,15 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         worktrees = select_worktrees(args.name, args.all)
+        all_worktrees = list_worktrees(worktrees[0].path)
+        all_paths = [worktree.path for worktree in all_worktrees]
+        sessions = discover_sessions(worktrees[0].path, worktree_paths=all_paths)
+        max_gap = args.max_gap if args.max_gap is not None else config.max_gap_minutes
+        days_by_worktree = ai_worklogs_by_worktree(sessions, all_paths, tz, max_gap)
         failures = 0
         for wt in worktrees:
             try:
-                failures += process(wt, args, config, tz, register)
+                failures += process(wt, args, config, register, days_by_worktree)
             except GitError as exc:
                 print(f"[{Path(wt.path).name}] git 오류 → skip: {exc}", file=sys.stderr)
                 failures += 1

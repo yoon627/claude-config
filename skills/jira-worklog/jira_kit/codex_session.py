@@ -5,6 +5,7 @@ Codex 는 세션을 ``~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`` 에 저장�
 Claude 와 달리 cwd 별 폴더가 아니라 날짜 폴더에 여러 worktree 세션이 섞여 있어, 각 파일 첫 줄
 ``session_meta.payload.cwd`` 를 worktree 경로와 정규화 비교해 필터한다(Windows backslash ↔
 git forward-slash·대소문자 차이를 흡수).
+첫 줄의 cwd만 제공되므로 하나의 Codex rollout 안에서 cwd가 바뀐 구간은 파일 단위로 분리할 수 없다.
 
 시간: timestamp 가 있는 모든 ``response_item`` 을 AI 작업 흐름(assistant)으로 쓰고, **진짜
 사용자 입력은 ``event_msg``(``type=user_message``)로만 판별한다**(user). Codex 는
@@ -40,7 +41,7 @@ def _sessions_roots(home: Path | None) -> list[Path]:
     return [base / ".codex" / "sessions", base / ".codex" / "archived_sessions"]
 
 
-def _session_cwd(path: Path) -> str | None:
+def session_cwd(path: Path) -> str | None:
     """rollout 파일 **첫 줄**(session_meta)에서 cwd 만 읽는다(전체 read 회피)."""
     try:
         with path.open(encoding="utf-8", errors="replace") as fh:
@@ -71,10 +72,34 @@ def find_codex_session_files(cwd: str | Path, home: Path | None = None) -> list[
         matched.extend(
             path
             for path in root.glob("**/rollout-*.jsonl")
-            if (session_cwd := _session_cwd(path)) is not None and _normalize(session_cwd) == target
+            if (cwd := session_cwd(path)) is not None and _normalize(cwd) == target
         )
     matched.sort(key=mtime)
     return matched
+
+
+def find_codex_session_files_for_worktrees(
+    worktree_paths: list[str], home: Path | None = None
+) -> list[Path]:
+    """여러 worktree에 속한 Codex rollout을 한 번에 찾는다."""
+    targets = [_normalize(path) for path in worktree_paths]
+    if not targets:
+        return []
+    matched: set[Path] = set()
+    for root in _sessions_roots(home):
+        if not root.is_dir():
+            continue
+        for path in root.glob("**/rollout-*.jsonl"):
+            cwd = session_cwd(path)
+            if cwd is None:
+                continue
+            normalized = _normalize(cwd)
+            if any(
+                normalized == target or normalized.startswith(target + os.sep)
+                for target in targets
+            ):
+                matched.add(path)
+    return sorted(matched, key=mtime)
 
 
 def _iter_lines(path: Path, tz: tzinfo) -> Iterator[tuple[dict, datetime]]:

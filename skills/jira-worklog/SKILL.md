@@ -9,9 +9,16 @@ description: worktree 의 Claude·Codex 세션 로그에서 AI 작업시간(사�
 에서 AI 가 실제 작업한 시간(사용자 응답 대기·긴 공백 제외)을 날짜별로 추정해 Jira worklog 에 등록한다.
 두 소스가 다 있으면 시간을 union 한다. 기본은 미리보기(dry-run) — 시간이 합리적인지 확인한 뒤 등록한다.
 
-설치 불필요 — 이 스킬 디렉토리의 `jira_worklog.py`(stdlib only)를 직접 실행한다. **반드시 대상 worktree
-안에서(cwd = 그 worktree) 실행**해야 그 worktree 세션 시간이 잡힌다(main 에서 돌리고 worktree 파일만
-고치면 안 잡힘).
+Claude는 세션 파일이 마지막 cwd의 프로젝트 폴더로 이동할 수 있으므로 관련 프로젝트 폴더를 함께
+탐색하고, 각 `user`/`assistant` 로그 줄의 top-level `cwd`를 가장 구체적인 worktree에 귀속한다.
+따라서 한 Claude 세션이 A→B→A로 이동해도 시간이 worktree별로 분리된다. Codex rollout은 첫
+`session_meta.payload.cwd`만 있어 파일 전체를 그 worktree에 귀속하므로, 하나의 Codex 세션 안에서
+worktree를 이동한 구간은 분리하지 못한다.
+
+설치 불필요 — 이 스킬 디렉토리의 `jira_worklog.py`(stdlib only)를 실행한다. **현재 대상 worktree
+안에서(cwd = 그 worktree) 실행**해야 대상 티켓 선택과 Codex 파일 단위 귀속이 정확하다. Claude
+세션은 줄 단위 `cwd`를 사용하므로 세션 파일이 다른 worktree 프로젝트 폴더에 있어도 관련 저장소의
+worktree 범위 안에서 찾아 분리한다.
 
 ## 실행
 
@@ -45,6 +52,7 @@ JIRA_API_TOKEN=<Atlassian API token>
 
 - 대상 티켓은 **worktree 디렉토리 이름(prefix)** 에서 우선 추출(anchored), 없으면 브랜치명으로 fallback 한다(기본 `[A-Z][A-Z0-9]+-\d+`). detached HEAD 처럼 브랜치가 없어도 worktree 이름의 티켓으로 잡힌다. 어느 쪽에도 매치가 없으면 등록을 skip 한다(안전).
 - `--all` 모든 worktree 미리보기 · `--max-gap` idle gap(분) · `--ticket-pattern` 패턴 · `--timezone` IANA 타임존 · `--comment` worklog 코멘트.
+- `--all`은 관련 Claude/Codex 세션을 저장소 단위로 한 번 탐색·계산한 뒤 worktree별 결과를 출력한다.
 - 실제 등록(`--register`)은 외부 반영이니 **먼저 미리보기로 확인**할 것.
 - **upsert(멱등)**: (티켓, 날짜, worktree) 마커로 **그 worktree 의** 본인 worklog 를 찾아 없으면 생성, 있으면 시간만 갱신한다(재실행해도 중복 없음). 갱신 시 기존 comment 는 보존. 타인의 worklog(같은 마커·다른 author)는 건드리지 않는다.
 - **같은 티켓 · 여러 worktree**: `CSTP1-1234-abc` 와 `CSTP1-1234-def` 처럼 한 티켓을 여러 worktree 에서 작업하면 **worktree 마다 worklog 항목이 따로** 생긴다. 티켓의 총 작업시간은 Jira 가 항목들을 합산하므로 각 worktree 시간이 서로 덮이지 않고 누적된다. 두 worktree 를 **같은 시각에 병렬로** 돌렸다면 겹치는 시간이 양쪽에 각각 잡혀 합계가 실제 경과시간보다 커진다.
