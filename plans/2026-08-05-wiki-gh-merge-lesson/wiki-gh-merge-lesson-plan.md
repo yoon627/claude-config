@@ -1,6 +1,6 @@
 ---
 title: wiki-gh-merge-lesson — gh pr merge --delete-branch worktree 실패 §13 적립
-status: in_progress
+status: done
 started: 2026-08-05
 updated: 2026-08-05
 ---
@@ -13,8 +13,10 @@ CLAUDE.md §8 이 권장하던 `gh pr merge --delete-branch` 가 worktree 워크
 
 - 2026-08-05: wiki 3파일 편집 완료(표 신규 행 + doc-drift 5→6 + 횟수 semantics 주의, index/log 동기화). 표 컬럼 정합 확인, CI 스위트 전 항목 통과(Node syntax·unit 9종·Python 3종·plan-lint·JSON·shellcheck). simplify 체크로 index 한 줄 축약. code-reviewer subagent 는 세션 지시("Agent 는 요청 시에만")로 미호출 — 메인 직접 점검 대체.
 
+- 2026-08-05: PR #124 CI(lint) 통과 후 `--merge` 로 머지(`057e9e8`). 적립한 교훈대로 `--delete-branch` 는 붙이지 않고 정리는 §8(a) 순서로 직접 수행.
+
 # Next
-commit → push → PR → 머지 후 worktree 정리.
+없음 — 완료. 이월 2건은 `# Deferred` 참조(별도 작업으로 착수 시 `/wt`).
 
 # Decisions
 - 새 lesson 페이지(`lesson-*.md`)를 만들지 않고 기존 [[workflow-failures]] 추적표 행으로 적립 (이유: 실패 주체가 *규약 자체*라 이 표의 정의와 정확히 일치하고, e7c4c921 이 제안한 위치도 이 파일).
