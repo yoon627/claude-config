@@ -379,6 +379,8 @@ syntax 검사 + `dlc-doc-drift.test.js`·`dlc-signal.test.js`·`dlc-evidence-led
 #### `pre-commit-check.ps1`
 staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json` 을 검사. 금지 키 (`mcpServers`, `apiKeyHelper`, `awsCredentialExport`, `awsAuthRefresh`) 또는 토큰 패턴 (Anthropic/OpenAI/GitHub/GitLab/AWS/GCP/Slack/JWT/PEM) 검출 시 exit 1.
 
+`pre-push` 모드는 추가로 **`main`/`master` 직접 푸시를 차단**한다(`.sh`·`.ps1` 동일). 단 **repo 루트가 `~/.claude` 면 면제** — 이 repo 는 main push 허용(2026-08-05 사용자 승인, CLAUDE.md §8)이지만 이 가드는 install-hooks 를 돌린 **모든 repo 가 공유**하므로 제거 대신 repo 루트로 범위를 좁혔다. `$HOME` 과 `--show-toplevel` 중 한쪽이 심볼릭 링크일 수 있어 양쪽을 실제 경로로 해석해 비교한다. 커버리지: `pre-commit-check.test.sh`(면제 2 + 차단 2 + 무관 브랜치 1).
+
 `.git/hooks/` 에 직접 두지 않고 별도 파일 → repo 에 tracked. `install-hooks.ps1` 가 `.git/hooks/{pre-commit,pre-push}` sh wrapper 를 생성해서 이 스크립트로 위임.
 
 #### `install-hooks.ps1` / `install-hooks.sh`

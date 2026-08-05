@@ -4,14 +4,22 @@ $ErrorActionPreference = 'Stop'
 
 # Block direct push to protected branches first (pre-push). pre-push receives
 # "<local ref> <local sha> <remote ref> <remote sha>" lines on stdin.
+# ~/.claude is exempt (user-authorized 2026-08-05, CLAUDE.md §8): this guard is
+# shared by every repo that ran install-hooks, so the exemption is scoped by repo
+# root rather than removed. Paths are resolved because either side can be a link.
 if ($Mode -eq 'pre-push') {
-    foreach ($line in ([Console]::In.ReadToEnd() -split "`n")) {
-        $rref = ($line.Trim() -split '\s+')[2]
-        if ($rref -eq 'refs/heads/main' -or $rref -eq 'refs/heads/master') {
-            Write-Host ""
-            Write-Host "[BLOCKED] Direct push to $rref is not allowed. Open a PR instead." -ForegroundColor Red
-            Write-Host "Bypass once (NOT recommended): git push --no-verify" -ForegroundColor DarkGray
-            exit 1
+    $resolve = { param($p) if ($p -and (Test-Path $p)) { (Resolve-Path $p).Path.TrimEnd('\', '/') } else { $p } }
+    $repoRoot = (git rev-parse --show-toplevel 2>$null)
+    $isClaudeRepo = $repoRoot -and ((& $resolve $repoRoot) -eq (& $resolve (Join-Path $HOME '.claude')))
+    if (-not $isClaudeRepo) {
+        foreach ($line in ([Console]::In.ReadToEnd() -split "`n")) {
+            $rref = ($line.Trim() -split '\s+')[2]
+            if ($rref -eq 'refs/heads/main' -or $rref -eq 'refs/heads/master') {
+                Write-Host ""
+                Write-Host "[BLOCKED] Direct push to $rref is not allowed. Open a PR instead." -ForegroundColor Red
+                Write-Host "Bypass once (NOT recommended): git push --no-verify" -ForegroundColor DarkGray
+                exit 1
+            }
         }
     }
 }

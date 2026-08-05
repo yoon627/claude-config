@@ -9,16 +9,24 @@ MODE="${1:-pre-commit}"
 
 # Block direct push to protected branches first (pre-push). pre-push receives
 # "<local ref> <local sha> <remote ref> <remote sha>" lines on stdin.
+# ~/.claude is exempt (user-authorized 2026-08-05, CLAUDE.md §8): this guard is
+# shared by every repo that ran install-hooks.sh, so the exemption is scoped by
+# repo root rather than removed. Both paths are resolved because macOS $TMPDIR
+# and $HOME can be symlinks while `--show-toplevel` returns the physical path.
 if [ "$MODE" = "pre-push" ]; then
-  while read -r _lref _lsha rref _rsha || [ -n "$rref" ]; do
-    case "$rref" in
-      refs/heads/main|refs/heads/master)
-        printf '\n\033[31m[BLOCKED] Direct push to %s is not allowed. Open a PR instead.\033[0m\n' "$rref" >&2
-        printf '\033[90mBypass once (NOT recommended): git push --no-verify\033[0m\n' >&2
-        exit 1
-        ;;
-    esac
-  done
+  resolve() { [ -d "$1" ] && (cd "$1" && pwd -P) || printf '%s' "$1"; }
+  _repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -z "$_repo_root" ] || [ "$(resolve "$_repo_root")" != "$(resolve "$HOME/.claude")" ]; then
+    while read -r _lref _lsha rref _rsha || [ -n "$rref" ]; do
+      case "$rref" in
+        refs/heads/main|refs/heads/master)
+          printf '\n\033[31m[BLOCKED] Direct push to %s is not allowed. Open a PR instead.\033[0m\n' "$rref" >&2
+          printf '\033[90mBypass once (NOT recommended): git push --no-verify\033[0m\n' >&2
+          exit 1
+          ;;
+      esac
+    done
+  fi
 fi
 
 violations=()
