@@ -3,8 +3,10 @@
 Codex 는 세션을 ``~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`` 에 저장하고, 보관하면
 ``~/.codex/archived_sessions/rollout-*.jsonl`` (flat)로 옮긴다 — 둘 다 탐색해야 누락이 없다.
 Claude 와 달리 cwd 별 폴더가 아니라 날짜 폴더에 여러 worktree 세션이 섞여 있어, 각 파일 첫 줄
-``session_meta.payload.cwd`` 를 worktree 경로와 정규화 비교해 필터한다(Windows backslash ↔
-git forward-slash·대소문자 차이를 흡수).
+``session_meta.payload.cwd`` 로 귀속을 정한다. **어느 worktree 인지 가리는 일은 여기서 하지
+않는다** — 스캔은 (파일, cwd) 만 내놓고 분류는 호출자의 ``WorktreeIndex`` 가 맡는다. 필터를
+여기 두면 Claude 경로(최장 prefix)와 규칙이 갈려, worktree **하위** 디렉토리에서 시작한
+세션이 어느 버킷에도 못 가고 사라진다(실측 26건).
 
 시간: timestamp 가 있는 모든 ``response_item`` 을 AI 작업 흐름(assistant)으로 쓰고, **진짜
 사용자 입력은 ``event_msg``(``type=user_message``)로만 판별한다**(user). Codex 는
@@ -15,7 +17,6 @@ git forward-slash·대소문자 차이를 흡수).
 from __future__ import annotations
 
 import json
-import os
 from collections.abc import Iterator
 from datetime import datetime, tzinfo
 from pathlib import Path
@@ -23,11 +24,6 @@ from pathlib import Path
 from ._sessionio import iter_jsonl_timestamped, mtime
 
 _Event = tuple[datetime, str]
-
-
-def _normalize(path: str | Path) -> str:
-    """경로를 OS 규칙으로 정규화(대소문자·구분자 흡수)해 cwd 비교에 쓴다."""
-    return os.path.normcase(os.path.normpath(str(path)))
 
 
 def _sessions_roots(home: Path | None) -> list[Path]:
@@ -58,23 +54,22 @@ def _session_cwd(path: Path) -> str | None:
     return cwd if isinstance(cwd, str) else None
 
 
-def find_codex_session_files(cwd: str | Path, home: Path | None = None) -> list[Path]:
-    """cwd(worktree) 와 session_meta.cwd 가 정규화상 일치하는 rollout 파일 목록.
+def find_codex_sessions(home: Path | None = None) -> list[tuple[Path, str]]:
+    """cwd 를 읽어낸 rollout 전부를 ``(파일, cwd)`` 로 낸다 — worktree 당 한 번이 아니라 총 1회.
 
     진행 중·보관된 세션 루트를 모두 탐색한다(``**`` 가 archived 의 flat 구조도 매칭).
+    cwd 를 못 읽은 파일(첫 줄이 session_meta 가 아니거나 깨진 경우)은 뺀다.
     """
-    target = _normalize(cwd)
-    matched: list[Path] = []
+    found: list[tuple[Path, str]] = []
     for root in _sessions_roots(home):
         if not root.is_dir():
             continue
-        matched.extend(
-            path
-            for path in root.glob("**/rollout-*.jsonl")
-            if (session_cwd := _session_cwd(path)) is not None and _normalize(session_cwd) == target
-        )
-    matched.sort(key=mtime)
-    return matched
+        for path in root.glob("**/rollout-*.jsonl"):
+            cwd = _session_cwd(path)
+            if cwd is not None:
+                found.append((path, cwd))
+    found.sort(key=lambda entry: mtime(entry[0]))
+    return found
 
 
 def _iter_lines(path: Path, tz: tzinfo) -> Iterator[tuple[dict, datetime]]:
