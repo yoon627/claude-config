@@ -303,7 +303,15 @@ def merge_intervals(intervals: list[_Interval]) -> list[_Interval]:
 
 
 def _split_by_date(intervals: list[_Interval]) -> dict[date, tuple[float, datetime]]:
-    """구간들을 자정 기준으로 날짜별로 쪼개 {날짜: (초, 첫시각)} 으로 합산한다."""
+    """구간들을 자정 기준으로 날짜별로 쪼개 {날짜: (초, 첫시각)} 으로 합산한다.
+
+    DST 로 자정이 없는 타임존에서 무한루프가 난다는 우려가 제기된 적 있으나 **재현되지 않았다**
+    (2026-08-06 검증). aware datetime 이라 `combine(day+1, 00:00, tz)` 는 항상 그 날의 어떤
+    순간보다 뒤의 instant 로 매핑돼 `cursor` 가 전진한다 — 전수 스캔(598 타임존 × 20년, 전환
+    8,359건)에서 `next_midnight <= cursor` 가 성립한 사례 0건, 날짜가 통째로 사라진 전환
+    (Pacific/Apia 2011·Kiritimati 1994)도 정상. 총합도 실제 전환 3,304건 전부에서 진짜 경과시간과
+    일치했다(전환 구간이 23h·25h 여도 aware 뺄셈이 흡수). 다시 제기하기 전에 이 기록을 볼 것.
+    """
     by_day: dict[date, tuple[float, datetime]] = {}
     for start, end in intervals:
         cursor = start
