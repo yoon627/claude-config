@@ -14,12 +14,7 @@
       "mcp__codegraph__codegraph_status"
     ],
     "deny": [],
-    "ask": [
-      "Bash(git push)",
-      "Bash(git push *)",
-      "PowerShell(git push)",
-      "PowerShell(git push *)"
-    ],
+    "ask": [],
     "defaultMode": "auto"
   },
   "hooks": {

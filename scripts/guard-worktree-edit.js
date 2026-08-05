@@ -70,7 +70,10 @@ process.stdin.on('end', () => {
   if (!fp) process.exit(0);
   if (!cwd.includes(MARK)) {
     // 비-worktree 세션 → main/master 직접-편집 가드(③)
-    const branch = mainTrackedEditBranch(fp, cwd);
+    // auto 모드는 안전 분류기가 매 액션을 판정하므로 확인 프롬프트를 겹쳐 걸지 않는다
+    // (사용자 지시 2026-08-06). 이 모드에서 worktree 규약은 CLAUDE.md §3-1 규약으로만 남는다.
+    // worktree 세션의 worktree 밖 편집 deny(아래)는 프롬프트가 아니라 데이터 보호라 모드 무관하게 유지.
+    const branch = input.permission_mode === 'auto' ? null : mainTrackedEditBranch(fp, cwd);
     if (branch) {
       if (sig) sig.emit('main-edit-ask', { session_id: input.session_id, cwd: input.cwd, detail: fp });
       process.stdout.write(

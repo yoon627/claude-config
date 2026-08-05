@@ -59,8 +59,11 @@ function initRepo(branch) {
   git(dir, 'config', 'commit.gpgsign', 'false');
   return dir;
 }
-function decideMain(fp, cwd, extraEnv) {
-  const inp = JSON.stringify({ cwd, session_id: 's', tool_name: 'Edit', tool_input: { file_path: fp } });
+function decideMain(fp, cwd, extraEnv, permissionMode) {
+  const inp = JSON.stringify({
+    cwd, session_id: 's', tool_name: 'Edit', tool_input: { file_path: fp },
+    ...(permissionMode ? { permission_mode: permissionMode } : {}),
+  });
   const env = { ...process.env, CLAUDE_DLC_SIGNAL_OFF: '1', ...extraEnv };
   let out = '';
   try { out = execFileSync('node', [GUARD], { input: inp, env }).toString(); }
@@ -93,9 +96,12 @@ const mcases = [
   ['ⓗ cross-repo(cwd=main, fp∈feature) → allow (B2)', path.join(rFeat, 'tracked.js'), rMain, {}, 'allow'],
   ['ⓙ detached HEAD → allow', path.join(rDet, 'f.js'), rDet, {}, 'allow'],
   ['ⓚ cwd=repo 하위 디렉토리 → ask', path.join(rMain, 'tracked.js'), path.join(rMain, 'sub'), {}, 'ask'],
+  ['ⓛ auto 모드 → allow', path.join(rMain, 'tracked.js'), rMain, {}, 'allow', 'auto'],
+  ['ⓜ default 모드 → ask 유지', path.join(rMain, 'tracked.js'), rMain, {}, 'ask', 'default'],
+  ['ⓝ plan 모드 → ask 유지', path.join(rMain, 'tracked.js'), rMain, {}, 'ask', 'plan'],
 ];
-for (const [name, fp, cwd, env, want] of mcases) {
-  const got = decideMain(fp, cwd, env);
+for (const [name, fp, cwd, env, want, mode] of mcases) {
+  const got = decideMain(fp, cwd, env, mode);
   const okc = got === want; if (!okc) fail++;
   console.log(`${okc ? 'PASS' : 'FAIL'} ${name}: want=${want} got=${got}`);
 }
