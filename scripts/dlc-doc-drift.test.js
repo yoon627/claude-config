@@ -32,6 +32,22 @@ ok('root CLAUDE trigger', () => assert.strictEqual(d.classify(R + '/CLAUDE.md', 
 ok('root README target', () => assert.strictEqual(d.classify(R + '/README.md', R), 'readme-target'));
 ok('wiki page trigger', () => assert.strictEqual(d.classify(R + '/wiki/pages/concept/x.md', R), 'index-trigger'));
 ok('wiki index target', () => assert.strictEqual(d.classify(R + '/wiki/index.md', R), 'index-target'));
+// 테스트 파일은 README 가 존재만 문서화(`x.js (+ .test.js)`) → 신규 추가일 때만 trigger
+ok('scripts test js → new-only trigger', () =>
+  assert.strictEqual(d.classify(R + '/scripts/x.test.js', R), 'readme-trigger-new'));
+ok('top-level test js → new-only trigger', () =>
+  assert.strictEqual(d.classify(R + '/x.test.js', R), 'readme-trigger-new'));
+ok('nested test js not trigger', () => assert.strictEqual(d.classify(R + '/scripts/sub/x.test.js', R), null));
+ok('backslash test js → new-only trigger', () =>
+  assert.strictEqual(d.classify('C:\\Users\\u\\.claude\\scripts\\x.test.js', R), 'readme-trigger-new'));
+// 경계: `.test.js` 접미가 아닌 이름은 일반 표면(readme-trigger)·비표면(null) 판정을 그대로 유지
+ok('mytest.js is plain surface', () => assert.strictEqual(d.classify(R + '/scripts/mytest.js', R), 'readme-trigger'));
+ok('x.testxjs is plain surface', () => assert.strictEqual(d.classify(R + '/scripts/x.testxjs.js', R), 'readme-trigger'));
+ok('x.test.jsx not surface', () => assert.strictEqual(d.classify(R + '/scripts/x.test.jsx', R), null));
+// `.mjs` 는 테스트든 아니든 표면이 아니다(`scripts/x.mjs` 도 null) — 그 대칭을 깨지 않는다
+ok('x.test.mjs not surface', () => assert.strictEqual(d.classify(R + '/scripts/x.test.mjs', R), null));
+ok('spec js → new-only trigger', () =>
+  assert.strictEqual(d.classify(R + '/scripts/x.spec.js', R), 'readme-trigger-new'));
 // FP guards
 ok('sub README not target', () => assert.strictEqual(d.classify(R + '/skills/dlc/README.md', R), null));
 ok('docs md not trigger', () => assert.strictEqual(d.classify(R + '/docs/codex-review.md', R), null));
@@ -67,6 +83,39 @@ ok('root=null no change', () => {
   const data = { readmeDirty: false, indexDirty: false };
   d.applyChange(data, 'C:/other/scripts/x.js', 'C:/other', HOME);
   assert.strictEqual(data.readmeDirty, false);
+});
+
+// --- applyChange: 테스트 파일은 신규 추가일 때만 dirty (기존 편집 오탐 제거) ---
+ok('existing test file edit → not dirty', () => {
+  const data = { readmeDirty: false, indexDirty: false };
+  d.applyChange(data, R + '/scripts/x.test.js', R, HOME, () => false);
+  assert.strictEqual(data.readmeDirty, false);
+});
+ok('new test file → dirty + trigger rel', () => {
+  const data = { readmeDirty: false, indexDirty: false };
+  d.applyChange(data, R + '/scripts/x.test.js', R, HOME, () => true);
+  assert.strictEqual(data.readmeDirty, true);
+  assert.strictEqual(data.readmeTrigger, 'scripts/x.test.js');
+});
+ok('no predicate → test file never dirty', () => {
+  const data = { readmeDirty: false, indexDirty: false };
+  d.applyChange(data, R + '/scripts/x.test.js', R, HOME);
+  assert.strictEqual(data.readmeDirty, false);
+});
+ok('predicate receives rel/root', () => {
+  const seen = [];
+  d.applyChange({ readmeDirty: false, indexDirty: false }, R + '/scripts/x.test.js', R, HOME, (...a) => {
+    seen.push(a);
+    return false;
+  });
+  assert.deepStrictEqual(seen, [['scripts/x.test.js', R]]);
+});
+ok('predicate not consulted for non-test surface', () => {
+  let calls = 0;
+  const data = { readmeDirty: false, indexDirty: false };
+  d.applyChange(data, R + '/scripts/x.js', R, HOME, () => { calls++; return false; });
+  assert.strictEqual(calls, 0);
+  assert.strictEqual(data.readmeDirty, true);
 });
 
 // --- applyChange: trigger 파일 detail 기록 (신호 detail 용, repo-relative) ---
