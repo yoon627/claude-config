@@ -1,6 +1,6 @@
 ---
 title: codex-scan-once — Codex rollout 스캔 1회화 + 귀속 규칙을 Claude 경로와 통일
-status: in_progress
+status: done
 started: 2026-08-05
 updated: 2026-08-05
 ---
@@ -16,8 +16,10 @@ Codex rollout 을 worktree 마다 재-glob 하지 않고 **한 번만 스캔**�
 
 - 2026-08-05: 자체 리뷰(code-reviewer subagent 는 세션 지시로 미호출 — 메인 직접) — `merge_intervals` 가 내부 정렬하므로 append 순서 의존 없음 확인(`session_time.py:294`). simplify 2건 반영: 죽은 `tzinfo` import 제거, main 루프 변수 `bucket`/`intervals` 섀도잉 해소. CI 스위트 `ALL PASS`(ruff 포함), 재대조에서도 차이는 DEAD 목록 한 줄뿐.
 
+- 2026-08-05: PR #126 CI 통과 후 `--merge` 로 머지. Acceptance 7항목 전부 증거 대조 완료.
+
 # Next
-커밋 → PR → 머지 → worktree 정리.
+없음 — 완료.
 
 # Decisions
 - **귀속을 `WorktreeIndex.classify` 로 통일** (이유: Claude 경로가 이미 이 분류기를 유일 소스로 쓰고(`jira_worklog.py:311` 주석 "bucket 키는 인덱스가 단일 소스"), Codex 만 정확일치를 쓰면 같은 cwd 가 소스별로 다른 버킷이 된다. 실측 26건이 그 비대칭에 걸려 조용히 사라지고 있었다).
