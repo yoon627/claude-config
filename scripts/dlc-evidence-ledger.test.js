@@ -39,6 +39,13 @@ function edit(fp, cwd, s) {
   execFileSync('node', [HOOK], { input, env: { ...process.env, CLAUDE_DLC_SIGNAL_OFF: '1' } });
   return ledger.read(s);
 }
+// doc-drift 판정은 root 가 `<home>/.claude` 일 때만 산다 → HOME 을 fixture 로 주입해 hook 을 돌린다.
+function editInClaude(fp, cwd, s, home) {
+  const input = JSON.stringify({ session_id: s, cwd, tool_name: 'Edit', tool_input: { file_path: fp } });
+  const env = { ...process.env, HOME: home, USERPROFILE: home, CLAUDE_DLC_SIGNAL_OFF: '1' };
+  execFileSync('node', [HOOK], { input, env });
+  return ledger.read(s);
+}
 function bash(command, s) {
   const input = JSON.stringify({ session_id: s, cwd: os.tmpdir(), tool_name: 'Bash', tool_input: { command } });
   execFileSync('node', [HOOK], { input, env: { ...process.env, CLAUDE_DLC_SIGNAL_OFF: '1' } });
@@ -115,6 +122,50 @@ ok('③ 편집 후 verified·blocks 리셋 유지(비회귀)', () => {
   const d = ledger.read(s);
   assert.strictEqual(d.verified, false);
   assert.strictEqual(d.blocks, 0);
+});
+
+// ---- ③ doc-drift: 테스트 파일은 신규 추가일 때만 README dirty (기존 편집 오탐 제거) ----
+const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'dlc-led-home-'));
+const claudeRepo = path.join(fakeHome, '.claude');
+fs.mkdirSync(claudeRepo);
+execFileSync('git', ['init', '-b', 'main', claudeRepo], { stdio: 'ignore' });
+git(claudeRepo, 'config', 'user.email', 't@t');
+git(claudeRepo, 'config', 'user.name', 't');
+git(claudeRepo, 'config', 'commit.gpgsign', 'false');
+W(claudeRepo, 'README.md', '# r\n');
+W(claudeRepo, 'scripts/tracked.test.js');
+git(claudeRepo, 'add', '-A');
+git(claudeRepo, 'commit', '-m', 'init');
+W(claudeRepo, 'scripts/fresh.test.js'); // 미커밋 = 신규 추가
+W(claudeRepo, 'scripts/tool.js'); // 비-test 표면(미커밋)
+
+ok('⑫ 커밋된 .test.js 편집 → readmeDirty=false (오탐 제거)', () => {
+  assert.strictEqual(
+    editInClaude(path.join(claudeRepo, 'scripts/tracked.test.js'), claudeRepo, sid(), fakeHome).readmeDirty,
+    false
+  );
+});
+ok('⑫ 신규 .test.js 추가 → readmeDirty=true (파일 트리 갱신 필요)', () => {
+  const d = editInClaude(path.join(claudeRepo, 'scripts/fresh.test.js'), claudeRepo, sid(), fakeHome);
+  assert.strictEqual(d.readmeDirty, true);
+  assert.strictEqual(d.readmeTrigger, 'scripts/fresh.test.js');
+});
+ok('⑫ HEAD 없는 repo 의 .test.js → readmeDirty=false (fail-quiet)', () => {
+  const h = fs.mkdtempSync(path.join(os.tmpdir(), 'dlc-led-home0-'));
+  const r = path.join(h, '.claude');
+  fs.mkdirSync(r);
+  execFileSync('git', ['init', '-b', 'main', r], { stdio: 'ignore' }); // 커밋 없음 → HEAD 부재
+  W(r, 'scripts/x.test.js');
+  W(r, 'scripts/x.js');
+  assert.strictEqual(editInClaude(path.join(r, 'scripts/x.test.js'), r, sid(), h).readmeDirty, false);
+  // 대조군 — root 해석 자체는 살아 있어야 "fail-quiet 이 동작했다"고 말할 수 있다
+  assert.strictEqual(editInClaude(path.join(r, 'scripts/x.js'), r, sid(), h).readmeDirty, true);
+});
+ok('⑫ 비-test 표면 편집 → readmeDirty=true (비회귀)', () => {
+  assert.strictEqual(
+    editInClaude(path.join(claudeRepo, 'scripts/tool.js'), claudeRepo, sid(), fakeHome).readmeDirty,
+    true
+  );
 });
 
 // ---- ② VERIFY_SCRIPT: 검증 스크립트 래핑 인식 / 비검증 스크립트 오인식 차단 ----

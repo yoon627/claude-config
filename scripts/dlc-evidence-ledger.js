@@ -67,6 +67,27 @@ function isIgnored(fp, cwd) {
   }
 }
 
+// doc-drift 'readme-trigger-new'(README 가 존재만 문서화하는 부류 — 테스트 파일) 전용 신규 판정.
+// HEAD 에 그 경로가 없으면 신규 추가 → README 파일 트리 갱신 대상. 이미 HEAD 에 있으면 기존 편집이라
+// README 무영향(그 파일을 추가한 세션이 이미 경고 기회를 받았다 — CAP 상 기회는 1회다).
+//   판정은 `ls-tree` 의 *출력*으로 한다 — `cat-file -e HEAD:<path>` 는 경로 부재도 128 로 내보내
+//   git 오류와 구분되지 않는다. `-z` 는 비ASCII 경로 quoting 회피, `:(literal)` 은 `:` 로 시작하거나
+//   와일드카드를 담은 파일명이 pathspec magic/glob 으로 해석되는 것을 막는다. 실행 실패(초기 커밋 전·
+//   timeout·git 부재)는 기존 취급 = 무경고 — 이 게이트는 soft nudge 라 오탐 비용이 미탐보다 크다.
+function isNewInRepo(rel, root) {
+  try {
+    const out = execFileSync('git', ['ls-tree', '--name-only', '-z', 'HEAD', '--', ':(literal)' + rel], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 2000,
+    });
+    return out === '';
+  } catch {
+    return false;
+  }
+}
+
 // plan(§10 핸드오프 문서)은 tracked 여도 검증 대상이 아니다 — plans/ 를 tracked 로 전환한 뒤엔
 // isIgnored 가 not-ignored 를 반환하므로, gitignore 상태와 무관하게 plans/ 경로를 명시 제외해
 // plan 편집이 evidence gate(changed=true)를 트리거하지 않게 한다. `plans` 가 완전한 경로 세그먼트일 때만.
@@ -121,7 +142,7 @@ process.stdin.on('end', () => {
       if (drift) {
         const beforeR = data.readmeDirty;
         const beforeI = data.indexDirty;
-        drift.applyChange(data, fp, input.cwd);
+        drift.applyChange(data, fp, input.cwd, undefined, isNewInRepo);
         if ((!beforeR && data.readmeDirty) || (!beforeI && data.indexDirty)) data.docBlocks = 0;
       }
     }

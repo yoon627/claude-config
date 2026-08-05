@@ -9,6 +9,7 @@ sources:
   - plans/2026-07-04-ledger-fix (evidence-ledger 오탐 3종 fixed — 2026-07-05·07-12)
   - 커밋 31be25b / PR #123 (gh pr merge --delete-branch 권장 제거 — 2026-08-05)
   - ~/.claude/telemetry/dlc-signals.jsonl (doc-drift-readme 16발동·7세션 집계 — 2026-08-05 확인)
+  - plans/2026-08-05-doc-drift-testfile-fp (.test.js doc-drift 오탐 fixed — 2026-08-05)
 ---
 
 # workflow-failures
@@ -25,6 +26,7 @@ dlc/규약 자체의 문제로 작업이 샌 **확인된 workflow 실패**를 �
 | evidence-ledger `verified` 미인식 — 이 repo 의 테스트 방식 `node scripts/X.test.js`·`node --test` 가 VERIFY 에 없어 verified=false → dlc 세션마다 early-stop "검증 누락" false nudge(위 ② 와 동일 class, ledger-fix 세션 자체에서 관측) | `node *.test.js`/`node --test` 로 검증한 세션마다 | `scripts/dlc-evidence-ledger.js` — VERIFY 에 `node\s+(--test\|\S*\.test\.[cm]?js)` 추가 | 1 | fixed (2026-07-12) |
 | evidence-ledger `changed` 오탐(간헐) — main cwd + **같은 repo** gitignored 편집인데도 드물게 early-stop 경고. ① cross-worktree 결정적 케이스와 별개, 근인 미확정(check-ignore 간헐 실패 or reset 미실행 유력) | 비결정적·드묾 | `scripts/dlc-evidence-ledger.js` — walk-up 이 timeout→in-repo 를 보수적 changed 로 만들어 완화 방향이나, gitignored 파일의 간헐 check-ignore timeout 은 여전히 false warning 가능 → 근인 규명 필요 | 1 | tracking (2026-07-05) |
 | doc-drift-readme 오탐 — CLAUDE.md/SKILL.md **내부 dedup**(README 무영향)도 `readmeDirty=true` 로 flag → false doc-drift 경고. 표면 파일 변경이 README 갱신을 실제로 요구하는지 hook 이 판정 불가(heuristic 한계) | 문서화 표면 파일을 README 불필요하게 내부 편집한 세션마다(예 CLAUDE.md §5/§13 dedup — PR #92 에서 관측. 2026-08-05 CLAUDE.md §8 절 단위 수정에서 재현 — signal detail=`CLAUDE.md`, PR #121·#123 세션) | `scripts/dlc-doc-drift.js` — 근본 판정은 불가, "불필요하면 통과" escape 가 의도된 완화. 신호에 `readmeTrigger` detail 을 실어 `/improve` 가 FP 패턴(내부 dedup) 식별 가능(signal-detail 작업) | 6 | tracking (2026-08-05 — CLAUDE.md 절 단위 수정 사례 1건 가산. detail 로 관측 개선, 근본 완화는 escape 유지) |
+| doc-drift-readme 오탐 **sub-class** — `scripts/*.test.js` **기존 파일 편집**만으로 README 미갱신 경고. `classify()` 의 `/^scripts\/[^/]+\.js$/` 가 `.test.js` 도 매치하는데, README 는 테스트를 `x.js (+ .test.js)` 접미 표기로만 문서화해 내용 변경이 README 에 영향이 없다 | 기존 테스트 파일을 편집한 세션마다(결정적). telemetry detail `scripts/session-brief.test.js`(2026-08-04) 로 확정 | `scripts/dlc-doc-drift.js` — `readme-trigger-new` 카테고리 신설(README 가 **존재만** 문서화하는 부류는 신규 추가일 때만 trigger) + 신규 판정은 `scripts/dlc-evidence-ledger.js` 의 `isNewInRepo`(`git ls-tree HEAD`)가 주입 | 1 | fixed (2026-08-05) |
 | 규약이 권장한 `gh pr merge --delete-branch` 가 worktree 환경에서 항상 실패 — gh 는 로컬 브랜치를 지우려 base 로 checkout 하는데 그 base(main)를 main worktree 가 점유해 `fatal: 'main' is already used by worktree` 로 거부된다. **머지는 성공하고 정리 단계만 조용히 누락**돼, 규약을 따를수록 원격·로컬 브랜치가 남는다(§8(a) "머지 후 정리 방치 금지"와 정면 충돌) | 비trivial 작업을 항상 worktree 에서 하므로, 규약대로 머지하는 PR 마다(결정적) | `CLAUDE.md` §8 — `--delete-branch` 를 빼고 `--merge` 로만 머지, 정리는 §8(a) 순서(worktree → `git branch -d` → `git push origin --delete`)로 직접 | 1 | fixed (2026-08-05, 커밋 `31be25b`/PR #123 — PR #121 실패·#122 `--merge` 정상으로 실측) |
 
 - **기록 규칙**: 같은 실패면 새 줄 말고 기존 항목 횟수만 +1. 상태 = `tracking`(누적 중) / `proposed`(wt 해결 제안함) / `fixed`(수정 머지) / `wontfix`.

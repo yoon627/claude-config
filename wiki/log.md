@@ -82,6 +82,11 @@
 - 조치: 이 repo `.codegraph/` 만 삭제(전역 MCP 는 유지 — 실사용처 보호), headroom `debug_400` 1.0GB→1.0MB 회수, rtk 심링크 0.44.2 재지정.
 - 처음엔 "codegraph 전역 제거"로 갈 뻔했으나 프로젝트별로 갈라 보니 실사용이 다른 repo 에 몰려 있어 판단을 뒤집었다 — 집계 단위를 섞으면 결론이 뒤집힌다는 사례.
 
+## [2026-08-05] ingest | workflow-failures 갱신 (.test.js doc-drift 오탐 fixed)
+- `doc-drift-readme` 를 두 sub-class 로 분리: 내부 dedup(판정 불가 — escape 유지, tracking) / `.test.js` 기존 편집(정규식 과매치 — fixed 2026-08-05). telemetry unique-session 총계 5→7 로 갱신(7월 5 + 8월 2).
+- `early-stop-verify` 계열 fix 효과를 실측으로 확정: 2026-07 16 → 2026-08 0(마지막 2026-07-30). 더 직접적인 근거는 detail 축 — `.md` 제외 fix(2026-07-17) 이후 신호 20건 중 `.md` detail 0건.
+- 8월 0 은 표본 5일이라 단독으로는 근거가 약하다 — 빈도 대신 detail 축으로 class 소멸을 입증하는 편이 강하다는 사례.
+
 ## [2026-08-05] ingest | workflow-failures (gh merge 실패 신규 적립 + doc-drift 오탐 가산)
 - CLAUDE.md §8 이 권장하던 `gh pr merge --delete-branch` 가 worktree 워크플로우에서 **결정적으로** 실패하는 건을 표에 신규 적립(횟수 1·`fixed`). gh 가 로컬 브랜치를 지우려 base 로 checkout 하는데 main worktree 가 그 base 를 점유해 거부되고, **머지는 성공하므로 정리 누락이 조용히 지나간다** — 규약을 성실히 따를수록 브랜치가 남는 구조였다. 근거는 커밋 `31be25b`(PR #123) 의 실측(#121 실패·#122 `--merge` 정상).
 - `doc-drift-readme` 오탐 행 5→6 (CLAUDE.md §8 절 단위 수정에서 재현, signal detail=`CLAUDE.md`).
