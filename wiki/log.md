@@ -81,3 +81,9 @@
 - transcript 298개 전수 스캔으로 MCP 실사용을 측정해 [[codegraph]]·[[headroom]] 에 반영. codegraph 30회(70%가 coin-trading-bot), headroom MCP 41회(`compress` 0회) — headroom 의 가치는 프록시($103.87·13.7% 절감)와 번들 rtk(2.1M 토큰·64.7%)에 있고 MCP 표면엔 없음.
 - 조치: 이 repo `.codegraph/` 만 삭제(전역 MCP 는 유지 — 실사용처 보호), headroom `debug_400` 1.0GB→1.0MB 회수, rtk 심링크 0.44.2 재지정.
 - 처음엔 "codegraph 전역 제거"로 갈 뻔했으나 프로젝트별로 갈라 보니 실사용이 다른 repo 에 몰려 있어 판단을 뒤집었다 — 집계 단위를 섞으면 결론이 뒤집힌다는 사례.
+
+## [2026-08-05] ingest | workflow-failures (gh merge 실패 신규 적립 + doc-drift 오탐 가산)
+- CLAUDE.md §8 이 권장하던 `gh pr merge --delete-branch` 가 worktree 워크플로우에서 **결정적으로** 실패하는 건을 표에 신규 적립(횟수 1·`fixed`). gh 가 로컬 브랜치를 지우려 base 로 checkout 하는데 main worktree 가 그 base 를 점유해 거부되고, **머지는 성공하므로 정리 누락이 조용히 지나간다** — 규약을 성실히 따를수록 브랜치가 남는 구조였다. 근거는 커밋 `31be25b`(PR #123) 의 실측(#121 실패·#122 `--merge` 정상).
+- `doc-drift-readme` 오탐 행 5→6 (CLAUDE.md §8 절 단위 수정에서 재현, signal detail=`CLAUDE.md`).
+- 대조 중 확인한 함정을 표에 명시: **표 횟수·신호 발동 수·unique session 수가 서로 다른 척도**다(실측 6/16/7). hook 이 세션당 capped 라 한 세션의 여러 어긋남이 신호 1건으로 접힌다 — 세 수치를 같게 맞추려 하면 이중계상된다.
+- 미적립으로 남긴 것: 2026-08-04 `detail=scripts/session-brief.test.js` 신호(테스트 파일이 README 트리거로 잡히는 별개 FP class — 다른 세션 `/improve` 의 1순위 후보라 소유권 분리).
