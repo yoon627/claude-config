@@ -1,6 +1,6 @@
 ---
 title: wt-copy-local-settings — wt 신규 worktree 에 `.claude/settings.local.json` 도 복사
-status: in_progress
+status: done
 started: 2026-08-05
 updated: 2026-08-05
 ---
@@ -11,6 +11,7 @@ updated: 2026-08-05
 동일 상대경로로 복사해, worktree 세션의 권한 허용목록이 0개로 시작하는 문제를 해소한다.
 
 # Progress
+- 2026-08-06: **PR #132 머지 완료**(merge commit `662f5aa`) → `status: done`. worktree·로컬·원격 브랜치 정리 완료.
 
 - 2026-08-05: 조사 — `.env` 복사 메커닉(`skills/wt/SKILL.md` §3.4 + `references/env-copy.md`)은 `git -C <main> ls-files --others --ignored --exclude-standard` 결과에서 basename `.env` 를 고르는 **스캔** 방식임을 확인.
 - 2026-08-05: 스크래치 repo 로 git 의미 실측 — whitelist `.gitignore`(`/*`)로 통째 ignored 된 `.claude/` 안이라도 위 listing 은 **개별 파일을 재귀 나열**한다(`.claude/settings.local.json` 포함). 동시에 **중첩 worktree 사본**(`.claude/worktrees/<other>/.claude/settings.local.json`)도 나열되므로 predicate 는 앵커드 정확일치여야 한다. ✅확실(실행 결과)
