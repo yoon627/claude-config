@@ -122,7 +122,7 @@
 - **머지/완료 후 정리 — 내가 한 merge 직후는 자동, 그 외는 확인**: 작업 브랜치가 main 에 merged·정리해도 안전하면 worktree 정리(worktree + **로컬·원격** 브랜치)를 방치·"선택사항" 언급만 하지 않는다. **분기**:
   - **(a) 내가 이 세션에서 직접 수행/확인한 merge 직후 + 안전조건 전부 충족** — ①대상 ≠ `main`/`master`/`origin/HEAD` ②working tree clean(untracked 포함) ③`git fetch origin <branch>` 후 remote-ahead 없음(`git rev-list <branch>..origin/<branch>` 빔 — 다른 머신 push 유실 차단) ④base 에 merged(`git rev-list origin/<default>..<branch>` 빔; squash-merge 는 안 빔 → (b) 로) ⑤미보존 `.env`/ignored/미커밋 plan 없음 — 이면 **확인 없이** worktree→로컬 `git branch -d`→원격 `git push origin --delete` 순으로 **자동 정리** + **삭제한 원격 tip sha 를 보고**(merged 라 base history·`git push origin <sha>:refs/heads/<branch>` 로 복구 가능).
   - **(b) 그 외** — 우연히 머지된 브랜치·안전조건 하나라도 미충족/불확실·`/e`·wt 등 **독립 정리** 경로 → **능동 제안(AskUserQuestion)**. 이 경로에서 원격 삭제·`git branch -D` 는 명시 확인 없이 금지(데이터 유실 방지).
-  - 조건·실행 세부는 `/e` step6·worktree 정리 규칙. 사용자가 지시한 PR 머지의 `gh pr merge --delete-branch` 는 (a) 와 동류(머지 지시에 원격 정리 포함). **main/master worktree 는 자동 정리 대상 아님.**
+  - 조건·실행 세부는 `/e` step6·worktree 정리 규칙. 사용자가 지시한 PR 머지도 (a) 와 동류(머지 지시에 원격 정리 포함) — 단 **`gh pr merge` 에 `--delete-branch` 를 붙이지 않는다**: gh 가 로컬 브랜치를 지우려 base 로 checkout 하는데 base 가 main worktree 에 잡혀 있어 `'main' is already used by worktree` 로 실패한다(머지 자체는 성공, 정리만 누락). 머지는 `--merge` 로만 하고 정리는 (a) 순서로 직접. **main/master worktree 는 자동 정리 대상 아님.**
 - generated/lock file 변경은 필요할 때만 포함, 이유 설명.
 - `.env`/private key/token/password/인증서 원문을 답변·로그·테스트 fixture·snapshot 에 출력 금지.
 - 인증/인가/암호화 코드는 기존 보안 패턴 먼저 확인. 임시 우회·hardcoded credential·TLS 검증 비활성화 금지.
