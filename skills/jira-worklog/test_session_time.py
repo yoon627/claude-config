@@ -24,11 +24,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from jira_kit.codex_session import find_codex_sessions  # noqa: E402
 from jira_kit.session_time import (  # noqa: E402
     Bucket,
     BucketKind,
+    WorktreeIndex,
     ai_intervals,
     ai_worklog_by_bucket,
+    bucket_codex_intervals,
     bucket_intervals,
     classify_cwd,
     parse_message_events,
@@ -352,6 +355,109 @@ class AiWorklogByBucketTest(unittest.TestCase):
             worklogs, _ = self.run_bucket([path])
         registrable = [b for b in worklogs if b.registrable]
         self.assertEqual(registrable, [])
+
+
+def rollout(cwd: str | None, *minutes: int) -> str:
+    """Codex rollout jsonl. 첫 줄은 session_meta(cwd), 이후는 response_item(=assistant).
+
+    ``cwd`` 가 None 이면 session_meta 자체를 빼 cwd 미상 rollout 을 모사한다.
+    """
+    lines = []
+    if cwd is not None:
+        lines.append(json.dumps({"type": "session_meta", "payload": {"cwd": cwd}}))
+    for minute in minutes:
+        lines.append(json.dumps({
+            "type": "response_item",
+            "payload": {"role": "assistant"},
+            "timestamp": (T0 + timedelta(minutes=minute)).isoformat().replace("+00:00", "Z"),
+        }))
+    return "\n".join(lines) + "\n"
+
+
+class CodexSessionScanTest(unittest.TestCase):
+    """rollout 을 **한 번만** 훑어 (파일, cwd) 로 넘긴다 — 필터는 호출자 분류기의 몫."""
+
+    def write(self, home: Path, relative: str, text: str) -> Path:
+        path = home / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def test_scans_both_live_and_archived_roots(self):
+        # 보관된 rollout 을 빼면 보관 후 그 세션 시간이 조용히 사라진다.
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            self.write(home, ".codex/sessions/2026/08/05/rollout-a.jsonl", rollout("/repo", 0))
+            self.write(home, ".codex/archived_sessions/rollout-b.jsonl", rollout("/elsewhere", 0))
+            found = dict(find_codex_sessions(home))
+        self.assertEqual(sorted(found.values()), ["/elsewhere", "/repo"])
+
+    def test_returns_every_cwd_without_filtering(self):
+        # 정확일치 필터를 여기 두면 하위 디렉토리 cwd 가 어느 버킷에도 못 간다(실측 26건).
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            self.write(home, ".codex/sessions/rollout-a.jsonl", rollout("/repo/sub/dir", 0))
+            found = dict(find_codex_sessions(home))
+        self.assertEqual(list(found.values()), ["/repo/sub/dir"])
+
+    def test_skips_unusable_first_lines(self):
+        # rollout 은 외부 입력이다 — 깨진 파일 하나가 전체 스캔을 죽이면 안 된다.
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            self.write(home, ".codex/sessions/bad-json.jsonl", "{not json\n")
+            self.write(home, ".codex/sessions/rollout-bad.jsonl", "{not json\n")
+            self.write(home, ".codex/sessions/rollout-nometa.jsonl",
+                       json.dumps({"type": "response_item"}) + "\n")
+            self.write(home, ".codex/sessions/rollout-ok.jsonl", rollout("/repo", 0))
+            found = dict(find_codex_sessions(home))
+        self.assertEqual(list(found.values()), ["/repo"])
+
+    def test_missing_roots_are_not_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(find_codex_sessions(Path(tmp)), [])
+
+
+class CodexBucketTest(unittest.TestCase):
+    """Codex 귀속을 Claude 와 같은 분류기로 통일 — 소스마다 규칙이 다르면 시간이 샌다."""
+
+    def bucket(self, *sessions: tuple[str, str]) -> dict[Bucket, list]:
+        index = WorktreeIndex(ROOT, LIVE)
+        with tempfile.TemporaryDirectory() as tmp:
+            entries = []
+            for name, cwd in sessions:
+                path = Path(tmp) / name
+                path.write_text(rollout(cwd, 0, 10), encoding="utf-8")
+                entries.append((path, cwd))
+            return bucket_codex_intervals(entries, TZ, index)
+
+    def test_exact_cwd_goes_to_live_bucket(self):
+        buckets = self.bucket(("a.jsonl", LIVE_WT))
+        self.assertEqual([b.kind for b in buckets], [BucketKind.LIVE])
+        self.assertEqual(next(iter(buckets)).name, "alive")
+
+    def test_subdirectory_cwd_goes_to_the_containing_worktree(self):
+        # 정확일치만 보던 옛 규칙은 이 rollout 을 통째로 버렸다.
+        buckets = self.bucket(("a.jsonl", LIVE_WT + "/skills/jira-worklog"))
+        self.assertEqual([b.kind for b in buckets], [BucketKind.LIVE])
+        self.assertEqual(next(iter(buckets)).name, "alive")
+
+    def test_subdirectory_of_dead_worktree_is_dead_not_main(self):
+        # main 은 모든 worktree 의 조상이라, 폴백하면 죽은 시간이 main 에 흡수돼 등록된다.
+        buckets = self.bucket(("a.jsonl", "/repo/.claude/worktrees/gone/sub"))
+        bucket = next(iter(buckets))
+        self.assertEqual(bucket.kind, BucketKind.DEAD)
+        self.assertEqual(bucket.name, "gone")
+        self.assertFalse(bucket.registrable)
+
+    def test_unrelated_cwd_is_unmatched(self):
+        buckets = self.bucket(("a.jsonl", "/other/repo"))
+        self.assertEqual([b.kind for b in buckets], [BucketKind.UNMATCHED])
+
+    def test_files_in_one_bucket_stay_separate_sessions(self):
+        # 파일=독립 세션. 합쳐서 구간을 뽑으면 파일 경계의 긴 공백이 작업시간으로 둔갑한다.
+        buckets = self.bucket(("a.jsonl", LIVE_WT), ("b.jsonl", LIVE_WT))
+        intervals = next(iter(buckets.values()))
+        self.assertEqual(len(intervals), 2)
 
 
 if __name__ == "__main__":
