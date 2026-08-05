@@ -92,3 +92,9 @@
 - `doc-drift-readme` 오탐 행 5→6 (CLAUDE.md §8 절 단위 수정에서 재현, signal detail=`CLAUDE.md`).
 - 대조 중 확인한 함정을 표에 명시: **표 횟수·신호 발동 수·unique session 수가 서로 다른 척도**다(실측 6/16/7). hook 이 세션당 capped 라 한 세션의 여러 어긋남이 신호 1건으로 접힌다 — 세 수치를 같게 맞추려 하면 이중계상된다.
 - 미적립으로 남긴 것: 2026-08-04 `detail=scripts/session-brief.test.js` 신호(테스트 파일이 README 트리거로 잡히는 별개 FP class — 다른 세션 `/improve` 의 1순위 후보라 소유권 분리).
+
+## [2026-08-05] ingest | lesson-parallel-duplicate-implementation (신규)
+- PR #118 과 #120 이 **같은 기능**(worktree 별 작업시간 귀속)을 각자 구현해 #120 의 553줄이 통째로 폐기된 건을 §13 lesson 으로 신설. #120 의 분기점이 `d38c70b`(#116)라 트리를 취하면 이후 머지분까지 `−2009` 줄 삭제되는 상태였다.
+- 근본 원인은 도구의 실수가 아니라 **채널 설계의 공백**: `plans/` 매칭(§10)은 *자기 branch → plan dir* 방향이라 남이 다른 브랜치에서 연 plan 은 안 보이고, 새 브랜치로 시작한 도구는 기존 plan 을 못 찾아 새로 만든다. 채널의 목표가 "이어받기"였지 "동시 착수 감지"가 아니었다.
+- 행동 규칙(memory 인덱스로 승격): 비trivial 착수 전 `gh pr list --state open`·원격 브랜치·`status: in_progress` plan 확인. **plan 매칭 실패를 "없다"의 근거로 쓰지 않는다.**
+- "#120 을 Codex 가 만들었다"는 ⚠️추정으로만 표기(커밋에 Claude 트레일러 부재라는 정황뿐) — 단정하지 않았다.
