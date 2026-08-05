@@ -1,6 +1,6 @@
 ---
 title: settings-local-keys — CLI 자동 기입 키로 dirty 해지는 tracked settings.json 대응
-status: in_progress
+status: done
 started: 2026-08-05
 updated: 2026-08-05
 ---
@@ -12,6 +12,7 @@ SessionStart 자동 pull 이 거부되는 문제의 근본 대응안을 확정�
 이번 턴은 **조사·계획까지**. 운영 자산(settings·CLAUDE.md) 수정은 승인 후 별도 작업.
 
 # Progress
+- 2026-08-06: **PR #129 머지 완료**(merge commit `47f5965`) → `status: done`. worktree·로컬·원격 브랜치 정리 완료.
 - 2026-08-05: **사용자 결정 3건** — ① B2 `effortLevel` 은 **그대로 둔다**(env 가 override 해 평소엔 무력하지만 env 미주입 환경의 fallback 은 남긴다) ② 무효 스코프의 권한 규칙을 적용되는 파일로 **병합** ③ worktree 권한 공백은 **`wt` 가 `.claude/settings.local.json` 도 복사**하는 방식으로 해소.
 - 2026-08-05: **권한 병합 실행 완료** — `~/.claude/settings.local.json`(58개, cwd=$HOME 전용이라 이 repo 세션엔 무효)의 규칙을 `~/.claude/.claude/settings.local.json` 으로 병합(31 → 83, 추가 52). 중복 2개 제외, **일회성·머신 한정 4개 제외**(죽은 PID `kill -9 4132`, `last reboot *`, `.pkg` 를 내려받는 curl 2개 — 상시 허용에 남길 성질이 아니다). 백업 `.bak`. gitignored 라 커밋 대상 아님.
 - 2026-08-05: **새 발견 — worktree 세션은 권한 규칙이 0개다**(이게 권한 프롬프트 빈발의 더 큰 원인일 가능성 ⚠️추정). `.claude/settings.local.json` 은 gitignored 라 worktree 생성 시 안 따라오고, `wt` 는 `.env` 만 복사한다. 그런데 CLAUDE.md §8 은 비trivial 작업을 worktree 에서 하도록 **강제**하므로 실제 작업 경로에서 허용목록이 통째로 빈다. 실측: main repo 83개 / worktree 3곳 **파일 없음** / tracked `settings.json` 8개(유일하게 전 세션 적용).

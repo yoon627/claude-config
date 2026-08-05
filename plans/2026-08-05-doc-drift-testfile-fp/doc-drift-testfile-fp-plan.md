@@ -1,6 +1,6 @@
 ---
 title: doc-drift-testfile-fp — `.test.js` 편집이 doc-drift-readme 오탐을 내는 문제 수정
-status: in_progress
+status: done
 started: 2026-08-05
 updated: 2026-08-05
 ---
@@ -10,6 +10,7 @@ updated: 2026-08-05
 `scripts/*.test.js` **기존 파일 편집**만으로 `dlc-early-stop` 이 "README 미갱신" 경고를 내는 오탐을 없앤다. 단 **신규 테스트 파일 추가**는 README 파일 트리 한 줄이 실제로 필요하므로 계속 경고해야 한다.
 
 # Progress
+- 2026-08-06: **PR #127 머지 완료**(merge commit `64dfaa2`) → `status: done`. worktree·로컬·원격 브랜치 정리 완료.
 
 - 2026-08-05 근본 원인 확정(`classify()` 의 `^scripts\/[^/]+\.js$` 가 `.test.js` 를 포함) + telemetry 실측(doc-drift-readme unique-session 7건, 그 중 2026-08-04 건의 detail 이 `scripts/session-brief.test.js`).
 - 2026-08-05 TDD Red→Green(Red 는 `classify` 가 `readme-trigger` 반환으로 재현). 통합테스트가 `cat-file -e` 의 exit-code 오판을 잡아 `ls-tree` 출력 판정으로 정정. CI 등가 전항목 통과, 실제 worktree 에서 hook 직접 실행 관찰(tracked `.test.js`→false / 신규 `.test.js`→true / 비-test 표면→true). codex 병행 리뷰 Critical·Major 0, Minor 2 반영. wiki·README 동기화 후 커밋.
