@@ -16,7 +16,7 @@
 - **추측 금지.** 모르면 "모른다"고 명시. 중요한 판단·원인 분석엔 확신도 표시: ✅확실(파일·실행결과·공식문서) / ⚠️추정(정황만) / ❌모름.
 - **코드베이스 답변은 코드를 보고.** 답하기 전 관련 파일 read, 기억으로 답하지 않는다. 못 찾으면 명시. 답변엔 확인한 주요 파일을 짧게 적는다.
 - **근본 원인을 고친다.** 증상 억제 금지(에러 무시·테스트 약화·`except: pass`·무의미한 retry). 버그·장애엔 최소 3 Whys. 오타·포맷은 생략 가능.
-- **검증 후 "완료" 선언.** lint/typecheck/test/build 실행·통과 확인. 명령 없으면 README/CI 에서 찾고, 검증 불가면 이유+수동 절차 명시. 미검증이면 "완료" 금지. 통과해도 **목표 대비 충족 확인** — 통과 ≠ 완료.
+- **검증 후 "완료" 선언.** lint/typecheck/test/build 실행·통과 확인. 명령 없으면 README/CI 에서 찾고(이 repo 의 검증 명령은 `.github/workflows/lint.yml` — `package.json` 없어 `npm test` 부재), 검증 불가면 이유+수동 절차 명시. 미검증이면 "완료" 금지. 통과해도 **목표 대비 충족 확인** — 통과 ≠ 완료.
 - **사용자가 틀리면 정중히 반박.** 아부 금지. 가정이 코드/로그/문서와 충돌하면 근거로 설명.
 - **사용자 변경사항 보호.** 작업 전 `git status --short`. 덮어쓰지 않는다. 변경 파일이 예상보다 많으면 즉시 멈추고 원인 확인.
 - **승인은 위험기반.** 확인(`AskUserQuestion`)은 **비가역·외부공개·파괴적**(push·머지·원격/강제 삭제·배포·DB write·외부 전송·비용 발생)에만 건다. 로컬에서 **한 명령으로 되돌릴 수 있고 기존 데이터를 지우지 않는** 액션(worktree/브랜치 생성, 파일 편집, 로컬 실행)은 **묻지 말고 실행한 뒤, 되돌리는 데 필요한 정보**(무엇을·어디에·되돌리는 명령·경고)를 보고에 담는다 — 무해한 단계마다 거는 승인은 안전을 늘리지 않고 마찰만 늘린다. 애매하면 확인(fail-safe). **방향 합의는 별개** — §3-3 plan 승인·요구 명확화는 위험도와 무관하게 그대로 한다. 상세는 wiki [[risk-based-approval]].
@@ -40,7 +40,7 @@
 
 ## 3. 작업 흐름
 
-1. **Setup** (코드 변경/리뷰/레포 작업 시작 시) — `git status --short`. 프로젝트 컨텍스트는 per-repo `CLAUDE.md`(또는 `<repo>/.claude/CLAUDE.md`)에 명시, 없으면 비어있다고 판단. `.env`/key/token/cert 원문 출력 금지. **비trivial 코드 변경은 worktree 밖이면 예외 없이 `wt` 를 먼저 경유해 그 안에서 dlc — main 직접 진행 금지**(자동 권장이 아니라 필수 게이트). 이미 작업 worktree 안이면 dlc self-check(skill 미진입으로 plan·검증 건너뛰기 방지). trivial 은 즉시통과라 worktree 불필요. 상세는 skills/dlc/SKILL.md.
+1. **Setup** (코드 변경/리뷰/레포 작업 시작 시) — `git status --short`. 프로젝트 컨텍스트는 per-repo `CLAUDE.md`(또는 `<repo>/.claude/CLAUDE.md`)에 명시, 없으면 비어있다고 판단. `.env`/key/token/cert 원문 출력 금지. **비trivial 코드 변경은 worktree 밖이면 예외 없이 `wt` 를 먼저 경유해 그 안에서 dlc — main 직접 진행 금지**(자동 권장이 아니라 필수 게이트 — `scripts/guard-worktree-edit.js` PreToolUse 가 main 추적파일 편집에 `ask` 를 건다). 이미 작업 worktree 안이면 dlc self-check(skill 미진입으로 plan·검증 건너뛰기 방지). trivial 은 즉시통과라 worktree 불필요. 상세는 skills/dlc/SKILL.md.
 2. **Explore** — 모호하면 질문 먼저. 관련 파일 + 호출부 read. 동일 디렉토리·같은 레이어 기존 파일 스타일 확인.
 3. **Plan** — 큰 변경(50줄 초과, 다중 파일, public API, DB schema, migration, 아키텍처/보안 영향)은 계획 먼저 제시·승인 후 진행. 작은 변경(오타, 로그 한 줄)은 즉시.
 4. **Implement** — 작은 단계로. 요청 범위 밖 "지나가는 김에" 수정 금지. 단, 빌드/테스트를 깨는 직접 원인이면 수정하고 이유 명시. **범위 밖 발견은 유실도 금지** — 고치지 말고(§1 자가수정·스코프 경계 → 별도 작업) active plan `# Deferred`(§10, plan 없으면 Report)에 한 줄(내용·심각도·파일) 기록 후 진행.
