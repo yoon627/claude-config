@@ -309,7 +309,8 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - `EnterWorktree(path: <abs>)` 로 진입 — `name` 인자 사용 금지 (Claude Code 의 `worktree-` prefix 자동 부착 회피)
 - 정수·`rm`·기존 worktree 정확일치가 아닌 텍스트는 **요청사항**으로 간주 → 영문 kebab-case slug 파생 → **확인 없이 생성**(위험기반 승인 — CLAUDE.md §1: 로컬·가역이라 묻지 않고, base·`.env`·stale·near-miss·`/wt rm <slug>` 되돌리기를 보고) → 요청사항 원문을 `dlc` task 로 전달 (dlc 없는 빈 worktree 단순 생성은 폐지). 삭제 계열(`rm`·`--force`·`branch -D`·원격 삭제)은 비가역이라 확인 유지
 - 접두 `?` (`/wt ? <막연한 설명>`)는 **질문 모드** — AskUserQuestion 으로 요구사항을 구체화한 뒤 같은 요청사항 생성 경로로 합류 (접미 `?` 는 의문형 요청과 충돌해 미사용)
-- `references/` (자동 로드 안 됨): SKILL 본문엔 절차 스텝·안전 게이트만 두고, 상세 메커닉은 해당 분기 진입 시 Read 하는 참조 doc 으로 분리 — `env-copy.md`(`.env` 복사 후보/제외)·`codegraph-worktree.md`(codegraph init 조건·staleness·projectPath)·`rm-recovery.md`(생성 git 시퀀스·self-heal·rm 실패 복구). `docs/codex-review.md`·`docs/worktree-lifecycle.md` 와 같은 참조 패턴.
+- **신규 생성 시 ignored 설정 자동 복사**: main worktree 에서 ① basename 이 정확히 `.env` 인 파일 ② repo-relative 경로가 정확히 `.claude/settings.local.json` 인 파일을 동일 상대경로로 복사(이미 있으면 skip, 실패는 경고만·worktree 유지). ②가 필요한 이유는 worktree 가 **자기 자신이 git root** 라 Claude Code 의 `localSettings`(= `<git root>/.claude/settings.local.json`)를 상속하지 않기 때문 — 복사하지 않으면 **권한 허용목록이 0개**로 시작하는데, CLAUDE.md §8 이 비trivial 작업을 worktree 에서 하도록 강제하므로 실사용 경로가 전부 여기 해당한다. predicate 는 **앵커드 정확일치**(basename 매칭이면 `.bak` 백업이나 repo 루트의 동명 파일까지 딸려온다). 신규 생성 경로만 덮으므로 기존 worktree 는 수동 복사.
+- `references/` (자동 로드 안 됨): SKILL 본문엔 절차 스텝·안전 게이트만 두고, 상세 메커닉은 해당 분기 진입 시 Read 하는 참조 doc 으로 분리 — `env-copy.md`(자동 복사 후보/제외 — `.env` + `settings.local.json`)·`codegraph-worktree.md`(codegraph init 조건·staleness·projectPath)·`rm-recovery.md`(생성 git 시퀀스·self-heal·rm 실패 복구). `docs/codex-review.md`·`docs/worktree-lifecycle.md` 와 같은 참조 패턴.
 
 ### skills/wiki/ — LLM Wiki (영속 프로젝트 메모리)
 
