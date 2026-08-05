@@ -410,7 +410,7 @@ UTF-8 (no BOM) + LF endings — Git Bash 가 인식. idempotent — 재실행 �
 머신 간 sync 의 source of truth. 핵심 키:
 - `theme`, `preferredNotifChannel` — Claude Code UI 설정
 - `permissions.defaultMode` — `auto`(기본 권한 모드). 매 액션 프롬프트 대신 안전 분류기가 판정한다. **user scope 전용** — 프로젝트/로컬 settings 의 `"auto"` 는 repo-controllable 이라 무시되고, 반대로 프로젝트가 *다른* 모드를 지정하면 그쪽이 이긴다(cascade user < project < local). 모델이 auto 미지원이면 CLI 가 안내와 함께 `default` 로 폴백.
-- `permissions.deny` — **비어 있음**. `git push origin main/master` 직접 푸시 차단이 있었으나 이 repo(`~/.claude`) main push 허용(2026-08-05 사용자 승인)으로 제거 — deny 는 프로젝트 단위 범위 지정이 불가하고 allow 보다 우선하므로, 전역 deny 를 남기면 이 repo 도 막힌다. 다른 repo 의 main 직접 작업 금지는 CLAUDE.md §8 규약 + 아래 `ask` 가 가드(하드 게이트 아님). repo 단위로 다시 강제하려면 cwd 를 보는 `Bash` PreToolUse 훅이 필요.
+- `permissions.deny` — **비어 있음**. `git push origin main/master` 직접 푸시 차단이 있었으나 이 repo(`~/.claude`) main push 허용(2026-08-05 사용자 승인)으로 제거 — deny 는 프로젝트 단위 범위 지정이 불가하고 allow 보다 우선하므로, 전역 deny 를 남기면 이 repo 도 막힌다. 다른 repo 의 main 푸시는 **git `pre-push` 훅이 계속 하드 차단**한다(`pre-commit-check` — repo 루트가 `~/.claude` 일 때만 면제). 즉 이 레이어를 지워도 보호는 훅 레이어에 남아 있고, 여기에 더해 CLAUDE.md §8 규약과 아래 `ask` 가 겹겹으로 가드한다.
 - `permissions.ask` — 일반 `git push` 는 확인 후 실행 (main/master 푸시도 이제 여기에 걸린다)
 - `statusLine`, `subagentStatusLine` — statusline 스크립트 등록 (`node ~/.claude/statusline.js`)
 - `env.CLAUDE_CODE_EFFORT_LEVEL` — Opus effort level (`high`). docs 명시 값: `low|medium|high|xhigh|max`. `/effort` 나 `effortLevel` 키로는 세션 한정이지만 **env 변수로 설정할 때만 영구 적용**되므로 이 키로 둔다. env 가 `effortLevel` 키를 override. **`xhigh` 금지** — WebSearch/WebFetch 는 thinking 없는 보조 모델을 쓰는데 그 모델이 `xhigh` 를 거부해(`400 output_config.effort 'xhigh' is not supported when thinking is disabled`) 웹 검색이 통째로 막힌다(2026-08-03 관측).
