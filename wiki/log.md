@@ -101,3 +101,7 @@
 
 ## [2026-08-05] ingest | 모델 단계별 배치 + OSS 하네스 판단
 - 신규: entity/claude-code-model-selection, entity/claude-code-oss-frameworks, decision/model-stage-tiering, decision/harness-keep-and-borrow. 갱신: entity/anthropic-claude-models (Claude 5 세대·Fable 50% 캡·벤치 구도). 출처: 본 세션 researcher 조사 2건.
+
+## [2026-08-06] ingest | git-hook-network-safety (보류된 결정 1건 미해결 표시)
+- SessionStart pull 의 `--autostash` 도입 여부를 `[!open]` 콜아웃으로 올렸다. 근거 plan(`settings-local-keys`)이 PR #129 로 머지되며 `status: done` 이 됐는데, 그 plan 의 범위는 *조사까지*였고 **결정만 미결로 남았다** — done 인 plan 안에 있으면 `in_progress` 스캔에도 세션 시작 신호에도 안 잡혀 조용히 묻힌다. wiki 는 작업을 가로질러 누적되는 층이라 보류된 결정의 제자리다.
+- 결정 구조를 그대로 보존: (a) 도입 여부와 (b) stash 재적용 **충돌 알림** 방식은 별개 — 지금 훅은 출력을 죽이므로 (a) 만 도입하면 "변경이 사라진 것처럼 보이는" 새 실패 모드가 생긴다. 같은 페이지 §1 의 async↔동기 분리와 같은 축이라 그 페이지에 붙였다.
