@@ -13,8 +13,10 @@ Claude 와 다른 도구가 같은 기능을 각자 구현해 한쪽(PR #120, 55
 
 - 2026-08-05: lesson 페이지 작성, `wiki/index.md`·`wiki/log.md` 동기화 완료.
 
+- 2026-08-05: 링크 검사(outbound 4·dead 0·index 34=34)·CI 스위트 `ALL PASS` 후 PR #130 머지.
+
 # Next
-검증 → PR → 머지 → **main 복귀 후 memory 2단계 저장**(worktree 격리 가드가 공유 체크아웃 경로 쓰기를 막아 미뤘다 — Acceptance 4).
+**main 복귀 후 memory 2단계 저장**(Acceptance 4 — gitignored 경로라 worktree 격리 가드에 막혀 미뤘다). 그 외 없음.
 
 # Decisions
 - **`lesson-*.md` 신규 페이지로 적립** (이유: §13 이 정한 형식. [[workflow-failures]] 추적표는 *hook·규약이 낸 반복 신호*를 세는 곳이고, 이번 건은 신호가 없는 1회성 협업 설계 문제라 성격이 다르다).
