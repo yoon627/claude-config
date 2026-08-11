@@ -20,7 +20,9 @@ updated: 2026-08-11
 
 # Next
 
-simplify 체크 → 최종 재검증 → 커밋 → push/PR. **머지 후 새 세션에서 Acceptance #7(런타임 smoke) 수행** — 이 worktree 에서는 원리적으로 불가.
+**머지 후 새 세션에서 Acceptance #7(런타임 smoke) 수행** — reviewer 3종·researcher 를 각 1회 spawn 해 자기 exact model ID 를 보고시켜 opus/sonnet 반영을 확인한다. 이 worktree 에서는 원리적으로 불가했다(라이브 정의는 `~/.claude/agents/`). 실패 시 되돌리기는 `# Rollback`.
+
+그 다음(선택): `# Deferred` 의 bootstrap effort 재주입 문제(심각도 중) 처리 여부 결정.
 
 # Decisions
 
