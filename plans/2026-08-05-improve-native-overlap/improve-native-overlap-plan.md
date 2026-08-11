@@ -25,7 +25,7 @@ updated: 2026-08-11
 
 # Next
 
-**push → PR** 만 남았다. B-1 은 해소됨(아래 Blockers).
+**PR #139 리뷰·머지 대기** (CI `lint` pass, `mergeable`). 머지되면 `status: done` 전환 + worktree 정리(§8(a) — 내가 직접 머지하면 무확인 자동 정리 대상).
 
 # Decisions
 
