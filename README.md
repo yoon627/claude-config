@@ -262,7 +262,9 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 ### agents/ — 4개 subagent
 
-`Agent` 도구로 호출. CLAUDE.md §5 의 표준 순서 (plan-reviewer → 구현 → code-reviewer → simplify 체크(메인 직접, dlc 13단계)) 가 기본. frontmatter `model: inherit` — 세션 모델을 상속(모델 세대 교체 시 수정 지점 0).
+`Agent` 도구로 호출. CLAUDE.md §5 의 표준 순서 (plan-reviewer → 구현 → code-reviewer → simplify 체크(메인 직접, dlc 13단계)) 가 기본. frontmatter 는 `model` 을 단계별로 고정한다 — reviewer 3종 `opus`, researcher `sonnet`. 별칭이라 모델 세대 교체 시 수정 지점은 0이고, 세션이 Fable 이어도 리뷰·조사가 Fable 캡을 태우지 않는다. 근거·precedence·함정은 `wiki/pages/decision/model-stage-tiering.md` 와 `wiki/pages/entity/claude-code-model-selection.md`.
+
+> ⚠️ 고정에는 **자동 폴백이 없다**. Opus 한도 소진 시 plan-reviewer/code-reviewer 는 `Agent terminated early due to an API error` 로 실패하고, 둘 다 CLAUDE.md §5 의 **필수 게이트**라 dlc 가 멈춘다. 비상 레버는 `CLAUDE_CODE_SUBAGENT_MODEL=<별칭>`(예: `sonnet`) — **`inherit` 은 미설정과 동일해 무효**(v2.1.196+)이므로 되돌리려면 반드시 구체적 별칭/ID 를 준다.
 
 | 파일 | 호출 시점 | 핵심 책임 |
 |---|---|---|
