@@ -10,7 +10,9 @@ const path = require('path');
 // 단일 스키마 소스 — read 기본값·reset 둘 다 이걸 쓴다(한쪽 누락 시 새 필드 undefined 회귀 방지).
 //   changed/verified/blocks: 검증 누락 추적(early-stop). readmeDirty/indexDirty/docBlocks: 문서 drift 추적(dlc-doc-drift).
 // *Trigger: 마지막으로 해당 dirty/changed 를 유발한 파일(repo-relative rel · basename). 신호 detail 용 — /improve 가 오탐 패턴(예: readmeTrigger=CLAUDE.md 내부 dedup) 식별. dirty 해제 시 null.
-const DEFAULT = { changed: false, verified: false, blocks: 0, readmeDirty: false, indexDirty: false, docBlocks: 0, readmeTrigger: null, indexTrigger: null, changedTrigger: null };
+// *Covered/*Pending: 이번 세션에 문서화된(= target 갱신으로 커버된) trigger 파일 / 아직 커버 안 된 것.
+//   재편집 오탐 차단용(dlc-doc-drift). `{...DEFAULT}` 얕은 복사로 쓰이므로 소비자는 push 대신 concat 으로 새 배열을 할당한다.
+const DEFAULT = { changed: false, verified: false, blocks: 0, readmeDirty: false, indexDirty: false, docBlocks: 0, readmeTrigger: null, indexTrigger: null, changedTrigger: null, readmeCovered: [], readmePending: [], indexCovered: [], indexPending: [] };
 
 function ledgerPath(sessionId) {
   const id = String(sessionId || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');

@@ -130,3 +130,9 @@
 - `checked` 는 밀지 않았다 — 이번 건 changelog delta 전수 조회가 아니라 1행 표적 실측이라, `checked` 를 갱신하면 45일 타이머가 근거 없이 리셋된다. `checked`↔`updated` 구분을 대장 운영 규칙에 명문화.
 - lesson 신규 [[lesson-test-after-implementation]] — PR #139 의 §7 순서 위반 자진 기록. 근본원인은 "분량으로 TDD 필요 여부를 판단"한 것이고, 실제 위험은 분량이 아니라 경계 밀도(날짜·TZ·버전·인코딩)였다. [[lesson-parser-precedent-partial-mirror]] 와 상호링크(같은 "형식은 맞는데 무음으로 틀린 값" 계열).
 - orphan 2건([[lesson-parallel-duplicate-implementation]]·[[lesson-parser-precedent-partial-mirror]]) 을 inbound 링크로 해소 — `check_links.py` clean.
+
+## [2026-08-12] update | workflow-failures — doc-drift 재편집 오탐 fixed
+- 신규 sub-class 적립 + fixed: 동기화 후 이미 문서화된 trigger 파일을 재편집하면 `dlc-doc-drift` 가 다시 dirty 로 판정하던 오탐. 한 세션에서 2회 재현(README·wiki index)이라 §13 기록 트리거 ②(동일 유형 2회) 충족.
+- 근본 원인은 heuristic 한계가 아니라 **모델링 오류**였다 — 문서 동기화는 편집 *순서*가 아니라 *상태*인데 `applyChange` 가 순서(trigger→dirty / target→clean)로만 다뤄, target 뒤에 오는 어떤 trigger 든 미동기화로 뒤집었다. 기존 두 오탐 항목(내부 dedup·`.test.js`)이 "무엇이 trigger 인가"를 좁히는 방향이었다면 이번 건은 "언제 clean 인가"를 고친 것.
+- covered-set 전환으로 새 surface 탐지는 유지(미탐 미도입). 부수 위험 하나를 테스트로 못박음: `ledger.DEFAULT` 가 `{...DEFAULT}` 얕은 복사로 쓰여 배열에 `push` 하면 전 세션이 같은 배열을 공유·오염 → `concat` 강제.
+- §7 TDD 순서를 지킨 첫 사례([[lesson-test-after-implementation]] 적립 직후 첫 적용) — 경계를 먼저 열거하고 Red 확인 후 구현했고, DEFAULT 오염 케이스는 그 열거 과정에서 나왔다.

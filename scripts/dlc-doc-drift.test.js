@@ -143,6 +143,86 @@ ok('index trigger records + clears', () => {
   assert.strictEqual(data.indexTrigger, null);
 });
 
+// --- covered-set: 동기화 끝난 surface 의 재편집은 재-dirty 시키지 않는다 ---
+// 오탐 재현 경로(2026-08-12, 세션 2회): trigger → target(동기화) → 같은 trigger 재편집.
+// 문서는 실제로 동기화돼 있는데 순서 기반 플래그가 다시 dirty 로 뒤집던 것.
+const ledger = require('./dlc-ledger.js');
+const fresh = () => ({ ...ledger.DEFAULT });
+
+ok('README: 동기화 후 같은 파일 재편집 → dirty 아님', () => {
+  const data = fresh();
+  d.applyChange(data, R + '/scripts/x.js', R, HOME);
+  d.applyChange(data, R + '/README.md', R, HOME);
+  assert.strictEqual(data.readmeDirty, false);
+  d.applyChange(data, R + '/scripts/x.js', R, HOME); // 재편집
+  assert.strictEqual(data.readmeDirty, false);
+});
+ok('index: 동기화 후 같은 페이지 재편집 → dirty 아님', () => {
+  const data = fresh();
+  d.applyChange(data, R + '/wiki/pages/decision/a.md', R, HOME);
+  d.applyChange(data, R + '/wiki/index.md', R, HOME);
+  assert.strictEqual(data.indexDirty, false);
+  d.applyChange(data, R + '/wiki/pages/decision/a.md', R, HOME); // 재편집
+  assert.strictEqual(data.indexDirty, false);
+});
+ok('동기화 후 *새* surface → dirty (미탐 미도입)', () => {
+  const data = fresh();
+  d.applyChange(data, R + '/scripts/x.js', R, HOME);
+  d.applyChange(data, R + '/README.md', R, HOME);
+  d.applyChange(data, R + '/scripts/brand-new.js', R, HOME);
+  assert.strictEqual(data.readmeDirty, true);
+  assert.strictEqual(data.readmeTrigger, 'scripts/brand-new.js');
+});
+ok('여러 trigger 를 한 target 이 모두 커버', () => {
+  const data = fresh();
+  d.applyChange(data, R + '/wiki/pages/decision/a.md', R, HOME);
+  d.applyChange(data, R + '/wiki/pages/decision/b.md', R, HOME);
+  d.applyChange(data, R + '/wiki/index.md', R, HOME);
+  d.applyChange(data, R + '/wiki/pages/decision/a.md', R, HOME);
+  d.applyChange(data, R + '/wiki/pages/decision/b.md', R, HOME);
+  assert.strictEqual(data.indexDirty, false);
+});
+ok('covered 는 축끼리 섞이지 않는다', () => {
+  const data = fresh();
+  d.applyChange(data, R + '/scripts/x.js', R, HOME);
+  d.applyChange(data, R + '/README.md', R, HOME);
+  d.applyChange(data, R + '/wiki/pages/decision/a.md', R, HOME);
+  assert.strictEqual(data.indexDirty, true);   // index 축은 별개로 dirty
+  assert.strictEqual(data.readmeDirty, false); // readme 축은 여전히 clean
+});
+ok('target 선행이어도 그 뒤 trigger 는 dirty (기존 계약 유지)', () => {
+  const data = fresh();
+  d.applyChange(data, R + '/README.md', R, HOME);
+  d.applyChange(data, R + '/scripts/x.js', R, HOME);
+  assert.strictEqual(data.readmeDirty, true);
+});
+ok('DEFAULT 오염 없음 — 세션 간 배열 공유 금지', () => {
+  const a = fresh();
+  const b = fresh();
+  d.applyChange(a, R + '/scripts/x.js', R, HOME);
+  d.applyChange(a, R + '/README.md', R, HOME);
+  // a 에서 covered 로 넘어간 항목이 b·DEFAULT 로 새면 안 된다
+  assert.deepStrictEqual(ledger.DEFAULT.readmeCovered, []);
+  assert.deepStrictEqual(b.readmeCovered, []);
+  d.applyChange(b, R + '/scripts/x.js', R, HOME);
+  assert.strictEqual(b.readmeDirty, true); // b 는 covered 가 비어 있으므로 dirty
+});
+ok('covered 상한 50 — 무한 증가 방지', () => {
+  const data = fresh();
+  for (let i = 0; i < 60; i++) d.applyChange(data, `${R}/scripts/f${i}.js`, R, HOME);
+  d.applyChange(data, R + '/README.md', R, HOME);
+  assert.ok(data.readmeCovered.length <= 50, `covered=${data.readmeCovered.length}`);
+});
+ok('구 ledger(필드 부재)에서도 크래시 없음', () => {
+  const data = { readmeDirty: false, indexDirty: false }; // covered/pending 없음
+  d.applyChange(data, R + '/scripts/x.js', R, HOME);
+  assert.strictEqual(data.readmeDirty, true);
+  d.applyChange(data, R + '/README.md', R, HOME);
+  assert.strictEqual(data.readmeDirty, false);
+  d.applyChange(data, R + '/scripts/x.js', R, HOME);
+  assert.strictEqual(data.readmeDirty, false);
+});
+
 // --- evaluate: dirty → 메시지 ---
 ok('clean → no message', () => assert.deepStrictEqual(d.evaluate({ readmeDirty: false, indexDirty: false }), []));
 ok('readme dirty → 1 msg', () => assert.strictEqual(d.evaluate({ readmeDirty: true, indexDirty: false }).length, 1));
