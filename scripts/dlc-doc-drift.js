@@ -44,7 +44,42 @@ function classify(fp, root) {
   return null;
 }
 
-// 변경 1건을 dirty flag 에 반영(순서 반영: trigger→dirty=true, target→dirty=false). home 은 테스트 주입용.
+// 축별 ledger 필드명 — 오타로 축이 섞이지 않게 한 곳에 모은다.
+const AXIS = {
+  readme: { dirty: 'readmeDirty', trigger: 'readmeTrigger', covered: 'readmeCovered', pending: 'readmePending' },
+  index: { dirty: 'indexDirty', trigger: 'indexTrigger', covered: 'indexCovered', pending: 'indexPending' },
+};
+const COVERED_CAP = 50; // ledger 는 세션당 JSON 파일 — 무한 증가 방지. 초과분은 종전 동작(재편집 시 dirty).
+
+// covered = 이번 세션에 target(README·wiki index)을 갱신하며 이미 문서에 반영된 trigger 들.
+// 그 파일을 다시 편집해도 dirty 로 만들지 않는다 — 문서 동기화는 *편집 순서*가 아니라 *상태*이고,
+// 순서로 모델링하면 "동기화 후 같은 파일을 한 번 더 만졌다"가 미동기화로 뒤집힌다(오탐).
+// 배열은 항상 concat 으로 새로 할당한다: ledger.DEFAULT 가 `{...DEFAULT}` 얕은 복사로 쓰이므로
+// push 하면 모든 세션이 DEFAULT 의 같은 배열을 공유·오염한다.
+// rel 은 여기 도달 시 항상 non-null — classify 가 카테고리를 주는 조건과 rel 이 채워지는 조건이 같다.
+function markTrigger(data, axis, rel) {
+  const f = AXIS[axis];
+  const covered = data[f.covered] || [];
+  if (covered.includes(rel)) return; // 이미 문서화됨 → 재편집은 drift 아님
+  data[f.dirty] = true;
+  data[f.trigger] = rel;
+  const pending = data[f.pending] || [];
+  if (!pending.includes(rel)) data[f.pending] = pending.concat(rel).slice(0, COVERED_CAP);
+}
+
+function markTarget(data, axis) {
+  const f = AXIS[axis];
+  data[f.dirty] = false;
+  data[f.trigger] = null;
+  const pending = data[f.pending] || [];
+  if (pending.length) {
+    const covered = data[f.covered] || [];
+    data[f.covered] = covered.concat(pending.filter((p) => !covered.includes(p))).slice(0, COVERED_CAP);
+  }
+  data[f.pending] = [];
+}
+
+// 변경 1건을 dirty flag 에 반영. home 은 테스트 주입용.
 // isNewFile(rel, root)→boolean 은 'readme-trigger-new' 부류에만 조회되는 선택 콜백(git 등 부수효과는
 // 호출부 몫). 미제공이면 신규가 아닌 것으로 봐 trigger 하지 않는다 — 이 부류는 오탐 비용이 미탐보다 크다.
 function applyChange(data, fp, cwd, home, isNewFile) {
@@ -55,11 +90,11 @@ function applyChange(data, fp, cwd, home, isNewFile) {
   switch (classify(fp, root)) {
     case 'readme-trigger-new':
       if (typeof isNewFile !== 'function' || !isNewFile(rel, root)) break;
-      data.readmeDirty = true; data.readmeTrigger = rel; break;
-    case 'readme-trigger': data.readmeDirty = true; data.readmeTrigger = rel; break;
-    case 'readme-target': data.readmeDirty = false; data.readmeTrigger = null; break;
-    case 'index-trigger': data.indexDirty = true; data.indexTrigger = rel; break;
-    case 'index-target': data.indexDirty = false; data.indexTrigger = null; break;
+      markTrigger(data, 'readme', rel); break;
+    case 'readme-trigger': markTrigger(data, 'readme', rel); break;
+    case 'readme-target': markTarget(data, 'readme'); break;
+    case 'index-trigger': markTrigger(data, 'index', rel); break;
+    case 'index-target': markTarget(data, 'index'); break;
   }
   return data;
 }
