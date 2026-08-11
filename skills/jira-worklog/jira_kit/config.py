@@ -17,10 +17,12 @@ from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .jira_client import JiraConfig, api_base_for, fetch_cloud_id
+# 백스톱 기본값의 단일 소스는 측정 쪽이다. 반대로 두면 session_time 이 jira_client(네트워크)까지
+# 끌어오게 된다.
+from .session_time import DEFAULT_MAX_GAP_MINUTES
 
 _DEFAULT_TICKET_PATTERN = r"[A-Z][A-Z0-9]+-\d+"  # 범용 Jira 키(CSTP1-2251 등도 매칭)
 _DEFAULT_TIMEZONE = "Asia/Seoul"
-_DEFAULT_MAX_GAP = 60
 
 
 class ConfigError(RuntimeError):
@@ -98,7 +100,7 @@ def resolve_config(
         jira=jira,
         ticket_pattern=pick("JIRA_TICKET_PATTERN") or _DEFAULT_TICKET_PATTERN,
         timezone_name=pick("JIRA_TIMEZONE") or _DEFAULT_TIMEZONE,
-        max_gap_minutes=_int_or(pick("JIRA_MAX_GAP_MINUTES"), _DEFAULT_MAX_GAP),
+        max_gap_minutes=_int_or(pick("JIRA_MAX_GAP_MINUTES"), DEFAULT_MAX_GAP_MINUTES),
     )
 
 

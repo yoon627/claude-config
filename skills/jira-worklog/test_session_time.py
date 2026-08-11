@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from jira_kit.codex_session import find_codex_sessions  # noqa: E402
 from jira_kit.session_time import (  # noqa: E402
+    DEFAULT_MAX_GAP_MINUTES,
     Bucket,
     BucketKind,
     WorktreeIndex,
@@ -47,16 +48,35 @@ TZ = timezone.utc
 T0 = datetime(2026, 8, 4, 10, 0, tzinfo=TZ)
 
 
-def line(minutes: int, kind: str, cwd: str | None) -> str:
-    """세션 jsonl 한 줄. cwd 가 None 이면 필드 자체를 뺀다(실데이터의 메타 줄 모사)."""
+def _event(minutes: int, kind: str, cwd: str | None) -> dict:
     obj: dict = {
         "type": kind,
         "timestamp": (T0 + timedelta(minutes=minutes)).isoformat().replace("+00:00", "Z"),
     }
     if cwd is not None:
         obj["cwd"] = cwd
+    return obj
+
+
+def line(minutes: int, kind: str, cwd: str | None) -> str:
+    """세션 jsonl 한 줄. cwd 가 None 이면 필드 자체를 뺀다(실데이터의 메타 줄 모사)."""
+    obj = _event(minutes, kind, cwd)
     if kind == "user":
         obj["message"] = {"content": "hi"}
+    return json.dumps(obj)
+
+
+def tool_use(minutes: int, name: str, cwd: str | None, tool_id: str = "t1") -> str:
+    """assistant 의 tool_use 줄. 대화형 도구면 이 뒤 gap 이 사용자 대기다."""
+    obj = _event(minutes, "assistant", cwd)
+    obj["message"] = {"content": [{"type": "tool_use", "id": tool_id, "name": name}]}
+    return json.dumps(obj)
+
+
+def tool_result(minutes: int, cwd: str | None, tool_id: str = "t1") -> str:
+    """tool_result 는 ``type=user`` 로 기록되지만 AI 작업 흐름이다."""
+    obj = _event(minutes, "user", cwd)
+    obj["message"] = {"content": [{"type": "tool_result", "tool_use_id": tool_id}]}
     return json.dumps(obj)
 
 
@@ -149,6 +169,66 @@ class ParseEventsTest(unittest.TestCase):
         self.assertEqual([e[2] for e in events], [LIVE_WT, None])
 
 
+class WaitExclusionTest(unittest.TestCase):
+    """사용자 대기는 role 단계에서 제외한다 — idle gap 백스톱에 기대지 않는다.
+
+    실측(세션 157개 전수): 백스톱을 넘긴 non-wait gap 13건 중 12건이 ``AskUserQuestion``
+    응답 대기(합 76.6h), 1건이 ``user→user`` 였다. 즉 백스톱이 하던 일의 실체는 이 두 가지다.
+    """
+
+    def intervals(self, *lines: str):
+        return ai_intervals(parse_message_events(jsonl(*lines), TZ))
+
+    def test_gap_before_user_input_is_wait_whatever_precedes_it(self):
+        # prev==assistant 일 때만 대기로 보면 user→user 구간이 작업으로 샌다(실측 132분).
+        self.assertEqual(self.intervals(
+            line(0, "user", LIVE_WT),
+            line(30, "user", LIVE_WT),
+        ), [])
+
+    def test_ask_user_question_wait_is_excluded(self):
+        # 사용자가 답하기 전에는 tool_result 가 오지 않는다 — 이 구간은 AI 가 논 시간이다.
+        self.assertEqual(self.intervals(
+            tool_use(0, "AskUserQuestion", LIVE_WT),
+            tool_result(30, LIVE_WT),
+        ), [])
+
+    def test_exit_plan_mode_wait_is_excluded(self):
+        self.assertEqual(self.intervals(
+            tool_use(0, "ExitPlanMode", LIVE_WT),
+            tool_result(30, LIVE_WT),
+        ), [])
+
+    def test_ordinary_tool_run_is_still_work(self):
+        # 회귀 방지: 도구 실행 구간을 대기로 보면 AI 작업시간이 통째로 과소된다.
+        self.assertEqual(seconds(self.intervals(
+            tool_use(0, "Bash", LIVE_WT),
+            tool_result(30, LIVE_WT),
+        )), 30 * 60)
+
+    def test_work_before_the_question_is_kept(self):
+        # 질문을 만들기까지는 AI 가 일한 시간이다 — 대기는 질문 **이후**부터다.
+        self.assertEqual(seconds(self.intervals(
+            line(0, "assistant", LIVE_WT),
+            tool_use(10, "AskUserQuestion", LIVE_WT),
+            tool_result(70, LIVE_WT),
+        )), 10 * 60)
+
+    def test_long_tool_run_survives_default_backstop(self):
+        # 대기를 정면으로 걸러낸 대가로 백스톱을 완화했다 — 2시간짜리 빌드가 살아난다.
+        self.assertEqual(seconds(self.intervals(
+            tool_use(0, "Bash", LIVE_WT),
+            tool_result(120, LIVE_WT),
+        )), 120 * 60)
+
+    def test_backstop_still_cuts_absurd_gaps(self):
+        # 백스톱은 남긴다 — 앞으로 추가될 대화형 도구가 같은 구멍을 내면 여기서 막힌다.
+        self.assertEqual(self.intervals(
+            tool_use(0, "Bash", LIVE_WT),
+            tool_result(DEFAULT_MAX_GAP_MINUTES + 60, LIVE_WT),
+        ), [])
+
+
 class BucketIntervalsTest(unittest.TestCase):
     """인접 쌍의 bucket 이 같을 때만 interval 을 발행한다."""
 
@@ -204,8 +284,8 @@ class BucketIntervalsTest(unittest.TestCase):
         text = jsonl(
             line(0, "assistant", LIVE_WT),
             line(10, "assistant", LIVE_WT),
-            line(70, "assistant", LIVE_WT),  # 60분 초과 gap → 기존 규칙대로 제외
-            line(75, "user", LIVE_WT),       # assistant→user 대기 → 제외
+            line(70, "assistant", LIVE_WT),  # 60분 gap — 백스톱 안이라 작업으로 잡힌다
+            line(75, "user", LIVE_WT),       # 사용자 입력 직전 → 대기로 제외
         )
         events = parse_message_events(text, TZ)
         legacy = ai_intervals(events)
