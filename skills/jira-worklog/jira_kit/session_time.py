@@ -27,6 +27,7 @@ tool_result 가 ``type=user`` 로 기록되는 탓에 대기처럼 보이지 않
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, tzinfo
@@ -38,6 +39,12 @@ from .codex_session import codex_events
 from .worklog_core import DayWorklog
 
 _Interval = tuple[datetime, datetime]
+# 세션키 → 그 세션의 작업구간. 등록 단위가 세션이라 bucket 안에서 한 겹 더 나눈다.
+SessionIntervals = dict[str, list[_Interval]]
+
+# 세션 파일명이 곧 세션 id 다(Claude ``<uuid>.jsonl``, Codex ``rollout-<ts>-<uuid>.jsonl``).
+_UUID_RE = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", re.IGNORECASE)
+SESSION_KEY_DIGITS = 8
 
 # worktree 는 `<root>/.claude/worktrees/<name>` 에 만들어진다(skills/wt/SKILL.md).
 # 삭제된 worktree 는 `git worktree list` 에 없으므로 이 규약으로 이름을 되살린다.
@@ -358,6 +365,47 @@ def _split_by_date(intervals: list[_Interval]) -> dict[date, tuple[float, dateti
     return by_day
 
 
+def session_key(path: Path, source: str) -> str:
+    """마커에 넣을 세션 식별자 ``<source>:<uuid 뒤 8자>``.
+
+    8자로 줄이는 건 마커 가독성 때문이고, **뒤**를 쓰는 건 Codex 때문이다 — rollout id 는
+    UUIDv7 이라 앞 48비트가 timestamp 이고, 수 초 안에 시작된 세션끼리 앞 8자가 그대로
+    겹친다(실측 수십 건). 뒤쪽은 두 형식 모두 랜덤이라 같은 길이로 충돌이 사라진다.
+
+    그래도 충돌하면 두 세션이 한 항목으로 합쳐진다 — 시간은 합산되어 남지만 세션 단위
+    추적이 깨지므로 CLI 가 등록 전에 감지해 경고한다.
+    """
+    match = _UUID_RE.search(path.stem)
+    if match is None:
+        return f"{source}:{path.stem}"
+    return f"{source}:{match.group(0).replace('-', '')[-SESSION_KEY_DIGITS:]}"
+
+
+def flatten_sessions(per_bucket: dict[Bucket, SessionIntervals]) -> dict[Bucket, list[_Interval]]:
+    """세션 구분을 지우고 bucket 별 구간으로 합친다(표시·집계용).
+
+    세션별 항목의 **합**은 여기서 나온 union 보다 클 수 있다 — 동시에 돌던 세션의 겹치는
+    시간은 세션별로 나눠 두면 지울 수 없기 때문이다.
+    """
+    return {
+        bucket: [iv for intervals in sessions.values() for iv in intervals]
+        for bucket, sessions in per_bucket.items()
+    }
+
+
+def merge_session_buckets(
+    *sources: dict[Bucket, SessionIntervals],
+) -> dict[Bucket, SessionIntervals]:
+    """여러 소스(Claude·Codex)의 bucket·세션 구간을 하나로 합친다."""
+    merged: dict[Bucket, SessionIntervals] = {}
+    for source in sources:
+        for bucket, sessions in source.items():
+            target = merged.setdefault(bucket, {})
+            for key, intervals in sessions.items():
+                target.setdefault(key, []).extend(intervals)
+    return merged
+
+
 def codex_intervals(paths: list[Path], tz: tzinfo, max_gap_minutes: int = DEFAULT_MAX_GAP_MINUTES) -> list[_Interval]:
     """Codex rollout 들의 작업구간. 파일=독립 세션이라 파일별로 뽑는다(경계 gap 오염 방지).
 
@@ -375,20 +423,21 @@ def bucket_codex_intervals(
     tz: tzinfo,
     index: WorktreeIndex,
     max_gap_minutes: int = DEFAULT_MAX_GAP_MINUTES,
-) -> dict[Bucket, list[_Interval]]:
-    """rollout ``(파일, cwd)`` 들을 **Claude 와 같은 분류기**로 bucket 별 구간으로 나눈다.
+) -> dict[Bucket, SessionIntervals]:
+    """rollout ``(파일, cwd)`` 들을 **Claude 와 같은 분류기**로 bucket·세션별 구간으로 나눈다.
 
     소스마다 귀속 규칙이 다르면 같은 cwd 가 서로 다른 bucket 으로 간다. 특히 정확일치만
     보면 worktree **하위** 디렉토리에서 시작한 세션이 어디에도 못 가고 사라진다(실측 26건,
     전부 삭제된 worktree 행이라 표시에서 누락됐다).
     """
-    grouped: dict[Bucket, list[Path]] = {}
+    grouped: dict[Bucket, SessionIntervals] = {}
     for path, cwd in sessions:
-        grouped.setdefault(index.classify(cwd), []).append(path)
-    return {
-        bucket: codex_intervals(paths, tz, max_gap_minutes)
-        for bucket, paths in grouped.items()
-    }
+        bucket = grouped.setdefault(index.classify(cwd), {})
+        # 세션키가 겹치면(축약 충돌) 덮지 않고 합친다 — 항목은 하나로 합쳐지되 시간은 남는다.
+        bucket.setdefault(session_key(path, "codex"), []).extend(
+            codex_intervals([path], tz, max_gap_minutes)
+        )
+    return grouped
 
 
 def worklog_from_intervals(intervals: list[_Interval]) -> list[DayWorklog]:
@@ -405,15 +454,18 @@ def bucket_intervals_from_files(
     tz: tzinfo,
     index: WorktreeIndex,
     max_gap_minutes: int = DEFAULT_MAX_GAP_MINUTES,
-) -> tuple[dict[Bucket, list[_Interval]], AttributionStats]:
-    """Claude 세션 파일들을 한 번만 읽어 bucket 별 날짜 worklog 로 나눈다.
+) -> tuple[dict[Bucket, SessionIntervals], AttributionStats]:
+    """Claude 세션 파일들을 한 번만 읽어 bucket·세션별 구간으로 나눈다.
 
     코퍼스를 worktree 마다 다시 읽으면 worktree 수만큼 스캔이 반복된다 — 단일 패스가
     ``--all`` 성능 기준의 전제다. Codex 는 줄이 아니라 파일 단위로 갈리므로 여기가 아니라
     ``bucket_codex_intervals`` 가 같은 분류기로 나눈다(그쪽도 스캔 1회).
+
+    한 파일이 여러 worktree 를 오가면 그 세션은 bucket 마다 자기 몫을 갖는다 — 세션은
+    등록 단위이지 귀속 단위가 아니라서, 세션 하나가 worktree 둘에 걸치면 항목도 둘이 된다.
     """
     root_parts = len(index.root_key.parts)
-    per_bucket: dict[Bucket, list[_Interval]] = {}
+    per_bucket: dict[Bucket, SessionIntervals] = {}
     main_subroots: set[str] = set()
     dropped = 0
     dropped_seconds = 0.0
@@ -422,6 +474,7 @@ def bucket_intervals_from_files(
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
+        key = session_key(path, "claude")
         events = []
         for moment, role, cwd in parse_message_events(text, tz):
             bucket = index.classify(cwd)
@@ -431,7 +484,7 @@ def bucket_intervals_from_files(
             events.append((moment, role, bucket))
         buckets, stats = bucket_intervals(events, max_gap_minutes)
         for bucket, intervals in buckets.items():
-            per_bucket.setdefault(bucket, []).extend(intervals)
+            per_bucket.setdefault(bucket, {}).setdefault(key, []).extend(intervals)
         dropped += stats.boundary_dropped
         dropped_seconds += stats.boundary_seconds
     return per_bucket, AttributionStats(dropped, dropped_seconds, frozenset(main_subroots))
@@ -444,7 +497,7 @@ def ai_worklog_by_bucket(
     live_worktrees: Iterable[str | Path],
     max_gap_minutes: int = DEFAULT_MAX_GAP_MINUTES,
 ) -> tuple[dict[Bucket, list[DayWorklog]], AttributionStats]:
-    """bucket 별 날짜 worklog. Codex 를 합칠 필요가 없는 표시 경로용 편의 함수.
+    """bucket 별 날짜 worklog(세션 구분 없이 union). Codex 를 합칠 필요가 없는 표시 경로용.
 
     Codex 와 union 해야 하면 ``bucket_intervals_from_files`` 로 구간을 받아 합친 뒤
     ``worklog_from_intervals`` 를 부른다 — 날짜 분할 후에는 union 이 불가능하다.
@@ -452,7 +505,8 @@ def ai_worklog_by_bucket(
     per_bucket, stats = bucket_intervals_from_files(
         claude_files, tz, WorktreeIndex(root, live_worktrees), max_gap_minutes
     )
-    return {b: worklog_from_intervals(iv) for b, iv in per_bucket.items()}, stats
+    flat = flatten_sessions(per_bucket)
+    return {b: worklog_from_intervals(iv) for b, iv in flat.items()}, stats
 
 
 def find_repo_session_files(home: Path | None = None) -> list[Path]:

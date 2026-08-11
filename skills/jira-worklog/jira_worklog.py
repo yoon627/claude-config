@@ -8,9 +8,10 @@
 분류기로 worktree 별로 나눈다(worktree 마다 다시 읽으면 N배 스캔이 된다). 삭제된 worktree
 시간은 표시만 하고 등록하지 않는다. 기본은 미리보기(dry-run). 실제 등록은 ``--register`` 이며,
 등록 전 diff·게이트를 거친다(게이트까지 all-or-nothing — 통과 후 HTTP 실패는 부분 반영 가능).
-(ticket, date, worktree) 마커로 **그 worktree 의** 본인 worklog 를 찾아 없으면 생성, 있으면 시간만
-갱신한다(upsert — 재실행 시 skip 아님). 같은 티켓을 여러 worktree 에서 작업하면 worktree 마다
-항목이 따로 생기고 티켓 총 작업시간은 Jira 가 합산한다. 인증·설정은 .env / 환경변수 / jira-kit.toml.
+(ticket, date, worktree, 세션) 마커로 **그 세션의** 본인 worklog 를 찾아 없으면 생성, 있으면 시간만
+갱신한다(upsert — 재실행 시 skip 아님). **등록 단위가 세션이라 세션마다 항목이 따로 생긴다** —
+세션 id 자체가 분할 키여서 워터마크 없이 멱등성이 유지되고, 티켓 총 작업시간은 Jira 가 합산한다.
+대신 세션을 가로지르는 겹침은 union 으로 지울 수 없다. 인증·설정은 .env / 환경변수 / jira-kit.toml.
 
 이 스킬 디렉토리에서 직접 실행한다(대상 worktree 를 cwd 로):
   python ~/.claude/skills/jira-worklog/jira_worklog.py            # 현재 worktree 미리보기
@@ -46,10 +47,14 @@ from jira_kit.session_time import (  # noqa: E402
     AttributionStats,
     Bucket,
     BucketKind,
+    SessionIntervals,
     WorktreeIndex,
     bucket_codex_intervals,
     bucket_intervals_from_files,
     find_repo_session_files,
+    flatten_sessions,
+    merge_session_buckets,
+    session_key,
     worklog_from_intervals,
 )
 from jira_kit.worklog_core import DayWorklog, extract_ticket, format_duration  # noqa: E402
@@ -57,6 +62,7 @@ from jira_kit.worklog_register import (  # noqa: E402
     PlannedChange,
     gate_reasons,
     plan_worklog_changes,
+    sessionless_worklog_ids,
     upsert_worklog,
 )
 
@@ -101,7 +107,8 @@ def _write_recovery_log(ticket: str, worktree: str, plans: list[PlannedChange]) 
         with path.open("a", encoding="utf-8") as fh:
             for p in plans:
                 fh.write(json.dumps({
-                    "ticket": ticket, "worktree": worktree, "day": p.day.day.isoformat(),
+                    "ticket": ticket, "worktree": worktree, "session": p.session,
+                    "day": p.day.day.isoformat(),
                     "action": p.action, "old_seconds": p.old_seconds,
                     "new_seconds": p.new_seconds, "worklog_id": p.worklog_id,
                 }, ensure_ascii=False) + "\n")
@@ -109,15 +116,33 @@ def _write_recovery_log(ticket: str, worktree: str, plans: list[PlannedChange]) 
         print(f"    복구 로그 기록 실패(등록은 진행): {exc}", file=sys.stderr)
 
 
+def _session_days(sessions: SessionIntervals) -> dict[str, list[DayWorklog]]:
+    """세션별 구간을 세션별 날짜 worklog 로. 활동이 없는 세션은 뺀다."""
+    out = {}
+    for key, intervals in sessions.items():
+        days = worklog_from_intervals(intervals)
+        if days:
+            out[key] = days
+    return out
+
+
+def _rows(session_days: dict[str, list[DayWorklog]]) -> list[tuple[DayWorklog, str]]:
+    """표시·등록 순서: 날짜 오름차순, 같은 날은 세션키 순."""
+    return sorted(
+        ((day, session) for session, days in session_days.items() for day in days),
+        key=lambda row: (row[0].day, row[1]),
+    )
+
+
 def _register(
     config: Config,
     ticket: str,
     worktree: str,
-    days: list[DayWorklog],
+    session_days: dict[str, list[DayWorklog]],
     user_comment: str | None,
     allow_large: bool = False,
 ) -> int:
-    """그 worktree 의 날짜별 worklog 를 upsert 한다(insert-once 아님). 실패 건수 반환.
+    """그 worktree 의 (세션, 날짜) worklog 를 upsert 한다(insert-once 아님). 실패 건수 반환.
 
     게이트까지는 all-or-nothing 이다 — 통과 전에는 한 건도 쓰지 않는다. 통과 후 개별 요청이
     HTTP 오류로 실패하면 앞 날짜는 이미 반영된 상태로 남는다(Jira 에 트랜잭션이 없다).
@@ -126,23 +151,35 @@ def _register(
     사용자/기존 worklog 조회가 실패하면 안전하게 전량 skip(오등록 방지).
     """
     assert config.jira is not None
+    rows = _rows(session_days)
     try:
         my_account_id = get_myself(config.jira).get("accountId")
         existing = get_worklogs(config.jira, ticket)
     except JiraError as exc:
         print(f"    worklog 조회 실패 → 등록 skip: {exc}", file=sys.stderr)
-        return len(days)
+        return len(rows)
 
-    # 전 날짜를 먼저 계산해 diff 를 보이고 게이트를 통과한 뒤에만 쓴다(all-or-nothing).
+    # 전 건을 먼저 계산해 diff 를 보이고 게이트를 통과한 뒤에만 쓴다(all-or-nothing).
     # Jira 쓰기는 코드 revert 로 되돌릴 수 없어 부분 등록이 남으면 수습이 어렵다.
     try:
-        plans = plan_worklog_changes(ticket, worktree, days, existing, my_account_id)
+        plans = plan_worklog_changes(ticket, worktree, session_days, existing, my_account_id)
     except JiraError as exc:
         print(f"    등록 계획 실패 → skip: {exc}", file=sys.stderr)
-        return len(days)
+        return len(rows)
     for p in plans:
         old = f"{p.old_seconds // 60}m" if p.old_seconds is not None else "없음"
-        print(f"    [{p.action}] {p.day.day} {old} → {p.new_seconds // 60}m")
+        print(f"    [{p.action}] {p.day.day} [{p.session}] {old} → {p.new_seconds // 60}m")
+
+    # 세션 도입 전 항목은 새 마커와 안 맞아 그만큼 겹쳐 계상된다. 중단시키진 않되(사용자
+    # 결정) 조용히 넘기지도 않는다 — 안 보이면 정리할 수도 없다.
+    for day in sorted({d.day for d, _ in rows}):
+        stale = sessionless_worklog_ids(existing, ticket, day, worktree, my_account_id or "")
+        if stale:
+            print(
+                f"    경고: {day} 에 세션 없는 구 형식 항목 {len(stale)}건"
+                f"(id {', '.join(stale)}) — 새 세션 항목과 겹쳐 계상된다(수동 정리 대상)",
+                file=sys.stderr,
+            )
     reasons = gate_reasons(plans)
     if reasons:
         head = "등록 차단 — 사람이 한 번 봐야 한다:" if not allow_large else (
@@ -153,19 +190,22 @@ def _register(
             print(f"      {r}", file=sys.stderr)
         if not allow_large:
             print("    확인했으면 --allow-large-change 로 다시 실행", file=sys.stderr)
-            return len(days)
+            return len(rows)
 
     _write_recovery_log(ticket, worktree, plans)
     failures = 0
-    for day in days:
+    for day, session in rows:
         try:
             result = upsert_worklog(
                 config.jira, ticket, day, existing, my_account_id,
-                worktree=worktree, note_parts=(user_comment,),
+                worktree=worktree, session=session, note_parts=(user_comment,),
             )
-            print(f"    {result} {ticket} {day.day} {format_duration(day.seconds)} [{worktree}]")
+            print(
+                f"    {result} {ticket} {day.day} {format_duration(day.seconds)} "
+                f"[{worktree}] [{session}]"
+            )
         except JiraError as exc:
-            print(f"    등록 실패 {day.day}: {exc}", file=sys.stderr)
+            print(f"    등록 실패 {day.day} [{session}]: {exc}", file=sys.stderr)
             failures += 1
     return failures
 
@@ -175,30 +215,32 @@ def process(
     args: argparse.Namespace,
     config: Config,
     register: bool,
-    intervals: list[tuple[datetime, datetime]],
+    sessions: SessionIntervals,
 ) -> int:
     # register 는 main 이 계산한 실효값(--all 이면 False) — args.register 를 직접 보지 않는다.
-    # intervals 는 main 이 Claude·Codex 코퍼스를 각각 한 번만 읽어 이 worktree bucket 으로
-    # 나눠 합쳐준 것 — 두 소스의 union 이 날짜 분할 **전에** 끝나야 겹친 시간이 이중계상되지
-    # 않는다(worklog_from_intervals 가 union 후 분할한다).
+    # sessions 는 main 이 Claude·Codex 코퍼스를 각각 한 번만 읽어 이 worktree bucket 으로
+    # 나눠 합쳐준 것이다. union 은 **세션 안에서만** 일어난다 — 등록 단위가 세션이라 세션을
+    # 가로지르는 겹침은 지울 수 없고, 그만큼 합계가 실제 경과시간보다 클 수 있다.
     name = Path(wt.path).name
-    days = worklog_from_intervals(intervals)
+    session_days = _session_days(sessions)
     ticket = _ticket_for(wt, args, config)
-    if not days:
+    if not session_days:
         print(f"[{name}] 세션 활동 없음 → skip")
         return 0
 
-    total = sum(d.seconds for d in days)
+    rows = _rows(session_days)
+    total = sum(day.seconds for day, _ in rows)
     print(
         f"[{name}] branch={wt.branch or '(detached)'} "
-        f"ticket={ticket or '(없음)'} 활동 {len(days)}일 합계 {format_duration(total)}"
+        f"ticket={ticket or '(없음)'} 세션 {len(session_days)}개 "
+        f"항목 {len(rows)}개 합계 {format_duration(total)}"
     )
-    for day in days:
-        # worklog 항목은 worktree 단위로 갈리므로 어떤 마커로 기록될지 등록 전에 보여준다
-        # (Jira 를 수동 정리할 때 그대로 찾아 쓸 문자열이라 날짜별 실물을 찍는다).
-        marker = f"  {worklog_marker(ticket, day.day, name)}" if ticket else ""
+    for day, session in rows:
+        # worklog 항목은 (worktree, 세션) 단위로 갈리므로 어떤 마커로 기록될지 등록 전에
+        # 보여준다(Jira 를 수동 정리할 때 그대로 찾아 쓸 문자열이라 실물을 찍는다).
+        marker = f"  {worklog_marker(ticket, day.day, name, session)}" if ticket else ""
         print(
-            f"    {day.day}  {format_duration(day.seconds):>8}  "
+            f"    {day.day}  {format_duration(day.seconds):>8}  [{session}]  "
             f"(시작 {day.started.strftime('%H:%M')}){marker}"
         )
 
@@ -206,8 +248,30 @@ def process(
         print("    티켓 매치 없음 → 등록 skip (--ticket-pattern 또는 worktree 이름/브랜치명 확인)")
         return 0
     if register and config.jira is not None and ticket:
-        return _register(config, ticket, name, days, args.comment, args.allow_large_change)
+        return _register(config, ticket, name, session_days, args.comment, args.allow_large_change)
     return 0
+
+
+def _warn_session_key_collisions(
+    claude_files: list[Path], codex_sessions: list[tuple[Path, str]]
+) -> None:
+    """축약된 세션키가 겹치면 두 세션이 한 worklog 항목으로 합쳐진다.
+
+    시간은 합산되어 남지만 세션 단위 추적이 깨진다 — 확률은 낮고 실패는 조용해서, 감지가
+    싼 쪽을 택한다.
+    """
+    keys: dict[str, list[str]] = {}
+    for path in claude_files:
+        keys.setdefault(session_key(path, "claude"), []).append(path.name)
+    for path, _ in codex_sessions:
+        keys.setdefault(session_key(path, "codex"), []).append(path.name)
+    for key, names in sorted(keys.items()):
+        if len(names) > 1:
+            print(
+                f"경고: 세션키 {key} 가 {len(names)}개 세션에 겹친다"
+                f"({', '.join(sorted(names))}) — 한 worklog 항목으로 합쳐진다",
+                file=sys.stderr,
+            )
 
 
 def _report_unregistrable(
@@ -303,23 +367,26 @@ def main(argv: list[str] | None = None) -> int:
         max_gap = args.max_gap if args.max_gap is not None else config.max_gap_minutes
         # 두 코퍼스를 **각각 한 번만** 읽는다. worktree 마다 다시 읽으면 N배 스캔이 된다.
         index = WorktreeIndex(root, [w.path for w in live])
-        per_bucket, stats = bucket_intervals_from_files(find_repo_session_files(), tz, index, max_gap)
+        claude_files = find_repo_session_files()
+        codex_sessions = find_codex_sessions()
+        _warn_session_key_collisions(claude_files, codex_sessions)
+        per_bucket, stats = bucket_intervals_from_files(claude_files, tz, index, max_gap)
         # Codex 를 같은 dict 로 합쳐야 삭제된 worktree 의 Codex 시간도 _report_unregistrable
         # 에 잡힌다(따로 두면 등록 대상만 보이고 유실은 안 보인다).
-        codex_per_bucket = bucket_codex_intervals(find_codex_sessions(), tz, index, max_gap)
-        for codex_bucket, codex_iv in codex_per_bucket.items():
-            per_bucket.setdefault(codex_bucket, []).extend(codex_iv)
+        per_bucket = merge_session_buckets(
+            per_bucket, bucket_codex_intervals(codex_sessions, tz, index, max_gap)
+        )
         failures = 0
         for wt in worktrees:
             # bucket 키는 **인덱스가 단일 소스**다. CLI 가 이름으로 재구성하면 정규화·중복 이름에서
             # 어긋나 시간이 조용히 0 이 되거나 남의 bucket 을 집는다(실제로 겪었다).
             bucket = index.classify(wt.path)
             try:
-                failures += process(wt, args, config, register, per_bucket.get(bucket, []))
+                failures += process(wt, args, config, register, per_bucket.get(bucket, {}))
             except GitError as exc:
                 print(f"[{Path(wt.path).name}] git 오류 → skip: {exc}", file=sys.stderr)
                 failures += 1
-        _report_unregistrable(per_bucket, stats)
+        _report_unregistrable(flatten_sessions(per_bucket), stats)
     except GitError as exc:
         print(f"git 오류: {exc}", file=sys.stderr)
         return 2
