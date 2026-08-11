@@ -101,3 +101,13 @@
 
 ## [2026-08-05] ingest | 모델 단계별 배치 + OSS 하네스 판단
 - 신규: entity/claude-code-model-selection, entity/claude-code-oss-frameworks, decision/model-stage-tiering, decision/harness-keep-and-borrow. 갱신: entity/anthropic-claude-models (Claude 5 세대·Fable 50% 캡·벤치 구도). 출처: 본 세션 researcher 조사 2건.
+
+## [2026-08-06] ingest | subagent model 단계별 고정 (구현 반영)
+- [[model-stage-tiering]] 의 `[!open] 구현 대기` 해소 — `agents/*.md` 를 reviewer 3종 `model: opus`·researcher `model: sonnet` 으로 고정(worktree subagent-model-pinning). 갱신: decision/effort-global-xhigh(2026-07-04 inherit 결정의 재개정 기록), decision/model-stage-tiering([!open]→[!done]), decision/subagent-model-effort-tiering([!conflict] 배너에 "model 차등만 부분 복원" — effort 차등은 여전히 폐기), entity/claude-code-model-selection(pin 시 확정사실 절 신설), index 4줄.
+- 조사로 확정한 외부 사실(researcher, 공식 docs + GH issue): subagent frontmatter 의 `[1m]` 접미사는 **미문서화 + stripping 버그 미수정**(#45169) → 쓰지 않는다. 필요도 없음 — Opus 4.7+ 는 API 에서 항상 1M, Max/Team/Enterprise 는 자동 승격. subagent context 는 **자기 모델 기준**(부모 상속 아님). 명시 pin 은 **자동 폴백 없음**(한도 소진 시 `Agent terminated early due to an API error`; `fallbackModel` 은 rate-limit 에 미발동) → 비상 레버 `CLAUDE_CODE_SUBAGENT_MODEL`.
+- **부수 발견(문서 drift 교정)**: [[effort-global-xhigh]] 가 주장하던 `CLAUDE_CODE_EFFORT_LEVEL=xhigh` 는 사실이 아니었다 — `78a6715 fix(settings): effort xhigh→high (웹툴 400 해소)` 에서 의도적으로 하향됐는데 wiki 만 stale 이었다. 페이지 안에 `[!warning]` 로 교정. **페이지명 rename 은 링크 전수 수정 동반이라 미뤘다**(plan `# Deferred`).
+
+## [2026-08-11] lint | code-review 지적 반영 — effort drift 재조사·정정
+- **08-06 의 교정 자체가 부분적으로 틀렸다**(code-reviewer 반례): "런타임 모두 `high`" 는 tool 셸의 `printenv` 만 본 판단이었고, **실행 중 claude 프로세스 env 는 `max`**(`ps eww <pid>` 실측). shell/OS env 가 settings.json 을 이기므로 유효값은 `max`. → [[effort-global-xhigh]] warning 재작성 + **판정 시 `printenv` 금지, `ps eww` 사용** 명시.
+- **근본원인 적립**: `scripts/bootstrap/setup.sh:118`·`setup.ps1:156` 이 이 repo 안에서 shell/User env 에 `max` 를 심는다 → [[effort-os-env-single-source]] 가 적립한 실패의 **재발**이며 bootstrap 재실행 시 재주입. 그 페이지의 `[!note] 현재 상태` 도 같은 stale(`xhigh`·"OS env 없음")이라 함께 교정. 스크립트 수정은 운영자산 변경이라 별건(plan `# Deferred`).
+- 갱신: decision/effort-global-xhigh, decision/effort-os-env-single-source, decision/subagent-model-effort-tiering(haiku 배제 사유 페이지 간 충돌 `[!conflict]` flag), entity/claude-code-model-selection(`SUBAGENT_MODEL=inherit` no-op 함정, availableModels 버전 조건). 편집한 5개 페이지 `updated`/`sources` 갱신(WIKI.md 필수 필드 누락 교정).

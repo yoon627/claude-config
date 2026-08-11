@@ -2,11 +2,14 @@
 title: model-stage-tiering
 category: decision
 created: 2026-08-05
-updated: 2026-08-05
+updated: 2026-08-11
 sources:
   - researcher 조사 2026-08-05 ×2 (공식 권장·커뮤니티 관행 — 본 세션)
   - memory model-strategy-fable-plan-opus-impl (2026-07-04 원결정)
   - https://support.claude.com/en/articles/15424964-claude-fable-5-on-your-plan
+  - researcher 조사 2026-08-06 (subagent frontmatter model 정본·precedence·폴백)
+  - https://code.claude.com/docs/en/sub-agents
+  - https://github.com/anthropics/claude-code/issues/45169 ([1m] stripping)
 ---
 
 # model-stage-tiering
@@ -35,4 +38,5 @@ dlc 단계별 모델 배치 결정 (2026-08-05, 사용자 승인). 2026-07-04 me
 - Fable-as-advisor 롤아웃 시 "Sonnet main + Fable advisor" 재평가.
 - "luna max"는 Claude가 아니라 OpenAI GPT-5.6 `gpt-5.6-luna` + max reasoning effort — Codex 경유 보조 구현에만 해당, 주 구현 비채택(dlc 파이프라인 이탈).
 
-> [!open] 구현 대기: agents/*.md `model: inherit`(→[[effort-global-xhigh]]의 2026-07-04 결정)을 reviewer류 `model: opus`·researcher `model: sonnet`으로 고정하는 작업 — inherit 결정의 전제(Fable 가용성 변동 대비)가 Fable 기본모델+50% 캡 시대엔 역효과(리뷰가 Fable로 돎). 별도 worktree 작업으로 적용 시 effort-global-xhigh 페이지도 개정할 것.
+> [!done] 구현 완료 (2026-08-06, subagent-model-pinning)
+> `agents/*.md` 를 reviewer 3종 `model: opus`·researcher `model: sonnet` 으로 고정하고 [[effort-global-xhigh]] 를 개정했다. 조사로 확정한 부수 사실: subagent frontmatter 에 `[1m]` 접미사는 쓰지 않는다(공식 미기재 + stripping 버그 anthropics/claude-code#45169) — Opus 5 가 API·Max/Team/Enterprise 에서 자동 1M 이라 불필요하다. 명시 pin 은 **자동 폴백이 없어** Opus 한도 소진 시 리뷰 게이트가 멈추므로, 비상 레버는 `CLAUDE_CODE_SUBAGENT_MODEL`([[claude-code-model-selection]]).
