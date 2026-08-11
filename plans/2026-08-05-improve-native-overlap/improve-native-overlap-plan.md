@@ -1,6 +1,6 @@
 ---
 title: improve-native-overlap — /improve 에 "네이티브 중복 점검" 축 추가
-status: in_progress
+status: done
 started: 2026-08-05
 updated: 2026-08-11
 ---
@@ -22,10 +22,12 @@ updated: 2026-08-11
 - 2026-08-11: `origin/main`(`1a6b9ff`) 로 rebase — `wiki/log.md` 충돌 1건 해소, README·index 는 자동 병합. B-1 종결(main 이 그 사이 wiki 를 커밋). 상호링크 양방향 연결.
   - **rebase 로 드러난 정정 1건**: main 의 `7c977c8`(08-06)이 `guard-worktree-edit.js` 를 바꿔, **auto 모드에서는 main 편집 `ask` 를 걸지 않는다**. 대장 1행의 근거가 실제와 어긋나 정정 — 기능을 ①main 편집 ask(방향 반대, 유지) / ②worktree 밖 편집 deny(**네이티브 v2.1.222 와 같은 방향 → 다음 점검 1순위 `retire` 후보**)로 분리 기술. 이 축이 의도한 대로 작동한 첫 사례.
 - 2026-08-11: rebase 후 전 검증 재실행 — 단위 10스위트 PASS, shellcheck 무경고, plan-lint exit 0, wiki dead link 0(orphan 2건은 baseline).
+- 2026-08-11: PR #139 오픈 → main 이 또 진행돼(#138) `CONFLICTING` → `origin/main`(`c2a774e`) 로 **2차 rebase**(`wiki/log.md`·`wiki/index.md` 충돌 각 1건 수동 해소, 양쪽 항목 보존) → 전 검증 재통과 → CI `lint` pass → **머지 완료**(`8e91b55`). `status: done`.
+- 2026-08-11: §8(a) 안전조건 5개 충족 확인(비-main · clean incl. ignored · remote-ahead 없음 · base 에 merged · 미보존 산출물 없음) → worktree + 로컬·원격 브랜치 **자동 정리**. 삭제한 원격 tip `4acd007`(복구: `git push origin 4acd007:refs/heads/improve-native-overlap`). worklog 3일 1h 43m — 티켓 prefix 없어 등록 대상 아님.
 
 # Next
 
-**PR #139 리뷰·머지 대기** (CI `lint` pass, `mergeable`). 머지되면 `status: done` 전환 + worktree 정리(§8(a) — 내가 직접 머지하면 무확인 자동 정리 대상).
+없음 — 종결. 후속은 **다음 `/improve deep`** 이 대장을 45일 주기로 재판정할 때 자연히 이어진다(1순위: `guard-worktree-edit.js` 의 worktree 밖 편집 deny 가 네이티브 isolation 으로 대체됐는지 실측).
 
 # Decisions
 
