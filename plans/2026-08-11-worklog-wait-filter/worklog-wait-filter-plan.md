@@ -22,7 +22,8 @@ jira-worklog 의 시간 측정에서 **사용자 응답 대기**를 role 단계�
 
 # Next
 
-병합 방식 확인(PR vs 로컬 병합) 후 main 반영.
+PR #137 CI(ubuntu) 통과 확인 후 머지. Windows 한정 baseline failure 가 CI 에서 통과하는지가
+확인 포인트다.
 
 # Decisions
 
