@@ -111,6 +111,13 @@
 - 조사로 확정한 외부 사실(researcher, 공식 docs + GH issue): subagent frontmatter 의 `[1m]` 접미사는 **미문서화 + stripping 버그 미수정**(#45169) → 쓰지 않는다. 필요도 없음 — Opus 4.7+ 는 API 에서 항상 1M, Max/Team/Enterprise 는 자동 승격. subagent context 는 **자기 모델 기준**(부모 상속 아님). 명시 pin 은 **자동 폴백 없음**(한도 소진 시 `Agent terminated early due to an API error`; `fallbackModel` 은 rate-limit 에 미발동) → 비상 레버 `CLAUDE_CODE_SUBAGENT_MODEL`.
 - **부수 발견(문서 drift 교정)**: [[effort-global-xhigh]] 가 주장하던 `CLAUDE_CODE_EFFORT_LEVEL=xhigh` 는 사실이 아니었다 — `78a6715 fix(settings): effort xhigh→high (웹툴 400 해소)` 에서 의도적으로 하향됐는데 wiki 만 stale 이었다. 페이지 안에 `[!warning]` 로 교정. **페이지명 rename 은 링크 전수 수정 동반이라 미뤘다**(plan `# Deferred`).
 
+## [2026-08-06] ingest | native-overlap-ledger (신규)
+- `/improve` 에 네이티브 중복 점검 축(§6)을 추가하면서, 판정을 누적할 대장을 신설. 자작 부품 8종 × Claude Code 네이티브 대응 × keep/watch/retire.
+- 조회 창은 공식 changelog v2.1.186(2026-06-22)~v2.1.222(2026-08-04), 로컬 설치 2.1.222. 결과: watch 5 / keep 3 / **retire 0** — 이번 창에서 완전히 대체된 자작 부품은 없다.
+- 가장 근접한 후보는 `guard-worktree-edit.js` 의 **worktree 밖 편집 deny** — v2.1.222 가 worktree isolation 을 모든 세션 타입의 edit+Bash 로 확대해 방향이 같다(다음 점검 1순위). 같은 파일의 *main 편집 ask* 는 방향이 반대(네이티브=밖으로 새는 것 차단 / 자작=main 에서 편집 시작 차단)라 유지.
+- 주기 45일의 근거는 취향이 아니라 실측: 6주에 36릴리스라 90일 창이면 delta 가 70~80 릴리스로 커져 "delta 만 읽어 싸게"라는 설계 전제가 깨진다.
+- **갱신 권한 분리**: `/improve` 는 판정 초안까지만, 대장 write 는 승인 후 `/wiki ingest`. read-only 경계(SKILL.md)·§11 ingest 제안 원칙·§13 무승인 적립 금지가 모두 자동 write 를 금한다 — plan-reviewer 가 이 충돌을 blocker 로 잡아 설계를 정정했다.
+
 ## [2026-08-11] lint | code-review 지적 반영 — effort drift 재조사·정정
 - **08-06 의 교정 자체가 부분적으로 틀렸다**(code-reviewer 반례): "런타임 모두 `high`" 는 tool 셸의 `printenv` 만 본 판단이었고, **실행 중 claude 프로세스 env 는 `max`**(`ps eww <pid>` 실측). shell/OS env 가 settings.json 을 이기므로 유효값은 `max`. → [[effort-global-xhigh]] warning 재작성 + **판정 시 `printenv` 금지, `ps eww` 사용** 명시.
 - **근본원인 적립**: `scripts/bootstrap/setup.sh:118`·`setup.ps1:156` 이 이 repo 안에서 shell/User env 에 `max` 를 심는다 → [[effort-os-env-single-source]] 가 적립한 실패의 **재발**이며 bootstrap 재실행 시 재주입. 그 페이지의 `[!note] 현재 상태` 도 같은 stale(`xhigh`·"OS env 없음")이라 함께 교정. 스크립트 수정은 운영자산 변경이라 별건(plan `# Deferred`).

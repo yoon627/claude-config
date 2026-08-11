@@ -2,7 +2,7 @@
 title: harness-keep-and-borrow
 category: decision
 created: 2026-08-05
-updated: 2026-08-05
+updated: 2026-08-06
 sources:
   - researcher 조사 2026-08-05 (본 세션 — [[claude-code-oss-frameworks]])
   - https://github.com/buildermethods/agent-os/discussions/310
@@ -19,11 +19,10 @@ sources:
 
 ## 조건 (유지의 대가)
 - **유지비 감시**: 이 repo에 최근 3개월 296커밋 — 하네스 유지보수 시간이 실제 개발을 잠식하면 축소가 답.
-- **역방향 정리**: Claude Code 네이티브가 흡수한 기능(subagent 영속 메모리, worktree commit/push/draft PR 자동화, plan mode 강화 등)과 중복된 자작 부분을 주기 점검·제거 — `/improve`의 점검 축으로 추가 (2026-08-05 승인, 구현 대기).
+- **역방향 정리**: Claude Code 네이티브가 흡수한 기능(subagent 영속 메모리, worktree commit/push/draft PR 자동화, plan mode 강화 등)과 중복된 자작 부분을 주기 점검·제거 — `/improve`의 점검 축으로 추가 (2026-08-05 승인). **2026-08-06 구현 완료** → [[native-overlap-ledger]](`/improve deep` §6, 45일 주기·delta 창). 첫 판정: watch 5 / keep 3 / retire 0.
 
 ## 차용 목록 (전면 이주 아닌 부품)
 - OpenSpec의 **archive** 개념 → `plans/` `status: done` 이후 보존 규약 후보.
 - superpowers 개별 skill(마켓플레이스 경유) → [[dlc-development-cycle]] 보강 후보 — 도입 전 실품질 로컬 검증.
 - zen-mcp의 합의 리뷰 패턴은 참고만 — 현행 Bash codex 직접 호출([[codex-bash-invocation]])이 MCP 스키마 상주 토큰 없이 더 경량.
 
-> [!open] 구현 대기: /improve에 "네이티브 중복 점검" 축 추가 — 별도 worktree 작업.

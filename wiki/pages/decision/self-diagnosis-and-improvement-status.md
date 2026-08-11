@@ -2,7 +2,7 @@
 title: self-diagnosis-and-improvement-status
 category: decision
 created: 2026-06-19
-updated: 2026-07-03
+updated: 2026-08-06
 sources:
   - skills/dlc/SKILL.md (자기 진단)
   - PR #49 (self-diagnosis), #46 (명확화 게이트), #47 (feedback 메모리)
@@ -32,6 +32,9 @@ sources:
 - **분석·제안(반자동)**: `/improve` skill(구 `/audit` 흡수) — 정합성 기계 점검 + 신호 집계(session-unique 우선) + [[workflow-failures]]·MEMORY 대조 → 개선 후보 랭킹 제시.
 - **반영·효과**: 수정은 사용자 승인 후 wt→dlc(불변), 효과는 다음 `/improve` 의 신호 추이로 확인.
 - 근거: ACE 계열 연구의 "정적 규칙 + 자기진화 정제 하이브리드 > 순수 자동진화", dlc Report 의 feedback memory 판정 의무(§12 — 사용자 리뷰가 다음 구현에 반영되는 5단계) 동시 도입.
+
+## [추가 2026-08-06] 바깥 기준 축 — 네이티브 중복 점검
+위 세 축은 전부 *안쪽*(자산끼리 어긋났나, 신호가 쌓였나)을 본다. 자작 하네스가 **Claude Code 네이티브에 흡수된 기능을 붙들고 있는지**는 어느 축도 보지 않아, `/improve deep` 에 주기(45일) 재판정 축을 추가하고 판정을 [[native-overlap-ledger]] 에 누적한다. 승인 게이트는 그대로 — `/improve` 는 판정 초안까지, 대장 write 는 승인 후 ingest, `retire` 판정이어도 제거는 별도 `wt→dlc`.
 
 ## 함의
 "**반영까지 무인**인 자기개선 루프"는 여전히 **의도적으로 두지 않는다** — 단 2026-07-03 부로 수집·분석은 기계가 돌고(위), 사람은 승인 게이트만 담당한다. 사용자 지시 기반 [[feedback-memory]] + 사후 [[dlc-development-cycle|self-diagnosis]] 조합은 유지. 향후 "특정 위험 변경 전 제약 인지"를 더 구체적 형태로 다룰 필요가 생기면 위 미채택 기록이 출발점이다. 범위 경계 규칙은 [[deferred-and-scope-boundary]].
