@@ -2,7 +2,7 @@
 title: improve-native-overlap — /improve 에 "네이티브 중복 점검" 축 추가
 status: in_progress
 started: 2026-08-05
-updated: 2026-08-06
+updated: 2026-08-11
 ---
 
 # Goal
@@ -17,11 +17,16 @@ updated: 2026-08-06
 - 2026-08-06: plan-reviewer(+codex 0.146.0 medium) 검토 **CONDITIONAL** — blocker 3 / major 8. 전건 수용해 Decisions 1~17 로 재작성(D8~D17 이 신규·정정분).
 - 2026-08-06: 구현 완료(10파일). D17 을 뒤집어 별도 모듈로 분리(D17 각주). 테스트가 결함 2건 포착(D18).
 - 2026-08-06: code-reviewer(+codex 0.146.0 high) **REQUEST CHANGES** — Major 4 / Minor 8 / Nit 8, refuted 10(정규식 오매치·롤오버·번호계약·`I()` 카운터·`claude --version` hang 등은 실행으로 반증됨). 전건 처분 완료(아래 Review Disposition), D19~D22 추가.
-- 2026-08-06: 재검증 — 단위 10스위트 PASS(신규 52케이스), TZ 7종 ALL PASS, shellcheck 무경고, plan-lint exit 0, wiki dead link 0.
+- 2026-08-06: 재검증 — 단위 10스위트 PASS(신규 58케이스), TZ 7종 ALL PASS, shellcheck 무경고, plan-lint exit 0, wiki dead link 0. simplify 1건(`deltaWindowLines` 1원소 배열 → 문자열) 후 재검증 통과.
+- 2026-08-11: `/e` 마무리 — **`3b3f554`** 로 커밋(11파일 +618/−18). WIP 체크포인트가 아니라 **완결 커밋**(작업·리뷰·검증 완료, squash 불필요). push/PR 은 아래 Blockers B-1 해소 후.
 
 # Next
 
-구현·리뷰·수정 완료. 남은 것: **머지 순서 확인**(Blockers B-1 — main 의 미커밋 wiki 4페이지와 `wiki/index.md` 충돌 가능) 후 커밋·push·PR.
+구현·리뷰·검증·커밋(`3b3f554`) 완료. 남은 것은 **머지 순서**(사용자 결정: main 먼저) — 순서대로:
+1. **main 세션에서** main 의 미커밋 wiki 변경 커밋·push (`cd ~/.claude && git add wiki/ && git commit && git push origin main`). 신규 4페이지(`harness-keep-and-borrow`·`model-stage-tiering`·`claude-code-model-selection`·`claude-code-oss-frameworks`) + `M wiki/index.md`·`log.md`·`anthropic-claude-models.md`. **이 worktree 세션에서는 불가** — worktree 격리가 main 대상 git 조작을 차단한다.
+2. 이 worktree 에서 `git fetch origin && git rebase origin/main` → `wiki/index.md` 충돌 수동 해소(양쪽이 각자 항목을 추가한 것뿐, 둘 다 살리면 됨).
+3. 대장(`native-overlap-ledger.md`)의 `[!open]` 콜아웃 제거 + `[[harness-keep-and-borrow]]` 상호링크 추가, `harness-keep-and-borrow` 쪽에도 역링크(그러면 orphan·`sources` 우회가 정리된다).
+4. `python3 skills/wiki/check_links.py` 재확인 → push → PR.
 
 # Decisions
 
@@ -102,7 +107,10 @@ updated: 2026-08-06
 
 # Blockers
 
-**B-1 (미해소·머지 순서 의존)**: 근거 페이지 `wiki/pages/decision/harness-keep-and-borrow.md` 가 **main 에서 untracked** 라 이 브랜치에 없다. 대장은 D15 대로 wikilink 없이 `sources:`+`[!open]` 으로 참조해 **이 브랜치 단독으로는 무결**하지만, 두 지식이 상호링크되려면 main 의 미커밋 wiki 변경(신규 4페이지 + `M wiki/index.md`)이 커밋돼야 한다. 또한 양쪽이 `wiki/index.md` 를 편집하므로 **머지 시 index.md 충돌 가능**(사소·수동 해소). → Report 에서 사용자에게 머지 순서 확인.
+**B-1 (미해소·머지 순서 의존)**: 근거 페이지 `wiki/pages/decision/harness-keep-and-borrow.md` 가 **main 에서 untracked** 라 이 브랜치에 없다. 대장은 D15 대로 wikilink 없이 `sources:`+`[!open]` 으로 참조해 **이 브랜치 단독으로는 무결**하지만(dead link 0 확인), 두 지식이 상호링크되려면 main 의 미커밋 wiki 변경(신규 4페이지 + `M wiki/index.md`)이 커밋돼야 한다. 또한 양쪽이 `wiki/index.md` 를 편집하므로 **머지 시 index.md 충돌 가능**(사소·수동 해소).
+
+- **사용자 결정 (2026-08-11)**: **main 미커밋을 먼저** 올린다 → 이 브랜치 rebase → 상호링크까지 닫고 PR. 절차는 `# Next` 1~4.
+- **풀려면 필요한 것**: main worktree 세션에서의 커밋·push. 이 worktree 세션은 격리 때문에 `git -C <main>` 이 차단된다(하네스가 §8 을 강제) — **다른 세션이 해야 한다.**
 
 # Review Disposition
 
