@@ -122,3 +122,11 @@
 - **08-06 의 교정 자체가 부분적으로 틀렸다**(code-reviewer 반례): "런타임 모두 `high`" 는 tool 셸의 `printenv` 만 본 판단이었고, **실행 중 claude 프로세스 env 는 `max`**(`ps eww <pid>` 실측). shell/OS env 가 settings.json 을 이기므로 유효값은 `max`. → [[effort-global-xhigh]] warning 재작성 + **판정 시 `printenv` 금지, `ps eww` 사용** 명시.
 - **근본원인 적립**: `scripts/bootstrap/setup.sh:118`·`setup.ps1:156` 이 이 repo 안에서 shell/User env 에 `max` 를 심는다 → [[effort-os-env-single-source]] 가 적립한 실패의 **재발**이며 bootstrap 재실행 시 재주입. 그 페이지의 `[!note] 현재 상태` 도 같은 stale(`xhigh`·"OS env 없음")이라 함께 교정. 스크립트 수정은 운영자산 변경이라 별건(plan `# Deferred`).
 - 갱신: decision/effort-global-xhigh, decision/effort-os-env-single-source, decision/subagent-model-effort-tiering(haiku 배제 사유 페이지 간 충돌 `[!conflict]` flag), entity/claude-code-model-selection(`SUBAGENT_MODEL=inherit` no-op 함정, availableModels 버전 조건). 편집한 5개 페이지 `updated`/`sources` 갱신(WIKI.md 필수 필드 누락 교정).
+
+## [2026-08-12] ingest | native-overlap 1b `retire` 확정 + lesson-test-after-implementation (신규)
+- **이 축의 첫 `retire`**: `guard-worktree-edit.js` 기능 ②(worktree 밖 편집 deny)가 네이티브 worktree 격리(v2.1.222)에 완전히 흡수됐음을 실측으로 확정. 정본 changelog 는 "isolation now applies file edits" 라고만 적고 범위를 안 밝혀 **문서로는 판정 불가**였다 — worktree 세션에서 main checkout 경로에 실제 Write 를 시도해 갈랐다.
+- 관측: 자작이 **허용**하는 `<main>/plans/…` 를 네이티브가 **거부** → 진상위집합. 기능 ①(비-worktree 세션의 main 직접편집 `ask`)은 교집합이 없어 `keep` — 1행을 1a/1b 로 분리했다.
+- **부수 발견(`[!conflict]` 로 flag)**: 네이티브에는 자작이 뒀던 예외(`plans/`·`projects/`·`settings.local.json` — worktree 복사본이 없는 전역 상태)가 없어 **worktree 세션에서 §12 memory 적립이 불가능**하다. hook 을 되살려도 안 풀린다(네이티브가 선행 차단). `retire` 판정과는 별개인 workflow 마찰로 추적.
+- `checked` 는 밀지 않았다 — 이번 건 changelog delta 전수 조회가 아니라 1행 표적 실측이라, `checked` 를 갱신하면 45일 타이머가 근거 없이 리셋된다. `checked`↔`updated` 구분을 대장 운영 규칙에 명문화.
+- lesson 신규 [[lesson-test-after-implementation]] — PR #139 의 §7 순서 위반 자진 기록. 근본원인은 "분량으로 TDD 필요 여부를 판단"한 것이고, 실제 위험은 분량이 아니라 경계 밀도(날짜·TZ·버전·인코딩)였다. [[lesson-parser-precedent-partial-mirror]] 와 상호링크(같은 "형식은 맞는데 무음으로 틀린 값" 계열).
+- orphan 2건([[lesson-parallel-duplicate-implementation]]·[[lesson-parser-precedent-partial-mirror]]) 을 inbound 링크로 해소 — `check_links.py` clean.

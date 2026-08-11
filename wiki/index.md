@@ -44,6 +44,7 @@
 - [[lesson-parser-precedent-partial-mirror]] — 선례 파서 미러링은 전처리(CRLF)·토큰 관용까지, fixture 는 문서화된 정본 템플릿에서 (무음 결함 2건) (§13 첫 lesson).
 - [[lesson-stale-tool-version]] — 도구발 오류는 우회 전에 `--version` 을 상류 CHANGELOG 와 대조; 실패 표의 "수정 위치"는 확인된 것만 적는다 (rtk 0.28.2 로 6회 반복, 상류는 0.35.0·0.39.0 에서 이미 수정).
 - [[lesson-parallel-duplicate-implementation]] — 비trivial 착수 전 열린 PR·원격 브랜치·다른 plan 을 먼저 확인; plan 매칭 실패는 "없다"의 근거가 아니다 (#118 과 #120 이 같은 기능을 각자 구현, 553줄 폐기).
+- [[lesson-test-after-implementation]] — 경계 있는 도메인(날짜·TZ·버전·인코딩)은 분량 무관하게 Red 부터; 형식 통과 ≠ 값 유효(왕복 대조), 시각·오늘은 주입해 TZ 교차 실행 (PR #139 결함 2건).
 - [[native-overlap-ledger]] — 자작 부품 ↔ 네이티브 흡수 대조 대장(keep/watch/retire). 45일 주기·delta 창(`checked_version`)으로 changelog 를 전수 아닌 증분만 조회, `/improve` §6 이 읽고 갱신은 승인 후 ingest(판정 분포는 대장에만).
 
 ## source

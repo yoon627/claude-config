@@ -34,3 +34,5 @@ sources:
 
 ## 연계
 무매칭을 부재로 단정하는 인접 실패는 [[lesson-grep-absence-not-proof]], 증거 기반 완료 판정은 [[evidence-gate]], 반복 workflow 실패 추적은 [[workflow-failures]], 리뷰 이중화(plan+code)는 [[dual-review-plan-and-code]].
+
+같은 "형식은 맞는데 무음으로 틀린 값" 계열의 후속 실패가 [[lesson-test-after-implementation]] — 그쪽은 선례 미러링이 아니라 **경계값 열거를 구현 뒤로 미뤄서** 같은 결과가 났다.
