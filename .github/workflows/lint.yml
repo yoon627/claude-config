@@ -42,6 +42,8 @@ jobs:
           node --check scripts/install-hooks.test.js
           node --check scripts/plan-lint.js
           node --check scripts/plan-lint.test.js
+          node --check scripts/native-overlap-lint.js
+          node --check scripts/native-overlap-lint.test.js
 
       - name: Unit tests
         run: |
@@ -54,6 +56,7 @@ jobs:
           node scripts/usage-count.test.js
           node scripts/install-hooks.test.js
           node scripts/plan-lint.test.js
+          node scripts/native-overlap-lint.test.js
 
       - name: Python unit tests
         run: |

@@ -4,7 +4,9 @@
 # 경계: README↔surface drift 는 dlc-doc-drift hook, wiki 내부 무결성은 /wiki lint 영역 — 여기서 안 본다(개수만).
 #   신호 집계는 hook 이 emit 한 판정의 *사후 집계*다(재판정 아님).
 # 수정·파괴 명령 없음(read-only). 부분 실패는 그 점검만 skip + 명시, 스크립트는 exit 0.
-# check 8 = plan-lint(tracked plans, 항상). deep 모드(`improve.sh deep`): ⑨ 표면 크기 ⑩ 사용량 카운트 ⑪ MCP 인벤토리 추가(광역 관측, 여전히 read-only·secret 미출력).
+# check 8 = plan-lint(tracked plans, 항상). check 9 = 네이티브 중복 대장 신선도(주기 게이트 — 리마인더라 [info] 만).
+# deep 모드(`improve.sh deep`): ⑩ 표면 크기 ⑪ 사용량 카운트 ⑫ MCP 인벤토리 추가(광역 관측, 여전히 read-only·secret 미출력)
+#   + ⑨ 가 delta 창(마지막 점검 버전 → 설치 버전)까지 출력.
 set -u
 
 case "${1:-}" in deep | --deep) DEEP=1 ;; *) DEEP=0 ;; esac
@@ -120,8 +122,24 @@ else
   I "scripts/plan-lint.js 없음 → skip"
 fi
 
+echo "== 9. 네이티브 중복 대장 신선도 (주기 게이트 — 실제 재판정은 deep + SKILL §6) =="
+LEDGER=${CLAUDE_IMPROVE_LEDGER:-wiki/pages/decision/native-overlap-ledger.md}
+if [ -f scripts/native-overlap-lint.js ]; then
+  # deep 일 때만 `claude --version` 을 부른다(기본 모드는 프로세스 spawn 0 유지).
+  # 미설치·출력형식 변경이면 빈 값 → lint 가 "설치 버전 미확인" 경로로 처리.
+  if [ "$DEEP" = 1 ]; then
+    CC_VERSION=$(claude --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    CLAUDE_IMPROVE_CC_VERSION="$CC_VERSION" node scripts/native-overlap-lint.js "$LEDGER" deep ||
+      I "네이티브 중복 대장 판정 실패(node) → skip"
+  else
+    node scripts/native-overlap-lint.js "$LEDGER" || I "네이티브 중복 대장 판정 실패(node) → skip"
+  fi
+else
+  I "scripts/native-overlap-lint.js 없음 → skip"
+fi
+
 if [ "$DEEP" = 1 ]; then
-  echo "== 9. 주입·로드 표면 크기 (deep — wc -c; 토큰 압박 관측, 상대경로·카운트만) =="
+  echo "== 10. 주입·로드 표면 크기 (deep — wc -c; 토큰 압박 관측, 상대경로·카운트만) =="
   tot=0
   for f in CLAUDE.md skills/*/SKILL.md agents/*.md; do
     [ -f "$f" ] || continue
@@ -131,14 +149,14 @@ if [ "$DEEP" = 1 ]; then
   done
   I "표면 합계: ${tot}B"
 
-  echo "== 10. 사용량 카운트 (deep — transcript JSONL 파싱; 카운트·slug 만, 원문·파일명 미출력) =="
+  echo "== 11. 사용량 카운트 (deep — transcript JSONL 파싱; 카운트·slug 만, 원문·파일명 미출력) =="
   if [ -f scripts/usage-count.js ]; then
     node scripts/usage-count.js || I "usage-count 실행 실패 → skip"
   else
     I "scripts/usage-count.js 없음 → skip"
   fi
 
-  echo "== 11. MCP 서버 인벤토리 (deep — 이름만; ~/.claude.json, args·env·secret 미출력) =="
+  echo "== 12. MCP 서버 인벤토리 (deep — 이름만; ~/.claude.json, args·env·secret 미출력) =="
   if [ -f "$HOME/.claude.json" ]; then
     node -e '
       const fs = require("fs");
