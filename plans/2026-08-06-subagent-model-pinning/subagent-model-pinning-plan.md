@@ -1,6 +1,6 @@
 ---
 title: subagent-model-pinning — agents/*.md model 을 inherit 에서 단계별 고정으로 전환
-status: in_progress
+status: done
 started: 2026-08-06
 updated: 2026-08-11
 ---
@@ -15,6 +15,7 @@ updated: 2026-08-11
 - 2026-08-06: 편집 대상 8곳 확정, 검증 명령 식별(`.github/workflows/lint.yml`).
 - 2026-08-06: plan-reviewer(+codex 병행) CONDITIONAL — 지적 11건 전부 처분(`# Review Disposition`). researcher 조사로 `[1m]` 판정 확정(미문서화 + stripping 버그 #45169 → 미사용; Opus 4.7+ 는 API/Max 에서 자동 1M 이라 불필요). **구현 완료** — agents 4파일 + README + wiki 5페이지 + index/log.
 - 2026-08-06: Acceptance #1~#5 통과, 레포 검증 전량 PASS(node --check 23 / unit 9 / python 3 / JSON / shellcheck), `plan-lint` exit 0.
+- 2026-08-11: PR #138 생성 → main 이 5커밋 앞서 `wiki/log.md` 충돌(양쪽 append) → 양측 항목 date 순 보존으로 해소(merge `1d57084`), 병합 후 검증 재실행 전량 PASS. **머지 완료 → `status: done`. 단 Acceptance #7(런타임 smoke)은 여전히 미수행** — `# Next` 참조.
 - 2026-08-11: simplify 체크(중복 없음) + 최종 재검증 전량 PASS(node --check 23 / unit 9 / python 3 / JSON / shellcheck, dead link 0, plan-lint 0). Acceptance #1~#6 충족, #7 은 머지 후 새 세션 몫.
 - 2026-08-11: code-reviewer REQUEST CHANGES(Major 6·Minor 7) → 전부 검증 후 반영. **08-06 교정의 오류 정정**: "런타임 effort=high" 는 tool 셸 `printenv` 만 본 오판이었고 실제 claude 프로세스는 `max`(`ps eww` 실측). 근본원인 `scripts/bootstrap/setup.sh:118`·`setup.ps1:156` 확정. `effort-os-env-single-source` 의 동일 stale 도 교정. wiki 5페이지 `updated`/`sources` 보강.
 
