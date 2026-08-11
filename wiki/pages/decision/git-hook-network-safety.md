@@ -27,6 +27,13 @@ git `post-checkout`(및 대부분의 클라이언트 훅)은 **동기 실행**�
 훅 안에서 `git pull --ff-only` 를 해도 그 pull 의 **fast-forward 는 `post-checkout` 을 재발동시키지 않는다** — fast-forward 는 `post-merge` 계열을 발동시키는데 그 훅이 없으면 무동작. 상식적 우려("훅에서 pull → 그 pull 이 훅을 또 부름 → 무한 loop")는 기우. **실측 확정**([[evidence-gate]]): main checkout 시 내부 ff pull 이 post-checkout 을 재호출하지 않음(fire count = 명시 checkout 수).
 - 일반화: 훅 안 git 작업의 재귀는 "그 작업이 발동시키는 훅 종류"로 판정. checkout→post-checkout, merge/pull-ff→post-merge, commit→post-commit. **같은 훅을 재발동시키는 작업만** 피하면 된다.
 
+## 미결 — SessionStart pull 이 dirty tree 에서 거부되는 건 (2026-08-06)
+
+> [!open] SessionStart pull 훅에 `--autostash` 를 넣을 것인가 — **결정 보류**(2026-08-06 사용자 판단).
+> CLI 가 tracked `settings.json` 에 자동으로 쓰기 때문에 working tree 가 수시로 dirty 해지고, 자동 pull 이 `Your local changes to settings.json would be overwritten by merge` 로 거부된다(실측).
+> 결정할 것은 둘이다 — **(a)** `--autostash` 도입 여부, **(b)** 도입 시 stash 재적용 **충돌을 어떻게 알릴지**. 지금 훅은 출력을 전부 죽이고 있어 충돌이 나도 조용하다. 알림 없이 (a) 만 도입하면 *"변경이 사라진 것처럼 보이는"* 새 실패 모드가 생긴다 — 위 §1 의 "네트워크는 async, 사용자에게 보여야 할 판정은 동기로" 와 같은 축의 문제다(async 훅은 시작 시점에 말할 수 없다).
+> 조사·근거는 `plans/2026-08-05-settings-local-keys/`(PR #129, `status: done` — 그 plan 의 범위는 조사까지였고 이 결정만 남았다). 착수 시 운영 자산 변경이라 승인 후 wt→dlc.
+
 ## 관련
 - 위 hang 함정은 [[claude-codex-collaboration]] 의 code-review(codex+Claude 병행)가 사각지대(Major)로 파냄 — 사용자 환경(macOS+HTTPS)이 정확히 취약점이었고 단일 리뷰였으면 놓쳤을 것.
 - 재귀 안전은 [[evidence-gate]] 대로 정적 단언이 아니라 격리 fixture 실측으로 확정.

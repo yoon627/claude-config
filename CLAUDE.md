@@ -4,10 +4,11 @@
 
 ---
 
-## 0. 응답 언어
+## 0. 응답 언어·표기
 
 - 한국어로 답한다. 코드 식별자·파일명·함수명·라이브러리명·에러 메시지는 원문 유지.
 - 의례적 preamble 금지 ("좋은 질문입니다", "물론이죠", "알겠습니다").
+- **항목 번호에 원문자(①②③) 금지** — 터미널에서 본문보다 작게 렌더돼 눈에 안 들어온다. 나열은 마크다운 `1.` 목록, 눈에 띄어야 하는 단계·선택지는 `## 1) 제목` heading, 문장 중 참조는 `1)`·`(1)`. 단 아직 원문자로 적힌 기존 문서(`skills/`·`docs/`·`plans/`)를 **인용**할 때는 대조 가능하도록 원문 그대로 둔다.
 
 ---
 
@@ -117,10 +118,10 @@
 
 - `git reset --hard`·`git clean -fd`·강제 checkout·force push 는 명시 요청 없으면 금지.
 - **작업은 main/master 직접 말고 별도 브랜치/worktree 에서.** **예외: 이 repo(`~/.claude`)는 main push 허용**(2026-08-05 사용자 승인) — `permissions.deny` 의 main/master 푸시 차단은 제거했다. deny 는 프로젝트 단위 범위 지정이 불가하고 allow 보다 우선해서, 전역 deny 를 두면 이 repo 도 막히기 때문. **다른 repo 의 main 푸시는 git `pre-push` 훅이 계속 하드 차단**한다(`pre-commit-check` 가 repo 루트 `~/.claude` 만 면제) — 이 규약과 `permissions.ask` 의 `git push` 확인이 그 위에 겹친다. commit 은 그 작업 plan 에 맞는 브랜치에서 작업 단위로 자유롭게. **trivial 이 아닌 작업은 — 무관 여부와 별개로 — 시작 시 별도 worktree(`/wt <요청사항>`)에서 한다.** 진행 중인 worktree 에 새 작업을 얹지 않는다(base·체크아웃 충돌, 변경 혼입, 동시 편집 위험). 무관한 변경을 한 브랜치에 섞지 않는다. push 는 요청 시만.
-- **worktree 작업은 그 worktree 세션에서 시작·마무리**(worklog 정확성): 한 세션에서 `EnterWorktree` 로 여러 worktree 를 오가면 AI 작업시간이 launch 프로젝트 로그에 뭉쳐 worktree 별 worklog(`/e` step5)가 부정확해진다. 새 worktree 작업은 새 세션(`/wt <name>` 진입)에서 시작하고, 그 worktree 에서 `/e` 로 마무리(worklog 기록 포함)한다.
+- **worktree 작업의 worklog 는 그 worktree 를 지우기 전에 남긴다**: 세션이 여러 worktree 를 오가도 AI 작업시간은 **줄 단위 `cwd` 로 정확히 갈린다**(`jira-worklog` — 세션 파일이 cwd 를 따라 이동해도 무관). 따라서 main 복귀 후에 돌려도 되고 이름을 인자로 줘도 된다. 다만 **worktree 를 삭제하면 `--all` 순회 대상에서 빠져 등록이 불가능**해지므로(표시만 된다) `/e` step5 를 6단계 삭제보다 먼저 돌린다. (한 세션 = 한 worktree 규율 자체는 아래 bullet 의 base·혼입·동시편집 이유로 유지 — worklog 정확성은 더 이상 그 근거가 아니다.)
 - **worktree 삭제 주의**: `git worktree remove` 는 gitignored 파일(`.env` 등 — whitelist `.gitignore` 라 `git status` 에 안 보임)을 **무경고 동반 삭제**한다. `plans/` 는 tracked(§10)라 미커밋 plan 은 `git status` 에 보이고 remove 가 거부하지만, **미커밋 plan 변경은 삭제 전 커밋·push 로 보존**한다. 삭제 전 `git status --porcelain --ignored` 점검(상세 `skills/e/SKILL.md`).
 - **머지/완료 후 정리 — 내가 한 merge 직후는 자동, 그 외는 확인**: 작업 브랜치가 main 에 merged·정리해도 안전하면 worktree 정리(worktree + **로컬·원격** 브랜치)를 방치·"선택사항" 언급만 하지 않는다. **분기**:
-  - **(a) 내가 이 세션에서 직접 수행/확인한 merge 직후 + 안전조건 전부 충족** — ①대상 ≠ `main`/`master`/`origin/HEAD` ②working tree clean(untracked 포함) ③`git fetch origin <branch>` 후 remote-ahead 없음(`git rev-list <branch>..origin/<branch>` 빔 — 다른 머신 push 유실 차단) ④base 에 merged(`git rev-list origin/<default>..<branch>` 빔; squash-merge 는 안 빔 → (b) 로) ⑤미보존 `.env`/ignored/미커밋 plan 없음 — 이면 **확인 없이** worktree→로컬 `git branch -d`→원격 `git push origin --delete` 순으로 **자동 정리** + **삭제한 원격 tip sha 를 보고**(merged 라 base history·`git push origin <sha>:refs/heads/<branch>` 로 복구 가능).
+  - **(a) 내가 이 세션에서 직접 수행/확인한 merge 직후 + 안전조건 전부 충족** — 1) 대상 ≠ `main`/`master`/`origin/HEAD` 2) working tree clean(untracked 포함) 3) `git fetch origin <branch>` 후 remote-ahead 없음(`git rev-list <branch>..origin/<branch>` 빔 — 다른 머신 push 유실 차단) 4) base 에 merged(`git rev-list origin/<default>..<branch>` 빔; squash-merge 는 안 빔 → (b) 로) 5) 미보존 `.env`/ignored/미커밋 plan 없음 — 이면 **확인 없이** worktree→로컬 `git branch -d`→원격 `git push origin --delete` 순으로 **자동 정리** + **삭제한 원격 tip sha 를 보고**(merged 라 base history·`git push origin <sha>:refs/heads/<branch>` 로 복구 가능).
   - **(b) 그 외** — 우연히 머지된 브랜치·안전조건 하나라도 미충족/불확실·`/e`·wt 등 **독립 정리** 경로 → **능동 제안(AskUserQuestion)**. 이 경로에서 원격 삭제·`git branch -D` 는 명시 확인 없이 금지(데이터 유실 방지).
   - 조건·실행 세부는 `/e` step6·worktree 정리 규칙. 사용자가 지시한 PR 머지도 (a) 와 동류(머지 지시에 원격 정리 포함) — 단 **`gh pr merge` 에 `--delete-branch` 를 붙이지 않는다**: gh 가 로컬 브랜치를 지우려 base 로 checkout 하는데 base 가 main worktree 에 잡혀 있어 `'main' is already used by worktree` 로 실패한다(머지 자체는 성공, 정리만 누락). 머지는 `--merge` 로만 하고 정리는 (a) 순서로 직접. **main/master worktree 는 자동 정리 대상 아님.**
 - generated/lock file 변경은 필요할 때만 포함, 이유 설명.

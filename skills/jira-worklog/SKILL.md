@@ -17,8 +17,9 @@ worktree 별로 나누고, worktree 경계를 넘는 구간은 어느 쪽 것도
 - **한 세션이 여러 worktree 를 오가도** 각 worktree 가 자기 시간만 받는다.
 - **삭제된 worktree** 의 시간은 이름을 복원해 **표시만** 하고 등록하지 않는다.
 - **Codex 는 파일 단위 귀속**이다 — rollout 전수에서 세션 중 cwd 이동이 0건이라 나눌 것이 없다.
-  다만 Codex 는 cwd **정확일치**라 worktree 하위 디렉토리에서 시작한 세션은 잡히지 않는다(Claude
-  쪽은 하위 디렉토리도 포함) — 두 소스의 기준이 비대칭이다.
+  다만 **소속 판정은 Claude 와 같은 분류기**(`WorktreeIndex.classify`)를 쓴다 — worktree 하위
+  디렉토리에서 시작한 세션도 그 worktree 로 잡힌다(예전엔 정확일치라 26건이 어디에도 못 가고
+  사라졌다). "파일 단위"는 *한 rollout 을 쪼개지 않는다*는 뜻이지 매칭이 엄격하다는 뜻이 아니다.
 
 설치 불필요 — 이 스킬 디렉토리의 `jira_worklog.py`(stdlib only)를 직접 실행한다. 대상 worktree 를
 `cwd` 로 두거나 이름을 인자로 준다. **worktree 를 삭제하기 전에** 실행해야 한다 — 삭제되면 `--all`
