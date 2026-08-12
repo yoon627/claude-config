@@ -34,8 +34,12 @@ from jira_kit.session_time import (  # noqa: E402
     ai_worklog_by_bucket,
     bucket_codex_intervals,
     bucket_intervals,
+    bucket_intervals_from_files,
     classify_cwd,
+    flatten_sessions,
+    merge_session_buckets,
     parse_message_events,
+    session_key,
     worklog_from_intervals,
 )
 
@@ -534,10 +538,113 @@ class CodexBucketTest(unittest.TestCase):
         self.assertEqual([b.kind for b in buckets], [BucketKind.UNMATCHED])
 
     def test_files_in_one_bucket_stay_separate_sessions(self):
-        # 파일=독립 세션. 합쳐서 구간을 뽑으면 파일 경계의 긴 공백이 작업시간으로 둔갑한다.
-        buckets = self.bucket(("a.jsonl", LIVE_WT), ("b.jsonl", LIVE_WT))
-        intervals = next(iter(buckets.values()))
-        self.assertEqual(len(intervals), 2)
+        # 파일=독립 세션. 합쳐서 구간을 뽑으면 파일 경계의 긴 공백이 작업시간으로 둔갑하고,
+        # 등록 단위가 세션이라 키도 따로 남아야 한다.
+        buckets = self.bucket(
+            ("rollout-2026-08-04T10-00-00-019d1df5-76a3-7e11-95a2-3de836ff21cc.jsonl", LIVE_WT),
+            ("rollout-2026-08-04T11-00-00-019d1e56-8c82-7212-9419-1a1f25d0f6e3.jsonl", LIVE_WT),
+        )
+        sessions = next(iter(buckets.values()))
+        self.assertEqual(sorted(sessions), ["codex:25d0f6e3", "codex:36ff21cc"])
+        self.assertEqual([len(iv) for iv in sessions.values()], [1, 1])
+
+
+class SessionKeyTest(unittest.TestCase):
+    """마커에 들어갈 세션 식별자. 파일명이 곧 세션 id 다."""
+
+    def key(self, name: str, source: str) -> str:
+        return session_key(Path("/tmp") / name, source)
+
+    def test_claude_file_name_is_the_uuid(self):
+        self.assertEqual(
+            self.key("5e4e564d-dd08-4cdf-a8da-db66e7173e9a.jsonl", "claude"), "claude:e7173e9a"
+        )
+
+    def test_codex_uuid_is_extracted_from_the_rollout_name(self):
+        # 앞의 timestamp 를 그대로 쓰면 마커가 길기만 하고 구분에도 기여하지 않는다.
+        self.assertEqual(
+            self.key(
+                "rollout-2026-03-24T12-48-39-019d1df5-76a3-7e11-95a2-3de836ff21cc.jsonl", "codex"
+            ),
+            "codex:36ff21cc",
+        )
+
+    def test_name_without_uuid_falls_back_to_the_stem(self):
+        # 세션 없이 등록되면 마커가 구 형식과 겹치므로, 못 알아본 이름도 키는 내야 한다.
+        self.assertEqual(self.key("odd-name.jsonl", "claude"), "claude:odd-name")
+
+    def test_uuidv7_siblings_do_not_collide(self):
+        # 급소: Codex rollout id 는 UUIDv7 이라 앞 48비트가 timestamp 다. **앞** 8자로 줄이면
+        # 수 초 안에 시작된 세션끼리 그대로 겹쳐 한 항목으로 합쳐진다(실측 수십 건).
+        first = self.key(
+            "rollout-2026-04-20T12-45-45-019da8fe-8484-7f43-af97-7c4b7400284e.jsonl", "codex"
+        )
+        second = self.key(
+            "rollout-2026-04-20T12-45-59-019da8fe-b9aa-70e2-8e7e-329644df8e43.jsonl", "codex"
+        )
+        self.assertNotEqual(first, second)
+
+
+class SessionSplitTest(unittest.TestCase):
+    """등록 단위가 세션이라 bucket 안에서 한 겹 더 나뉜다."""
+
+    LIVE_BUCKET = classify_cwd(LIVE_WT, ROOT, LIVE)
+    MAIN_BUCKET = classify_cwd(ROOT, ROOT, LIVE)
+    NAME_A = "5e4e564d-dd08-4cdf-a8da-db66e7173e9a.jsonl"
+    NAME_B = "8d8b5aff-e5a6-4327-a56e-c166f9956875.jsonl"
+
+    def split(self, files: dict[str, str]):
+        index = WorktreeIndex(ROOT, LIVE)
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = []
+            for name, text in files.items():
+                path = Path(tmp) / name
+                path.write_text(text, encoding="utf-8")
+                paths.append(path)
+            return bucket_intervals_from_files(paths, TZ, index)
+
+    def test_each_session_keeps_its_own_intervals(self):
+        per_bucket, _ = self.split({
+            self.NAME_A: jsonl(line(0, "assistant", LIVE_WT), line(10, "assistant", LIVE_WT)),
+            self.NAME_B: jsonl(line(0, "assistant", LIVE_WT), line(20, "assistant", LIVE_WT)),
+        })
+        sessions = per_bucket[self.LIVE_BUCKET]
+        self.assertEqual(sorted(sessions), ["claude:e7173e9a", "claude:f9956875"])
+        self.assertEqual(seconds(sessions["claude:e7173e9a"]), 10 * 60)
+        self.assertEqual(seconds(sessions["claude:f9956875"]), 20 * 60)
+
+    def test_one_session_spanning_two_worktrees_appears_in_both(self):
+        # 세션은 등록 단위이지 귀속 단위가 아니다 — 걸치면 항목도 둘이 된다.
+        per_bucket, _ = self.split({self.NAME_A: jsonl(
+            line(0, "assistant", ROOT),
+            line(10, "assistant", ROOT),
+            line(20, "assistant", LIVE_WT),
+            line(30, "assistant", LIVE_WT),
+        )})
+        self.assertEqual(seconds(per_bucket[self.MAIN_BUCKET]["claude:e7173e9a"]), 10 * 60)
+        self.assertEqual(seconds(per_bucket[self.LIVE_BUCKET]["claude:e7173e9a"]), 10 * 60)
+
+    def test_flatten_drops_the_session_split(self):
+        per_bucket, _ = self.split({
+            self.NAME_A: jsonl(line(0, "assistant", LIVE_WT), line(10, "assistant", LIVE_WT)),
+            self.NAME_B: jsonl(line(20, "assistant", LIVE_WT), line(30, "assistant", LIVE_WT)),
+        })
+        self.assertEqual(seconds(flatten_sessions(per_bucket)[self.LIVE_BUCKET]), 20 * 60)
+
+    def test_merge_keeps_both_sources_under_one_bucket(self):
+        claude = {self.LIVE_BUCKET: {"claude:aaaaaaaa": [(T0, T0 + timedelta(minutes=5))]}}
+        codex = {self.LIVE_BUCKET: {"codex:bbbbbbbb": [(T0, T0 + timedelta(minutes=7))]}}
+        merged = merge_session_buckets(claude, codex)
+        self.assertEqual(sorted(merged[self.LIVE_BUCKET]), ["claude:aaaaaaaa", "codex:bbbbbbbb"])
+
+    def test_merge_unions_a_key_present_in_both_sources(self):
+        # 축약 충돌 시 덮어쓰면 한쪽 시간이 조용히 사라진다 — 합쳐서 남긴다.
+        first = {self.LIVE_BUCKET: {"claude:aaaaaaaa": [(T0, T0 + timedelta(minutes=5))]}}
+        second = {self.LIVE_BUCKET: {"claude:aaaaaaaa": [
+            (T0 + timedelta(minutes=10), T0 + timedelta(minutes=17))
+        ]}}
+        merged = merge_session_buckets(first, second)
+        self.assertEqual(seconds(merged[self.LIVE_BUCKET]["claude:aaaaaaaa"]), 12 * 60)
 
 
 if __name__ == "__main__":

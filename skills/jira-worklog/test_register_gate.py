@@ -30,6 +30,8 @@ from jira_kit.worklog_register import (  # noqa: E402
 ME = "acct-me"
 TICKET = "CSTP1-1234"
 WT = "CSTP1-1234-alpha"
+SESSION = "claude:5e4e564d"
+SESSION2 = "claude:8d8b5aff"
 DAY = date(2026, 8, 4)
 
 
@@ -51,39 +53,39 @@ def worklog(marker: str, seconds: int, author: str = ME, wid: str = "1") -> dict
 
 class PlanTest(unittest.TestCase):
     def test_no_existing_is_created(self):
-        [p] = plan_worklog_changes(TICKET, WT, [day_worklog(600)], [], ME)
+        [p] = plan_worklog_changes(TICKET, WT, {SESSION: [day_worklog(600)]}, [], ME)
         self.assertEqual(p.action, "created")
         self.assertIsNone(p.old_seconds)
 
     def test_existing_same_seconds_is_unchanged(self):
-        existing = [worklog(worklog_marker(TICKET, DAY, WT), 600)]
-        [p] = plan_worklog_changes(TICKET, WT, [day_worklog(600)], existing, ME)
+        existing = [worklog(worklog_marker(TICKET, DAY, WT, SESSION), 600)]
+        [p] = plan_worklog_changes(TICKET, WT, {SESSION: [day_worklog(600)]}, existing, ME)
         self.assertEqual(p.action, "unchanged")
 
     def test_existing_different_is_updated_with_old_value(self):
-        existing = [worklog(worklog_marker(TICKET, DAY, WT), 600)]
-        [p] = plan_worklog_changes(TICKET, WT, [day_worklog(1200)], existing, ME)
+        existing = [worklog(worklog_marker(TICKET, DAY, WT, SESSION), 600)]
+        [p] = plan_worklog_changes(TICKET, WT, {SESSION: [day_worklog(1200)]}, existing, ME)
         self.assertEqual((p.action, p.old_seconds, p.new_seconds), ("updated", 600, 1200))
         self.assertEqual(p.worklog_id, "1")
 
     def test_seconds_floor_applied_before_compare(self):
         # 60초 하한을 비교 전에 적용하지 않으면 유령 diff 가 난다.
-        existing = [worklog(worklog_marker(TICKET, DAY, WT), 60)]
-        [p] = plan_worklog_changes(TICKET, WT, [day_worklog(5)], existing, ME)
+        existing = [worklog(worklog_marker(TICKET, DAY, WT, SESSION), 60)]
+        [p] = plan_worklog_changes(TICKET, WT, {SESSION: [day_worklog(5)]}, existing, ME)
         self.assertEqual(p.action, "unchanged")
 
     def test_other_author_is_ignored(self):
-        existing = [worklog(worklog_marker(TICKET, DAY, WT), 600, author="someone-else")]
-        [p] = plan_worklog_changes(TICKET, WT, [day_worklog(600)], existing, ME)
+        existing = [worklog(worklog_marker(TICKET, DAY, WT, SESSION), 600, author="someone-else")]
+        [p] = plan_worklog_changes(TICKET, WT, {SESSION: [day_worklog(600)]}, existing, ME)
         self.assertEqual(p.action, "created")  # 남의 것은 건드리지 않는다
 
     def test_missing_account_id_aborts(self):
         with self.assertRaises(JiraError):
-            plan_worklog_changes(TICKET, WT, [day_worklog(600)], [], None)
+            plan_worklog_changes(TICKET, WT, {SESSION: [day_worklog(600)]}, [], None)
 
     def test_rival_worktree_marker_is_collected(self):
-        existing = [worklog(worklog_marker(TICKET, DAY, "CSTP1-1234-beta"), 600)]
-        [p] = plan_worklog_changes(TICKET, WT, [day_worklog(600)], existing, ME)
+        existing = [worklog(worklog_marker(TICKET, DAY, "CSTP1-1234-beta", SESSION), 600)]
+        [p] = plan_worklog_changes(TICKET, WT, {SESSION: [day_worklog(600)]}, existing, ME)
         self.assertEqual(p.rival_worktrees, ("CSTP1-1234-beta",))
 
 
@@ -98,19 +100,19 @@ class PreconditionTest(unittest.TestCase):
 
         existing = [worklog(legacy_worklog_marker(TICKET, DAY), 600)]
         with self.assertRaises(JiraError):
-            plan_worklog_changes(TICKET, WT, [day_worklog(600)], existing, ME)
+            plan_worklog_changes(TICKET, WT, {SESSION: [day_worklog(600)]}, existing, ME)
 
     def test_duplicate_marker_aborts(self):
-        marker = worklog_marker(TICKET, DAY, WT)
+        marker = worklog_marker(TICKET, DAY, WT, SESSION)
         existing = [worklog(marker, 600, wid="1"), worklog(marker, 900, wid="2")]
         with self.assertRaises(JiraError):
-            plan_worklog_changes(TICKET, WT, [day_worklog(600)], existing, ME)
+            plan_worklog_changes(TICKET, WT, {SESSION: [day_worklog(600)]}, existing, ME)
 
     def test_missing_worklog_id_aborts_when_update_needed(self):
-        existing = [worklog(worklog_marker(TICKET, DAY, WT), 600, wid="1")]
+        existing = [worklog(worklog_marker(TICKET, DAY, WT, SESSION), 600, wid="1")]
         del existing[0]["id"]
         with self.assertRaises(JiraError):
-            plan_worklog_changes(TICKET, WT, [day_worklog(1200)], existing, ME)
+            plan_worklog_changes(TICKET, WT, {SESSION: [day_worklog(1200)]}, existing, ME)
 
     def test_later_day_precondition_blocks_earlier_day_too(self):
         # 핵심: 2일차가 막히면 1일차도 쓰이지 않아야 한다.
@@ -118,19 +120,19 @@ class PreconditionTest(unittest.TestCase):
 
         d1, d2 = date(2026, 8, 3), date(2026, 8, 4)
         existing = [
-            worklog(worklog_marker(TICKET, d1, WT), 600, wid="1"),
+            worklog(worklog_marker(TICKET, d1, WT, SESSION), 600, wid="1"),
             worklog(legacy_worklog_marker(TICKET, d2), 600, wid="2"),
         ]
         with self.assertRaises(JiraError):
             plan_worklog_changes(
-                TICKET, WT, [day_worklog(700, d1), day_worklog(700, d2)], existing, ME
+                TICKET, WT, {SESSION: [day_worklog(700, d1), day_worklog(700, d2)]}, existing, ME
             )
 
 
 class GateTest(unittest.TestCase):
     def existing_update(self, old: int, new: int):
-        existing = [worklog(worklog_marker(TICKET, DAY, WT), old)]
-        return plan_worklog_changes(TICKET, WT, [day_worklog(new)], existing, ME)
+        existing = [worklog(worklog_marker(TICKET, DAY, WT, SESSION), old)]
+        return plan_worklog_changes(TICKET, WT, {SESSION: [day_worklog(new)]}, existing, ME)
 
     def test_small_change_passes(self):
         self.assertEqual(gate_reasons(self.existing_update(3600, 4200)), [])
@@ -151,24 +153,31 @@ class GateTest(unittest.TestCase):
         self.assertEqual(gate_reasons(self.existing_update(300, 900)), [])
 
     def test_created_with_rival_worktree_blocks(self):
-        existing = [worklog(worklog_marker(TICKET, DAY, "CSTP1-1234-beta"), 600)]
-        plans = plan_worklog_changes(TICKET, WT, [day_worklog(600)], existing, ME)
+        existing = [worklog(worklog_marker(TICKET, DAY, "CSTP1-1234-beta", SESSION), 600)]
+        plans = plan_worklog_changes(TICKET, WT, {SESSION: [day_worklog(600)]}, existing, ME)
         reasons = gate_reasons(plans)
         self.assertEqual(len(reasons), 1)
         self.assertIn("beta", reasons[0])
 
+    def test_other_session_of_same_worktree_is_not_a_rival(self):
+        # 등록 단위가 세션이라 새 세션은 언제나 created 다. 같은 worktree 이름으로 등록된
+        # 이력이 있으면 rename 이 아니므로 걸리면 안 된다 — 매 세션 걸리면 게이트가 무시된다.
+        existing = [worklog(worklog_marker(TICKET, DAY, WT, SESSION), 600)]
+        plans = plan_worklog_changes(TICKET, WT, {SESSION2: [day_worklog(600)]}, existing, ME)
+        self.assertEqual(gate_reasons(plans), [])
+
     def test_created_without_rival_passes(self):
-        self.assertEqual(gate_reasons(plan_worklog_changes(TICKET, WT, [day_worklog(600)], [], ME)), [])
+        self.assertEqual(gate_reasons(plan_worklog_changes(TICKET, WT, {SESSION: [day_worklog(600)]}, [], ME)), [])
 
     def test_gate_sees_all_days_before_any_write(self):
         # 마지막 날짜만 임계를 넘겨도 전체가 막혀야 한다(부분 등록 방지).
         d1, d2 = date(2026, 8, 3), date(2026, 8, 4)
         existing = [
-            worklog(worklog_marker(TICKET, d1, WT), 3600, wid="1"),
-            worklog(worklog_marker(TICKET, d2, WT), 7200, wid="2"),
+            worklog(worklog_marker(TICKET, d1, WT, SESSION), 3600, wid="1"),
+            worklog(worklog_marker(TICKET, d2, WT, SESSION), 7200, wid="2"),
         ]
         plans = plan_worklog_changes(
-            TICKET, WT, [day_worklog(3700, d1), day_worklog(600, d2)], existing, ME
+            TICKET, WT, {SESSION: [day_worklog(3700, d1), day_worklog(600, d2)]}, existing, ME
         )
         self.assertEqual(len(plans), 2)
         self.assertTrue(gate_reasons(plans))

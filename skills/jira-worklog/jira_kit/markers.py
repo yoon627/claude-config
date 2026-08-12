@@ -1,12 +1,13 @@
 """worklog upsert 를 위한 결정론적 마커 (idempotency).
 
-Jira worklog POST 는 비멱등이라, worklog comment 에 (ticket, date, worktree) 마커를 심어
+Jira worklog POST 는 비멱등이라, worklog comment 에 (ticket, date, worktree, 세션) 마커를 심어
 그 항목을 다시 찾을 수 있게 한다. CLI 는 등록 전 기존 worklog 를 조회해 마커로 **본인** 항목을
 찾고(``find_worklogs_by_marker``), 없으면 생성·있으면 시간만 갱신한다(upsert, ``worklog_register``).
 
-같은 티켓을 여러 worktree 에서 작업하면(``CSTP1-1234-abc``/``-def``) 마커에 worktree 가 없을 때
-두 worktree 가 같은 항목을 자기 것으로 잡아 나중 등록이 이전 시간을 덮는다. 그래서 마커는
-worktree 까지 포함하고, 티켓 총합은 Jira 의 worklog 합계에 맡긴다.
+마커가 좁아질 때마다 이유가 있었다. worktree 가 없으면 같은 티켓의 두 worktree
+(``CSTP1-1234-abc``/``-def``)가 같은 항목을 자기 것으로 잡아 나중 등록이 이전 시간을 덮는다.
+세션이 없으면 등록 단위를 세션으로 나눌 수 없다. 그래서 마커는 **세션까지** 포함하고, 티켓
+총합은 Jira 의 worklog 합계에 맡긴다.
 
 매칭은 **줄 정확일치**다. 부분문자열로 찾으면 사용자 ``--comment`` 본문이나 Jira UI 수동 편집
 텍스트가 마커를 품고 있을 때 그 항목을 자기 것으로 오인하고, 문단이 구분자 없이 이어붙으면
@@ -33,17 +34,47 @@ def legacy_worklog_marker(ticket: str, day: date) -> str:
     return f"{_PREFIX} worklog {ticket} {day.isoformat()}"
 
 
-def worklog_marker(ticket: str, day: date, worktree: str) -> str:
-    """(ticket, 날짜, worktree) 조합의 결정론적 worklog 마커 문자열.
+def _validated(label: str, value: str) -> str:
+    """마커 구성요소 검증.
 
-    빈 이름은 구 형식과 구별되지 않아 legacy 검사에 자기가 걸리고, 개행은 마커를 두 줄로 쪼개
-    영영 못 찾게 만든다 — 둘 다 조용한 이중계상으로 이어지므로 여기서 막는다.
+    빈 값은 상위 형식과 구별되지 않아 그 형식의 검사에 자기가 걸리고, 개행은 마커를 두 줄로
+    쪼개 영영 못 찾게 만든다 — 둘 다 조용한 이중계상으로 이어지므로 여기서 막는다.
     """
-    if not worktree:
-        raise ValueError("worklog 마커에 빈 worktree 이름을 쓸 수 없습니다 (구 형식과 충돌)")
-    if "\n" in worktree or "\r" in worktree:
-        raise ValueError(f"worklog 마커에 개행이 든 worktree 이름을 쓸 수 없습니다: {worktree!r}")
-    return f"{legacy_worklog_marker(ticket, day)} ({worktree})"
+    if not value:
+        raise ValueError(f"worklog 마커에 빈 {label} 을 쓸 수 없습니다 (상위 형식과 충돌)")
+    if "\n" in value or "\r" in value:
+        raise ValueError(f"worklog 마커에 개행이 든 {label} 을 쓸 수 없습니다: {value!r}")
+    return value
+
+
+def worktree_worklog_marker(ticket: str, day: date, worktree: str) -> str:
+    """세션 도입 전 형식(worktree 까지). 새로 쓰지 않고 **기존 항목 탐지에만** 쓴다."""
+    return f"{legacy_worklog_marker(ticket, day)} ({_validated('worktree 이름', worktree)})"
+
+
+def worklog_marker(ticket: str, day: date, worktree: str, session: str) -> str:
+    """(ticket, 날짜, worktree, 세션) 조합의 결정론적 worklog 마커 문자열.
+
+    등록 단위가 세션이라 세션까지 담는다 — 세션 id 자체가 분할 키여서, 같은 세션을 다시
+    등록해도 그 항목을 찾아 갱신하므로 별도 워터마크 없이 멱등성이 유지된다.
+    """
+    marker = worktree_worklog_marker(ticket, day, worktree)
+    return f"{marker} [{_validated('세션 id', session)}]"
+
+
+def parse_scope(line: str, ticket: str, day: date) -> tuple[str, str] | None:
+    """마커 줄에서 ``(worktree, 세션)`` 을 뽑는다. 그 (ticket, 날짜)의 신형이 아니면 None.
+
+    같은 (ticket, 날짜) 항목이 내 것인지 다른 worktree 것인지 가르는 데 쓴다. 조립과 해체를
+    같은 모듈에 두어야 형식이 갈리지 않는다.
+    """
+    head = legacy_worklog_marker(ticket, day) + " ("
+    if not (line.startswith(head) and line.endswith("]")):
+        return None
+    worktree, separator, session = line[len(head):-1].partition(") [")
+    if not (separator and worktree and session):
+        return None
+    return worktree, session
 
 
 def _inline_text(node: Any) -> str:
