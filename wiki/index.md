@@ -23,11 +23,11 @@
 - [[headroom]] — 컨텍스트 최적화 proxy(token mode·launchd)·MCP·rtk 번들.
 
 ## decision
-- [[effort-global-xhigh]] — effort 전역 단일 레버 유지(단 실제 유효값은 `max` — settings=high 인데 OS env 가 이김, 페이지명과 불일치), subagent model 은 opus→`inherit`→**단계별 고정**(2026-08-06) (#66·#67·#68).
+- [[effort-global-xhigh]] — effort 전역 단일 레버; 현재값 `max`(2026-08-12, 페이지명 `xhigh` 는 값 아닌 결정을 가리킴). `max` 는 `effortLevel` 키로 불가·env 로만 가능. 웹툴 400 은 `xhigh` 한정이고 `max` 엔 없음(실측). subagent model 은 opus→`inherit`→**단계별 고정**(2026-08-06) (#66·#67·#68).
 - [[model-stage-tiering]] — dlc 단계별 모델 배치(2026-08-05): Fable=plan/설계만(50% 캡), 구현 opus(촘촘한 plan은 sonnet), 리뷰 opus, 조사 sonnet. **agents/*.md 고정 완료(2026-08-06)**.
 - [[harness-keep-and-borrow]] — 자작 하네스 유지+부품 차용 결정(2026-08-05): 대체 OSS 부재·프레임워크 후퇴·정책 안전성; 유지비 감시 + 네이티브 중복 역정리 조건(→ [[native-overlap-ledger]] 로 2026-08-06 구현).
 - [[subagent-model-effort-tiering]] — (superseded by [[effort-global-xhigh]]; model 차등만 2026-08-06 부분 복원 → [[model-stage-tiering]]) reviewer opus+max / simplifier sonnet / researcher haiku 차등 (#51).
-- [[effort-os-env-single-source]] — OS env > settings.json env, effort 단일소스화; env 가 frontmatter effort 도 override. **2026-08-11 재발 확인**(bootstrap 이 `max` 재주입 — 판정은 `printenv` 아닌 `ps eww`).
+- [[effort-os-env-single-source]] — OS env > settings.json env, effort 단일소스화; env 가 frontmatter effort 도 override. 2026-08-11 재발 → **2026-08-12 해소**(settings 를 `max` 로 일치). 판정은 여전히 `printenv` 아닌 `ps eww`(bootstrap 재주입은 미수정).
 - [[dual-review-plan-and-code]] — plan 리뷰(구현 전) + code 리뷰(구현 후) 관점 분리.
 - [[deferred-and-scope-boundary]] — 범위 밖 발견 보존(# Deferred)·운영자산 자가수정 금지 (#50).
 - [[self-diagnosis-and-improvement-status]] — 자기진단 채택(#49) / 자기개선 = 수집·분석 기계화 채택(2026-07-03, dlc-signal+/improve), 반영은 승인 게이트 유지.
@@ -45,6 +45,8 @@
 - [[lesson-stale-tool-version]] — 도구발 오류는 우회 전에 `--version` 을 상류 CHANGELOG 와 대조; 실패 표의 "수정 위치"는 확인된 것만 적는다 (rtk 0.28.2 로 6회 반복, 상류는 0.35.0·0.39.0 에서 이미 수정).
 - [[lesson-parallel-duplicate-implementation]] — 비trivial 착수 전 열린 PR·원격 브랜치·다른 plan 을 먼저 확인; plan 매칭 실패는 "없다"의 근거가 아니다 (#118 과 #120 이 같은 기능을 각자 구현, 553줄 폐기).
 - [[lesson-test-after-implementation]] — 경계 있는 도메인(날짜·TZ·버전·인코딩)은 분량 무관하게 Red 부터; 형식 통과 ≠ 값 유효(왕복 대조), 시각·오늘은 주입해 TZ 교차 실행 (PR #139 결함 2건).
+- [[lesson-tracked-config-machine-paths]] — tracked 설정에 머신 절대경로 금지: Mac↔Windows ping-pong 으로 staged 가 6일 방치되고, 그 dirty 가 autopull 게이트를 막아 레포가 조용히 밀렸다. 동기화 훅에 dirty 게이트를 걸지 말 것(자기 차단).
+- [[lesson-test-copies-artifact]] — 검증 스크립트에 배포물을 복붙하면 갈라진 뒤 "통과"한다; 테스트는 배포물에서 직접 읽고 exit code 아닌 분기 마커를 assert (거짓 통과 1회 실측).
 - [[native-overlap-ledger]] — 자작 부품 ↔ 네이티브 흡수 대조 대장(keep/watch/retire). 45일 주기·delta 창(`checked_version`)으로 changelog 를 전수 아닌 증분만 조회, `/improve` §6 이 읽고 갱신은 승인 후 ingest(판정 분포는 대장에만).
 
 ## source

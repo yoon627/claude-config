@@ -2,8 +2,10 @@
 title: effort-os-env-single-source
 category: decision
 created: 2026-06-19
-updated: 2026-08-11
+updated: 2026-08-12
 sources:
+  - 커밋 f1cbee0 (2026-08-12, settings=OS env=max 로 일치 — 불일치 해소)
+  - 실측 2026-08-12 (CLI 2.1.228: effortLevel 검증자 $et() 는 max 를 버리고 env 파서 T9() 만 받음)
   - plans/2026-06-18-subagent-model-effort/subagent-model-effort-plan.md
   - Anthropic docs (settings.md, env-vars.md)
   - PR #67
@@ -12,8 +14,12 @@ sources:
 
 # effort-os-env-single-source
 
-> [!note] 현재 상태 (2026-08-11 갱신)
-> effort 전역 정책은 [[effort-global-xhigh]] 로 통일 — `settings.json` `env.CLAUDE_CODE_EFFORT_LEVEL` 를 단일 소스로 두기로 했다.
+> [!note] 현재 상태 (2026-08-12 갱신) — 단일화 **해소됨**
+> effort 전역 정책은 [[effort-global-xhigh]] 로 통일 — `settings.json` `env.CLAUDE_CODE_EFFORT_LEVEL` 를 단일 소스로 두기로 했다. 2026-08-12 커밋 `f1cbee0` 로 settings 를 `max` 로 올려 OS env 와 일치시키고 `effortLevel` 키를 제거해, 아래 08-11 불일치는 해소됐다.
+>
+> **이 페이지의 교훈이 더 강해진 근거가 하나 붙었다**: `max` 는 settings 의 `effortLevel` 키로는 아예 설정할 수 없다 — 검증자(CLI 2.1.228 `$et()`)가 `low|medium|high|xhigh` 만 통과시키고 `max` 를 조용히 버린다. env 파서만 `max` 를 받는다. 즉 "env 를 단일 레버로" 는 우선순위 문제이기 전에 **표현력 문제**다. 두 키를 같이 두면 값이 어긋난 채 숨으므로 한쪽만 둔다. 같은 계열의 실패(설정을 두 곳에 두어 어느 쪽이 진짜인지 흐려짐)를 tracked 경로에서 겪은 사례는 [[lesson-tracked-config-machine-paths]].
+>
+> 아래는 08-11 시점 기록(이력 보존):
 >
 > **단 2026-08-11 실측상 이 단일화는 깨져 있다**: `settings.json` 은 `high`(`78a6715` 에서 xhigh→high)인데 실행 중 claude 프로세스 env 는 `max` — 아래 교훈 그대로 shell/OS env 가 이겼다. 원인은 `scripts/bootstrap/setup.sh:118`·`setup.ps1:156` 이 **이 repo 안에서** `max` 를 shell/User env 에 심는 것(bootstrap 재실행 시 재주입). 즉 아래 사례의 재발이다. 판정 시 `printenv` 를 믿지 말 것 — tool 셸 env(`high`)와 프로세스 env(`max`)가 다르다. `ps eww <claude-pid>` 로 볼 것. 아래 "OS env 우선·단일 소스화" 교훈은 그대로 유효하며, 추가 확정 사실: **env 는 subagent/skill frontmatter 의 effort 도 override** 한다(precedence: env > effortLevel > frontmatter). 그래서 `agents/*.md` 의 effort 필드를 제거했다(PR #68).
 
