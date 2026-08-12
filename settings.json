@@ -49,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "c=\"$HOME/.orca/agent-hooks/claude-hook.cmd\"; s=\"$HOME/.orca/agent-hooks/claude-hook.sh\"; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
             "timeout": 10
           }
         ]
@@ -69,7 +69,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "c=\"$HOME/.orca/agent-hooks/claude-hook.cmd\"; s=\"$HOME/.orca/agent-hooks/claude-hook.sh\"; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
             "timeout": 10
           }
         ]
@@ -91,7 +91,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "c=\"$HOME/.orca/agent-hooks/claude-hook.cmd\"; s=\"$HOME/.orca/agent-hooks/claude-hook.sh\"; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
             "timeout": 10
           }
         ]
@@ -119,7 +119,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "c=\"$HOME/.orca/agent-hooks/claude-hook.cmd\"; s=\"$HOME/.orca/agent-hooks/claude-hook.sh\"; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
             "timeout": 10
           }
         ]
@@ -148,7 +148,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "c=\"$HOME/.orca/agent-hooks/claude-hook.cmd\"; s=\"$HOME/.orca/agent-hooks/claude-hook.sh\"; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
             "timeout": 10
           }
         ]
@@ -170,7 +170,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "c=\"$HOME/.orca/agent-hooks/claude-hook.cmd\"; s=\"$HOME/.orca/agent-hooks/claude-hook.sh\"; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
             "timeout": 10
           }
         ]
@@ -181,7 +181,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "c=\"$HOME/.orca/agent-hooks/claude-hook.cmd\"; s=\"$HOME/.orca/agent-hooks/claude-hook.sh\"; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
             "timeout": 10
           }
         ]
@@ -192,7 +192,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "c=\"$HOME/.orca/agent-hooks/claude-hook.cmd\"; s=\"$HOME/.orca/agent-hooks/claude-hook.sh\"; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
             "timeout": 10
           }
         ]
@@ -203,7 +203,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "c=\"$HOME/.orca/agent-hooks/claude-hook.cmd\"; s=\"$HOME/.orca/agent-hooks/claude-hook.sh\"; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
             "timeout": 10
           }
         ]
@@ -215,7 +215,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "c=\"$HOME/.orca/agent-hooks/claude-hook.cmd\"; s=\"$HOME/.orca/agent-hooks/claude-hook.sh\"; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
             "timeout": 10
           }
         ]
@@ -227,7 +227,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "c=\"$HOME/.orca/agent-hooks/claude-hook.cmd\"; s=\"$HOME/.orca/agent-hooks/claude-hook.sh\"; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
             "timeout": 10
           }
         ]
