@@ -19,10 +19,16 @@ worklog 등록 단위를 (티켓, 날짜, worktree) → **(티켓, 날짜, workt
 - 2026-08-11: dry-run 실행에서 **앞 8자 축약이 Codex UUIDv7 과 구조적으로 충돌**함을 발견
   (수십 건). 뒤 8자로 정정하고 재실행해 충돌 0 확인.
 - 2026-08-11: 테스트 3종 통과(session_time 60 / scope 29 / gate 19), dry-run 관찰 정상.
+- 2026-08-12: PR #137 머지 → `origin/main` 위로 rebase → **PR #142** 생성, CI(Lint) 통과.
+- 2026-08-12: **CSTP1-2829 로 실제 Jira 등록까지 end-to-end 검증.** 임시 worktree
+  `CSTP1-2829-worklog-test` 를 만들어 세션을 들여보낸 뒤: 티켓 추출 → 세션키
+  `claude:815a82ff` → `created`(id=172631) → 재실행 `updated 1m → 2m`(항목 수 2건 유지,
+  새로 만들지 않음) → 기존 수동 항목(id=171610, 8h, 마커 없음) 무손상 확인. 검증 후 worktree·
+  브랜치 삭제. Jira 테스트 항목은 사용자가 UI 에서 정리.
 
 # Next
 
-PR #137 머지 후 이 브랜치를 rebase 하고 PR 생성.
+PR #142 머지. 머지되면 `/e` 5단계가 세션별 등록을 쓴다.
 
 # Decisions
 
@@ -81,3 +87,8 @@ PR #137 머지 후 이 브랜치를 rebase 하고 PR 생성.
 
 - `test_malformed_cwd_does_not_abort` 는 Windows 한정 baseline failure(main 재현 확인,
   CI ubuntu 통과). PR #137 의 plan 에도 같은 항목이 있다.
+- **시간 표시가 세 층에서 갈린다**(범위 밖, 이번 변경 이전부터). 헤더는
+  `format_duration`(=`round(초/60)`), plan diff 는 `p.new_seconds // 60`(내림), Jira 저장값은
+  분 단위 절삭이라 실등록 테스트에서 `합계 3m` / `1m → 2m` / `120s` 가 동시에 보였다.
+  **등록값 자체는 정확**하고 diff·Jira 가 일치한다 — 헤더만 1분 크게 보인다. 고치려면 헤더도
+  내림으로 통일. 심각도 낮음(표시 전용), `jira_worklog.py` process/_register.
