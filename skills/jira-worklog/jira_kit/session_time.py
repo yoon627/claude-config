@@ -12,10 +12,16 @@ Codex 는 다르다 — rollout 전수에서 cwd 가 2개 이상인 파일이 0�
 다른 bucket 으로 가고, 정확일치만 보던 옛 규칙은 worktree 하위에서 시작한 세션을 버렸다.
 두 소스의 구간은 **날짜 분할 전에** union 한다.
 
-각 세션의 user/assistant 메시지 timestamp 로 '실제 AI 가 작업한 구간'을 뽑는다:
-연속 이벤트 gap 중 **진짜 사용자 입력 직전 gap(대기)** 과 **max_gap 초과 gap(중단)** 은 제외한다.
+각 세션의 user/assistant 메시지 timestamp 로 '실제 AI 가 작업한 구간'을 뽑는다: 연속 이벤트
+gap 중 **사용자 응답 대기**와 **max_gap 초과 gap(중단)** 은 제외한다. 대기는 두 모습으로 온다 —
+진짜 사용자 입력 직전 gap, 그리고 ``_AWAIT_USER_TOOLS`` 의 tool_use→tool_result 구간. 후자는
+tool_result 가 ``type=user`` 로 기록되는 탓에 대기처럼 보이지 않아 놓치기 쉽다.
 남은 구간들을 (여러 세션에 걸쳐) union 으로 병합해 겹침을 제거하고, 자정 기준으로 날짜별
 분할해 합산한다(날짜 단위 Jira worklog).
+
+**권한 승인 대기는 걸러내지 못한다.** tool_result 에는 승인 여부를 가릴 필드가 없어 정상 결과와
+구분되지 않는다(거부만 본문으로 식별 가능). 실측 규모는 작다 — Bash 는 8177건 중 5분 초과가
+16건, 최대 17분이고 그마저 실제 실행시간이 섞여 있다.
 """
 
 from __future__ import annotations
@@ -36,6 +42,15 @@ _Interval = tuple[datetime, datetime]
 # worktree 는 `<root>/.claude/worktrees/<name>` 에 만들어진다(skills/wt/SKILL.md).
 # 삭제된 worktree 는 `git worktree list` 에 없으므로 이 규약으로 이름을 되살린다.
 _WORKTREES_SEGMENTS = (".claude", "worktrees")
+
+# 사용자가 답하기 전에는 tool_result 가 오지 않는 도구 — 그 구간은 작업이 아니라 대기다.
+# tool_result 를 assistant 로 분류(과소계상 방지)한 대가로 생긴 구멍을 여기서 정면으로 막는다.
+_AWAIT_USER_TOOLS = frozenset({"AskUserQuestion", "ExitPlanMode"})
+
+# 대기를 role 로 걸러낸 뒤 남는 idle gap 백스톱. 실측상 이 시간을 넘긴 gap 은 전부 위 도구의
+# 대기였고 진짜 작업은 없었다 — 그래서 8시간까지 완화해 장시간 빌드·테스트를 살린다.
+# 아예 없애지 않는 이유는 앞으로 추가될 대화형 도구가 같은 구멍을 낼 수 있어서다.
+DEFAULT_MAX_GAP_MINUTES = 480
 
 
 class BucketKind(Enum):
@@ -175,22 +190,34 @@ def classify_cwd(
     return WorktreeIndex(root, live_worktrees).classify(cwd)
 
 
+def _blocks(obj: dict) -> list:
+    """메시지 content 의 블록 목록(문자열 content 나 결측이면 빈 목록)."""
+    message = obj.get("message")
+    content = message.get("content") if isinstance(message, dict) else None
+    return [c for c in content if isinstance(c, dict)] if isinstance(content, list) else []
+
+
 def _message_role(obj: dict) -> str | None:
-    """메시지 role 정규화: 진짜 사용자 입력만 'user', assistant·도구결과는 'assistant'.
+    """메시지 role 정규화: 'user'(진짜 입력) / 'await_user'(응답 대기 시작) / 'assistant'.
 
     Claude Code 는 tool_result 를 ``type=user`` 로 기록한다. 이를 사용자 입력으로 보면
     도구 실행 구간(assistant tool_use → user tool_result)이 '대기'로 잘못 제외되어 AI
     작업시간이 과소된다. 따라서 tool_result 는 AI 작업 흐름('assistant')으로 분류한다.
+
+    그 대가로 ``_AWAIT_USER_TOOLS`` 의 대기도 도구 실행처럼 보이게 된다 — 실측에서 이 구간이
+    가장 큰 과다계상원이었다(``AskUserQuestion`` 최대 908분). 그래서 그 tool_use 만 따로
+    'await_user' 로 표시해 뒤따르는 gap 을 대기로 판정하게 한다.
     """
     kind = obj.get("type")
     if kind == "assistant":
+        if any(
+            c.get("type") == "tool_use" and c.get("name") in _AWAIT_USER_TOOLS
+            for c in _blocks(obj)
+        ):
+            return "await_user"
         return "assistant"
     if kind == "user":
-        message = obj.get("message")
-        content = message.get("content") if isinstance(message, dict) else None
-        if isinstance(content, list) and any(
-            isinstance(c, dict) and c.get("type") == "tool_result" for c in content
-        ):
+        if any(c.get("type") == "tool_result" for c in _blocks(obj)):
             return "assistant"
         return "user"
     return None
@@ -199,7 +226,8 @@ def _message_role(obj: dict) -> str | None:
 def parse_message_events(jsonl_text: str, tz: tzinfo) -> list[tuple[datetime, str, str | None]]:
     """세션 jsonl 텍스트에서 (시각, role, cwd) 이벤트를 시간순으로 뽑는다.
 
-    role 은 'user'(진짜 사용자 입력) / 'assistant'(AI 응답 + 도구결과)로 정규화한다.
+    role 은 'user'(진짜 사용자 입력) / 'await_user'(응답 대기 시작) / 'assistant'(AI 응답 +
+    도구결과)로 정규화한다.
     cwd 는 귀속 근거다 — 세션 파일은 cwd 를 따라 폴더를 옮겨 다니므로 파일이 놓인 위치가
     아니라 줄마다 기록된 cwd 로 나눠야 한다. 결측이면 앞줄에서 물려받지 않고 ``None`` 이다
     (물려받으면 worktree 경계가 사라져 오귀속이 된다).
@@ -221,15 +249,19 @@ _Event = Sequence  # (시각, role[, cwd|bucket]) — 뒤 요소는 소비자마
 def _is_work_gap(prev: _Event, cur: _Event, max_gap: float) -> bool:
     """인접 두 이벤트 사이가 'AI 작업 구간'인지.
 
-    gap 이 max_gap 초과면 중단, 진짜 사용자 입력 직전(assistant→user)이면 대기 → 둘 다 아님.
+    제외 대상 셋: max_gap 초과(중단), 진짜 사용자 입력 직전(대기), 대화형 도구의 응답 대기.
+    입력 직전 판정에 prev 를 보지 않는 것이 중요하다 — ``prev == "assistant"`` 를 요구하면
+    사용자가 연달아 입력한 사이(user→user)가 작업시간으로 샌다(실측 132분).
     """
     gap = (cur[0] - prev[0]).total_seconds()
     if gap <= 0 or gap > max_gap:
         return False
-    return not (cur[1] == "user" and prev[1] == "assistant")
+    if cur[1] == "user":
+        return False
+    return prev[1] != "await_user"
 
 
-def ai_intervals(events: Sequence[_Event], max_gap_minutes: int = 60) -> list[_Interval]:
+def ai_intervals(events: Sequence[_Event], max_gap_minutes: int = DEFAULT_MAX_GAP_MINUTES) -> list[_Interval]:
     """이벤트에서 'AI 작업 구간' [prev, cur] 목록을 뽑는다.
 
     events 는 (시각, role) 또는 (시각, role, cwd) — 3번째 요소는 무시한다. Codex 이벤트는
@@ -259,7 +291,7 @@ class AttributionStats:
 
 
 def bucket_intervals(
-    events: list[tuple[datetime, str, Bucket]], max_gap_minutes: int = 60
+    events: list[tuple[datetime, str, Bucket]], max_gap_minutes: int = DEFAULT_MAX_GAP_MINUTES
 ) -> tuple[dict[Bucket, list[_Interval]], AttributionStats]:
     """bucket 을 단 이벤트에서 bucket 별 작업구간을 뽑는다.
 
@@ -326,7 +358,7 @@ def _split_by_date(intervals: list[_Interval]) -> dict[date, tuple[float, dateti
     return by_day
 
 
-def codex_intervals(paths: list[Path], tz: tzinfo, max_gap_minutes: int = 60) -> list[_Interval]:
+def codex_intervals(paths: list[Path], tz: tzinfo, max_gap_minutes: int = DEFAULT_MAX_GAP_MINUTES) -> list[_Interval]:
     """Codex rollout 들의 작업구간. 파일=독립 세션이라 파일별로 뽑는다(경계 gap 오염 방지).
 
     Codex 는 줄 단위 cwd 이동이 없어(rollout 전수에서 cwd 2개 이상인 파일 0건) 파일 하나가
@@ -342,7 +374,7 @@ def bucket_codex_intervals(
     sessions: Iterable[tuple[Path, str]],
     tz: tzinfo,
     index: WorktreeIndex,
-    max_gap_minutes: int = 60,
+    max_gap_minutes: int = DEFAULT_MAX_GAP_MINUTES,
 ) -> dict[Bucket, list[_Interval]]:
     """rollout ``(파일, cwd)`` 들을 **Claude 와 같은 분류기**로 bucket 별 구간으로 나눈다.
 
@@ -372,7 +404,7 @@ def bucket_intervals_from_files(
     claude_files: list[Path],
     tz: tzinfo,
     index: WorktreeIndex,
-    max_gap_minutes: int = 60,
+    max_gap_minutes: int = DEFAULT_MAX_GAP_MINUTES,
 ) -> tuple[dict[Bucket, list[_Interval]], AttributionStats]:
     """Claude 세션 파일들을 한 번만 읽어 bucket 별 날짜 worklog 로 나눈다.
 
@@ -410,7 +442,7 @@ def ai_worklog_by_bucket(
     tz: tzinfo,
     root: str | Path,
     live_worktrees: Iterable[str | Path],
-    max_gap_minutes: int = 60,
+    max_gap_minutes: int = DEFAULT_MAX_GAP_MINUTES,
 ) -> tuple[dict[Bucket, list[DayWorklog]], AttributionStats]:
     """bucket 별 날짜 worklog. Codex 를 합칠 필요가 없는 표시 경로용 편의 함수.
 

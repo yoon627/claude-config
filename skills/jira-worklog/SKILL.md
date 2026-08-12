@@ -9,6 +9,13 @@ Claude·Codex 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex
 실제 작업한 시간(사용자 응답 대기·긴 공백 제외)을 날짜별로 추정해 Jira worklog 에 등록한다.
 기본은 미리보기(dry-run) — 시간이 합리적인지 확인한 뒤 등록한다.
 
+**대기는 role 단계에서 걸러낸다.** 사용자 응답 대기는 두 모습으로 온다 — 진짜 사용자 입력 직전
+gap(앞이 무엇이든), 그리고 `AskUserQuestion`·`ExitPlanMode` 의 tool_use→tool_result 구간이다.
+후자는 tool_result 가 `type=user` 로 기록되는 탓에 도구 실행처럼 보여 놓치기 쉽다(실측 최대 908분).
+`--max-gap`(기본 8시간)은 이 둘을 거른 뒤 남는 idle gap 백스톱일 뿐이라, 총합은 백스톱 값에 거의
+무감각하다. 다만 **권한 승인 대기는 걸러내지 못한다** — tool_result 에 승인 여부를 가릴 필드가
+없어 정상 결과와 구분되지 않는다(실측 규모는 작다: Bash 5분 초과 16/8177건, 최대 17분).
+
 **귀속은 줄 단위 `cwd` 기준이다.** 세션 파일은 cwd 를 따라 폴더를 옮겨 다니므로 파일 위치로
 귀속하면 오간 세션의 시간이 마지막 위치 한 곳으로 몰린다. 그래서 이벤트마다 cwd 를 읽어
 worktree 별로 나누고, worktree 경계를 넘는 구간은 어느 쪽 것도 아니라 버린다. 코퍼스는 한 번만
@@ -56,7 +63,7 @@ JIRA_API_TOKEN=<Atlassian API token>
 ## 동작·옵션
 
 - 대상 티켓은 **worktree 디렉토리 이름(prefix)** 에서 우선 추출(anchored), 없으면 브랜치명으로 fallback 한다(기본 `[A-Z][A-Z0-9]+-\d+`). detached HEAD 처럼 브랜치가 없어도 worktree 이름의 티켓으로 잡힌다. 어느 쪽에도 매치가 없으면 등록을 skip 한다(안전).
-- `--all` 모든 worktree 미리보기 · `--max-gap` idle gap(분) · `--ticket-pattern` 패턴 · `--timezone` IANA 타임존 · `--comment` worklog 코멘트.
+- `--all` 모든 worktree 미리보기 · `--max-gap` idle gap 백스톱(분, 기본 480 — **`0` 은 무효화가 아니라 모든 구간 차단이라 시간이 0 이 된다**) · `--ticket-pattern` 패턴 · `--timezone` IANA 타임존 · `--comment` worklog 코멘트.
 - 실제 등록(`--register`)은 외부 반영이니 **먼저 미리보기로 확인**할 것.
 - **등록 게이트**: 등록 전에 전 날짜의 `old → new` diff 를 출력하고, 아래에 걸리면 **한 건도 쓰지 않고** 중단한다. Jira 쓰기는 코드 revert 로 되돌릴 수 없어 부분 등록이 남으면 수습이 어렵다. (범위 주의: all-or-nothing 은 **게이트까지**다 — 게이트를 통과한 뒤 개별 요청이 HTTP 오류로 실패하면 앞 날짜는 이미 반영된다. Jira 에 트랜잭션이 없어 mutation 원자성은 달성할 수 없다.)
   - 기존값 대비 **30분 이상 & 50% 초과** 변동 — **증가·감소 양쪽 다**. 매핑 버그의 대표 증상이 과다 흡수라 방향만으로는 안전을 판단할 수 없고, billable 에선 과다 등록이 더 위험하다.
