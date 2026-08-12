@@ -1,8 +1,8 @@
 ---
 title: doc-drift-recover-fp — 동기화 후 재편집이 doc-drift 를 재-dirty 시키는 오탐 수정
-status: in_progress
+status: done
 started: 2026-08-12
-updated: 2026-08-12
+updated: 2026-08-13
 ---
 
 # Goal
@@ -15,10 +15,11 @@ updated: 2026-08-12
 - 2026-08-12: **TDD 순서 준수** — 경계 9케이스 먼저 작성 → Red 확인(`actual: true, expected: false`, 의도한 이유) → `applyChange` covered-set 전환 → Green(56 assertions).
 - 2026-08-12: 전 검증 통과 — 단위 10스위트·`node --check`·shellcheck·plan-lint·wiki clean. simplify 1건(도달 불가 `rel` null 가드 제거) 후 재통과.
 - 2026-08-12: **e2e 실측**(실제 hook 경로 `dlc-evidence-ledger` → `dlc-early-stop`): ①미갱신→경고1 ②README 갱신→0 ③**같은 파일 재편집→0**(오탐 소멸) ④새 파일→경고1(미탐 미도입).
+- 2026-08-13: PR #141 머지(`f8ac86d`) → worktree·로컬·원격 브랜치 정리. **이번엔 `--force` 없이 정리** — 걸리던 ignored 파일이 내가 복사해 넣은 `.claude/settings.local.json`(main 원본 존재 확인) 뿐이라 그것만 지우고 평범한 `git worktree remove` 로 처리했다. 삭제한 원격 tip `98b9de6`. `status: done`.
 
 # Next
 
-커밋 → PR → 머지 → worktree 정리.
+없음 — 종결. Acceptance 7(실사용 관찰)은 이 세션 종료 시 Stop hook 이 README 오탐을 안 내는지로 최종 확인된다.
 
 # Decisions
 
