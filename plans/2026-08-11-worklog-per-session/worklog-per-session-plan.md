@@ -1,8 +1,8 @@
 ---
 title: worklog-per-session — worklog 항목을 세션 단위로 나눠 등록한다
-status: in_progress
+status: done
 started: 2026-08-11
-updated: 2026-08-11
+updated: 2026-08-13
 ---
 
 # Goal
@@ -28,7 +28,7 @@ worklog 등록 단위를 (티켓, 날짜, worktree) → **(티켓, 날짜, workt
 
 # Next
 
-PR #142 머지. 머지되면 `/e` 5단계가 세션별 등록을 쓴다.
+없음 — PR #142 머지 완료(`e8b0e5e`). `/e` 5단계가 세션별 등록을 쓴다. (2026-08-13 `status: done` 동기화 — 머지 시점에 못 닫힌 것을 사후 보정.)
 
 # Decisions
 

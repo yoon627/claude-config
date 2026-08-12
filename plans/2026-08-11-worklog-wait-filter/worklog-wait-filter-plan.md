@@ -1,8 +1,8 @@
 ---
 title: worklog-wait-filter — 사용자 대기시간을 정면으로 걸러 AI 작업시간만 남긴다
-status: in_progress
+status: done
 started: 2026-08-11
-updated: 2026-08-11
+updated: 2026-08-13
 ---
 
 # Goal
@@ -22,8 +22,7 @@ jira-worklog 의 시간 측정에서 **사용자 응답 대기**를 role 단계�
 
 # Next
 
-PR #137 CI(ubuntu) 통과 확인 후 머지. Windows 한정 baseline failure 가 CI 에서 통과하는지가
-확인 포인트다.
+없음 — PR #137 머지 완료(`a164f67`). (2026-08-13 `status: done` 동기화 — 머지 시점에 못 닫힌 것을 사후 보정.)
 
 # Decisions
 

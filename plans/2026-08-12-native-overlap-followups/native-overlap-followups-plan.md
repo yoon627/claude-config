@@ -1,8 +1,8 @@
 ---
 title: native-overlap-followups — 대장 1행 판정 확정 + §13 lesson 적립 + orphan 해소
-status: in_progress
+status: done
 started: 2026-08-12
-updated: 2026-08-12
+updated: 2026-08-13
 ---
 
 # Goal
@@ -15,7 +15,7 @@ updated: 2026-08-12
 
 # Next
 
-대장 1행 `retire` 반영 → lesson 페이지 신설 + MEMORY 인덱스 → orphan 2건 inbound 링크 → index·log 동기화 → 검증.
+없음 — PR #140 머지 완료(`d3fc05a`), worktree·브랜치 정리 완료. Acceptance 3(MEMORY 2단계)은 worktree 격리 때문에 main 복귀 후 처리했다(`# Workflow Findings` 참조). (2026-08-13 `status: done` 동기화 — 머지 시점에 못 닫힌 누락을 사후 보정.)
 
 # Decisions
 
