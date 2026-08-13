@@ -1,6 +1,6 @@
 ---
 title: jira-task — Claude·Codex 작업내용 Jira comment 기록 skill
-status: in_progress
+status: done
 started: 2026-08-13
 updated: 2026-08-13
 ---
@@ -21,10 +21,11 @@ Claude와 Codex에서 공통으로 호출할 수 있는 `jira-task` skill을 추
 - 2026-08-13: staged secret guard·diff check 후 작업 브랜치에 commit으로 보존했다. main merge/push는 수행하지 않았다.
 - 2026-08-13: 사용자 요구에 맞춰 comment를 `작업 내용:` 단일 요약으로 좁히고, `/e`에서 preview 후 사용자 승인 시에만 `--post`하도록 흐름을 연결한다.
 - 2026-08-13: Python 16개 테스트·`git diff --check`·`quick_validate.py`(`Skill is valid!`)를 재검증했다. `ruff`는 기존 Python 변경이 없어 별도 재실행하지 않았다.
+- 2026-08-13: `jira-task` 변경을 `main`에 fast-forward 반영하고 discovery junction을 main의 `skills/jira-task`로 전환했다. `settings.json`은 공용 HEAD로 복구했고 Orca 재주입 변경은 별도 stash에 보존했다.
 
 # Next
 
-`jira-task` branch에 `e` 승인 흐름과 간단 요약 규칙을 반영한다. 검증 후 사용자가 승인하면 main 반영·Codex junction target 변경·plan 종료를 진행한다.
+로컬 main 반영과 discovery junction 전환까지 완료했다. `origin/main` 반영은 사용자 승인 후 push한다.
 
 # Decisions
 
@@ -52,7 +53,7 @@ Claude와 Codex에서 공통으로 호출할 수 있는 `jira-task` skill을 추
 - [x] API 오류와 인증 오류가 token 원문 없이 실패한다.
 - [x] 새 skill `ruff check`, `ruff format --check`, Python 16개 테스트가 통과한다.
 - [x] README와 GitHub Python test workflow가 새 skill을 설명·실행한다.
-- [x] Claude 경로와 Codex discovery junction에서 같은 skill 파일을 읽을 수 있다(현재 junction target은 개발 worktree).
+- [x] Claude 경로와 Codex discovery junction에서 같은 skill 파일을 읽을 수 있다(junction target은 main의 `skills/jira-task`).
 - [x] `/e`가 작업내용 preview 뒤 사용자 승인 전에는 `--post`를 실행하지 않고, 승인 후에만 게시하도록 지침을 갖는다.
 
 # Blockers
