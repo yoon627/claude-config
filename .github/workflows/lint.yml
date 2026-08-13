@@ -60,6 +60,7 @@ jobs:
 
       - name: Python unit tests
         run: |
+          python3 skills/jira-task/test_jira_task.py
           python3 skills/jira-worklog/test_session_time.py
           python3 skills/jira-worklog/test_worklog_scope.py
           python3 skills/jira-worklog/test_register_gate.py

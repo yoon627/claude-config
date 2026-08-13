@@ -344,6 +344,20 @@ AI 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex/sessions`)
 - author scoping(내 accountId 항목만) · 마커 중복 2건+ 중단 · **worktree 없는** 구 형식 항목 발견 시 중단(귀속 불명 → 수동 정리 요구). **세션 없는** 구 형식은 귀속이 명확하므로 중단하지 않고 경고만 한다(새 항목과 겹쳐 계상되니 수동 정리 대상).
 - 인증(`JIRA_BASE_URL`/`JIRA_EMAIL`/`JIRA_API_TOKEN`)은 환경변수 또는 `~/.jira-kit/.env`, 비민감 설정은 `~/.jira-kit/jira-kit.toml`. 토큰 없으면 미리보기만 되고 마무리 흐름은 안 막힌다.
 
+### skills/jira-task/ — Claude·Codex 작업내용 → Jira issue comment
+
+현재 worktree의 작업 요약·변경 파일·검증 결과를 Jira issue comment로 기록한다. 기본은 미리보기이며, 사용자 확인 후 `--post`를 붙여 실제로 생성하거나 같은 marker의 본인 comment를 갱신한다. 인증 경로는 `jira-worklog`와 같은 `~/.jira-kit/.env`를 사용하고, issue description은 수정하지 않는다.
+
+```powershell
+uv run --no-project python "skills/jira-task/jira_task.py" `
+  --ticket CSTP1-1234 `
+  --summary "작업: ..." `
+  --summary "변경 파일: ..." `
+  --summary "검증: ..."
+```
+
+preview 결과를 확인하고 사용자 승인 후 동일 명령에 `--post`를 추가한다. 여러 줄은 `--summary-file` 또는 `--summary-file -`(stdin)로 전달할 수 있다. 시간은 `jira-worklog`, 내용은 `jira-task`가 각각 Jira에 남긴다.
+
 ### scripts/
 
 settings.json 에 등록돼 후크가 호출하는 진입점은 notify(`notify-hook.js`), 세션 브리프(`session-brief.js`), worktree 가드(`guard-worktree-edit.js`), dlc evidence 3종(`dlc-task-router.js` / `dlc-evidence-ledger.js` / `dlc-early-stop.js`). 모두 fail-open (실패해도 throw 안 함). 나머지(`bootstrap/`, `*.ps1`, `install-*`, `prompt-gwl.py`)는 위 진입점이 위임하거나 수동/프로젝트별로 쓰는 보조 스크립트.
@@ -584,13 +598,17 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   ├── improve/
 │   │   ├── SKILL.md                # /improve — 자기개선 loop 분석 축 (구 /audit 흡수; read-only·랭킹·제안)
 │   │   └── improve.sh              # 자산 간 참조 정합 기계 점검 + dlc 신호 집계 + 네이티브 중복 대장 신선도 (read-only)
-│   └── jira-worklog/
+│   ├── jira-worklog/
 │       ├── SKILL.md                # worktree AI 작업시간 → Jira worklog (dry-run 기본)
 │       ├── jira_worklog.py         # CLI 진입점 (stdlib only)
 │       ├── jira_kit/               # 세션시간 추정·마커·Jira REST·설정 모듈
 │       ├── test_worklog_scope.py   # worktree 단위 upsert 격리 테스트 (CI)
 │       ├── test_session_time.py    # cwd → bucket 귀속·구간 발행 테스트 (CI)
 │       └── test_register_gate.py   # 등록 diff·게이트 판정 테스트 (CI)
+│   └── jira-task/
+│       ├── SKILL.md                # Claude·Codex 작업내용 → Jira issue comment (dry-run 기본)
+│       ├── jira_task.py            # comment preview/post/upsert CLI (stdlib only)
+│       └── test_jira_task.py       # Jira comment·marker·preview 단위 테스트
 ├── scripts/
 │   ├── notify-hook.js              # notify 진입점 (cross-platform; mac 인라인, win→.ps1 위임)
 │   ├── notify.ps1                  # (Windows) Toast + 사운드 + flash
