@@ -1,4 +1,4 @@
 interface:
   display_name: "Jira Task Notes"
-  short_description: "Preview a concise Jira task summary"
-  default_prompt: "Use $jira-task to preview what was added or changed on the current Jira task; post only after explicit approval."
+  short_description: "Preview a concise Jira task description update"
+  default_prompt: "Use $jira-task to preview what was added or changed in the current Jira task description; update it only after explicit approval."

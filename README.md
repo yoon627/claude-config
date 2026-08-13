@@ -295,7 +295,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 ### skills/e/ — plan 마무리
 
 `/e` 로 진행 중이던 plan(§10)을 **실제 git/코드 상태로 동기화 기록**하고 작업을 마무리. c(이어가기)의 대칭.
-- **마무리 recap(CLAUDE.md §3-6)**: 최종 메시지는 **결론 요약(≤3줄) 먼저**, 마무리 선택지(정리/이어가기/종료)는 아래 worktree 정리 제안 + 다음 세션 `/c` 안내가 겸한다. Jira 작업내용 comment 게시만은 외부 쓰기라 preview 후 별도 사용자 승인을 받는다.
+- **마무리 recap(CLAUDE.md §3-6)**: 최종 메시지는 **결론 요약(≤3줄) 먼저**, 마무리 선택지(정리/이어가기/종료)는 아래 worktree 정리 제안 + 다음 세션 `/c` 안내가 겸한다. Jira task 본문 반영만은 외부 쓰기라 preview 후 별도 사용자 승인을 받는다.
 - uncommitted 변경은 작업 브랜치에 **임시(WIP) 커밋**으로 보존 — `main`/`master` 직접 커밋·push 는 안 함(§8), `.env`·key 등 위험 파일은 커밋 보류 후 확인.
 - `# Progress`/`# Next`/`# Decisions`/`status`/`updated` 를 사실 기반으로 갱신 → 다음 세션이 `/c` 로 곧장 이어받음.
 - done 자동 전환 안 함 (확정 완료 신호 + 사용자 확인 시만, 기본 `in_progress` 체크포인트). plan 없으면 새로 만들지 않음 — 임시 커밋 + 보고만.
@@ -344,9 +344,9 @@ AI 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex/sessions`)
 - author scoping(내 accountId 항목만) · 마커 중복 2건+ 중단 · **worktree 없는** 구 형식 항목 발견 시 중단(귀속 불명 → 수동 정리 요구). **세션 없는** 구 형식은 귀속이 명확하므로 중단하지 않고 경고만 한다(새 항목과 겹쳐 계상되니 수동 정리 대상).
 - 인증(`JIRA_BASE_URL`/`JIRA_EMAIL`/`JIRA_API_TOKEN`)은 환경변수 또는 `~/.jira-kit/.env`, 비민감 설정은 `~/.jira-kit/jira-kit.toml`. 토큰 없으면 미리보기만 되고 마무리 흐름은 안 막힌다.
 
-### skills/jira-task/ — Claude·Codex 작업내용 → Jira issue comment
+### skills/jira-task/ — Claude·Codex 작업내용 → Jira task description
 
-현재 worktree에서 추가·수정한 내용을 `작업 내용:` 한 줄, 최대 1~3문장으로 Jira issue comment에 기록한다. 기본은 미리보기이며, `/e`에서 사용자 확인 후 `--post`를 붙여 실제로 생성하거나 같은 marker의 본인 comment를 갱신한다. 인증 경로는 `jira-worklog`와 같은 `~/.jira-kit/.env`를 사용하고, issue description은 수정하지 않는다.
+현재 worktree에서 추가·수정한 내용을 `작업 내용:` 한 줄, 최대 1~3문장으로 기존 Jira task description에 반영한다. 기본은 미리보기이며, `/e`에서 사용자 확인 후 `--post`를 붙여 기존 본문에 추가하거나 같은 marker 항목을 갱신한다. 별도 Jira comment는 생성하지 않는다. 인증 경로는 `jira-worklog`와 같은 `~/.jira-kit/.env`를 사용한다.
 
 ```powershell
 uv run --no-project python "skills/jira-task/jira_task.py" `
@@ -604,9 +604,9 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │       ├── test_session_time.py    # cwd → bucket 귀속·구간 발행 테스트 (CI)
 │       └── test_register_gate.py   # 등록 diff·게이트 판정 테스트 (CI)
 │   └── jira-task/
-│       ├── SKILL.md                # Claude·Codex 작업내용 → Jira issue comment (dry-run 기본)
-│       ├── jira_task.py            # comment preview/post/upsert CLI (stdlib only)
-│       └── test_jira_task.py       # Jira comment·marker·preview 단위 테스트
+│       ├── SKILL.md                # Claude·Codex 작업내용 → Jira task description (dry-run 기본)
+│       ├── jira_task.py            # description preview/post/upsert CLI (stdlib only)
+│       └── test_jira_task.py       # Jira description·marker·preview 단위 테스트
 ├── scripts/
 │   ├── notify-hook.js              # notify 진입점 (cross-platform; mac 인라인, win→.ps1 위임)
 │   ├── notify.ps1                  # (Windows) Toast + 사운드 + flash

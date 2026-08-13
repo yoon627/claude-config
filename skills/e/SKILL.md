@@ -40,15 +40,15 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
   - 막힘 → `blocked` + `# Blockers`.
   - 그 외 → `in_progress` 유지(체크포인트).
 - **보고**: plan 위치·title·status / 임시 커밋 sha(또는 "변경 없음") / 동기화한 항목 / 남은 작업(`# Next`·`# Blockers`) / "다음 세션은 `/c` 로 이어받기".
-- **recap 형식(CLAUDE.md §3-6)**: 위 보고는 **결론 요약(≤3줄, 무엇이 끝났고 status)을 먼저**. **`/e` 호출 자체가 "마무리" 지시**이므로 §3-6 예외(사용자가 이미 다음 지시를 준 흐름 → 선택지 생략)에 따라 작업 선택지용 새 AskUserQuestion은 만들지 않는다. 단, 아래 5단계의 Jira comment 게시 승인은 외부 쓰기라 별도로 반드시 받는다. 마무리 액션은 아래 7단계 worktree 정리 제안(조건 충족 시)과 8단계 "다음 세션 `/c`" 안내가 담당한다.
+- **recap 형식(CLAUDE.md §3-6)**: 위 보고는 **결론 요약(≤3줄, 무엇이 끝났고 status)을 먼저**. **`/e` 호출 자체가 "마무리" 지시**이므로 §3-6 예외(사용자가 이미 다음 지시를 준 흐름 → 선택지 생략)에 따라 작업 선택지용 새 AskUserQuestion은 만들지 않는다. 단, 아래 5단계의 Jira task 본문 반영 승인은 외부 쓰기라 별도로 반드시 받는다. 마무리 액션은 아래 7단계 worktree 정리 제안(조건 충족 시)과 8단계 "다음 세션 `/c`" 안내가 담당한다.
 
-### 5. Jira 작업내용 comment (사용자 승인 후)
+### 5. Jira task 본문 작업내용 (사용자 승인 후)
 
-`jira-task` skill이 있으면 현재 작업에서 **무엇이 추가·수정됐는지만** `작업 내용:` 한 줄, 최대 1~3문장으로 요약해 Jira issue comment preview를 만든다. 변경 파일 목록·검증 명령·작업시간은 이 comment에 넣지 않는다. WIP commit을 이미 만들었다면 그 commit의 diff와 plan의 `# Progress`를 근거로 삼는다. 티켓이 없거나 실제 작업 변경이 없으면 이 단계를 skip한다.
+`jira-task` skill이 있으면 현재 작업에서 **무엇이 추가·수정됐는지만** `작업 내용:` 한 줄, 최대 1~3문장으로 요약해 Jira task description 추가 preview를 만든다. 변경 파일 목록·검증 명령·작업시간은 task 본문에 넣지 않는다. WIP commit을 이미 만들었다면 그 commit의 diff와 plan의 `# Progress`를 근거로 삼는다. 티켓이 없거나 실제 작업 변경이 없으면 이 단계를 skip한다.
 
 - **preview**: `jira-task` skill의 CLI를 `--summary "작업 내용: ..."` 한 번으로 실행한다. 기본 preview는 외부 변경이 없다.
-- **승인**: preview의 티켓·marker·comment 본문을 보고한 뒤 `AskUserQuestion`으로 "이 작업 내용을 Jira issue comment로 게시할까요?"를 묻는다. **사용자 승인 전에는 `--post`를 실행하지 않는다.** 게시하지 않으면 preview만 남기고 다음 단계로 진행한다.
-- **게시**: 승인받았을 때만 같은 인자에 `--post`를 붙여 한 번 실행한다. Jira 오류는 credential을 노출하지 않고 한 줄 보고한 뒤 마무리를 계속한다.
+- **승인**: preview의 티켓·marker·description에 추가될 내용을 보고한 뒤 `AskUserQuestion`으로 "이 작업 내용을 Jira task 본문에 반영할까요?"를 묻는다. **사용자 승인 전에는 `--post`를 실행하지 않는다.** 반영하지 않으면 preview만 남기고 다음 단계로 진행한다.
+- **반영**: 승인받았을 때만 같은 인자에 `--post`를 붙여 한 번 실행한다. 기존 task description은 보존되고 같은 marker 항목만 갱신된다. Jira 오류는 credential을 노출하지 않고 한 줄 보고한 뒤 마무리를 계속한다.
 - `~/.agents/skills/jira-task/` 또는 저장소 `skills/jira-task/`가 없으면 이 단계는 skip하고 "jira-task skill 없음"을 보고한다.
 
 ### 6. worklog 기록 (현재 worktree — **삭제 전**)

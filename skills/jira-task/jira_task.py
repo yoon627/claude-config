@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Preview or upsert a work summary as a Jira Cloud issue comment."""
+"""Preview or upsert a work summary in a Jira Cloud issue description."""
 
 from __future__ import annotations
 
@@ -29,6 +29,7 @@ except (
 
 DEFAULT_TICKET_PATTERN = r"[A-Z][A-Z0-9]+-\d+"
 MARKER_PREFIX = "[jira-task]"
+DESCRIPTION_HEADING = "작업 내용"
 MAX_SUMMARY_LENGTH = 12_000
 SECRET_PATTERNS = (
     re.compile(r"(?i)JIRA_API_TOKEN\s*="),
@@ -187,6 +188,7 @@ def _request(
     expected_status: int,
     what: str,
     timeout: float = 15.0,
+    allow_empty_response: bool = False,
 ) -> dict[str, Any]:
     data = (
         json.dumps(body, ensure_ascii=False).encode("utf-8")
@@ -215,6 +217,8 @@ def _request(
 
     if status != expected_status:
         raise JiraTaskError(f"{what} 실패: 예상 {expected_status}, 받음 {status}")
+    if not raw and allow_empty_response:
+        return {}
     if not raw:
         raise JiraTaskError(f"{what} 실패: 빈 응답 (status {status})")
     try:
@@ -296,131 +300,169 @@ def adf_lines(body: Any) -> list[str]:
     return lines
 
 
-def comment_has_marker(comment: dict[str, Any], marker: str) -> bool:
-    return any(line.strip() == marker for line in adf_lines(comment.get("body")))
+def _description_content(description: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if description is None:
+        return []
+    if "content" not in description:
+        description["content"] = []
+    content = description["content"]
+    if not isinstance(content, list) or not all(
+        isinstance(node, dict) for node in content
+    ):
+        raise JiraTaskError(
+            "Jira description의 ADF content가 올바른 block list가 아닙니다"
+        )
+    return content
 
 
-def get_myself(config: JiraConfig, *, timeout: float = 15.0) -> dict[str, Any]:
-    return _request(
-        config,
-        "GET",
-        "/rest/api/3/myself",
-        None,
-        expected_status=200,
-        what="현재 사용자 조회",
-        timeout=timeout,
+def _description_entry_lines(summary: str, marker: str) -> list[str]:
+    summary_lines = summary.splitlines() or [""]
+    first = summary_lines[0]
+    prefix = f"{DESCRIPTION_HEADING}:"
+    if first.startswith(prefix):
+        first = first[len(prefix) :].lstrip()
+    return [f"{DESCRIPTION_HEADING}: {first}", *summary_lines[1:], marker]
+
+
+def _description_entry(summary: str, marker: str) -> dict[str, Any]:
+    lines = _description_entry_lines(summary, marker)
+    content: list[dict[str, str]] = []
+    for index, line in enumerate(lines):
+        if line:
+            content.append({"type": "text", "text": line})
+        if index < len(lines) - 1:
+            content.append({"type": "hardBreak"})
+    return {"type": "paragraph", "content": content}
+
+
+def _description_heading() -> dict[str, Any]:
+    return {
+        "type": "heading",
+        "attrs": {"level": 2},
+        "content": [{"type": "text", "text": DESCRIPTION_HEADING}],
+    }
+
+
+def _marker_block_index(content: list[dict[str, Any]], marker: str) -> int | None:
+    for index, block in enumerate(content):
+        lines = _adf_node_text(block).split("\n")
+        if any(line.strip() == marker for line in lines):
+            return index
+    return None
+
+
+def _has_description_heading(content: list[dict[str, Any]]) -> bool:
+    return any(
+        _adf_node_text(block).strip() == DESCRIPTION_HEADING for block in content
     )
 
 
-def get_comments(
-    config: JiraConfig, issue_key: str, *, timeout: float = 15.0
-) -> list[dict[str, Any]]:
-    comments: list[dict[str, Any]] = []
-    start_at = 0
-    encoded_key = quote(issue_key, safe="")
-    while True:
-        path = (
-            f"/rest/api/3/issue/{encoded_key}/comment?startAt={start_at}&maxResults=100"
-        )
-        result = _request(
-            config,
-            "GET",
-            path,
-            None,
-            expected_status=200,
-            what=f"comment 조회 {issue_key}",
-            timeout=timeout,
-        )
-        batch = result.get("comments", [])
-        if not isinstance(batch, list):
-            raise JiraTaskError(
-                f"comment 조회 {issue_key} 응답의 comments가 list가 아닙니다"
-            )
-        comments.extend(comment for comment in batch if isinstance(comment, dict))
-        start_at += len(batch)
-        total = result.get("total")
-        if not batch or not isinstance(total, int) or start_at >= total:
-            return comments
-
-
-def add_comment(
-    config: JiraConfig, issue_key: str, text: str, *, timeout: float = 15.0
-) -> dict[str, Any]:
-    path = f"/rest/api/3/issue/{quote(issue_key, safe='')}/comment"
-    return _request(
-        config,
-        "POST",
-        path,
-        {"body": adf_from_text(text)},
-        expected_status=201,
-        what=f"comment 등록 {issue_key}",
-        timeout=timeout,
+def _description_matches(
+    description: dict[str, Any] | None, summary: str, marker: str
+) -> bool:
+    content = _description_content(description)
+    index = _marker_block_index(content, marker)
+    if index is None:
+        return False
+    return _adf_node_text(content[index]) == "\n".join(
+        _description_entry_lines(summary, marker)
     )
 
 
-def update_comment(
+def upsert_description_body(
+    description: dict[str, Any] | None, summary: str, marker: str
+) -> tuple[dict[str, Any], str]:
+    """기존 ADF 본문을 보존하고 marker 항목을 추가·갱신한다."""
+    if description is None:
+        result: dict[str, Any] = {"type": "doc", "version": 1, "content": []}
+    else:
+        result = json.loads(json.dumps(description, ensure_ascii=False))
+        if result.get("type") != "doc":
+            raise JiraTaskError("Jira description의 ADF type이 doc이 아닙니다")
+        if not isinstance(result.get("version"), int):
+            raise JiraTaskError("Jira description의 ADF version이 없습니다")
+
+    content = _description_content(result)
+    entry = _description_entry(summary, marker)
+    index = _marker_block_index(content, marker)
+    if index is not None:
+        if _adf_node_text(content[index]) == _adf_node_text(entry):
+            return result, "unchanged"
+        content[index] = entry
+        return result, "updated"
+
+    if not _has_description_heading(content):
+        content.append(_description_heading())
+    content.append(entry)
+    return result, "added"
+
+
+def upsert_description(
     config: JiraConfig,
     issue_key: str,
-    comment_id: str,
-    text: str,
-    *,
-    timeout: float = 15.0,
-) -> dict[str, Any]:
-    path = f"/rest/api/3/issue/{quote(issue_key, safe='')}/comment/{quote(str(comment_id), safe='')}"
-    return _request(
-        config,
-        "PUT",
-        path,
-        {"body": adf_from_text(text)},
-        expected_status=200,
-        what=f"comment 갱신 {issue_key}/{comment_id}",
-        timeout=timeout,
-    )
-
-
-def _author_account_id(comment: dict[str, Any]) -> str | None:
-    author = comment.get("author")
-    if not isinstance(author, dict):
-        return None
-    account_id = author.get("accountId")
-    return account_id if isinstance(account_id, str) and account_id else None
-
-
-def upsert_comment(
-    config: JiraConfig,
-    issue_key: str,
-    text: str,
+    summary: str,
     marker: str,
     *,
     timeout: float = 15.0,
 ) -> tuple[str, dict[str, Any]]:
-    myself = get_myself(config, timeout=timeout)
-    account_id = myself.get("accountId")
-    if not isinstance(account_id, str) or not account_id:
-        raise JiraTaskError("현재 사용자 accountId 확인 불가 — comment upsert 중단")
+    current = get_issue_description(config, issue_key, timeout=timeout)
+    planned, action = upsert_description_body(current, summary, marker)
+    if action == "unchanged":
+        return action, current or planned
 
-    matches = [
-        comment
-        for comment in get_comments(config, issue_key, timeout=timeout)
-        if comment_has_marker(comment, marker)
-    ]
-    if len(matches) > 1:
+    update_issue_description(config, issue_key, planned, timeout=timeout)
+    saved = get_issue_description(config, issue_key, timeout=timeout)
+    if not _description_matches(saved, summary, marker):
         raise JiraTaskError(
-            f"동일 marker comment {len(matches)}개 발견 — 중복 정리 후 재실행"
+            f"task 본문 갱신 후 저장값 확인 불일치 {issue_key}: marker/요약을 찾지 못했습니다"
         )
-    if matches:
-        existing = matches[0]
-        if _author_account_id(existing) != account_id:
-            raise JiraTaskError(
-                "동일 marker가 다른 author의 comment에 있음 — 오귀속 방지를 위해 중단"
-            )
-        comment_id = existing.get("id")
-        if not isinstance(comment_id, (str, int)):
-            raise JiraTaskError("기존 marker comment의 id 확인 불가 — 갱신 중단")
-        return "updated", update_comment(
-            config, issue_key, str(comment_id), text, timeout=timeout
+    return action, saved or planned
+
+
+def get_issue_description(
+    config: JiraConfig, issue_key: str, *, timeout: float = 15.0
+) -> dict[str, Any] | None:
+    encoded_key = quote(issue_key, safe="")
+    result = _request(
+        config,
+        "GET",
+        f"/rest/api/3/issue/{encoded_key}?fields=description",
+        None,
+        expected_status=200,
+        what=f"task 본문 조회 {issue_key}",
+        timeout=timeout,
+    )
+    fields = result.get("fields")
+    if not isinstance(fields, dict):
+        raise JiraTaskError(f"task 본문 조회 {issue_key} 응답에 fields가 없습니다")
+    description = fields.get("description")
+    if description is None:
+        return None
+    if not isinstance(description, dict):
+        raise JiraTaskError(
+            f"task 본문 조회 {issue_key}의 description이 ADF object가 아닙니다"
         )
-    return "created", add_comment(config, issue_key, text, timeout=timeout)
+    return description
+
+
+def update_issue_description(
+    config: JiraConfig,
+    issue_key: str,
+    description: dict[str, Any],
+    *,
+    timeout: float = 15.0,
+) -> dict[str, Any]:
+    path = f"/rest/api/3/issue/{quote(issue_key, safe='')}"
+    return _request(
+        config,
+        "PUT",
+        path,
+        {"fields": {"description": description}},
+        expected_status=204,
+        what=f"task 본문 갱신 {issue_key}",
+        timeout=timeout,
+        allow_empty_response=True,
+    )
 
 
 def _git_value(*args: str, cwd: Path | None = None) -> str:
@@ -543,13 +585,13 @@ def _summary_from_args(args: argparse.Namespace) -> str:
     return summary
 
 
-def build_comment(summary: str, marker: str) -> str:
-    return f"작업 내용\n{summary}\n\n{marker}"
+def build_description_entry(summary: str, marker: str) -> str:
+    return "\n".join(_description_entry_lines(summary, marker))
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Jira issue에 Claude·Codex 작업내용 comment 기록"
+        description="Jira task 본문에 Claude·Codex 작업내용 기록"
     )
     parser.add_argument(
         "--ticket",
@@ -568,7 +610,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--summary-file", help="summary 파일 경로; '-'이면 stdin")
     parser.add_argument(
-        "--post", action="store_true", help="Jira comment를 실제로 생성/갱신"
+        "--post", action="store_true", help="Jira task description을 실제로 갱신"
     )
     parser.add_argument(
         "--timeout", type=float, default=15.0, help="Jira 요청 timeout(초)"
@@ -591,26 +633,25 @@ def main(argv: list[str] | None = None) -> int:
         context = resolve_context(args, settings)
         summary = _summary_from_args(args)
         marker = make_marker(context)
-        comment = build_comment(summary, marker)
+        entry = build_description_entry(summary, marker)
         print(f"티켓: {context.ticket}")
         print(f"marker: {marker}")
         print(
-            "동작: comment upsert (미리보기; 외부 변경 없음)"
+            "동작: task description 갱신 (미리보기; 외부 변경 없음)"
             if not args.post
-            else "동작: comment upsert (Jira 게시)"
+            else "동작: task description 갱신 (Jira 반영)"
         )
-        print("--- comment ---")
-        print(comment)
-        print("--- end comment ---")
+        print("--- description addition ---")
+        print(entry)
+        print("--- end description addition ---")
         if not args.post:
             return 0
 
         config = make_jira_config(settings, timeout=args.timeout)
-        action, result = upsert_comment(
-            config, context.ticket, comment, marker, timeout=args.timeout
+        action, _ = upsert_description(
+            config, context.ticket, summary, marker, timeout=args.timeout
         )
-        comment_id = result.get("id", "?")
-        print(f"Jira comment {action}: {context.ticket}/{comment_id}")
+        print(f"Jira task description {action}: {context.ticket}")
         return 0
     except (ConfigError, JiraTaskError) as exc:
         print(f"오류: {exc}", file=sys.stderr)

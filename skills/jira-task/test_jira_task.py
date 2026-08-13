@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
-"""Unit tests for the Jira task comment skill."""
+"""Unit tests for the Jira task description skill."""
 
 from __future__ import annotations
 
 import contextlib
 import io
 import tempfile
-import urllib.error
 import unittest
+import urllib.error
 from pathlib import Path
 from unittest import mock
 
 import jira_task
 from jira_task import JiraConfig, JiraTaskError
-
 
 CONFIG = JiraConfig(
     base_url="https://example.atlassian.net",
@@ -21,47 +20,30 @@ CONFIG = JiraConfig(
     token="<redacted>",
 )
 MARKER = "[jira-task] ticket=CSTP1-1234 date=2026-08-13 worktree=demo session=manual"
-
-
-def comment(comment_id: str, author: str, text: str) -> dict:
-    return {
-        "id": comment_id,
-        "author": {"accountId": author},
-        "body": jira_task.adf_from_text(text),
-    }
+SUMMARY = "Jira task 본문 기록을 추가했다."
 
 
 class FormattingTests(unittest.TestCase):
-    def test_adf_round_trip_preserves_marker_line(self) -> None:
-        body = jira_task.adf_from_text(f"작업 내용\n본문\n\n{MARKER}")
+    def test_adf_round_trip_preserves_lines(self) -> None:
+        body = jira_task.adf_from_text("기존 본문\n둘째 줄")
 
-        self.assertEqual(jira_task.adf_lines(body), ["작업 내용", "본문", "", MARKER])
-        self.assertTrue(jira_task.comment_has_marker({"body": body}, MARKER))
+        self.assertEqual(jira_task.adf_lines(body), ["기존 본문", "둘째 줄"])
 
-    def test_hard_break_is_a_line_boundary(self) -> None:
-        body = {
-            "type": "doc",
-            "version": 1,
-            "content": [
-                {
-                    "type": "paragraph",
-                    "content": [
-                        {"type": "text", "text": "앞"},
-                        {"type": "hardBreak"},
-                        {"type": "text", "text": MARKER},
-                    ],
-                }
-            ],
-        }
+    def test_description_entry_contains_summary_and_marker(self) -> None:
+        entry = jira_task._description_entry(SUMMARY, MARKER)
 
-        self.assertEqual(jira_task.adf_lines(body), ["앞", MARKER])
-        self.assertTrue(jira_task.comment_has_marker({"body": body}, MARKER))
+        self.assertEqual(
+            jira_task.adf_lines({"content": [entry]}),
+            [f"작업 내용: {SUMMARY}", MARKER],
+        )
 
-    def test_build_comment_rejects_reserved_marker_in_summary(self) -> None:
-        args = jira_task.parse_args(["--ticket", "CSTP1-1234", "--summary", MARKER])
+    def test_description_entry_does_not_duplicate_summary_prefix(self) -> None:
+        entry = jira_task._description_entry(f"작업 내용: {SUMMARY}", MARKER)
 
-        with self.assertRaisesRegex(JiraTaskError, "예약된"):
-            jira_task._summary_from_args(args)
+        self.assertEqual(
+            jira_task.adf_lines({"content": [entry]}),
+            [f"작업 내용: {SUMMARY}", MARKER],
+        )
 
     def test_summary_rejects_secret_like_text(self) -> None:
         args = jira_task.parse_args(
@@ -80,6 +62,154 @@ class FormattingTests(unittest.TestCase):
             ),
             "CSTP1-1234",
         )
+
+
+class DescriptionBodyTests(unittest.TestCase):
+    def test_add_preserves_existing_description(self) -> None:
+        existing = jira_task.adf_from_text("사용자가 작성한 기존 본문")
+
+        result, action = jira_task.upsert_description_body(existing, SUMMARY, MARKER)
+
+        self.assertEqual(action, "added")
+        self.assertEqual(
+            jira_task.adf_lines(result),
+            ["사용자가 작성한 기존 본문", "작업 내용", f"작업 내용: {SUMMARY}", MARKER],
+        )
+
+    def test_same_marker_is_idempotent(self) -> None:
+        first, first_action = jira_task.upsert_description_body(None, SUMMARY, MARKER)
+
+        second, second_action = jira_task.upsert_description_body(
+            first, SUMMARY, MARKER
+        )
+
+        self.assertEqual(first_action, "added")
+        self.assertEqual(second_action, "unchanged")
+        self.assertEqual(second, first)
+        self.assertEqual(jira_task.adf_lines(second).count(MARKER), 1)
+
+    def test_same_marker_updates_only_its_entry(self) -> None:
+        original, _ = jira_task.upsert_description_body(None, "이전 요약", MARKER)
+
+        result, action = jira_task.upsert_description_body(original, SUMMARY, MARKER)
+
+        self.assertEqual(action, "updated")
+        self.assertIn(f"작업 내용: {SUMMARY}", jira_task.adf_lines(result))
+        self.assertNotIn("작업 내용: 이전 요약", jira_task.adf_lines(result))
+        self.assertEqual(jira_task.adf_lines(result).count(MARKER), 1)
+
+    def test_different_markers_append_entries_under_one_heading(self) -> None:
+        first, _ = jira_task.upsert_description_body(None, "첫 작업", MARKER)
+        other_marker = MARKER.replace("session=manual", "session=other")
+
+        result, action = jira_task.upsert_description_body(
+            first, "둘째 작업", other_marker
+        )
+
+        self.assertEqual(action, "added")
+        lines = jira_task.adf_lines(result)
+        self.assertEqual(lines.count("작업 내용"), 1)
+        self.assertIn("작업 내용: 첫 작업", lines)
+        self.assertIn("작업 내용: 둘째 작업", lines)
+
+
+class ApiTests(unittest.TestCase):
+    @mock.patch.object(jira_task, "_request")
+    def test_get_issue_description_requests_only_description(
+        self, request: mock.Mock
+    ) -> None:
+        description = jira_task.adf_from_text("기존")
+        request.return_value = {"fields": {"description": description}}
+
+        result = jira_task.get_issue_description(CONFIG, "CSTP1-1234")
+
+        self.assertEqual(result, description)
+        self.assertEqual(request.call_args.args[1], "GET")
+        self.assertIn("/issue/CSTP1-1234?fields=description", request.call_args.args[2])
+
+    @mock.patch.object(jira_task, "_request")
+    def test_update_issue_description_sends_adf_fields_and_accepts_204(
+        self, request: mock.Mock
+    ) -> None:
+        request.return_value = {}
+        description = jira_task.adf_from_text("본문")
+
+        result = jira_task.update_issue_description(CONFIG, "CSTP1-1234", description)
+
+        self.assertEqual(result, {})
+        self.assertEqual(request.call_args.args[1], "PUT")
+        self.assertIn("/issue/CSTP1-1234", request.call_args.args[2])
+        self.assertEqual(
+            request.call_args.args[3], {"fields": {"description": description}}
+        )
+        self.assertEqual(request.call_args.kwargs["expected_status"], 204)
+        self.assertTrue(request.call_args.kwargs["allow_empty_response"])
+
+    @mock.patch.object(jira_task.urllib.request, "urlopen")
+    def test_http_error_redacts_credentials(self, urlopen: mock.Mock) -> None:
+        urlopen.side_effect = urllib.error.HTTPError(
+            "https://example.atlassian.net/rest/api/3/issue/CSTP1-1234",
+            401,
+            "Unauthorized",
+            {},
+            io.BytesIO(b"<redacted> email-placeholder"),
+        )
+
+        with self.assertRaises(JiraTaskError) as raised:
+            jira_task.get_issue_description(CONFIG, "CSTP1-1234")
+        self.assertNotIn("<redacted>", str(raised.exception))
+        self.assertNotIn("email-placeholder", str(raised.exception))
+
+
+class UpsertTests(unittest.TestCase):
+    @mock.patch.object(jira_task, "update_issue_description")
+    @mock.patch.object(jira_task, "get_issue_description")
+    def test_adds_and_verifies_description(
+        self, get_description: mock.Mock, update: mock.Mock
+    ) -> None:
+        current = jira_task.adf_from_text("기존")
+        planned, _ = jira_task.upsert_description_body(current, SUMMARY, MARKER)
+        get_description.side_effect = [current, planned]
+
+        action, saved = jira_task.upsert_description(
+            CONFIG, "CSTP1-1234", SUMMARY, MARKER
+        )
+
+        self.assertEqual(action, "added")
+        self.assertEqual(saved, planned)
+        update.assert_called_once_with(CONFIG, "CSTP1-1234", planned, timeout=15.0)
+
+    @mock.patch.object(jira_task, "update_issue_description")
+    @mock.patch.object(jira_task, "get_issue_description")
+    def test_same_description_does_not_put(
+        self, get_description: mock.Mock, update: mock.Mock
+    ) -> None:
+        current, _ = jira_task.upsert_description_body(None, SUMMARY, MARKER)
+        get_description.return_value = current
+
+        action, saved = jira_task.upsert_description(
+            CONFIG, "CSTP1-1234", SUMMARY, MARKER
+        )
+
+        self.assertEqual(action, "unchanged")
+        self.assertEqual(saved, current)
+        update.assert_not_called()
+
+    @mock.patch.object(jira_task, "update_issue_description")
+    @mock.patch.object(jira_task, "get_issue_description")
+    def test_saved_description_mismatch_is_not_reported_as_success(
+        self, get_description: mock.Mock, update: mock.Mock
+    ) -> None:
+        current = jira_task.adf_from_text("기존")
+        get_description.side_effect = [
+            current,
+            jira_task.adf_from_text("서버가 다른 본문을 저장"),
+        ]
+
+        with self.assertRaisesRegex(JiraTaskError, "저장값 확인 불일치"):
+            jira_task.upsert_description(CONFIG, "CSTP1-1234", SUMMARY, MARKER)
+
+        update.assert_called_once()
 
 
 class ConfigurationTests(unittest.TestCase):
@@ -125,103 +255,6 @@ class ConfigurationTests(unittest.TestCase):
             jira_task.make_jira_config(settings)
 
 
-class ApiTests(unittest.TestCase):
-    @mock.patch.object(jira_task, "_request")
-    def test_get_comments_follows_pagination(self, request: mock.Mock) -> None:
-        request.side_effect = [
-            {"comments": [{"id": "1"}], "total": 2},
-            {"comments": [{"id": "2"}], "total": 2},
-        ]
-
-        result = jira_task.get_comments(CONFIG, "CSTP1-1234")
-
-        self.assertEqual([item["id"] for item in result], ["1", "2"])
-        self.assertIn("startAt=0", request.call_args_list[0].args[2])
-        self.assertIn("startAt=1", request.call_args_list[1].args[2])
-
-    @mock.patch.object(jira_task, "_request")
-    def test_add_comment_uses_adf_body_and_issue_key_path(
-        self, request: mock.Mock
-    ) -> None:
-        request.return_value = {"id": "42"}
-
-        result = jira_task.add_comment(CONFIG, "CSTP1-1234", "작업 내용")
-
-        self.assertEqual(result["id"], "42")
-        self.assertEqual(request.call_args.args[1], "POST")
-        self.assertIn("/issue/CSTP1-1234/comment", request.call_args.args[2])
-        self.assertEqual(request.call_args.args[3]["body"]["type"], "doc")
-
-    @mock.patch.object(jira_task.urllib.request, "urlopen")
-    def test_http_error_redacts_credentials(self, urlopen: mock.Mock) -> None:
-        urlopen.side_effect = urllib.error.HTTPError(
-            "https://example.atlassian.net/rest/api/3/issue/CSTP1-1234/comment",
-            401,
-            "Unauthorized",
-            {},
-            io.BytesIO(b"<redacted> email-placeholder"),
-        )
-
-        with self.assertRaises(JiraTaskError) as raised:
-            jira_task.add_comment(CONFIG, "CSTP1-1234", "작업")
-        self.assertNotIn("<redacted>", str(raised.exception))
-        self.assertNotIn("email-placeholder", str(raised.exception))
-
-
-class UpsertTests(unittest.TestCase):
-    @mock.patch.object(jira_task, "add_comment")
-    @mock.patch.object(jira_task, "get_comments")
-    @mock.patch.object(jira_task, "get_myself")
-    def test_missing_marker_creates_comment(
-        self, myself: mock.Mock, comments: mock.Mock, add: mock.Mock
-    ) -> None:
-        myself.return_value = {"accountId": "me"}
-        comments.return_value = []
-        add.return_value = {"id": "new"}
-
-        action, result = jira_task.upsert_comment(CONFIG, "CSTP1-1234", "본문", MARKER)
-
-        self.assertEqual((action, result["id"]), ("created", "new"))
-        add.assert_called_once_with(CONFIG, "CSTP1-1234", "본문", timeout=15.0)
-
-    @mock.patch.object(jira_task, "update_comment")
-    @mock.patch.object(jira_task, "get_comments")
-    @mock.patch.object(jira_task, "get_myself")
-    def test_own_marker_updates_comment(
-        self, myself: mock.Mock, comments: mock.Mock, update: mock.Mock
-    ) -> None:
-        myself.return_value = {"accountId": "me"}
-        comments.return_value = [comment("7", "me", f"old\n{MARKER}")]
-        update.return_value = {"id": "7"}
-
-        action, result = jira_task.upsert_comment(CONFIG, "CSTP1-1234", "new", MARKER)
-
-        self.assertEqual((action, result["id"]), ("updated", "7"))
-        update.assert_called_once_with(CONFIG, "CSTP1-1234", "7", "new", timeout=15.0)
-
-    @mock.patch.object(jira_task, "get_comments")
-    @mock.patch.object(jira_task, "get_myself")
-    def test_foreign_marker_does_not_update(
-        self, myself: mock.Mock, comments: mock.Mock
-    ) -> None:
-        myself.return_value = {"accountId": "me"}
-        comments.return_value = [comment("7", "other", MARKER)]
-
-        with self.assertRaisesRegex(JiraTaskError, "다른 author"):
-            jira_task.upsert_comment(CONFIG, "CSTP1-1234", "new", MARKER)
-
-    @mock.patch.object(jira_task, "get_comments")
-    @mock.patch.object(jira_task, "get_myself")
-    def test_duplicate_marker_stops(
-        self, myself: mock.Mock, comments: mock.Mock
-    ) -> None:
-        myself.return_value = {"accountId": "me"}
-        comments.return_value = [comment("7", "me", MARKER), comment("8", "me", MARKER)]
-
-        with self.assertRaisesRegex(JiraTaskError, "2개"):
-            jira_task.upsert_comment(CONFIG, "CSTP1-1234", "new", MARKER)
-
-
 class CliTests(unittest.TestCase):
     def test_preview_does_not_require_credentials_or_write(self) -> None:
         output = io.StringIO()
@@ -237,13 +270,17 @@ class CliTests(unittest.TestCase):
                     "--session-id",
                     "manual",
                     "--summary",
-                    "작업: comment skill 추가",
+                    SUMMARY,
                 ]
             )
 
         self.assertEqual(result, 0)
-        self.assertIn("외부 변경 없음", output.getvalue())
+        self.assertIn(
+            "task description 갱신 (미리보기; 외부 변경 없음)", output.getvalue()
+        )
         self.assertIn(MARKER, output.getvalue())
+        self.assertIn(SUMMARY, output.getvalue())
+        self.assertNotIn("comment", output.getvalue().lower())
 
     @mock.patch.object(jira_task, "_configure_output")
     def test_preview_handles_unicode_when_stdout_is_cp1252(
@@ -258,7 +295,7 @@ class CliTests(unittest.TestCase):
                     "--worktree",
                     "demo",
                     "--summary",
-                    "작업: 한국어 요약",
+                    "작업 내용: 한국어 요약",
                 ]
             )
 
