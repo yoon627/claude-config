@@ -19,15 +19,18 @@ Claude와 Codex에서 공통으로 호출할 수 있는 `jira-task` skill을 추
 - 2026-08-13: README와 GitHub Python test workflow를 동기화했다.
 - 2026-08-13: `C:\Users\yoon627\.agents\skills\jira-task` junction을 생성해 Claude·Codex discovery 경로에서 동일 skill을 확인했다.
 - 2026-08-13: staged secret guard·diff check 후 작업 브랜치에 commit으로 보존했다. main merge/push는 수행하지 않았다.
+- 2026-08-13: 사용자 요구에 맞춰 comment를 `작업 내용:` 단일 요약으로 좁히고, `/e`에서 preview 후 사용자 승인 시에만 `--post`하도록 흐름을 연결한다.
+- 2026-08-13: Python 16개 테스트·`git diff --check`·`quick_validate.py`(`Skill is valid!`)를 재검증했다. `ruff`는 기존 Python 변경이 없어 별도 재실행하지 않았다.
 
 # Next
 
-사용자 방향에 따라 `jira-task` branch를 main에 반영한다. 반영 후 Codex junction target을 main의 `skills/jira-task`로 변경하고 이 plan을 done으로 닫는다.
+`jira-task` branch에 `e` 승인 흐름과 간단 요약 규칙을 반영한다. 검증 후 사용자가 승인하면 main 반영·Codex junction target 변경·plan 종료를 진행한다.
 
 # Decisions
 
 - 작업내용은 Jira issue description을 덮어쓰지 않고 append-only 성격의 issue comment로 기록한다.
-- 외부 Jira 쓰기는 기본 dry-run이며 `--post`로만 실행한다. 게시 전 skill이 사용자 확인을 받는다.
+- 외부 Jira 쓰기는 기본 dry-run이며 `--post`로만 실행한다. `/e`가 preview를 보여주고 사용자 승인 후에만 `--post`를 실행한다.
+- Jira comment에는 변경 파일·검증·작업시간을 반복하지 않고, `작업 내용:` 한 줄의 추가·수정 요약만 남긴다.
 - 인증은 기존 `~/.jira-kit/.env` 계약을 재사용하되, CLI는 `jira-worklog` 코드에 의존하지 않아 skill 단독 설치도 가능하게 한다.
 - `skills/jira-task`를 저장소 정본으로 두고, 설치된 Codex discovery 경로에는 이 디렉터리를 가리키는 junction을 만든다.
 - comment marker는 ticket·worktree·session을 포함해 조회/갱신에 사용한다. marker가 없는 기존 comment는 수정하지 않는다.
@@ -35,6 +38,7 @@ Claude와 Codex에서 공통으로 호출할 수 있는 `jira-task` skill을 추
 # Key Files
 
 - `skills/jira-task/SKILL.md` — Claude·Codex용 사용 절차와 안전 게이트.
+- `skills/e/SKILL.md` — 마무리 단계의 Jira 작업내용 preview·승인·게시 흐름.
 - `skills/jira-task/jira_task.py` — Jira comment preview/post/upsert CLI.
 - `skills/jira-task/test_jira_task.py` — 인증·ADF·marker·API 요청 단위 테스트.
 - `README.md` — skill 목록과 사용법.
@@ -49,6 +53,7 @@ Claude와 Codex에서 공통으로 호출할 수 있는 `jira-task` skill을 추
 - [x] 새 skill `ruff check`, `ruff format --check`, Python 16개 테스트가 통과한다.
 - [x] README와 GitHub Python test workflow가 새 skill을 설명·실행한다.
 - [x] Claude 경로와 Codex discovery junction에서 같은 skill 파일을 읽을 수 있다(현재 junction target은 개발 worktree).
+- [x] `/e`가 작업내용 preview 뒤 사용자 승인 전에는 `--post`를 실행하지 않고, 승인 후에만 게시하도록 지침을 갖는다.
 
 # Blockers
 

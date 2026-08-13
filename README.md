@@ -295,12 +295,12 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 ### skills/e/ — plan 마무리
 
 `/e` 로 진행 중이던 plan(§10)을 **실제 git/코드 상태로 동기화 기록**하고 작업을 마무리. c(이어가기)의 대칭.
-- **마무리 recap(CLAUDE.md §3-6)**: 최종 메시지는 **결론 요약(≤3줄) 먼저**, 마무리 선택지(정리/이어가기/종료)는 아래 worktree 정리 제안 + 다음 세션 `/c` 안내가 겸한다(별도 AskUserQuestion 을 새로 만들지 않음).
+- **마무리 recap(CLAUDE.md §3-6)**: 최종 메시지는 **결론 요약(≤3줄) 먼저**, 마무리 선택지(정리/이어가기/종료)는 아래 worktree 정리 제안 + 다음 세션 `/c` 안내가 겸한다. Jira 작업내용 comment 게시만은 외부 쓰기라 preview 후 별도 사용자 승인을 받는다.
 - uncommitted 변경은 작업 브랜치에 **임시(WIP) 커밋**으로 보존 — `main`/`master` 직접 커밋·push 는 안 함(§8), `.env`·key 등 위험 파일은 커밋 보류 후 확인.
 - `# Progress`/`# Next`/`# Decisions`/`status`/`updated` 를 사실 기반으로 갱신 → 다음 세션이 `/c` 로 곧장 이어받음.
 - done 자동 전환 안 함 (확정 완료 신호 + 사용자 확인 시만, 기본 `in_progress` 체크포인트). plan 없으면 새로 만들지 않음 — 임시 커밋 + 보고만.
 - worktree 에서 작업이 `done`·clean·pushed·merged(base 통합)이고 내부에 잃을 ignored 산출물(plan·`.env`)이 없으면 worktree 를 정리한다 — **분기(CLAUDE.md §8)**: **(a) 내가 이 세션에서 직접 수행/확인한 merge 직후 + 안전조건 충족**(대상≠main/master/`origin/HEAD`·clean·`git fetch` 후 remote-ahead 없음·base merged(squash 는 미머지 취급→(b))·산출물 안전)이면 worktree→로컬(`git branch -d`)→원격(`git push origin --delete`)을 **확인 없이 자동 정리**하고 삭제한 원격 tip sha 를 보고. **(b) 그 외**(우연 머지·`/e`·`wt rm` 독립 정리·안전조건 미충족/불확실)는 **AskUserQuestion**(worktree만/+로컬/+로컬·원격/유지) — 원격 삭제·`--force`·`branch -D` 는 추가 확인. 삭제 시 main 으로 빠져나간 뒤 `git worktree remove`. merge/done 후 정리를 방치하지 않는 규약은 CLAUDE.md §8.
-- **`collect-state.sh`** (헬퍼): 마무리 2단계·6단계의 읽기전용 git 신호(worktree 위치·dirty·upstream/unpushed·base merged·ignored)를 평문 `key:value` 로 1회에 수집 — 분산된 개별 git 호출의 왕복을 줄인다. read-only(판정·삭제·파괴 명령은 SKILL 메인), 각 점검 fail-safe(실패 필드 none/unknown), `unpushedStatus` 는 false 와 unknown 을 구분해 false-positive 삭제를 막는다.
+- **`collect-state.sh`** (헬퍼): 마무리 2단계·7단계의 읽기전용 git 신호(worktree 위치·dirty·upstream/unpushed·base merged·ignored)를 평문 `key:value` 로 1회에 수집 — 분산된 개별 git 호출의 왕복을 줄인다. read-only(판정·삭제·파괴 명령은 SKILL 메인), 각 점검 fail-safe(실패 필드 none/unknown), `unpushedStatus` 는 false 와 unknown 을 구분해 false-positive 삭제를 막는다.
 - **`docs/worktree-lifecycle.md`** (참조, 자동 로드 안 됨): `/e` 의 상태 수집 필드 카탈로그·worktree 삭제 판정 6조건 메커닉·정리 실행 폴백·복귀 pull 의 git 세부를 담는다. SKILL 본문엔 게이트·닫힌목록·안전 규칙만 남기고 세부는 여기로 이관(해당 분기 진입 시 Read — `docs/codex-review.md` 와 같은 참조 패턴).
 
 ### skills/wt/ — Git worktree 빠른 관리
@@ -346,17 +346,15 @@ AI 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex/sessions`)
 
 ### skills/jira-task/ — Claude·Codex 작업내용 → Jira issue comment
 
-현재 worktree의 작업 요약·변경 파일·검증 결과를 Jira issue comment로 기록한다. 기본은 미리보기이며, 사용자 확인 후 `--post`를 붙여 실제로 생성하거나 같은 marker의 본인 comment를 갱신한다. 인증 경로는 `jira-worklog`와 같은 `~/.jira-kit/.env`를 사용하고, issue description은 수정하지 않는다.
+현재 worktree에서 추가·수정한 내용을 `작업 내용:` 한 줄, 최대 1~3문장으로 Jira issue comment에 기록한다. 기본은 미리보기이며, `/e`에서 사용자 확인 후 `--post`를 붙여 실제로 생성하거나 같은 marker의 본인 comment를 갱신한다. 인증 경로는 `jira-worklog`와 같은 `~/.jira-kit/.env`를 사용하고, issue description은 수정하지 않는다.
 
 ```powershell
 uv run --no-project python "skills/jira-task/jira_task.py" `
   --ticket CSTP1-1234 `
-  --summary "작업: ..." `
-  --summary "변경 파일: ..." `
-  --summary "검증: ..."
+  --summary "작업 내용: ..."
 ```
 
-preview 결과를 확인하고 사용자 승인 후 동일 명령에 `--post`를 추가한다. 여러 줄은 `--summary-file` 또는 `--summary-file -`(stdin)로 전달할 수 있다. 시간은 `jira-worklog`, 내용은 `jira-task`가 각각 Jira에 남긴다.
+preview 결과를 확인하고 `/e`에서 사용자 승인 후 동일 명령에 `--post`를 추가한다. 시간은 `jira-worklog`, 작업내용은 `jira-task`가 각각 Jira에 남긴다.
 
 ### scripts/
 
@@ -439,7 +437,7 @@ UTF-8 (no BOM) + LF endings — Git Bash 가 인식. idempotent — 재실행 �
 - `statusLine`, `subagentStatusLine` — statusline 스크립트 등록 (`node ~/.claude/statusline.js`)
 - `env.CLAUDE_CODE_EFFORT_LEVEL` — Opus effort level (`max`). 값: `low|medium|high|xhigh|max`. **`max` 는 이 env 변수로만 걸 수 있다** — `effortLevel` 키의 검증자(CLI 2.1.228 `$et()`)는 `low|medium|high|xhigh` 만 통과시키고 `max` 를 조용히 버린다. env 는 `effortLevel` 을 override 하므로 두 키를 같이 두면 값이 어긋난 채 숨는다 → `effortLevel` 은 두지 않는다. 대신 세션 중 `/effort` 가 무력화된다(`Not applied: CLAUDE_CODE_EFFORT_LEVEL=max overrides…`) — 임시로 낮추려면 그 세션만 이 변수를 비우고 띄운다.
   - **`xhigh` 금지** — WebSearch/WebFetch 는 thinking 없는 보조 모델을 쓰는데 그 모델이 `xhigh` 를 거부해(`400 output_config.effort 'xhigh' is not supported when thinking is disabled`) 웹 검색이 통째로 막힌다(2026-08-03 관측). **`max` 는 이 증상이 없다** — 2026-08-12 에 `max` 로 WebSearch·WebFetch 를 각각 실행해 정상 응답 확인했다. 즉 이 400 은 effort 높이 순이 아니라 `xhigh` 값 자체의 문제다.
-- `hooks.SessionStart` — 2개 + orca(아래 별도 항목). (1) `~/.claude` 가 `main` 브랜치이면 `git pull --ff-only origin main` 으로 origin/main 자동 동기화 (ff-only·실패 무음, async; `~` 확장 위해 sh/Git Bash 필요). pull 로 HEAD 가 바뀌면 한 줄 알림(`~/.claude updated …`) 출력. **dirty 여도 시도한다** — `git pull --ff-only` 는 로컬 변경을 덮어쓸 때만 거부하고(무관 파일이면 ff 성공·변경 보존), 게이트로 미리 막으면 origin 이 그 파일을 안 건드린 경우까지 skip 되어 레포가 조용히 밀린다. **skip 조건**: 브랜치가 `main` 이 아님(**`master` 도 skip** — 체인이 `grep -qx main` 이라 `post-checkout` 의 `main|master` 와 정책이 다르다)·rebase/merge/bisect 중·`CLAUDE_AUTOPULL_OFF=1`. pull 이 거부되거나 실패해 뒤처진 상태가 남으면 **다음 세션 시작에 `session-brief` 의 자동 pull 신호가 그 이유를 알린다**(async 라 이 훅 자신의 출력은 첫 턴 뒤에 도달). 훅 스크립트는 매 이벤트마다 파일에서 읽히므로 pull 내용 중 **hook/스크립트는 같은 세션 안에서도 바뀔 수 있다**(CLAUDE.md·skill 문서 등 컨텍스트 주입분은 다음 세션부터). **이 pull 훅은 세션 시작 시점만 커버 — 체크아웃 시점은 install-hooks 의 `post-checkout` git hook, 세션 중 main 복귀 시점은 `/e` 7단계가 각각 보완(main-autopull).** (2) `session-brief.js`(동기·timeout10) — 세션 시작 브리프 1~4줄: **머지 대기**(origin/main 대비 ahead 인 미머지 로컬 브랜치, oldest 순 cap5) + **`/improve` 권장**(마커 이후 failure 신호 임계 세션 이상) + **닫히지 않은 plan**(`in_progress` 인데 매칭 브랜치가 없거나 이미 머지된 plan 이 `updated` 기준 임계일 이상 방치 — §10 `status: done` 누락 감지) + **자동 pull 밀림**(`~/.claude` 가 origin/main 보다 뒤처졌을 때 그 이유 — detached·main 아님·로컬 변경 충돌 파일명·pull 대기. 위 (1) 이 async 라 세션 시작에 안 보이는 것을 동기로 보완). 전부 fail-open 무음 + 신호별 예외 격리, `CLAUDE_SESSION_BRIEF_OFF=1`(+ `CLAUDE_BRIEF_MERGE_OFF`·`CLAUDE_BRIEF_IMPROVE_OFF`·`CLAUDE_BRIEF_STALE_OFF`·`CLAUDE_BRIEF_AUTOPULL_OFF`)로 해제, 임계는 `CLAUDE_BRIEF_IMPROVE_MIN`(기본5)·`CLAUDE_BRIEF_STALE_DAYS`(기본3). (과거엔 `install-gwl.ps1` 을 자동 실행하는 command 가 있었으나 무서명 원격 스크립트 자동 실행 위험 때문에 제거 — gwl 등록은 위 `install-gwl.ps1` 수동 1회 실행으로.)
+- `hooks.SessionStart` — 2개 + orca(아래 별도 항목). (1) `~/.claude` 가 `main` 브랜치이면 `git pull --ff-only origin main` 으로 origin/main 자동 동기화 (ff-only·실패 무음, async; `~` 확장 위해 sh/Git Bash 필요). pull 로 HEAD 가 바뀌면 한 줄 알림(`~/.claude updated …`) 출력. **dirty 여도 시도한다** — `git pull --ff-only` 는 로컬 변경을 덮어쓸 때만 거부하고(무관 파일이면 ff 성공·변경 보존), 게이트로 미리 막으면 origin 이 그 파일을 안 건드린 경우까지 skip 되어 레포가 조용히 밀린다. **skip 조건**: 브랜치가 `main` 이 아님(**`master` 도 skip** — 체인이 `grep -qx main` 이라 `post-checkout` 의 `main|master` 와 정책이 다르다)·rebase/merge/bisect 중·`CLAUDE_AUTOPULL_OFF=1`. pull 이 거부되거나 실패해 뒤처진 상태가 남으면 **다음 세션 시작에 `session-brief` 의 자동 pull 신호가 그 이유를 알린다**(async 라 이 훅 자신의 출력은 첫 턴 뒤에 도달). 훅 스크립트는 매 이벤트마다 파일에서 읽히므로 pull 내용 중 **hook/스크립트는 같은 세션 안에서도 바뀔 수 있다**(CLAUDE.md·skill 문서 등 컨텍스트 주입분은 다음 세션부터). **이 pull 훅은 세션 시작 시점만 커버 — 체크아웃 시점은 install-hooks 의 `post-checkout` git hook, 세션 중 main 복귀 시점은 `/e` 8단계가 각각 보완(main-autopull).** (2) `session-brief.js`(동기·timeout10) — 세션 시작 브리프 1~4줄: **머지 대기**(origin/main 대비 ahead 인 미머지 로컬 브랜치, oldest 순 cap5) + **`/improve` 권장**(마커 이후 failure 신호 임계 세션 이상) + **닫히지 않은 plan**(`in_progress` 인데 매칭 브랜치가 없거나 이미 머지된 plan 이 `updated` 기준 임계일 이상 방치 — §10 `status: done` 누락 감지) + **자동 pull 밀림**(`~/.claude` 가 origin/main 보다 뒤처졌을 때 그 이유 — detached·main 아님·로컬 변경 충돌 파일명·pull 대기. 위 (1) 이 async 라 세션 시작에 안 보이는 것을 동기로 보완). 전부 fail-open 무음 + 신호별 예외 격리, `CLAUDE_SESSION_BRIEF_OFF=1`(+ `CLAUDE_BRIEF_MERGE_OFF`·`CLAUDE_BRIEF_IMPROVE_OFF`·`CLAUDE_BRIEF_STALE_OFF`·`CLAUDE_BRIEF_AUTOPULL_OFF`)로 해제, 임계는 `CLAUDE_BRIEF_IMPROVE_MIN`(기본5)·`CLAUDE_BRIEF_STALE_DAYS`(기본3). (과거엔 `install-gwl.ps1` 을 자동 실행하는 command 가 있었으나 무서명 원격 스크립트 자동 실행 위험 때문에 제거 — gwl 등록은 위 `install-gwl.ps1` 수동 1회 실행으로.)
 - `hooks.PreToolUse` — `Edit|Write|NotebookEdit` 에 `guard-worktree-edit.js`(worktree 밖 main repo 편집 차단 + 비-worktree 세션의 main/master 추적파일 직접 편집 `ask`, `CLAUDE_MAIN_EDIT_GUARD_OFF=1` 로 해제. **`permission_mode`가 `auto` 면 `ask` 를 건너뛴다** — 분류기 판정 위에 확인을 겹치지 않는다. `deny`(worktree 밖 편집)는 데이터 보호라 모드 무관하게 유지), `Bash` 에 `rtk hook claude`(RTK 명령 재작성; rtk 0.44.0+ 의 빌트인 훅 — 구 `hooks/rtk-rewrite.sh` 파일 훅은 `rtk init -g` 가 제거했다. `command -v rtk` 가드로 rtk 없는 환경에선 no-op)
 - `hooks.UserPromptSubmit` — `dlc-task-router.js` (디버깅/render discipline 주입 + evidence 장부 리셋)
 - `hooks.PostToolUse` — `Edit|Write|NotebookEdit|Bash` 에 `dlc-evidence-ledger.js` (변경·검증 명령 기록)
