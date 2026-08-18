@@ -143,3 +143,10 @@
 - lesson 신규 [[lesson-test-copies-artifact]] — 위 훅을 검증하다 **거짓 통과 1회**. 테스트에 훅 명령을 복붙해 두고 sed 로 `$HOME`→`~` 치환했더니 `c="~/…"` 가 됐는데 큰따옴표 안 `~` 는 확장되지 않아 3케이스가 전부 fallback(=`exit 0`)으로 샜다. fail-open 코드에서 exit code 는 검증의 증거가 아니다 → 테스트가 settings.json 을 직독하고 분기 마커를 assert 하도록 전환. [[lesson-grep-absence-not-proof]] 와 같은 "부정적 관측을 근거로 쓰지 말 것" 계열.
 - [[effort-global-xhigh]]·[[effort-os-env-single-source]] 의 08-11 불일치 **해소 기록**(덮지 않고 이력 보존). 새 확정 사실 2건: (1) `max` 는 settings `effortLevel` 키로 설정 불가 — 검증자 `$et()` 가 `low|medium|high|xhigh` 만 통과시키고 조용히 버린다, env 파서 `T9()`→`TSe()` 만 `max` 를 받는다(CLI 2.1.228 바이너리 직독). 단일 레버가 취향이 아니라 필연이 됐다. (2) 웹툴 400 은 `xhigh` **값 자체**의 문제고 `max` 엔 없다 — `max` 로 WebSearch·WebFetch 각각 실행해 정상 확인. 사다리에서 `xhigh` 한 칸만 웹툴을 깬다.
 - bootstrap 의 `max` 재주입(`setup.sh:118`·`setup.ps1:156`)은 **미수정** — 지금은 settings 와 값이 같아 무해할 뿐이다. 값을 바꾸려면 함께 고쳐야 한다는 단서를 페이지에 남겼다.
+
+## [2026-08-13] update | workflow-failures — early-stop-verify 생태계 커버리지 fixed
+- 최대 failure 축(`early-stop-verify`, 21세션/72회)을 telemetry 로 해부. **대부분은 이미 해소된 legacy 였다** — `.md` 제외 fix(2026-07-17) 이전 43건, 이후 29건, 월별로는 7월 67 → 8월 5. 세션 브리프의 누적 카운트가 "지금 문제"처럼 보이게 하는 함정.
+- 남은 class 를 detail 로 갈랐다: 7월은 `.kt` 14건(gradlew 는 MATCH → 이 class 아님, 진짜 미검증이거나 IDE 실행), 8월 5건은 전부 타 repo 의 `compose.yaml`·`*.css`·`settings.json`·`*.py`.
+- **근본 원인**: `VERIFY` 정규식이 node/python/JVM 중심이라 `docker compose config`·`stylelint`·`shellcheck`·`make lint`·`dotnet test`·`rspec`·`terraform validate`·`prettier --check` 를 전부 못 잡는다 — 그 격차가 실제 발동 파일 종류와 정확히 겹쳤다.
+- 해법은 확장하되 **2분할**: `VERIFY_TOOLS`(그 자체가 검증) / `VERIFY_SUBCMD`(서브커맨드·플래그 필요). `docker compose up`·`terraform apply`·`prettier --write`·`black .` 은 실행·적용이지 검증이 아니라 계속 미인식 — 음성 케이스를 테스트로 락했다("verified 오탐은 gate 를 헐겁게 한다").
+- **단정하지 않은 것**: telemetry 는 "changed + not verified" 만 남기고 실제 실행 명령은 안 남긴다 → 그 세션들이 정말 검증을 돌렸는지는 확인 불가. "인식 격차가 있다"까지가 입증된 것이고 "전부 오탐"은 아니다.

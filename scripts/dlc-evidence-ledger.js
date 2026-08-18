@@ -96,8 +96,14 @@ function isPlan(fp) {
 }
 
 // 명백한 검증 명령만 좁게 — verified 오탐은 gate 를 헐겁게 하므로 보수적.
-const VERIFY =
-  /(\bpytest\b|\bjest\b|vitest|\bmocha\b|playwright|cypress|\bruff\b|eslint|flake8|\bmypy\b|\btsc\b|typecheck|cargo\s+(test|build|check|clippy)|go\s+(test|vet)|gradlew?\s+\S*(test|build|check)|mvn\s+\S*(test|verify|package)|check_links|npm\s+(test|run\s+(test|lint|build|typecheck|check|verify))|(pnpm|yarn)\s+(test|lint|typecheck|run\s+\S+)|python\s+-m\s+(pytest|unittest)|node\s+(--test(?=$|\s)|\S*\.test\.[cm]?js\b))/;
+// 아래 둘로 나눈다: 그 자체가 검증인 도구(TOOLS) / 서브커맨드·플래그가 붙어야 검증인 도구(SUBCMD).
+// SUBCMD 를 분리하는 이유: `docker compose up`·`terraform apply`·`prettier --write`·`black .` 은
+// 실행·적용이지 검증이 아니다. 도구 이름만 보고 verified 로 치면 gate 가 헐거워진다.
+const VERIFY_TOOLS =
+  /(\bpytest\b|\bjest\b|vitest|\bmocha\b|playwright|cypress|\bruff\b|eslint|flake8|\bmypy\b|\btsc\b|typecheck|shellcheck|stylelint|yamllint|hadolint|\brspec\b|\bphpunit\b|check_links)/;
+const VERIFY_SUBCMD =
+  /(cargo\s+(test|build|check|clippy)|go\s+(test|vet)|gradlew?\s+\S*(test|build|check)|mvn\s+\S*(test|verify|package)|npm\s+(test|run\s+(test|lint|build|typecheck|check|verify))|(pnpm|yarn)\s+(test|lint|typecheck|run\s+\S+)|python\s+-m\s+(pytest|unittest)|node\s+(--test(?=$|\s)|\S*\.test\.[cm]?js\b)|docker[-\s]compose\s+[^&|;]*\bconfig\b|\bmake\s+(test|lint|check|verify|typecheck)(?=$|\s)|dotnet\s+test\b|swift\s+test\b|terraform\s+validate\b|(prettier|black)\s+[^&|;]*--check\b)/;
+const VERIFY = new RegExp(`(${VERIFY_TOOLS.source}|${VERIFY_SUBCMD.source})`);
 // 검증으로 오인되기 쉬운 비검증 시작 명령(cat README ... test, grep test, ls build 등)
 const NONVERIFY_START = /^\s*(cat|grep|rg|ls|echo|printf|find|head|tail|sed|awk)\b/;
 // 검증 스크립트 래핑 인식(`bash /tmp/x-verify.sh`). 키워드가 .sh 직전 완전 세그먼트일 때만 —
