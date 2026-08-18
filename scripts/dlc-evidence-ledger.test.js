@@ -197,4 +197,42 @@ ok('node --test-only server.js → verified 불변 (--test 완전 토큰만)', (
 ok('node -e "..x.test.js.." → verified 불변 (인용문 내 미매칭)', () =>
   assert.strictEqual(V('node -e "require(\'./x.test.js\')"'), false));
 
+// ---- 생태계 커버리지: node/python/JVM 밖 검증기 인식 (early-stop-verify 오탐 축소) ----
+// 근거(2026-08-13 telemetry 조사): `.md` 제외 fix 이후 남은 발동이 compose.yaml·*.css·*.sh 에
+// 몰렸는데, 그 파일들의 표준 검증 명령(docker compose config·stylelint·shellcheck)이 전부 미인식이었다.
+ok('docker compose config → verified=true', () => assert.strictEqual(V('docker compose config'), true));
+ok('docker compose -f compose.yaml config -q → verified=true', () =>
+  assert.strictEqual(V('docker compose -f compose.yaml config -q'), true));
+ok('docker-compose config → verified=true', () => assert.strictEqual(V('docker-compose config'), true));
+ok('shellcheck → verified=true', () => assert.strictEqual(V('shellcheck scripts/x.sh'), true));
+ok('stylelint → verified=true', () => assert.strictEqual(V('npx stylelint "**/*.css"'), true));
+ok('yamllint → verified=true', () => assert.strictEqual(V('yamllint compose.yaml'), true));
+ok('make test → verified=true', () => assert.strictEqual(V('make test'), true));
+ok('make lint → verified=true', () => assert.strictEqual(V('make lint'), true));
+ok('make check → verified=true', () => assert.strictEqual(V('make check'), true));
+ok('dotnet test → verified=true', () => assert.strictEqual(V('dotnet test'), true));
+ok('swift test → verified=true', () => assert.strictEqual(V('swift test'), true));
+ok('bundle exec rspec → verified=true', () => assert.strictEqual(V('bundle exec rspec'), true));
+ok('phpunit → verified=true', () => assert.strictEqual(V('phpunit --testdox'), true));
+ok('terraform validate → verified=true', () => assert.strictEqual(V('terraform validate'), true));
+ok('hadolint → verified=true', () => assert.strictEqual(V('hadolint Dockerfile'), true));
+ok('prettier --check → verified=true', () => assert.strictEqual(V('npx prettier --check .'), true));
+ok('black --check → verified=true', () => assert.strictEqual(V('black --check .'), true));
+
+// 음성 락 — 확장이 게이트를 헐겁게 하지 않는지. "verified 오탐은 gate 를 헐겁게 한다"(모듈 주석).
+ok('docker compose up → verified 불변 (실행이지 검증 아님)', () =>
+  assert.strictEqual(V('docker compose up -d'), false));
+ok('docker compose down → verified 불변', () => assert.strictEqual(V('docker compose down'), false));
+ok('docker build → verified 불변', () => assert.strictEqual(V('docker build -t x .'), false));
+ok('make → verified 불변 (타겟 없는 빌드)', () => assert.strictEqual(V('make'), false));
+ok('make install → verified 불변', () => assert.strictEqual(V('make install'), false));
+ok('terraform apply → verified 불변 (파괴적, 검증 아님)', () =>
+  assert.strictEqual(V('terraform apply'), false));
+ok('prettier --write → verified 불변 (포맷 적용이지 검증 아님)', () =>
+  assert.strictEqual(V('npx prettier --write .'), false));
+ok('black . → verified 불변 (--check 없으면 적용)', () => assert.strictEqual(V('black .'), false));
+ok('dotnet build → verified 불변', () => assert.strictEqual(V('dotnet build'), false));
+ok('cat Makefile → verified 불변 (NONVERIFY veto)', () => assert.strictEqual(V('cat Makefile'), false));
+ok('echo make test → verified 불변 (NONVERIFY veto)', () => assert.strictEqual(V('echo make test'), false));
+
 console.log(`dlc-evidence-ledger.test.js: ${n} tests passed`);
