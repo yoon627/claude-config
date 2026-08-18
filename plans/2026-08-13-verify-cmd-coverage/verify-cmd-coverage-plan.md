@@ -1,8 +1,8 @@
 ---
 title: verify-cmd-coverage — early-stop-verify 의 검증기 인식 격차 해소
-status: in_progress
+status: done
 started: 2026-08-13
-updated: 2026-08-13
+updated: 2026-08-18
 ---
 
 # Goal
@@ -14,10 +14,11 @@ updated: 2026-08-13
 - 2026-08-13: telemetry 조사(main 에서 read-only) → 근본 원인 확정. worktree 생성(base main@debfe57).
 - 2026-08-13: TDD — 양성 17 + 음성 11 케이스 먼저 작성 → Red 확인 → `VERIFY` 2분할 확장 → Green(64 tests).
 - 2026-08-13: 전 검증 통과(단위 10스위트·node --check·shellcheck·wiki clean). simplify 1건(`ruff` 가 TOOLS 에 이미 있어 SUBCMD 쪽 중복 제거) + `hadolint` 테스트 보강.
+- 2026-08-18: 커밋 `6b1a9e9` → PR #143 → CI pass → 머지(`775b66a`). worktree·로컬·원격 정리(`--force` 없이 — 복사해 넣은 `settings.local.json` 만 먼저 제거). 삭제한 원격 tip `6b1a9e9`. `status: done`.
 
 # Next
 
-커밋 → PR → 머지 → worktree 정리.
+없음 — 종결. 효과 검증은 다음 `/improve` 에서 `early-stop-verify` 의 2026-08-18 이후 추이로 본다(인식 격차가 원인이었다면 줄어야 한다).
 
 # Decisions
 
