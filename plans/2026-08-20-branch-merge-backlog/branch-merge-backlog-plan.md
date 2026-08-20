@@ -58,7 +58,7 @@ updated: 2026-08-20
 
 # Deferred
 
-- **핫스팟 파일 구조 개선 미결**(Acceptance 4). `README.md`·`skills/e/SKILL.md` 를 파편 디렉토리로 나눌지 결정하지 않았다. 현재 worktree 가 0개라 당장 충돌은 없지만, 병렬 작업을 재개하면 같은 문제가 돌아온다.
+- **핫스팟 파일 구조 개선 미결**(Acceptance 4) → **이슈 #145 로 이관**(2026-08-20, https://github.com/yoon627/claude-config/issues/145). `README.md`·`skills/e/SKILL.md` 를 파편 디렉토리로 나눌지 결정하지 않았다. 현재 worktree 가 0개라 당장 충돌은 없지만, 병렬 작업을 재개하면 같은 문제가 돌아온다.
 - **리뷰 루프 구성 미확정** → **이슈 #144 로 이관**(2026-08-20, https://github.com/yoon627/claude-config/issues/144). orca Annotate AI Diff 기본 + PR 은 CI 필요할 때만. 조사 결론·확인된 제약(self-approve 불가·merge queue 불가·merge=union 무효)·claude-code-action 함정을 이슈 본문에 정리했다. 머지 직후 브랜치 정리 규약도 같이 다룬다.
 - **`test_session_time.py` 1건 실패 — Windows 로컬 전용, baseline** (심각도: 낮음). `classify_cwd("/repo/\0bad", ...)` 가 `UNMATCHED` 대신 `MAIN` 반환. `origin/main`(97c16d0)에서 동일 재현되고 내 4커밋은 `jira-worklog` 파일을 전혀 안 건드림 → 이번 변경과 무관. CI(ubuntu)는 같은 커밋에서 success 이므로 null byte 경로 처리의 플랫폼 차이로 추정. 범위 밖이라 미수정.
 - ~~`codex-jira-worklog-skill` 미커밋 작업 미처리~~ → **해소**(WIP 커밋 `7680f0c`). 다만 그 브랜치의 잔여 작업(uv 권한·dry-run 재검증)은 별도 세션에서 `/c` 로 이어받아야 한다.
