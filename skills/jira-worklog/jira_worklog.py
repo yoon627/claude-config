@@ -14,9 +14,10 @@
 대신 세션을 가로지르는 겹침은 union 으로 지울 수 없다. 인증·설정은 .env / 환경변수 / jira-kit.toml.
 
 이 스킬 디렉토리에서 직접 실행한다(대상 worktree 를 cwd 로):
-  python ~/.claude/skills/jira-worklog/jira_worklog.py            # 현재 worktree 미리보기
-  python ~/.claude/skills/jira-worklog/jira_worklog.py --all       # 모든 worktree 미리보기
-  python ~/.claude/skills/jira-worklog/jira_worklog.py --register   # 현재 worktree 등록
+  POSIX:     bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh"       # 현재 worktree 미리보기
+  PowerShell: & "$HOME/.claude/skills/jira-worklog/run_worklog.ps1"        # 현재 worktree 미리보기
+  직접 실행: python ~/.claude/skills/jira-worklog/jira_worklog.py          # launcher 없이도 사용 가능
+  모든 옵션(--all, --register 등)은 launcher 뒤에 그대로 전달한다.
 """
 
 from __future__ import annotations

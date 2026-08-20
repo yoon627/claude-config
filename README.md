@@ -329,7 +329,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 ### skills/jira-worklog/ — worktree 작업시간 → Jira worklog
 
-AI 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex/sessions`)에서 AI 가 실제 작업한 시간(사용자 응답 대기·긴 공백 제외)을 날짜별로 추정해 Jira worklog 에 기록. stdlib only(설치 불필요), 기본은 미리보기(dry-run)이고 실제 등록은 `--register`. `/e` 5단계가 마무리 시 호출한다.
+AI 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex/sessions`)에서 AI 가 실제 작업한 시간(사용자 응답 대기·긴 공백 제외)을 날짜별로 추정해 Jira worklog 에 기록. stdlib only(설치 불필요), launcher는 `uv` 우선·`python3`/`python` fallback(Windows PowerShell은 `py` 포함)이며 기본은 미리보기(dry-run), 실제 등록은 `--register`다. Codex는 bootstrap이 `$HOME/.agents/skills/jira-worklog`를 안정적인 `$HOME/.claude/skills/jira-worklog`에 연결한 뒤 새 세션에서 이 스킬을 직접 발견한다. `/e` 5단계가 마무리 시 호출한다.
 - **대기 제외는 role 단계에서** — idle gap 백스톱(`--max-gap`, 기본 8h)에 기대지 않는다. 대기는 두 모습으로 온다: 진짜 사용자 입력 직전 gap(prev 가 무엇이든 — `prev==assistant` 를 요구하면 `user→user` 가 샌다), 그리고 `AskUserQuestion`·`ExitPlanMode` 의 tool_use→tool_result 구간(tool_result 가 `type=user` 로 기록되는 탓에 도구 실행처럼 보인다 — 실측 최대 908분). 이 둘을 정면으로 거르면 총합이 백스톱 값에 무감각해진다(실측 60분/8h/무제한 모두 59.0h). 백스톱을 남기는 건 앞으로 추가될 대화형 도구가 같은 구멍을 낼 때의 안전망이다 — 규칙 없이 백스톱만 완화하면 78.6h 로 부푼다.
 - **권한 승인 대기는 걸러내지 못한다**: tool_result 에 승인 여부를 가릴 필드가 없어 정상 결과와 구분되지 않는다(거부만 본문으로 식별 가능). 실측 규모는 작다 — Bash 는 8177건 중 5분 초과가 16건, 최대 17분이고 그마저 실제 실행시간이 섞여 있다.
 - **귀속은 줄 단위 `cwd` 기준**(폴더 아님). Claude 세션 파일은 cwd 를 따라 slug 폴더를 **이동**하므로 파일 위치로 귀속하면 오간 세션의 시간이 마지막 위치 한 곳으로 몰린다(실측상 다중 cwd 파일이 다수 — 예외가 아니라 기본 케이스). 이벤트마다 cwd 를 읽어 bucket(live/dead/main/unmatched)으로 나누고, **인접 이벤트 쌍의 bucket 이 같을 때만** 구간을 발행한다(bucket 별로 먼저 거르면 A→B→A 왕복이 A 를 가로질러 이어붙어 이중계상). 코퍼스는 **한 번만** 스캔한다(worktree 마다 재스캔하면 N배).
@@ -361,7 +361,7 @@ preview 결과를 확인하고 `/e`에서 사용자 승인 후 동일 명령에 
 settings.json 에 등록돼 후크가 호출하는 진입점은 notify(`notify-hook.js`), 세션 브리프(`session-brief.js`), worktree 가드(`guard-worktree-edit.js`), dlc evidence 3종(`dlc-task-router.js` / `dlc-evidence-ledger.js` / `dlc-early-stop.js`). 모두 fail-open (실패해도 throw 안 함). 나머지(`bootstrap/`, `*.ps1`, `install-*`, `prompt-gwl.py`)는 위 진입점이 위임하거나 수동/프로젝트별로 쓰는 보조 스크립트.
 
 #### `bootstrap/` (setup.sh · setup.ps1 · README.md)
-새 머신에서 한 번 실행해 이 환경(도구 + 설정 + 선택적 memory)을 재현하는 **idempotent** 부트스트랩. macOS `setup.sh`(zsh/launchd, 비-conda), Windows `setup.ps1`(레지스트리/scheduled task — ⚠️ 실행 미검증). 도구(node/uv/headroom/codegraph/rtk)·MCP 등록·headroom proxy(`--mode token`)·codegraph init·셸 env 를 각 단계 guard 로 `[SKIP]`. rtk 는 headroom 번들 심링크+`rtk init` 서명(hook 직접편집 금지). `--dry-run`/`--memory-from` 지원. 상세·전제·한계는 `scripts/bootstrap/README.md`.
+새 머신에서 한 번 실행해 이 환경(도구 + 설정 + 선택적 memory)을 재현하는 **idempotent** 부트스트랩. macOS `setup.sh`(zsh/launchd, 비-conda), Windows `setup.ps1`(레지스트리/scheduled task — ⚠️ 전체 실행 미검증). 도구(node/uv/headroom/codegraph/rtk)·MCP 등록·headroom proxy(`--mode token`)·codegraph init·셸 env 를 각 단계 guard 로 `[SKIP]`. Codex용 `jira-worklog`는 `$HOME/.agents/skills/jira-worklog`에 안정적인 source를 가리키는 symlink/junction으로 설치한다. rtk 는 headroom 번들 심링크+`rtk init` 서명(hook 직접편집 금지). `--dry-run`/`--memory-from` 지원. 상세·전제·한계는 `scripts/bootstrap/README.md`.
 
 #### `notify-hook.js`
 Cross-platform notify 진입점 (Node). stdin 의 Claude Code JSON 에서 `message` · `cwd` 추출 (title = cwd basename). **macOS**: `afplay` 시스템 사운드 + `osascript` 배너 (인라인). **Windows**: 원본 stdin 을 그대로 넘기며 `powershell.exe -File notify-hook.ps1` spawn. **Linux**: best-effort `notify-send`. 모든 동작 best-effort — 실패해도 throw 안 하고 stdin 1초 타임아웃으로 세션 안 멈춤. 사운드 기본값은 이벤트별 (Stop→Glass/Asterisk, Notification→Ping/Exclamation); command 3번째 인자로 override.
@@ -598,6 +598,7 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   │   └── improve.sh              # 자산 간 참조 정합 기계 점검 + dlc 신호 집계 + 네이티브 중복 대장 신선도 (read-only)
 │   ├── jira-worklog/
 │       ├── SKILL.md                # worktree AI 작업시간 → Jira worklog (dry-run 기본)
+│       ├── run_worklog.sh/.ps1     # uv 우선·Python fallback 공통 launcher
 │       ├── jira_worklog.py         # CLI 진입점 (stdlib only)
 │       ├── jira_kit/               # 세션시간 추정·마커·Jira REST·설정 모듈
 │       ├── test_worklog_scope.py   # worktree 단위 upsert 격리 테스트 (CI)

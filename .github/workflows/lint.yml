@@ -47,6 +47,8 @@ jobs:
 
       - name: Unit tests
         run: |
+          bash scripts/bootstrap/install-codex-skill.test.sh
+          bash skills/jira-worklog/test_launcher.sh
           node scripts/dlc-doc-drift.test.js
           node scripts/dlc-signal.test.js
           node scripts/dlc-evidence-ledger.test.js
@@ -78,4 +80,4 @@ jobs:
           node -e "JSON.parse(require('fs').readFileSync('settings.json','utf8'))"
 
       - name: Shell script lint (shellcheck)
-        run: shellcheck scripts/*.sh skills/e/*.sh skills/improve/*.sh
+        run: shellcheck scripts/*.sh scripts/bootstrap/*.sh skills/jira-worklog/*.sh skills/e/*.sh skills/improve/*.sh

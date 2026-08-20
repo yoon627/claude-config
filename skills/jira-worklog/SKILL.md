@@ -28,21 +28,26 @@ worktree 별로 나누고, worktree 경계를 넘는 구간은 어느 쪽 것도
   디렉토리에서 시작한 세션도 그 worktree 로 잡힌다(예전엔 정확일치라 26건이 어디에도 못 가고
   사라졌다). "파일 단위"는 *한 rollout 을 쪼개지 않는다*는 뜻이지 매칭이 엄격하다는 뜻이 아니다.
 
-설치 불필요 — 이 스킬 디렉토리의 `jira_worklog.py`(stdlib only)를 직접 실행한다. 대상 worktree 를
-`cwd` 로 두거나 이름을 인자로 준다. **worktree 를 삭제하기 전에** 실행해야 한다 — 삭제되면 `--all`
-순회 대상에서 빠져 등록할 수 없다(표시만 된다).
+별도 Python 패키지 설치는 불필요하다. Codex user-scope 연결은 `$HOME/.agents/skills/jira-worklog`에서
+안정적인 `$HOME/.claude/skills/jira-worklog` source를 가리킨다. 실행기는 `uv`를 우선 사용하고, 없으면
+`python3`/`python`(Windows PowerShell에서는 `py`)으로 fallback한다. 플랫폼별 `run_worklog.sh`·
+`run_worklog.ps1`가 이 선택을 한 곳에서 담당한다. 대상 worktree를 `cwd`로 두거나 이름을 인자로 준다.
+**worktree를 삭제하기 전에** 실행해야 한다 — 삭제되면 `--all` 순회 대상에서 빠져 등록할 수 없다(표시만 된다).
 
 ## 실행
 
-이 스킬 디렉토리의 `jira_worklog.py` 를 현재 worktree(cwd)에서 실행한다. 경로는 이 SKILL.md 가 있는
-디렉토리 기준(아래는 이 환경의 절대경로 — 공유 시 각자 홈 경로로 조정):
+현재 worktree에서 아래 명령을 실행한다. `$HOME`은 PowerShell과 POSIX shell에서 모두 현재 사용자 홈으로
+확장된다. launcher가 `uv`를 찾지 못하면 기존 Python-only 환경도 그대로 사용할 수 있다. `--register`의
+부분 반영 뒤 중복 실행을 피하기 위해 `uv` 실행 자체가 실패했을 때 다른 실행기로 재시도하지 않는다.
 
-```bash
+```text
 # 미리보기 (토큰 없이 시간·대상 티켓 확인 — 안전)
-python "C:/Users/yoon627/.claude/skills/jira-worklog/jira_worklog.py"
+POSIX:     bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh"
+PowerShell: & "$HOME/.claude/skills/jira-worklog/run_worklog.ps1"
 
 # 실제 Jira 등록 (그 worktree 의 그날 항목 upsert — 같은 날 재실행 시 시간 갱신)
-python "C:/Users/yoon627/.claude/skills/jira-worklog/jira_worklog.py" --register
+POSIX:     bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh" --register
+PowerShell: & "$HOME/.claude/skills/jira-worklog/run_worklog.ps1" --register
 ```
 
 ## 설정 (최초 1회)

@@ -67,6 +67,24 @@ if have jq; then skip "jq 있음"; else
 if [ -x "$LOCAL_BIN/uv" ] || have uv; then skip "uv 있음"; else
   run "uv 설치 (astral)"; do_cmd sh -c 'curl -LsSf https://astral.sh/uv/install.sh | sh' && ok "uv 설치"; fi
 
+# --- 3b. Codex user-scope skill (stable source survives worktree removal) ---
+CODEX_SKILL_SOURCE="$CLAUDE_DIR/skills/jira-worklog"
+CODEX_SKILL_TARGET="$HOME/.agents/skills/jira-worklog"
+CODEX_SKILL_INSTALLER="$REPO_ROOT/scripts/bootstrap/install-codex-skill.sh"
+run "Codex jira-worklog skill 연결: $CODEX_SKILL_TARGET -> $CODEX_SKILL_SOURCE"
+if [ "$DRY_RUN" = 1 ]; then
+  if ! bash "$CODEX_SKILL_INSTALLER" --source "$CODEX_SKILL_SOURCE" --target "$CODEX_SKILL_TARGET" --dry-run; then
+    warn "Codex jira-worklog skill 연결 실패"
+    exit 1
+  fi
+else
+  if ! bash "$CODEX_SKILL_INSTALLER" --source "$CODEX_SKILL_SOURCE" --target "$CODEX_SKILL_TARGET"; then
+    warn "Codex jira-worklog skill 연결 실패"
+    exit 1
+  fi
+fi
+ok "Codex jira-worklog skill 연결"
+
 # --- 4. headroom (uv tool install headroom-ai) — rtk 번들 전 선행 ---
 if have headroom; then skip "headroom 있음 ($(headroom --version 2>/dev/null | head -1))"; else
   run "uv tool install headroom-ai"; do_cmd uv tool install headroom-ai && ok "headroom 설치"; fi

@@ -88,6 +88,20 @@ else {
 if ((Test-Path (Join-Path $LocalBin 'uv.exe')) -or (Have 'uv')) { Skip 'uv 있음' }
 else { Run 'uv 설치 (astral)'; RunCmd 'powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"'; Ok 'uv 설치' }
 
+# --- 3b. Codex user-scope skill (stable source survives worktree removal) ---
+$CodexSkillSource = Join-Path $ClaudeDir 'skills\jira-worklog'
+$CodexSkillTarget = Join-Path $env:USERPROFILE '.agents\skills\jira-worklog'
+$CodexSkillInstaller = Join-Path $PSScriptRoot 'install-codex-skill.ps1'
+Run "Codex jira-worklog skill 연결: $CodexSkillTarget -> $CodexSkillSource"
+$global:LASTEXITCODE = 0
+if ($DryRun) {
+  & $CodexSkillInstaller -Source $CodexSkillSource -Target $CodexSkillTarget -DryRun
+} else {
+  & $CodexSkillInstaller -Source $CodexSkillSource -Target $CodexSkillTarget
+}
+if ($LASTEXITCODE -ne 0) { throw "Codex jira-worklog skill 연결 실패(exit $LASTEXITCODE)" }
+Ok 'Codex jira-worklog skill 연결'
+
 # --- 4. headroom (uv tool install) — rtk 번들 전 ---
 if (Have 'headroom') { Skip "headroom 있음 ($(headroom --version 2>$null | Select-Object -First 1))" }
 else { Run 'uv tool install headroom-ai'; RunCmd 'uv tool install headroom-ai'; Ok 'headroom 설치' }
