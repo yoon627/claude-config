@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-script_dir="$(cd "$(dirname "$BASH_SOURCE")" && pwd -P)"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 script_path="$script_dir/jira_worklog.py"
 
 if command -v uv >/dev/null 2>&1; then

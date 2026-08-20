@@ -7,6 +7,7 @@ fake_bin="$root/bin"
 args_file="$root/args"
 mkdir -p "$fake_bin"
 
+# shellcheck disable=SC2016  # 스텁 본문은 스텁 실행 시점에 확장돼야 한다
 printf '%s\n' \
   '#!/usr/bin/env bash' \
   'printf "%s\n" "$@" > "$JIRA_WORKLOG_TEST_ARGS"' \

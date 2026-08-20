@@ -17,7 +17,10 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-[ -n "$source_path" ] && [ -n "$target_path" ] || { usage; exit 2; }
+if [ -z "$source_path" ] || [ -z "$target_path" ]; then
+  usage
+  exit 2
+fi
 [ -f "$source_path/SKILL.md" ] || { echo "Codex skill source missing or invalid: $source_path (SKILL.md 없음)" >&2; exit 1; }
 
 source_path="$(cd "$source_path" && pwd -P)"
