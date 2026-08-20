@@ -1,6 +1,6 @@
 ---
 name: e
-description: 진행 중이던 §10 plan 을 실제 git/코드 상태로 동기화 기록하고 작업을 마무리하는 plan-end 오케스트레이션. uncommitted 변경은 작업 브랜치에 임시(WIP) 커밋으로 보존하고(main/master 직접 커밋·push 는 안 함), Progress/Next/Decisions/status/updated 를 갱신해 다음 세션(/c)이 곧장 이어받게 한다. worktree 에서 작업이 done 으로 끝나고 clean·pushed·base 에 merged 면 worktree 삭제도 제안한다. 마무리 후에는 세션을 main worktree 로 복귀시킨다(worktree 보존). `/e` 명시 호출 또는 "진행상황 기록하고 마무리 / 오늘 여기까지 / 일단 저장하고 끝"류 요청 시 사용. plan 이 없으면 새로 만들지 않는다(그건 dlc 몫). 단순 질문·탐색·읽기 전용에는 쓰지 않는다.
+description: 진행 중이던 §10 plan 을 실제 git/코드 상태로 동기화 기록하고 작업을 마무리하는 plan-end 오케스트레이션. uncommitted 변경은 작업 브랜치에 임시(WIP) 커밋으로 보존하고(main/master 직접 커밋·push 는 안 함), Progress/Next/Decisions/status/updated 를 갱신해 다음 세션(/c)이 곧장 이어받게 한다. worktree 에서 작업이 done 으로 끝나고 clean·merged 면 worktree 와 로컬 브랜치를 묻지 않고 정리한다(원격 브랜치 삭제는 항상 확인). 마무리 후에는 세션을 main worktree 로 복귀시킨다(worktree 보존). `/e` 명시 호출 또는 "진행상황 기록하고 마무리 / 오늘 여기까지 / 일단 저장하고 끝"류 요청 시 사용. plan 이 없으면 새로 만들지 않는다(그건 dlc 몫). 단순 질문·탐색·읽기 전용에는 쓰지 않는다.
 ---
 
 # e — plan 마무리 (plan end)
@@ -11,7 +11,7 @@ description: 진행 중이던 §10 plan 을 실제 git/코드 상태로 동기�
 - `/e` 명시 호출, 또는 "진행상황 기록하고 마무리 / 오늘 여기까지 / 일단 저장하고 끝" 류 요청 시.
 - 단순 질문·탐색·읽기 전용·한 턴짜리 명령은 제외. **plan 이 없으면 새로 만들지 않는다** (dlc/작업 시작의 몫).
 
-## 동작 (8단계: 찾기 → 상태 수집·임시 커밋 → plan 동기화 → 마무리 보고 → Jira 작업내용 승인·기록 → worklog 기록 → worktree 정리 제안 → main 복귀)
+## 동작 (8단계: 찾기 → 상태 수집·임시 커밋 → plan 동기화 → 마무리 보고 → Jira 작업내용 승인·기록 → worklog 기록 → worktree 정리 → main 복귀)
 
 ### 1. plan 찾기 (c 1단계와 동일)
 - `ROOT = git rev-parse --show-toplevel`, `BR = git rev-parse --abbrev-ref HEAD`.
@@ -40,7 +40,7 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
   - 막힘 → `blocked` + `# Blockers`.
   - 그 외 → `in_progress` 유지(체크포인트).
 - **보고**: plan 위치·title·status / 임시 커밋 sha(또는 "변경 없음") / 동기화한 항목 / 남은 작업(`# Next`·`# Blockers`) / "다음 세션은 `/c` 로 이어받기".
-- **recap 형식(CLAUDE.md §3-6)**: 위 보고는 **결론 요약(≤3줄, 무엇이 끝났고 status)을 먼저**. **`/e` 호출 자체가 "마무리" 지시**이므로 §3-6 예외(사용자가 이미 다음 지시를 준 흐름 → 선택지 생략)에 따라 작업 선택지용 새 AskUserQuestion은 만들지 않는다. 단, 아래 5단계의 Jira task 본문 반영 승인은 외부 쓰기라 별도로 반드시 받는다. 마무리 액션은 아래 7단계 worktree 정리 제안(조건 충족 시)과 8단계 "다음 세션 `/c`" 안내가 담당한다.
+- **recap 형식(CLAUDE.md §3-6)**: 위 보고는 **결론 요약(≤3줄, 무엇이 끝났고 status)을 먼저**. **`/e` 호출 자체가 "마무리" 지시**이므로 §3-6 예외(사용자가 이미 다음 지시를 준 흐름 → 선택지 생략)에 따라 작업 선택지용 새 AskUserQuestion은 만들지 않는다. 단, 아래 5단계의 Jira task 본문 반영 승인은 외부 쓰기라 별도로 반드시 받는다. 마무리 액션은 아래 7단계 worktree 정리(조건 충족 시)과 8단계 "다음 세션 `/c`" 안내가 담당한다.
 
 ### 5. Jira task 본문 작업내용 (사용자 승인 후)
 
@@ -58,18 +58,19 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
 - **비차단**: 조회·네트워크 실패는 보고 1줄만 하고 마무리는 계속(worklog 실패가 /e 를 막지 않는다).
 - 보고 1줄: 등록 결과("CSTP1-xxxx 에 `<시간>` 등록" · "티켓 없음/토큰 없음 → preview 만" · "세션 활동 없음").
 
-### 7. worktree 정리 제안 (조건부)
-마무리가 끝난 뒤, 현재 worktree 가 **역할을 다했고 안전하게 지울 수 있으면** 삭제를 제안한다 — **`/e` 경로는 자동 삭제 안 함, 항상 AskUserQuestion**(독립 정리 = CLAUDE.md §8(b)). *self-merge 직후 자동 정리*(§8(a) — 내가 이 세션에서 직접 수행한 merge + 안전조건 충족 시 worktree+로컬+원격 무확인 정리)는 `/e` 이전에 처리되는 **별개 경로**라 여기 해당 없음.
-- **제안 조건 (6가지 모두 충족 = AND)**: 2단계 이후 WIP 커밋·plan write 로 상태가 바뀌므로 **삭제 직전 `bash skills/e/collect-state.sh` 를 한 번 더 실행**해 그 신호로 판정(2단계 스냅샷 재사용 금지 — 재수집 invariant). **헬퍼 실패·필드 누락·파싱 불가면 제안 생략(보수)**.
+### 7. worktree 정리 (조건부 — merged 면 무확인)
+마무리가 끝난 뒤, 현재 worktree 가 **역할을 다했고 안전하게 지울 수 있으면** 정리한다. 아래 조건이 **전부 충족되면 묻지 않고 worktree + 로컬 브랜치를 지운다**(CLAUDE.md §8(a) — 누가 머지했는지 불문). **원격 브랜치 삭제는 여기 포함되지 않는다 — 항상 AskUserQuestion**(§8(b)).
+- **자동 정리 조건 (6가지 모두 충족 = AND)**: 2단계 이후 WIP 커밋·plan write 로 상태가 바뀌므로 **삭제 직전 `bash skills/e/collect-state.sh` 를 한 번 더 실행**해 그 신호로 판정(2단계 스냅샷 재사용 금지 — 재수집 invariant). **헬퍼 실패·필드 누락·파싱 불가면 정리 생략(보수)**.
   1. **비-메인 worktree**(`root` ≠ `mainWorktree`; 메인이면 제안 안 함)
   2. **`detached`=false + plan `status == done`**(4단계 확정)
   3. **working tree clean**(untracked 포함; `dirty`=unknown 이면 생략)
-  4. **unpushed 없음**(`unpushedStatus`=unknown 이면 미보존으로 제안 안 함 — false-positive 삭제 차단)
-  5. **base 또는 다른 원격 브랜치에 merged**(git-only 추정, 확정 아님 — 최종 삭제는 늘 AskUserQuestion; squash merge 는 미감지=유지 방향이라 안전)
-  6. **미보존 산출물 안전**(`git worktree remove`/`--force` 가 gitignored `.env`·미커밋 plan 을 유실시킴 — 이 worktree `plans/` 에 이번 갱신한 미커밋 plan 있으면 제안 생략; `.env`·secret 후보 있으면 삭제 목록 명시; `ignoredStatus`=unknown 이면 생략)
+  4. **default 브랜치에 merged** — `mergedToLocalBase`=true(헬퍼가 `git branch --merged <localDefault>` 로 판정) **또는** `inBase`/`patchInBase`=true. **로컬 `main` 머지도 인정**한다(push 하지 않는 워크플로우에서는 `origin/<default>` 기준인 `inBase` 가 영영 false/unknown 이라 그것만 보면 자동 정리가 실효). 셋 다 false/unknown 이면 미머지로 보고 유지. squash merge 는 미감지 = 유지 방향이라 안전.
+  5. **미보존 산출물 안전**(`git worktree remove`/`--force` 가 gitignored `.env`·미커밋 plan 을 유실시킴 — 이 worktree `plans/` 에 이번 갱신한 미커밋 plan 있으면 정리 생략; `.env`·secret 후보 있으면 삭제 목록 명시; `ignoredStatus`=unknown 이면 생략)
+  6. **worktree 를 잡고 있는 프로세스 없음** — 이 세션에서 검증용으로 띄운 서버·데몬이 살아 있으면 `git worktree remove` 가 OS 레벨에서 실패한다(Windows: "Invalid argument"·"Access is denied"). **내가 띄운 것은 삭제 전에 내가 회수한다**(경로로 대상을 특정해 종료 — 사용자 서버·다른 worktree 프로세스는 건드리지 않는다). 회수 못 하면 정리 생략 + 사유 보고.
   - **각 조건의 판정 git 명령·폴백·`inBase`/`patchInBase`/`remoteContainingHead` 세부·squash/rebase 한계는 `docs/worktree-lifecycle.md` §B**(삭제 판정 분기에서 Read).
-  - 하나라도 불충족/위험/헬퍼 불가 → 제안 생략 + 보고에 사유 한 줄("미머지 → 유지"·"unpushed 2건 → 유지"·"plan 이 worktree 내부 → 유지").
-- **제안 (AskUserQuestion; wt rm 계열)**: ① worktree 만(브랜치 유지) / ② +로컬 브랜치(원격 유지) / ③ +로컬·원격(조건4 pushed·조건5 merged 신호 충족분만 — 조건5 불확실성 경고 본문 노출) / ④ 유지(기본). 실행은 "worktree 정리 규칙"(+ `docs/worktree-lifecycle.md` §C).
+  - 하나라도 불충족/위험/헬퍼 불가 → 정리 생략 + 보고에 사유 한 줄("미머지 → 유지"·"dirty → 유지"·"plan 이 worktree 내부 → 유지").
+- **실행**: 조건 충족 시 **묻지 않고** worktree → 로컬 `git branch -d` 순으로 정리하고, 삭제한 브랜치 tip sha 를 한 줄 보고(`git branch <name> <sha>` 로 복구 가능). `git worktree remove` 가 부분 성공(등록 해제 후 디렉터리 삭제 실패)할 수 있으니 **결과를 확인**하고, 잔여 디렉터리가 있으면 조건6 처리 후 마저 지운다. 실행 세부는 "worktree 정리 규칙"(+ `docs/worktree-lifecycle.md` §C).
+- **원격 브랜치는 별개** — 지울 필요가 있다고 판단되면 그때만 AskUserQuestion(§8(b)). 자동 정리에 얹지 않는다.
 
 ### 8. 세션을 main worktree 로 복귀
 1~7단계 후 세션을 main worktree 로 되돌린다(작업 기록은 worktree 에 남기고 다음 작업은 main 에서). **비파괴적**(worktree·브랜치 보존)이라 자동 수행.
@@ -90,7 +91,7 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
 - uncommitted 없으면 커밋 skip.
 
 ## worktree 정리 규칙
-7단계에서 사용자가 삭제를 택했을 때만. **cwd 가 삭제 대상 안이라 순서 중요.**
+7단계에서 worktree 를 삭제할 때만. **cwd 가 삭제 대상 안이라 순서 중요.**
 - **이동 전 값 캡처**: `target_path`·`target_branch`·`main_path`(`git worktree list --porcelain` 첫 worktree)를 **세션 옮기기 전에** 고정(이동 후 재계산하면 엉뚱한 대상·main 가리킴).
 - **worktree 밖으로**: `ExitWorktree(action: keep)` 로 원래 디렉토리(보통 main) 복귀 — 대상 안에선 자기 remove 불가. **`ExitWorktree` no-op**(harness 가 worktree 에서 시작)이면 폴백은 `docs/worktree-lifecycle.md` §C(다른 linked worktree 경유 or remove 생략+보고) — **강제 진행 금지**. 이동 실패로 cwd 가 대상 안이면 **중단+보고**(remove 금지).
 - **제거**: cwd 가 대상 밖 확인 후 `git worktree remove <target_path>`. 실패 시 stderr 분기(untracked→`--force`·codegraph daemon 파일점유·부분성공 prune) 세부는 `docs/worktree-lifecycle.md` §C.
@@ -104,5 +105,5 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
 - done **자동 전환 안 함** — 확정 완료 신호 + 사용자 확인 시만. 기본 in_progress 체크포인트.
 - plan 갱신은 **사실 기반만**(§1) — git/파일로 확인된 것만. 추측으로 Progress/Decisions 채우지 않는다.
 - subagent 위임 아님 — plan single writer 는 메인. 메인이 직접 커밋/기록한다.
-- **worktree 자동 삭제 안 함** — 7단계 제안 조건(비-메인·done·clean·pushed·merged·ignored 안전) 충족 시에도 항상 AskUserQuestion. `--force`·`git branch -D`·**원격 삭제(`git push origin --delete`)**는 명시 확인 없이 금지(§8).
+- **worktree 정리는 7단계 조건(비-메인·done·clean·merged·미보존 산출물 없음·점유 프로세스 없음) 충족 시 무확인 실행** — 조건 하나라도 불충족이면 정리 생략(강행 금지). `--force`·`git branch -D`(미머지)·**원격 삭제(`git push origin --delete`)**는 여기 포함되지 않으며 명시 확인 없이 금지(§8).
 - **main 복귀(8단계)는 자동** — `ExitWorktree(action: keep)` 라 worktree·브랜치를 보존하는 비파괴 동작이라 확인 없이 수행. 단 삭제(remove)는 8단계 아닌 7단계 사안이고, no-op(harness 가 worktree 에서 시작)이면 강제 이동 없이 보고만.

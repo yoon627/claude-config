@@ -120,7 +120,7 @@ worktree 생성은 로컬·비파괴이고 `/wt rm <slug>` 한 번으로 되돌�
 
 ## 주의
 
-- `git worktree remove --force`, `git branch -D`, 원격 브랜치 삭제(`git push origin --delete`)는 사용자 명시 확인 없이 실행 금지. (`wt rm` 은 수동·독립 정리 = CLAUDE.md §8(b) — 항상 확인. 내가 직접 수행한 merge 직후의 무확인 자동 정리는 §8(a) 로 별개 경로이며 `wt rm` 이 아니다.)
+- `git worktree remove --force`, `git branch -D`, 원격 브랜치 삭제(`git push origin --delete`)는 사용자 명시 확인 없이 실행 금지. (`wt rm <이름>` 은 사용자가 대상을 직접 지목하는 경로 = CLAUDE.md §8(b) — **오타로 엉뚱한 worktree 를 지울 수 있어 항상 확인**. merged 면 묻지 않는 자동 정리는 §8(a) — `/e`·머지 직후 흐름이며 `wt rm` 이 아니다.)
 - 정확일치하지 않는 텍스트는 요청사항으로 간주해 worktree 를 새로 만든다. **생성 전 확인은 묻지 않는다**(위험기반 승인 — CLAUDE.md §1): 이름 오타로 인한 오생성은 승인이 아니라 §4 의 near-miss 보고 + `/wt rm <slug>` 로 되돌린다. 반면 삭제 계열(아래 첫 bullet)은 비가역이라 확인을 유지한다 — **이 스킬 안에서 생성은 무확인·삭제는 확인**이 위험기반 기준의 적용 결과다.
 - 요청사항 path 는 생성 후 `dlc` 를 자동 실행한다. worktree 를 만들 필요가 없는 단순 질문·탐색·읽기 전용 작업이면 `/wt` 대신 현재 worktree 에서 직접 처리.
 - EnterWorktree 후 후속 명령은 새 cwd 기준.

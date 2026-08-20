@@ -66,6 +66,27 @@ else
   patchInBase=unknown
 fi
 
+# 로컬 default 브랜치 머지 여부. 위 inBase 는 origin/<default> 기준이라, push 하지 않고
+# 로컬 main 에만 머지하는 워크플로우에서는 영영 false 가 나온다(§8(a) 자동 정리가 실효).
+# localDefault 는 origin/HEAD 의 뒷부분 → 없으면 main/master 중 실재하는 것.
+localDefault=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' || true)
+if [ -z "$localDefault" ] || ! git show-ref --verify --quiet "refs/heads/$localDefault"; then
+  localDefault=""
+  for cand in main master; do
+    if git show-ref --verify --quiet "refs/heads/$cand"; then localDefault=$cand; break; fi
+  done
+fi
+if [ -n "$localDefault" ] && [ "$detached" = false ] && [ "$branch" != "$localDefault" ]; then
+  if git branch --merged "$localDefault" --format='%(refname:short)' 2>/dev/null \
+       | grep -qx -- "$branch"; then
+    mergedToLocalBase=true
+  else
+    mergedToLocalBase=false
+  fi
+else
+  mergedToLocalBase=unknown
+fi
+
 # HEAD 를 포함하는 원격 브랜치(self 포함 raw — self 제외·(a)/(b) 판정은 호출측).
 remoteContaining=$(git branch -r --contains HEAD 2>/dev/null | sed 's/^[ *]*//' || true)
 
@@ -93,6 +114,8 @@ echo "base: $base"
 echo "baseValid: $baseValid"
 echo "inBase: $inBase"
 echo "patchInBase: $patchInBase"
+echo "localDefault: ${localDefault:-none}"
+echo "mergedToLocalBase: $mergedToLocalBase"
 echo "ignoredStatus: $ignoredStatus"
 emit_list "status" "$status"
 emit_list "unpushed" "$unpushed"
