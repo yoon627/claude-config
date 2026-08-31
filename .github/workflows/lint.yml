@@ -36,6 +36,9 @@ jobs:
           node --check scripts/guard-worktree-edit.test.js
           node --check scripts/session-brief.js
           node --check scripts/session-brief.test.js
+          node --check scripts/session-fetch.js
+          node --check scripts/session-fetch.test.js
+          node --check scripts/hook-cwd.js
           node --check scripts/session-start-pull.test.js
           node --check scripts/usage-count.js
           node --check scripts/usage-count.test.js
@@ -54,6 +57,7 @@ jobs:
           node scripts/dlc-evidence-ledger.test.js
           node scripts/guard-worktree-edit.test.js
           node scripts/session-brief.test.js
+          node scripts/session-fetch.test.js
           node scripts/session-start-pull.test.js
           node scripts/usage-count.test.js
           node scripts/install-hooks.test.js

@@ -112,6 +112,13 @@
             "command": "node ~/.claude/scripts/session-brief.js",
             "timeout": 10,
             "statusMessage": "세션 브리프"
+          },
+          {
+            "type": "command",
+            "command": "node ~/.claude/scripts/session-fetch.js",
+            "timeout": 30,
+            "statusMessage": "작업 repo fetch",
+            "async": true
           }
         ]
       },

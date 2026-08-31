@@ -651,8 +651,13 @@ function upstreamRepo(behind, ahead) {
   for (let i = 0; i < ahead; i++) commit(r, `local${i}`);
   return r;
 }
+// mtime 을 "로컬 달력으로 n일 전 정오"로 맞춘다. `Date.now() - n*86400` 은 절대 instant 라
+// DST 전환이 창 안에 들면 판정(로컬 달력 차)과 하루 어긋난다 — M 축의 daysAgo() 와 같은 연산을 쓴다.
 function ageFile(file, days) {
-  const t = Date.now() / 1000 - days * 86400;
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  d.setHours(12, 0, 0, 0);
+  const t = d.getTime() / 1000;
   fs.utimesSync(file, t, t);
 }
 
@@ -662,7 +667,7 @@ ok('ⓞ1 세션 repo 가 upstream 보다 뒤처지면 repo 이름과 함께 1줄
   assert.match(out, new RegExp(path.basename(r)));
   assert.match(out, /2커밋 뒤처짐/);
   assert.match(out, /origin\/main 대비/); // 무엇 대비인지 말한다 — 기준 없는 숫자는 확인할 수 없다
-  assert.doesNotMatch(out, /~\/\.claude/); // 라벨이 ~/.claude 로 새지 않는다(이번 수정의 핵심)
+  assert.doesNotMatch(out, /~\/\.claude/); // O 라인 한정. N 쪽 라벨은 ⓝ9 가 따로 고정한다
 });
 
 ok('ⓞ2 갈라져 있으면(ahead>0) ff 로 못 따라잡는다고 말한다', () => {
@@ -746,6 +751,81 @@ ok('ⓞ12 감시 repo 의 worktree 는 어느 방향이든 제외한다(N 과 �
   fs.writeFileSync(f2, 'x');
   ageFile(f2, 5);
   assert.strictEqual(run({ CLAUDE_BRIEF_REPO: wt, ...OOFF }, r), '');
+});
+
+// upstream 은 있는데 fetch 가 오래된 fixture 를 만들기 위한 헬퍼.
+function ageRef(repo, ref, days) {
+  ageFile(path.join(repo, '.git', 'refs', 'remotes', ...ref.split('/')), days);
+}
+
+ok('ⓞ13 밀림이 0 이어도 fetch 가 오래됐으면 "알 수 없다"고 말한다', () => {
+  const r = upstreamRepo(0, 0);
+  ageRef(r, 'origin/main', 5);
+  const out = run({ ...OOFF }, r);
+  assert.match(out, /5일째 fetch 하지 않았다/);
+  assert.match(out, /origin\/main/);
+});
+
+ok('ⓞ14 밀림을 이미 말하고 있으면 fetch 신선도는 덧붙이지 않는다', () => {
+  const r = upstreamRepo(2, 0);
+  ageRef(r, 'origin/main', 5);
+  const out = run({ ...OOFF }, r);
+  assert.match(out, /2커밋 뒤처짐/);
+  assert.doesNotMatch(out, /fetch 하지 않았다/); // 할 말은 이미 했다
+});
+
+ok('ⓞ15 갓 만들어진 ref 는 신선하다(새 clone 에 거짓 경고 금지)', () => {
+  assert.strictEqual(run({ ...OOFF }, upstreamRepo(0, 0)), '');
+});
+
+ok('ⓞ16 접힌 untracked 디렉토리는 나이를 만들지 않는다', () => {
+  // 디렉토리 mtime 은 안쪽 파일 편집으로 안 바뀐다 → 오래된 디렉토리 하나가 매 세션 같은 줄을
+  // 만들거나(거짓), 갓 만든 디렉토리 안의 오래된 파일을 놓친다. 둘 다 만들지 않는다.
+  const r = upstreamRepo(0, 0);
+  const d = path.join(r, 'junktree');
+  fs.mkdirSync(path.join(d, 'nested'), { recursive: true });
+  fs.writeFileSync(path.join(d, 'nested', 'a.txt'), 'x');
+  ageFile(path.join(d, 'nested', 'a.txt'), 30);
+  ageFile(d, 30);
+  assert.strictEqual(run({ ...OOFF }, r), '');
+});
+
+ok('ⓞ17 repo 설정의 core.fsmonitor 명령을 실행하지 않는다', () => {
+  // 이 훅은 사용자가 아무 git 명령도 치기 전에 임의 cwd 에서 자동으로 돈다. 남의 repo 안에서 세션을
+  // 열었다는 이유만으로 그 repo 의 설정에 적힌 명령이 실행돼선 안 된다.
+  const r = upstreamRepo(2, 0);
+  const marker = path.join(r, 'fsmon-ran');
+  git(r, ['config', 'core.fsmonitor', `node -e "require('fs').writeFileSync('${marker.replace(/\\/g, '/')}','1')"`]);
+  const sanity = spawnSync('git', ['-C', r, 'status', '--porcelain'], { stdio: 'ignore' });
+  assert.strictEqual(sanity.status, 0);
+  assert.ok(fs.existsSync(marker), '전제 확인: 평범한 git status 는 이 명령을 실행한다');
+  fs.unlinkSync(marker);
+  const out = run({ ...OOFF }, r);
+  assert.match(out, /2커밋 뒤처짐/); // 신호는 살아 있고
+  assert.ok(!fs.existsSync(marker), '브리프는 fsmonitor 명령을 실행하지 않는다');
+});
+
+ok('ⓞ18 상속된 GIT_DIR 이 판정을 다른 repo 로 끌고 가지 않는다', () => {
+  const target = upstreamRepo(2, 0);
+  const other = initRepo();
+  commit(other, 'other-base');
+  const out = run({ ...OOFF, GIT_DIR: path.join(other, '.git'), GIT_WORK_TREE: other }, target);
+  assert.match(out, new RegExp(path.basename(target)));
+  assert.doesNotMatch(out, new RegExp(path.basename(other)));
+});
+
+ok('ⓝ9 감시 대상이 ~/.claude 가 아니면 N 라벨도 그 repo 이름이다', () => {
+  // 하드코딩된 `~/.claude` 라벨은 다른 repo 를 겨눴을 때 거짓 보고를 했다. 그 회귀를 여기서 잡는다.
+  const r = initRepo();
+  commit(r, 'base');
+  const base = execFileSync('git', ['-C', r, 'rev-parse', 'HEAD']).toString().trim();
+  commit(r, 'remote1');
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  git(r, ['reset', '--hard', base]);
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...NOFF, CLAUDE_BRIEF_CWD_OFF: '1' });
+  assert.match(out, /1커밋 뒤처짐/);
+  assert.match(out, new RegExp(path.basename(r)));
+  assert.doesNotMatch(out, /~\/\.claude/);
 });
 
 ok('격리: repo 를 안 주면 실 ~/.claude 가 아니라 빈 fixture 를 본다', () => {

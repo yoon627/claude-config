@@ -17,6 +17,12 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+let readHookCwd;
+try {
+  ({ readHookCwd } = require('./hook-cwd.js'));
+} catch {
+  readHookCwd = (cb) => cb(process.cwd()); // 모듈 부재 → 폴백(브리프가 죽는 것보다 낫다)
+}
 let signal = null;
 try {
   signal = require('./dlc-signal.js');
@@ -38,10 +44,27 @@ const CWD_STAT_CAP = 200;
 const STDIN_MS = 1000; // hook stdin 대기 상한. 형제 훅(dlc-early-stop.js)과 같은 값
 
 function git(repoDir, args) {
-  return execFileSync('git', ['-C', repoDir, ...args], {
-    timeout: 2000,
-    stdio: ['ignore', 'pipe', 'ignore'], // stderr 억제(sandbox 캐시 경고 등 노이즈 차단)
-  }).toString();
+  // 상속된 GIT_* 는 `-C` 를 이긴다 — GIT_DIR 이 남아 있는 셸에서 세션이 열리면 stdin 이 지목한 repo 가
+  // 아니라 그쪽 repo 를 답한다(실측). 테스트는 예전부터 이걸 스크럽했는데 프로덕션만 안 하고 있었다.
+  const env = { ...process.env };
+  delete env.GIT_DIR;
+  delete env.GIT_WORK_TREE;
+  delete env.GIT_INDEX_FILE;
+  return execFileSync(
+    'git',
+    // `core.fsmonitor` 는 repo 설정에 적힌 **명령을 실행**한다. 이 훅은 사용자가 아무 git 명령도 치기
+    // 전에 임의 cwd 에서 자동으로 도니, 남의 repo 안에서 세션을 열었다는 이유만으로 그 repo 의 명령이
+    // 실행돼선 안 된다(실측으로 실행되는 것을 확인했다). 빈 값으로 무력화한다.
+    ['-c', 'core.fsmonitor=', '-C', repoDir, ...args],
+    {
+      timeout: 2000,
+      // 기본 maxBuffer(1MiB)를 넘으면 ENOBUFS 로 **신호가 통째로 사라진다**. 조용히 사라지는 것이
+      // 가장 나쁜 실패라, 목록이 큰 repo 에서도 판정이 살아 있도록 넉넉히 잡는다.
+      maxBuffer: 16 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'ignore'], // stderr 억제(sandbox 캐시 경고 등 노이즈 차단)
+      env,
+    },
+  ).toString();
 }
 
 // K: origin/main 대비 ahead 인 로컬 브랜치 목록 라인(없으면 null). fetch 안 함(cached origin/main).
@@ -342,6 +365,21 @@ function localDateString(ms) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// remote-tracking ref 가 마지막으로 갱신된 시각(ms). 없으면 null — **모르면 아무 말도 하지 않는다**.
+// FETCH_HEAD 는 fetch 할 때마다 다시 쓰이므로 1순위다. 없을 수 있는(= 한 번도 fetch 안 한) 경우를
+// "오래됐다"로 단정하면 갓 clone 한 repo 에 거짓 경고를 낸다 → ref 파일·packed-refs 의 mtime 을 쓴다.
+// 그 둘은 clone 시각에 만들어지므로, 새 clone 은 신선하고 오래 방치된 clone 은 오래된 것으로 잡힌다.
+function lastRefreshMs(commonDir, ref) {
+  for (const rel of ['FETCH_HEAD', path.join('refs', 'remotes', ref), 'packed-refs']) {
+    try {
+      return fs.statSync(path.join(commonDir, rel)).mtimeMs;
+    } catch {
+      /* 다음 후보 */
+    }
+  }
+  return null;
+}
+
 // O: 세션이 작업 중인 repo 가 upstream 보다 뒤처졌거나, 미커밋이 오래 방치됐으면 한 줄(없으면 null).
 // N 과 달리 이쪽에는 자동 pull 훅이 없다 — 원인을 묻는 게 아니라 사람이 직접 당겨야 한다고 말한다.
 // **한계**: N 과 마찬가지로 네트워크를 쓰지 않고 캐시된 remote-tracking ref 로만 판정한다. 그런데 이
@@ -404,10 +442,12 @@ function currentRepoLine(cwd, repoDir, env, now) {
     try {
       // --no-optional-locks: 배경 도구가 사용자의 활성 repo 에서 index.lock 을 잡지 않게 한다
       //   (이 helper 는 2s 후 SIGTERM 이라, 잡은 채 강제 종료되면 lock 잔재가 남는다).
-      // -uall: 기본 porcelain 은 untracked 를 디렉토리로 접는데(`?? dir/`), 디렉토리 mtime 은 안쪽
-      //   파일 편집으로 안 바뀌어 나이가 거짓이 된다. 파일 단위로 펼쳐서 센다.
+      // -unormal 을 **명시**한다: `status.showUntrackedFiles` 설정에 판정이 흔들리지 않게 하고,
+      //   `-uall` 은 쓰지 않는다 — untracked 트리를 파일 단위로 펼치면 gitignore 안 된 `venv/`·
+      //   `node_modules/` 하나가 매 세션 같은 줄을 만들고(조치 불가능한 잡음), 목록이 크면 출력이
+      //   버퍼를 넘겨 신호 자체가 사라진다(실측 24k 파일 ENOBUFS).
       // --no-renames: -z 의 rename 항목은 경로가 2개라 파서가 어긋난다. 나이만 볼 것이라 원경로면 충분.
-      const entries = gitPaths(cwd, ['--no-optional-locks', 'status', '--porcelain', '-uall', '--no-renames']);
+      const entries = gitPaths(cwd, ['--no-optional-locks', 'status', '--porcelain', '-unormal', '--no-renames']);
       let oldest = null;
       const names = [];
       let seen = 0;
@@ -415,6 +455,9 @@ function currentRepoLine(cwd, repoDir, env, now) {
         if (seen++ >= CWD_STAT_CAP || spent()) break; // 예산이 진짜 상한이다
         const rel = e.slice(3); // `XY <path>`
         if (!rel) continue;
+        // 접힌 untracked 디렉토리(`?? dir/`)는 건너뛴다. 디렉토리 mtime 은 안쪽 파일 편집으로 바뀌지
+        // 않아 나이가 거짓이 된다 — 없는 사실을 만드느니 이 경우만 못 보는 편이 낫다(알려진 사각).
+        if (rel.endsWith('/')) continue;
         let st;
         try {
           st = fs.statSync(path.join(top, rel));
@@ -436,11 +479,26 @@ function currentRepoLine(cwd, repoDir, env, now) {
     }
   }
 
+  // (b) 밀림이 0 으로 보인다면, 그 0 이 **언제 기준인지**가 중요하다. 이 repo 의 remote-tracking ref 를
+  // 갱신하는 자동 주체는 session-fetch 훅뿐이고, 그것이 실패하는 상황(오프라인·인증·원격 불가)은 남는다.
+  // 그때 침묵하면 "밀리지 않았다"로 읽힌다 — 모르는 것은 모른다고 말한다.
+  // 밀림 파트가 이미 있으면 내지 않는다(할 말을 이미 했다).
+  if (ref && !parts.length && !spent()) {
+    const rawFetch = Number(env.CLAUDE_BRIEF_FETCH_DAYS);
+    const fetchDays = Number.isFinite(rawFetch) && rawFetch >= 1 ? Math.floor(rawFetch) : 3;
+    const at = lastRefreshMs(commonDir, ref);
+    const stale = at === null ? null : daysSinceLocal(localDateString(at), now);
+    if (stale !== null && stale >= fetchDays) {
+      parts.push(`${stale}일째 fetch 하지 않았다 — ${ref} 대비 밀렸는지 알 수 없다`);
+    }
+  }
+
   if (!parts.length) return null; // 동기화 + clean = 정상 무음
   // 감시 repo(N) 자신이면 O 는 침묵한다. 확인을 **낼 것이 있을 때만** 한다 — 무음이 대부분이라
   // 여기 두면 추가 spawn 이 그만큼 드물게 든다. `<repoDir>/.git` 문자열 비교로 먼저 거르고,
   // 어긋날 때만(worktree·submodule·gitfile·symlink) repoDir 쪽 common dir 을 실제로 물어본다.
   if (samePath(commonDir, path.join(repoDir, '.git'))) return null;
+  if (spent()) return null; // 예산을 넘겼으면 확인 없이 조용히 — 중복 출력보다 무음이 안전하다
   try {
     const otherCommon = git(repoDir, ['rev-parse', '--git-common-dir']).trim();
     if (samePath(commonDir, path.resolve(repoDir, otherCommon))) return null;
@@ -453,41 +511,6 @@ function currentRepoLine(cwd, repoDir, env, now) {
   const repoName = path.basename(path.dirname(commonDir)) || worktreeName;
   const label = repoName === worktreeName ? worktreeName : `${repoName}/${worktreeName}`;
   return `${label} ${parts.join(' · ')}`;
-}
-
-// hook stdin JSON 의 cwd 를 읽는다 — 형제 훅과 같은 입력원(dlc-task-router.js·guard-worktree-edit.js).
-// 공식 문서상 cwd 는 전 이벤트 공통 필드이고 worktree 진입·cd 를 따라간다. 터미널 직접 실행은
-// stdin 이 TTY 라 즉시 폴백하고(notify-hook.js 와 같은 가드), 안 닫히는 stdin 은 타이머가 끊는다.
-function readHookCwd(cb) {
-  if (process.stdin.isTTY) {
-    cb(process.cwd());
-    return;
-  }
-  let raw = '';
-  let done = false;
-  const finish = () => {
-    if (done) return;
-    done = true;
-    clearTimeout(timer);
-    let c = '';
-    try {
-      c = String(JSON.parse(raw).cwd || '');
-    } catch {
-      /* JSON 아님 → 프로세스 cwd 로 폴백 */
-    }
-    cb(c || process.cwd());
-  };
-  const timer = setTimeout(finish, STDIN_MS); // unref 하지 않는다 — 이 타이머가 유일한 진행 보장이다
-  try {
-    process.stdin.setEncoding('utf8');
-    process.stdin.on('data', (c) => {
-      raw += c;
-    });
-    process.stdin.on('end', finish);
-    process.stdin.on('error', finish);
-  } catch {
-    finish();
-  }
 }
 
 function main(cwd) {
@@ -513,21 +536,36 @@ function main(cwd) {
   return lines.length ? lines.join('\n') + '\n' : '';
 }
 
-try {
-  readHookCwd((cwd) => {
-    let out = '';
-    try {
-      out = main(cwd) || '';
-    } catch {
-      /* 어떤 예외도 세션 시작을 막지 않는다(fail-open) */
-    }
-    // write 는 파이프에서 비동기로 끝날 수 있다. 곧바로 exit 하면 브리프가 잘린 채 도착한다.
-    if (!out) {
+if (require.main === module) {
+  try {
+    // kill switch 는 stdin 을 기다리기 **전에** 본다. 뒤에 두면 꺼 둔 기능이 stdin 대기만큼
+    // (최대 STDIN_MS) 세션 시작을 잡는다 — 껐는데 비용을 무는 모양은 계약과 어긋난다.
+    if (process.env.CLAUDE_SESSION_BRIEF_OFF === '1') {
       process.exit(0);
     } else {
-      process.stdout.write(out, () => process.exit(0));
+      readHookCwd((cwd) => {
+        let out = '';
+        try {
+          out = main(cwd) || '';
+        } catch {
+          /* 어떤 예외도 세션 시작을 막지 않는다(fail-open) */
+        }
+        // write 는 파이프에서 비동기로 끝날 수 있다. 곧바로 exit 하면 브리프가 잘린 채 도착한다.
+        if (!out) {
+          process.exit(0);
+        } else {
+          const backstop = setTimeout(() => process.exit(0), 2000); // 콜백이 안 와도 세션을 잡지 않는다
+          process.stdout.write(out, () => {
+            clearTimeout(backstop);
+            process.exit(0);
+          });
+        }
+      });
     }
-  });
-} catch {
-  process.exit(0);
+  } catch {
+    process.exit(0);
+  }
 }
+
+// session-fetch 훅이 fetch 직후 같은 문장을 내기 위해 가져다 쓴다 — 두 곳에서 만들면 갈라진다.
+module.exports = { currentRepoLine };
