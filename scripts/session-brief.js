@@ -32,8 +32,10 @@ const STALE_CAP = 5;
 const MAX_PLANS = 200; // plans/ 는 done 도 계속 누적 → MAX_BRANCHES 와 대칭으로 상한
 const FM_BYTES = 2048; // frontmatter 는 파일 맨 앞 몇 줄 → 전문 대신 head 만 read
 const CWD_BUDGET_MS = 2000; // O 신호 전체 시간 상한(동기 hook — settings 의 timeout 10s 를 혼자 먹지 않게)
-const CWD_STAT_CAP = 20; // mtime 조회 상한(대형 repo 의 dirty 목록이 예산을 삼키지 않게)
-const STDIN_MS = 300; // hook stdin 대기 상한. 안 닫는 호출자가 세션 시작을 막지 못하게 한다
+// stat 상한. "가장 오래된 것"을 찾는 게 목적이라 너무 낮으면 어질러진 repo 일수록 검출이 죽는다
+// (사전순 앞 20개만 보면 21번째가 제일 오래돼도 못 찾는다). statSync 는 싸고, 진짜 상한은 예산이다.
+const CWD_STAT_CAP = 200;
+const STDIN_MS = 1000; // hook stdin 대기 상한. 형제 훅(dlc-early-stop.js)과 같은 값
 
 function git(repoDir, args) {
   return execFileSync('git', ['-C', repoDir, ...args], {
@@ -273,7 +275,7 @@ function autopullStalledLine(repoDir, env) {
 
   // 라벨은 감시 대상에서 유도한다. 하드코딩하면 CLAUDE_BRIEF_REPO 로 다른 repo 를 겨눴을 때
   // "~/.claude 가 뒤처졌다"고 거짓 보고한다(실측으로 확인한 뒤 고쳤다).
-  const label = samePath(repoDir, path.join(os.homedir(), '.claude')) ? '~/.claude' : path.basename(repoDir);
+  const label = samePath(repoDir, path.join(os.homedir(), '.claude')) ? '~/.claude' : path.basename(repoDir) || repoDir;
   const head = `${label} ${behind}커밋 뒤처짐`;
   // 아래 분기 순서 = 훅이 pull 을 포기하는 순서. 스스로 낫지 않는 원인을 "재시도하면 되겠지"로
   // 뭉뚱그리면, 이 신호가 없애려던 "조용히 밀리는데 괜찮은 줄 안다"를 문장만 바꿔 재생산한다.
@@ -321,7 +323,14 @@ function autopullStalledLine(repoDir, env) {
 // 경로 동일성. Windows 는 대소문자를 구분하지 않으므로 비교 전에 접는다.
 function samePath(a, b) {
   const norm = (x) => {
-    const r = path.resolve(x);
+    let r = path.resolve(x);
+    // macOS 의 /var → /private/var, Windows 의 8.3 단축명·junction 처럼 같은 경로가 다른 문자열로
+    // 오는 경우가 있다. 존재하지 않는 경로는 realpath 가 던지므로 resolve 결과로 둔다.
+    try {
+      r = fs.realpathSync.native(r);
+    } catch {
+      /* 없는 경로 → 문자열 비교로 */
+    }
     return process.platform === 'win32' ? r.toLowerCase() : r;
   };
   return norm(a) === norm(b);
@@ -335,6 +344,9 @@ function localDateString(ms) {
 
 // O: 세션이 작업 중인 repo 가 upstream 보다 뒤처졌거나, 미커밋이 오래 방치됐으면 한 줄(없으면 null).
 // N 과 달리 이쪽에는 자동 pull 훅이 없다 — 원인을 묻는 게 아니라 사람이 직접 당겨야 한다고 말한다.
+// **한계**: N 과 마찬가지로 네트워크를 쓰지 않고 캐시된 remote-tracking ref 로만 판정한다. 그런데 이
+// repo 에는 그 ref 를 갱신해 줄 자동 fetch 주체가 없다(N 은 SessionStart pull 훅이 갱신해 준다) —
+// 한 번도 fetch 하지 않은 채 밀린 구간은 무음이다. 미커밋 파트는 원격과 무관해 그 구멍이 없다.
 // 동기 hook 이라 시간 상한을 들고 다닌다: fail-open 은 예외 정책이지 시간 정책이 아니다.
 function currentRepoLine(cwd, repoDir, env, now) {
   if (!cwd) return null;
@@ -352,23 +364,18 @@ function currentRepoLine(cwd, repoDir, env, now) {
     return null; // 비 git·경로 없음·git 실패 → 무음
   }
   if (!top) return null;
-  // 감시 repo(N) 자신이면 O 는 침묵한다 — worktree 로 들어가도 common dir 은 같으므로 여기서 걸린다.
-  if (samePath(commonDir, path.join(repoDir, '.git'))) return null;
 
   const parts = [];
 
-  // upstream 후보를 순서대로 본다. **존재를 확인한 것만** 채택하고, 채택한 뒤 rev-list 가 실패하면
-  // 다음 후보로 내려가지 않는다 — 다른 기준으로 센 숫자를 같은 문장에 담으면 거짓말이 된다.
+  // 기준 ref 는 **`@{upstream}` 뿐**이다. origin/HEAD·origin/main 으로 폴백하지 않는다 —
+  // 이 워크플로우는 feature 브랜치를 push 하지 않는 것이 규약이라(글로벌 §8) upstream 없음이 정상이고,
+  // 폴백을 두면 "main 에서 갈라진 지 오래됨"이라는 조치 불가능한 사실을 매 세션 낸다(실측: 한 repo 의
+  // worktree 68개 중 60개가 그렇게 걸렸다). 그 잡음은 K 를 확장하지 않기로 한 이유와 같은 것이다.
   let ref = null;
-  for (const cand of ['@{upstream}', 'origin/HEAD', 'origin/main']) {
-    if (spent()) break;
-    try {
-      git(cwd, ['rev-parse', '--verify', '--quiet', cand]);
-      ref = cand;
-      break;
-    } catch {
-      /* 없는 후보 → 다음 */
-    }
+  try {
+    ref = git(cwd, ['rev-parse', '--abbrev-ref', '@{upstream}']).trim() || null;
+  } catch {
+    ref = null; // upstream 미설정 → 밀림은 판정하지 않는다(무엇 대비인지 모르는 숫자는 만들지 않는다)
   }
   if (ref && !spent()) {
     try {
@@ -377,10 +384,12 @@ function currentRepoLine(cwd, repoDir, env, now) {
         .split(/\s+/)
         .map((x) => parseInt(x, 10));
       if (Number.isFinite(behind) && behind > 0) {
+        // 기준 ref 를 문장에 넣는다 — "무엇 대비"가 빠지면 사용자가 확인할 수 없다.
+        const fact = `${ref} 대비 ${behind}커밋 뒤처짐`;
         parts.push(
           ahead > 0
-            ? `${behind}커밋 뒤처짐·로컬 ${ahead}커밋 앞섬 — 갈라져서 ff-only pull 이 불가능하다(rebase 나 push 필요)`
-            : `${behind}커밋 뒤처짐 — 이 repo 에는 자동 pull 이 없다(직접 pull 해야 한다)`,
+            ? `${fact}·로컬 ${ahead}커밋 앞섬 — 갈라져서 ff-only pull 이 불가능하다(rebase 나 push 필요)`
+            : `${fact} — 이 repo 에는 자동 pull 이 없다(직접 pull 해야 한다)`,
         );
       }
     } catch {
@@ -393,18 +402,24 @@ function currentRepoLine(cwd, repoDir, env, now) {
   const minDays = Number.isFinite(rawDays) && rawDays >= 1 ? Math.floor(rawDays) : 3;
   if (!spent()) {
     try {
+      // --no-optional-locks: 배경 도구가 사용자의 활성 repo 에서 index.lock 을 잡지 않게 한다
+      //   (이 helper 는 2s 후 SIGTERM 이라, 잡은 채 강제 종료되면 lock 잔재가 남는다).
+      // -uall: 기본 porcelain 은 untracked 를 디렉토리로 접는데(`?? dir/`), 디렉토리 mtime 은 안쪽
+      //   파일 편집으로 안 바뀌어 나이가 거짓이 된다. 파일 단위로 펼쳐서 센다.
       // --no-renames: -z 의 rename 항목은 경로가 2개라 파서가 어긋난다. 나이만 볼 것이라 원경로면 충분.
-      const entries = gitPaths(cwd, ['status', '--porcelain', '--no-renames']);
+      const entries = gitPaths(cwd, ['--no-optional-locks', 'status', '--porcelain', '-uall', '--no-renames']);
       let oldest = null;
       const names = [];
-      for (const e of entries.slice(0, CWD_STAT_CAP)) {
+      let seen = 0;
+      for (const e of entries) {
+        if (seen++ >= CWD_STAT_CAP || spent()) break; // 예산이 진짜 상한이다
         const rel = e.slice(3); // `XY <path>`
         if (!rel) continue;
         let st;
         try {
           st = fs.statSync(path.join(top, rel));
         } catch {
-          continue; // 삭제된 파일 등 stat 불가 → 나이를 알 수 없다
+          continue; // 삭제된 파일 등 stat 불가 → 나이를 알 수 없다(알려진 사각)
         }
         const days = daysSinceLocal(localDateString(st.mtimeMs), now);
         if (days === null || days < minDays) continue;
@@ -422,8 +437,22 @@ function currentRepoLine(cwd, repoDir, env, now) {
   }
 
   if (!parts.length) return null; // 동기화 + clean = 정상 무음
-  // N 과 같은 모양(`<대상> <사실> — <처방>`). 이름 뒤에 대시를 또 넣으면 한 줄에 대시가 둘이 된다.
-  return `${path.basename(top)} ${parts.join(' · ')}`;
+  // 감시 repo(N) 자신이면 O 는 침묵한다. 확인을 **낼 것이 있을 때만** 한다 — 무음이 대부분이라
+  // 여기 두면 추가 spawn 이 그만큼 드물게 든다. `<repoDir>/.git` 문자열 비교로 먼저 거르고,
+  // 어긋날 때만(worktree·submodule·gitfile·symlink) repoDir 쪽 common dir 을 실제로 물어본다.
+  if (samePath(commonDir, path.join(repoDir, '.git'))) return null;
+  try {
+    const otherCommon = git(repoDir, ['rev-parse', '--git-common-dir']).trim();
+    if (samePath(commonDir, path.resolve(repoDir, otherCommon))) return null;
+  } catch {
+    /* repoDir 이 비 git → 비교 불가, O 를 막지 않는다 */
+  }
+
+  // 라벨: worktree 이름만으로는 어느 repo 인지 모른다. 다르면 `<repo>/<worktree>` 로 둘 다 보여준다.
+  const worktreeName = path.basename(top) || top;
+  const repoName = path.basename(path.dirname(commonDir)) || worktreeName;
+  const label = repoName === worktreeName ? worktreeName : `${repoName}/${worktreeName}`;
+  return `${label} ${parts.join(' · ')}`;
 }
 
 // hook stdin JSON 의 cwd 를 읽는다 — 형제 훅과 같은 입력원(dlc-task-router.js·guard-worktree-edit.js).
@@ -481,17 +510,23 @@ function main(cwd) {
   collect('CLAUDE_BRIEF_STALE_OFF', () => stalePlanLine(repoDir, env, new Date()));
   collect('CLAUDE_BRIEF_AUTOPULL_OFF', () => autopullStalledLine(repoDir, env));
   collect('CLAUDE_BRIEF_CWD_OFF', () => currentRepoLine(cwd, repoDir, env, new Date()));
-  if (lines.length) process.stdout.write(lines.join('\n') + '\n');
+  return lines.length ? lines.join('\n') + '\n' : '';
 }
 
 try {
   readHookCwd((cwd) => {
+    let out = '';
     try {
-      main(cwd);
+      out = main(cwd) || '';
     } catch {
       /* 어떤 예외도 세션 시작을 막지 않는다(fail-open) */
     }
-    process.exit(0);
+    // write 는 파이프에서 비동기로 끝날 수 있다. 곧바로 exit 하면 브리프가 잘린 채 도착한다.
+    if (!out) {
+      process.exit(0);
+    } else {
+      process.stdout.write(out, () => process.exit(0));
+    }
   });
 } catch {
   process.exit(0);

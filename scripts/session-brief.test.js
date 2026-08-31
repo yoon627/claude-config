@@ -71,7 +71,9 @@ function run(env, hookCwd, spawnCwd) {
   try {
     return execFileSync('node', [BRIEF], opts).toString();
   } catch (e) {
-    return e.stdout ? e.stdout.toString() : '';
+    // SessionStart hook 의 계약은 "무슨 일이 있어도 exit 0" 이다. 실패를 stdout 만 돌려주고 삼키면
+    // 무음 단언이 통과해 버려서, 훅이 죽은 것과 조용한 것을 테스트가 구분하지 못한다.
+    throw new Error(`brief exited ${e.status}: ${String(e.stderr || '')}`);
   }
 }
 function sigDir() {
@@ -359,14 +361,15 @@ ok('ⓥ plans 부재·루트 stray 파일(ENOTDIR)·frontmatter 불량 → 무�
   const r = initRepo();
   commit(r, 'base');
   git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
-  const res1 = spawnSync('node', [BRIEF], { env: { ...process.env, CLAUDE_BRIEF_REPO: r, ...KLOFF } });
+  // stdin 을 안 주므로 O 는 process.cwd()(= 이 파일이 놓인 실 worktree)로 폴백한다 → 명시적으로 끈다.
+  const res1 = spawnSync('node', [BRIEF], { env: { ...process.env, CLAUDE_BRIEF_REPO: r, ...KLOFF, CLAUDE_BRIEF_CWD_OFF: '1' } });
   assert.strictEqual(res1.status, 0);
   assert.strictEqual(res1.stdout.toString(), ''); // plans/ 없음
   fs.mkdirSync(path.join(r, 'plans'), { recursive: true });
   fs.writeFileSync(path.join(r, 'plans', 'stray.md'), '# not a plan dir\n'); // 디렉토리 아닌 파일
   fs.mkdirSync(path.join(r, 'plans', '2026-07-01-nofm'), { recursive: true });
   fs.writeFileSync(path.join(r, 'plans', '2026-07-01-nofm', 'nofm-plan.md'), 'no frontmatter here\n');
-  const res2 = spawnSync('node', [BRIEF], { env: { ...process.env, CLAUDE_BRIEF_REPO: r, ...KLOFF } });
+  const res2 = spawnSync('node', [BRIEF], { env: { ...process.env, CLAUDE_BRIEF_REPO: r, ...KLOFF, CLAUDE_BRIEF_CWD_OFF: '1' } });
   assert.strictEqual(res2.status, 0);
   assert.strictEqual(res2.stdout.toString(), '');
 });
@@ -639,8 +642,10 @@ function upstreamRepo(behind, ahead) {
   for (let i = 0; i < behind; i++) commit(r, `remote${i}`);
   git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
   git(r, ['reset', '--hard', base]);
-  // remote 를 실제로 등록하지 않고 upstream 만 세운다 — `--set-upstream-to` 는 remote 설정이 없으면
-  // 거부하지만(exit 128), config 두 줄이면 `@{upstream}` 은 refs/remotes/origin/main 으로 해석된다.
+  // `@{upstream}` 은 branch.* 만으로는 안 풀린다 — remote 의 fetch refspec 이 있어야 git 이
+  // refs/heads/main 을 remote-tracking 으로 매핑한다(없으면 "not stored as a remote-tracking branch").
+  git(r, ['config', 'remote.origin.url', '.']);
+  git(r, ['config', 'remote.origin.fetch', '+refs/heads/*:refs/remotes/origin/*']);
   git(r, ['config', 'branch.main.remote', 'origin']);
   git(r, ['config', 'branch.main.merge', 'refs/heads/main']);
   for (let i = 0; i < ahead; i++) commit(r, `local${i}`);
@@ -656,6 +661,7 @@ ok('ⓞ1 세션 repo 가 upstream 보다 뒤처지면 repo 이름과 함께 1줄
   const out = run({ ...OOFF }, r);
   assert.match(out, new RegExp(path.basename(r)));
   assert.match(out, /2커밋 뒤처짐/);
+  assert.match(out, /origin\/main 대비/); // 무엇 대비인지 말한다 — 기준 없는 숫자는 확인할 수 없다
   assert.doesNotMatch(out, /~\/\.claude/); // 라벨이 ~/.claude 로 새지 않는다(이번 수정의 핵심)
 });
 
@@ -714,6 +720,32 @@ ok('ⓞ9 kill switch 로 끌 수 있다', () => {
 ok('ⓞ10 stdin JSON 이 없으면 프로세스 cwd 로 폴백한다(터미널 직접 실행)', () => {
   const r = upstreamRepo(2, 0);
   assert.match(run({ ...OOFF }, null, r), /2커밋 뒤처짐/);
+});
+
+ok('ⓞ11 upstream 이 없으면 origin/main 이 있어도 밀림을 말하지 않는다', () => {
+  // fallback 을 두면 push 하지 않는 feature 브랜치 전부가 "main 에서 갈라진 지 오래됨"으로 걸린다
+  // (실측: 한 repo 의 worktree 68개 중 60개). 조치할 것도 없고 사라지지도 않는 줄이라 신호를 죽인다.
+  const r = upstreamRepo(2, 0);
+  git(r, ['config', '--unset', 'branch.main.remote']);
+  git(r, ['config', '--unset', 'branch.main.merge']);
+  assert.strictEqual(run({ ...OOFF }, r), '');
+});
+
+ok('ⓞ12 감시 repo 의 worktree 는 어느 방향이든 제외한다(N 과 중복 금지)', () => {
+  const r = upstreamRepo(2, 0);
+  const wt = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'sb-wt-')), 'w');
+  git(r, ['worktree', 'add', '-q', wt, '-b', 'wt-excluded']);
+  const f = path.join(wt, 'old.txt');
+  fs.writeFileSync(f, 'x');
+  ageFile(f, 5);
+  // (a) 감시 대상 = 본체, 세션 = 그 worktree
+  assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...OOFF }, wt), '');
+  // (b) 감시 대상 = worktree, 세션 = 본체. worktree 의 `.git` 은 파일이라 경로 문자열 비교가 안 먹고,
+  //     repoDir 쪽 common dir 을 실제로 물어보는 경로만이 이걸 잡는다.
+  const f2 = path.join(r, 'old2.txt');
+  fs.writeFileSync(f2, 'x');
+  ageFile(f2, 5);
+  assert.strictEqual(run({ CLAUDE_BRIEF_REPO: wt, ...OOFF }, r), '');
 });
 
 ok('격리: repo 를 안 주면 실 ~/.claude 가 아니라 빈 fixture 를 본다', () => {
