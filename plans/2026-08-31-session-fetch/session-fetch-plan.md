@@ -51,14 +51,24 @@ updated: 2026-08-31
 
 - **fetch 만 하고 merge 하지 않는다.** 로컬 커밋·작업트리를 건드리지 않으므로 되돌릴 것이 없다.
   `~/.claude` 는 예외로 기존 pull 훅이 계속 담당한다(그쪽은 ff-only pull 이 규약).
-- **async 로 돈다.** 세션 시작을 네트워크에 묶지 않는다. 대신 fetch 로 ref 가 움직였으면 그 훅이
-  **직접 밀림 한 줄을 출력**한다 — 안 그러면 사용자는 한 세션 늦게 알게 된다.
+- **async 로 돈다.** 세션 시작을 네트워크에 묶지 않는다. 대신 fetch 로 ref 가 움직였고 그래서 할 말이
+  생겼으면 그 훅이 **직접 한 줄을 출력**한다 — 안 그러면 사용자는 한 세션 늦게 알게 된다. 단
+  **그 출력은 첫 턴 뒤에 도착한다**(async 계약, wiki [[git-hook-network-safety]] §1) — 세션 시작
+  시점의 판정은 동기인 브리프가 캐시된 ref 로 계속 담당한다. 둘의 역할이 다르다.
 - **판정 로직은 브리프에서 가져다 쓴다**(`currentRepoLine` export). 같은 문장을 두 곳에서 만들면
   갈라진다. 대신 `require.main === module` 가드를 넣어 require 가 브리프를 실행하지 않게 한다.
-- **인증 프롬프트를 절대 띄우지 않는다** — `GIT_TERMINAL_PROMPT=0`, `GIT_ASKPASS=echo`,
-  `GIT_SSH_COMMAND='ssh -oBatchMode=yes'`. 훅이 자격증명 입력을 기다리며 매달리는 것이 최악이다.
-- **최근에 fetch 했으면 skip** — `.git/FETCH_HEAD` mtime 기준(기본 15분,
-  `CLAUDE_SESSION_FETCH_MIN_MINUTES`). 세션을 자주 여는 사용이 원격을 두드리지 않게.
+- **인증 프롬프트를 절대 띄우지 않는다** — 훅이 자격증명 입력을 기다리며 매달리는 것이 최악이다.
+  처음에는 `GIT_ASKPASS=echo` 를 썼으나 **제거로 변경**(이유: codex 리뷰 — `echo` 는 실패하는 helper 가
+  아니라 프롬프트 문자열을 자격증명으로 되돌려준다. `Username for ...` 를 아이디로 보내고, 기존
+  `credential.helper` 도 그대로 돌아 GUI·device flow 에서 대기할 수 있다). 지금은 **물어볼 경로 자체를
+  없앤다** — `GIT_TERMINAL_PROMPT=0` + `-c credential.helper=` + `-c core.askPass=` +
+  `GIT_SSH_COMMAND='ssh -oBatchMode=yes -oConnectTimeout=10'` + `http.lowSpeedLimit/Time`
+  (뒤 둘은 wiki [[git-hook-network-safety]] 의 처방).
+- **최근에 fetch 했으면 skip** — 세션을 자주 여는 사용이 원격을 두드리지 않게(기본 15분,
+  `CLAUDE_SESSION_FETCH_MIN_MINUTES`). 기준을 `.git/FETCH_HEAD` → **remote 별 스탬프
+  `.git/claude-fetch-<remote>` 로 변경**(이유: codex 리뷰 — `FETCH_HEAD` 는 repo 전역이라 사용자가
+  `git fetch other` 만 해도 갱신돼, 정작 봐야 할 origin 을 "방금 했다"로 건너뛴다. 브리프의 신선도
+  판정도 같은 이유로 거짓 신선이 된다). 브리프도 같은 스탬프를 1순위로 본다.
 - **(b) 는 밀림 파트가 없을 때만 낸다.** 이미 "N커밋 뒤처짐"을 말하고 있으면 fetch 신선도는 잡음이다.
   침묵을 모름으로 바꾸는 것이 목적이지 줄을 늘리는 게 아니다.
 - **kill switch 두 개** — `CLAUDE_SESSION_FETCH_OFF=1`(훅 자체), `CLAUDE_BRIEF_FETCH_DAYS`(임계).
