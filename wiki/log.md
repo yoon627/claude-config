@@ -150,3 +150,10 @@
 - **근본 원인**: `VERIFY` 정규식이 node/python/JVM 중심이라 `docker compose config`·`stylelint`·`shellcheck`·`make lint`·`dotnet test`·`rspec`·`terraform validate`·`prettier --check` 를 전부 못 잡는다 — 그 격차가 실제 발동 파일 종류와 정확히 겹쳤다.
 - 해법은 확장하되 **2분할**: `VERIFY_TOOLS`(그 자체가 검증) / `VERIFY_SUBCMD`(서브커맨드·플래그 필요). `docker compose up`·`terraform apply`·`prettier --write`·`black .` 은 실행·적용이지 검증이 아니라 계속 미인식 — 음성 케이스를 테스트로 락했다("verified 오탐은 gate 를 헐겁게 한다").
 - **단정하지 않은 것**: telemetry 는 "changed + not verified" 만 남기고 실제 실행 명령은 안 남긴다 → 그 세션들이 정말 검증을 돌렸는지는 확인 불가. "인식 격차가 있다"까지가 입증된 것이고 "전부 오탐"은 아니다.
+
+## [2026-08-31] ingest | lesson-fix-scoped-to-one-repo
+- 2026-08-12 에 고친 "레포가 조용히 밀린다"가 08-31 에 다른 repo 에서 재현된 건을 교훈으로 적립.
+  고쳐진 것은 실패 모드가 아니라 `~/.claude` 에서의 증상이었다(감시 대상·라벨이 상수로 박혀 있었다).
+- 근거: `CLAUDE_BRIEF_REPO` 로 겨눴을 때 라벨·원인이 둘 다 거짓이던 실측 출력, worktree 68개 중 60개가
+  걸리던 폴백 잡음 실측, `origin/dev` 가 2.7일 얼어 있던 reflog.
+- 관련: [[git-hook-network-safety]](후속 async fetch 훅이 그 처방을 따른다), [[evidence-gate]].

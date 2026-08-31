@@ -22,13 +22,30 @@ updated: 2026-08-31
 - 2026-08-31: reflog 로 구멍을 실증하고 이 plan 을 열었다(위 Goal). 사용자가 (a)+(b)+README+교훈
   적립까지 승인했다.
 
+- 2026-08-31: (a)+(b) 를 구현하고, **직전 리뷰가 이미 머지된 코드에서 찾은 CONFIRMED Major 5건도
+  같이 고쳤다**(같은 파일이라 분리하면 결함 위에 기능을 얹게 된다). 그 5건: `-uall` 이 maxBuffer 를
+  넘겨 미커밋 신호가 통째로 사라짐 / `-uall` 이 `venv/` 류로 상시 잡음 / 임의 repo 의 `core.fsmonitor`
+  **명령 자동 실행**(실측 RAN) / `GIT_DIR` 상속이 `-C` 를 이겨 다른 repo 를 답함 / N 라벨 수정에
+  재현 테스트 없음(mutant 생존).
+- 2026-08-31: codex code 리뷰(high) — Critical 0 / Major 5 / Minor 5, 전부 반영. GIT_* 스크럽 누락,
+  `GIT_ASKPASS=echo` 가 **프롬프트 문자열을 자격증명으로 되돌려주는** 문제, 최악 실행시간 41s > 훅
+  timeout 30s(고아 프로세스), `FETCH_HEAD` 가 repo 전역이라 다른 remote fetch 로 거짓 신선, refspec
+  미지정 시 `remote.<n>.fetch` 설정에 따라 **로컬 브랜치 ref 가 움직일 수 있음**.
+- 2026-08-31: wiki `[[git-hook-network-safety]]` 를 읽고 빠진 처방 두 개를 마저 넣었다 —
+  `ssh -oConnectTimeout=10`, `http.lowSpeedLimit/Time`. 그 페이지의 "네트워크는 async, 사용자에게
+  보여야 할 판정은 동기로" 원칙에 맞게 출력 시점도 주석에 명시했다.
+- 2026-08-31: 검증 — Windows: session-brief **74**, session-fetch **10**, session-start-pull 9(불변),
+  나머지 단위테스트 전부 통과, `node --check` 전 파일, settings.json JSON·체인 index 0 불변, plan-lint 0.
+  WSL(node v18.19.1/git 2.43): 74·10·9 동일 통과.
+- 2026-08-31: 교훈 적립 — wiki `pages/decision/lesson-fix-scoped-to-one-repo.md` + `index.md`·`log.md`
+  동기화, memory `fix-scope-beyond-one-repo.md` + `MEMORY.md` 인덱스 한 줄.
 # Next
 
-1. `scripts/hook-cwd.js` 추출(브리프·fetch 훅이 같은 stdin cwd 규약을 공유).
-2. 브리프에 (b) 파트 추가 + `currentRepoLine` export(+`require.main` 가드).
-3. `scripts/session-fetch.js` 신설 + `settings.json` 배선 + `lint.yml` 등록.
-4. 테스트(두 파일) → 리뷰(code-reviewer + codex) → 검증(Windows·WSL) → 머지·push.
-5. 교훈 적립(wiki lesson + MEMORY.md 인덱스 한 줄).
+1. **`~/.claude` main 의 `settings.json` 로컬 변경 처리 방법을 사용자가 정해야 한다**(아래 Blockers).
+   이 브랜치가 같은 파일을 건드리므로 그대로는 ff-merge 가 거부된다.
+2. 그다음 ff-merge → push. push 후 다른 머신은 각자의 다음 SessionStart pull 로 받는다.
+3. 대기 중인 code-reviewer(claude) 결과 반영.
+
 
 # Decisions
 
@@ -58,6 +75,14 @@ updated: 2026-08-31
 
 # Blockers
 
+- **`~/.claude` main 의 working tree 에 `settings.json` 미커밋 변경이 있다**(Orca 가 재주입한 Windows
+  절대경로 — README:446 이 "push 전 `git diff` 로 확인하라"고 적어 둔 그 변경이다). 이 브랜치도
+  `settings.json` 을 건드리므로 `git merge --ff-only` 가 "local changes would be overwritten" 으로
+  거부한다. 사용자 파일이라 내가 임의로 버리거나 커밋하지 않는다. 선택지:
+  (a) `git stash push settings.json` → 머지 → `git stash pop`(변경 영역이 달라 충돌 가능성은 낮다),
+  (b) 그 변경을 버린다(Orca 가 다음 세션에 재주입하므로 실질 손실은 없을 가능성이 높다),
+  (c) 커밋한다(**권하지 않음** — tracked 파일에 머신 절대경로가 들어가 멀티머신 ping-pong 재발).
+
 # Acceptance
 
 1. `node scripts/session-brief.test.js`·`session-fetch.test.js`·기존 단위테스트 전부 통과
@@ -69,3 +94,30 @@ updated: 2026-08-31
 6. `session-start-pull.test.js` 9건 불변(기존 pull 체인 회귀 없음)
 7. README·lint.yml 갱신, `node --check` 통과
 8. Windows + WSL 양쪽에서 테스트 통과
+
+# Review Disposition
+
+- `-uall` maxBuffer 로 신호 소실 (claude Major) — **fix**: `-unormal` + `maxBuffer 16MiB`.
+- `-uall` 이 만든 상시 잡음 (claude Major) — **fix**: 디렉토리 항목 skip + 테스트 ⓞ16.
+- `core.fsmonitor` 자동 실행 (codex→claude 실측 Major) — **fix**: 모든 git 호출에 `-c core.fsmonitor=`
+  + 테스트 ⓞ17(평범한 `git status` 는 실행한다는 전제까지 단언해 vacuous test 방지).
+- `GIT_DIR` 상속 (codex→claude 실측 Major) — **fix**: 두 스크립트 모두 스크럽 + 테스트 ⓞ18.
+- N 라벨 mutant 생존 (claude Major) — **fix**: 테스트 ⓝ9 + ⓞ1 의 잘못된 주석 정정.
+- `GIT_ASKPASS=echo` (codex Major) — **fix**: 제거하고 `credential.helper=`·`core.askPass=` 무력화.
+  물어볼 경로 자체를 없앤다.
+- 최악 실행시간 > 훅 timeout (codex Major) — **fix**: GIT_MS 5s→2s, FETCH_MS 20s→12s(합 ≈21s < 30s).
+- `FETCH_HEAD` 가 repo 전역 (codex Major) — **fix**: remote 별 스탬프 `.git/claude-fetch-<remote>` 로
+  교체 + 회귀 테스트 ①b(다른 remote 를 fetch 해도 origin 은 건너뛰지 않는다).
+- refspec 미지정 시 로컬 ref 이동 가능 (codex Major) — **fix**: `+<remoteref>:<trackingRef>` 명시.
+- kill switch 가 stdin 대기 비용을 뭄 (claude Minor) — **fix**: 검사를 `readHookCwd` 앞으로.
+- stdout write 콜백 백스톱 부재 (claude/codex Minor) — **fix**: 2s 타이머.
+- `ageFile` DST 플레이크 (claude Minor) — **fix**: 달력 연산으로 교체.
+- `packed-refs` mtime 부정확 (codex Minor) — **accept**: 스탬프·ref 파일 다음의 최후 폴백일 뿐이고,
+  없으면 아무 말도 안 한다(거짓 경고를 내지 않는 쪽으로 기울였다).
+- 접힌 디렉토리 안의 오래된 파일 미탐 (codex Minor) — **accept(문서화)**: `-uall` 의 잡음·소실과
+  맞바꾼 의도된 사각. README·코드 주석·테스트 ⓞ16 에 명시.
+- 동시 세션 fetch 경합 (codex Minor) — **accept**: git 이 ref 를 잠그고, 실패는 무음 fail-open 이며,
+  스탬프가 중복 실행을 줄인다. 락을 새로 만들 만한 피해가 없다.
+- ref 가 움직여도 낼 말이 없을 수 있음 (codex Minor) — **fix(문구)**: 계약 주석을 "움직였고 그래서 할
+  말이 생겼을 때"로 정정.
+- README 훅 개수 "2개 + orca" (codex Minor) — **fix**: 3개로.
