@@ -1,6 +1,6 @@
 ---
 title: session-fetch — 밀림을 판정할 근거(remote-tracking ref)를 실제로 갱신하고, 못 하면 그렇다고 말한다
-status: in_progress
+status: done
 started: 2026-08-31
 updated: 2026-08-31
 ---
@@ -39,12 +39,22 @@ updated: 2026-08-31
   WSL(node v18.19.1/git 2.43): 74·10·9 동일 통과.
 - 2026-08-31: 교훈 적립 — wiki `pages/decision/lesson-fix-scoped-to-one-repo.md` + `index.md`·`log.md`
   동기화, memory `fix-scope-beyond-one-repo.md` + `MEMORY.md` 인덱스 한 줄.
+- 2026-08-31: 사용자 선택대로 `settings.json`(Orca 재주입분)을 stash → ff-merge → pop 으로 처리하고
+  머지했다. **양쪽 다 보존된 것을 확인**했다 — working tree 에 orca 변경 11곳과 새 SessionStart 훅이
+  함께 있고 JSON 유효, 체인은 `[0] pull(async)·[1] 브리프(sync)·[2] fetch(async)`. 사용자의 미커밋
+  상태도 머지 전과 동일하게 복원됐다.
+- 2026-08-31: 배포본으로 실측했다 — 밀린 worktree 는 `origin/dev 대비 348커밋 뒤처짐 …`, 실제 bitbucket
+  원격에 SSH fetch 3.0초 + `.git/claude-fetch-origin` 스탬프 생성, 동기화된 repo(behind 0/ahead 0)는
+  무음. `origin/main` 으로 push(`e81e6c3..8aa5aab`), CI(ubuntu-latest) success. 이 plan 을 닫는다.
 # Next
 
-1. **`~/.claude` main 의 `settings.json` 로컬 변경 처리 방법을 사용자가 정해야 한다**(아래 Blockers).
-   이 브랜치가 같은 파일을 건드리므로 그대로는 ff-merge 가 거부된다.
-2. 그다음 ff-merge → push. push 후 다른 머신은 각자의 다음 SessionStart pull 로 받는다.
-3. 대기 중인 code-reviewer(claude) 결과 반영.
+없음 — 머지·push 로 배포 완료. 다른 머신은 각자의 다음 SessionStart pull 로 받는다.
+
+**단, 이번 변경에 대한 code-reviewer(claude) 결과가 아직 도착하지 않았다.** 도착 후 지적이 있으면
+후속 작업으로 처리한다(이 plan 을 다시 열지 않고 새 plan). codex 리뷰(high)는 이미 전량 반영했다.
+
+되돌리기: `git -C ~/.claude revert 8aa5aab 1d1a2f3 d74a6dd` · 즉시 무력화는
+`CLAUDE_SESSION_FETCH_OFF=1`(fetch 훅) / `CLAUDE_BRIEF_CWD_OFF=1`(신호 O).
 
 
 # Decisions
@@ -85,13 +95,9 @@ updated: 2026-08-31
 
 # Blockers
 
-- **`~/.claude` main 의 working tree 에 `settings.json` 미커밋 변경이 있다**(Orca 가 재주입한 Windows
-  절대경로 — README:446 이 "push 전 `git diff` 로 확인하라"고 적어 둔 그 변경이다). 이 브랜치도
-  `settings.json` 을 건드리므로 `git merge --ff-only` 가 "local changes would be overwritten" 으로
-  거부한다. 사용자 파일이라 내가 임의로 버리거나 커밋하지 않는다. 선택지:
-  (a) `git stash push settings.json` → 머지 → `git stash pop`(변경 영역이 달라 충돌 가능성은 낮다),
-  (b) 그 변경을 버린다(Orca 가 다음 세션에 재주입하므로 실질 손실은 없을 가능성이 높다),
-  (c) 커밋한다(**권하지 않음** — tracked 파일에 머신 절대경로가 들어가 멀티머신 ping-pong 재발).
+- (해소 2026-08-31) `~/.claude` main 의 미커밋 `settings.json` 이 ff-merge 를 막던 건 — 사용자 판단으로
+  stash → 머지 → pop. 두 변경이 서로 다른 영역이라 충돌 없이 합쳐졌고, 합쳐진 결과를 직접 확인했다.
+
 
 # Acceptance
 
