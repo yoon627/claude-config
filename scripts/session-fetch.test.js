@@ -61,6 +61,9 @@ function run(cwd, env) {
   return res.stdout.toString();
 }
 const upstreamSha = (dir) => git(dir, ['rev-parse', 'origin/main']).trim();
+// 스탬프 키는 추적 ref 단위다(브리프와 같은 함수). remote 단위면 다른 브랜치가 굶는다.
+const STAMP = 'claude-fetch-refs_remotes_origin_main';
+const stampPath = (dir, name) => path.join(dir, '.git', name || STAMP);
 
 ok('① 원격이 앞서면 ref 를 갱신하고 밀림 한 줄을 낸다', () => {
   const { remote, work } = cloned();
@@ -71,7 +74,7 @@ ok('① 원격이 앞서면 ref 를 갱신하고 밀림 한 줄을 낸다', () =
   assert.notStrictEqual(upstreamSha(work), before, 'remote-tracking ref 가 갱신돼야 한다');
   assert.match(out, /2커밋 뒤처짐/);
   assert.match(out, /origin\/main/);
-  assert.ok(fs.existsSync(path.join(work, '.git', 'claude-fetch-origin')), 'rate-limit 스탬프를 남긴다');
+  assert.ok(fs.existsSync(stampPath(work)), 'rate-limit 스탬프를 남긴다');
 });
 
 ok('①b 다른 remote 를 fetch 해도 origin 은 건너뛰지 않는다', () => {
@@ -101,7 +104,7 @@ ok('② merge 는 하지 않는다 — HEAD 와 작업트리가 그대로다', (
 
 ok('③ 최근에 fetch 했으면 원격을 두드리지 않는다', () => {
   const { remote, work } = cloned();
-  fs.writeFileSync(path.join(work, '.git', 'claude-fetch-origin'), ''); // 이 훅이 방금 한 셈
+  fs.writeFileSync(stampPath(work), ''); // 이 훅이 방금 한 셈
   const before = upstreamSha(work);
   commit(remote, 'r1');
   const out = run(work, { CLAUDE_SESSION_FETCH_MIN_MINUTES: '9999' });
@@ -149,6 +152,123 @@ ok('⑨ cwd 가 비어 있어도 죽지 않는다', () => {
     input: '{}',
   });
   assert.strictEqual(res.status, 0);
+});
+
+ok('⑩ 사용자의 FETCH_HEAD 를 덮지 않는다', () => {
+  // 덮으면, 사용자가 `git fetch origin <다른 브랜치>` 해 둔 상태에서 이어 친 `git merge FETCH_HEAD` 가
+  // 엉뚱한 브랜치를 머지한다. 훅이 사용자 workspace 를 만지지 않는다는 계약의 핵심 조각.
+  const { remote, work } = cloned();
+  git(work, ['fetch', 'origin', 'main']);
+  const userHead = fs.readFileSync(path.join(work, '.git', 'FETCH_HEAD'), 'utf8');
+  commit(remote, 'r1');
+  run(work);
+  assert.strictEqual(fs.readFileSync(path.join(work, '.git', 'FETCH_HEAD'), 'utf8'), userHead);
+});
+
+ok('⑪ 한 브랜치의 fetch 가 다른 브랜치를 굶기지 않는다', () => {
+  // remote 단위 스탬프였을 때: main 세션이 찍은 스탬프 때문에 15분 안의 feat 세션이 skip 되고
+  // origin/feat 는 영영 갱신되지 않았다(그리고 브리프의 "fetch 안 함" 경고까지 억제됐다).
+  const { remote, work } = cloned();
+  git(remote, ['checkout', '-q', '-b', 'feat']);
+  commit(remote, 'f1');
+  git(remote, ['checkout', '-q', 'main']);
+  git(work, ['fetch', '--quiet', 'origin', '+refs/heads/feat:refs/remotes/origin/feat']);
+  git(work, ['checkout', '-q', '-b', 'feat', '--track', 'origin/feat']);
+  // main 세션이 방금 fetch 한 상태를 만든다 — **main 쪽 스탬프만** 찍는다.
+  fs.writeFileSync(stampPath(work), '');
+  git(remote, ['checkout', '-q', 'feat']);
+  commit(remote, 'f2');
+  git(remote, ['checkout', '-q', 'main']);
+  const before = git(work, ['rev-parse', 'origin/feat']).trim();
+  // 게이트를 최대로 열어 둬도(9999분) feat 는 자기 스탬프가 없으므로 fetch 해야 한다.
+  const out = run(work, { CLAUDE_SESSION_FETCH_MIN_MINUTES: '9999' });
+  assert.notStrictEqual(git(work, ['rev-parse', 'origin/feat']).trim(), before, 'feat 는 자기 스탬프로 판정한다');
+  assert.match(out, /뒤처짐/);
+  assert.ok(
+    fs.existsSync(stampPath(work, 'claude-fetch-refs_remotes_origin_feat')),
+    'feat 스탬프가 따로 생긴다',
+  );
+});
+
+ok('⑫ 그 repo 의 git 훅을 실행하지 않는다', () => {
+  // fetch 는 ref 를 갱신하며 reference-transaction 훅을 부른다. 사용자가 아무 git 명령도 치지 않았는데
+  // 남의 repo 훅이 도는 것은 core.fsmonitor 와 같은 문제다.
+  const { remote, work } = cloned();
+  const marker = path.join(work, 'hook-ran');
+  const hook = path.join(work, '.git', 'hooks', 'reference-transaction');
+  fs.writeFileSync(hook, `#!/bin/sh\ntouch "${marker.replace(/\\/g, '/')}"\nexit 0\n`);
+  fs.chmodSync(hook, 0o755);
+  commit(remote, 'r1');
+  const before = upstreamSha(work);
+  run(work);
+  assert.notStrictEqual(upstreamSha(work), before, '전제: ref 는 실제로 갱신된다');
+  assert.ok(!fs.existsSync(marker), 'repo 훅은 실행되지 않는다');
+});
+
+ok('⑬ 상속된 GIT_COMMON_DIR 이 다른 repo 를 fetch 하게 만들지 않는다', () => {
+  const { remote, work } = cloned();
+  const other = cloned();
+  commit(remote, 'r1');
+  const before = upstreamSha(work);
+  run(work, { GIT_COMMON_DIR: path.join(other.work, '.git'), GIT_DIR: path.join(other.work, '.git') });
+  assert.notStrictEqual(upstreamSha(work), before, '지목된 repo 를 fetch 해야 한다');
+  assert.ok(!fs.existsSync(stampPath(other.work)), '무관한 repo 에 스탬프를 남기지 않는다');
+});
+
+ok('⑭ 브리프 kill switch 는 출력만 끈다(fetch 는 계속한다)', () => {
+  const { remote, work } = cloned();
+  commit(remote, 'r1');
+  const before = upstreamSha(work);
+  const out = run(work, { CLAUDE_BRIEF_CWD_OFF: '1' });
+  assert.strictEqual(out, '', 'README 가 즉시 차단 레버로 안내하는 스위치가 이 훅에도 들어야 한다');
+  assert.notStrictEqual(upstreamSha(work), before);
+});
+
+ok('⑮ 브리프가 감시하는 repo 자신은 건드리지 않는다(pull 훅과 ref 를 다투지 않게)', () => {
+  const { remote, work } = cloned();
+  commit(remote, 'r1');
+  const before = upstreamSha(work);
+  const out = run(work, { CLAUDE_BRIEF_REPO: work });
+  assert.strictEqual(out, '');
+  assert.strictEqual(upstreamSha(work), before, 'fetch 자체를 하지 않는다');
+});
+
+ok('⑯ 실패해도 스탬프를 찍어 매 세션 재시도하지 않는다', () => {
+  const { remote, work } = cloned();
+  fs.rmSync(remote, { recursive: true, force: true });
+  assert.strictEqual(run(work), '');
+  assert.ok(fs.existsSync(stampPath(work)), '실패에도 backoff 가 있어야 한다');
+});
+
+ok('⑰ submodule 을 가진 repo 에서 submodule ref 까지 건드리지 않는다', () => {
+  // `fetch.recurseSubmodules` 기본값은 on-demand 라, superproject fetch 가 submodule 포인터를 들여오면
+  // git 이 submodule 도 함께 fetch 한다 — "추적 ref 하나만 갱신한다"는 계약이 깨지고, 다른 repo 의 ref 가
+  // 사용자 모르게 움직인다. 로컬 경로 submodule 은 protocol.file.allow=always 가 필요하다(git 2.38+).
+  const FILE_OK = ['-c', 'protocol.file.allow=always'];
+  const subRemote = initRepo('sf-subremote-');
+  commit(subRemote, 'sub-base');
+  const superRemote = initRepo('sf-superremote-');
+  commit(superRemote, 'super-base');
+  git(superRemote, [...FILE_OK, 'submodule', 'add', '-q', subRemote, 'sub']);
+  git(superRemote, ['commit', '-qm', 'add sub']);
+
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'sf-superwork-')) + '/w';
+  execFileSync('git', [...FILE_OK, 'clone', '-q', '--recurse-submodules', superRemote, work], { stdio: 'ignore' });
+  git(work, ['config', 'user.email', 't@t']);
+  git(work, ['config', 'user.name', 't']);
+
+  // 원격 submodule 이 앞서고, superproject 가 그 포인터를 갱신한다(= on-demand 재귀 조건).
+  commit(subRemote, 'sub-r1');
+  git(superRemote, [...FILE_OK, 'submodule', 'update', '--remote', '-q', 'sub']);
+  git(superRemote, ['add', 'sub']);
+  git(superRemote, ['commit', '-qm', 'bump sub']);
+
+  const sub = path.join(work, 'sub');
+  const subBefore = git(sub, ['rev-parse', 'origin/main']).trim();
+  const superBefore = upstreamSha(work);
+  run(work);
+  assert.notStrictEqual(upstreamSha(work), superBefore, '전제: superproject 는 갱신된다');
+  assert.strictEqual(git(sub, ['rev-parse', 'origin/main']).trim(), subBefore, 'submodule ref 는 그대로다');
 });
 
 console.log(`session-fetch.test.js: ${n} tests passed`);

@@ -37,6 +37,13 @@ const MAINLINE = new Set(['main', 'master']);
 const STALE_CAP = 5;
 const MAX_PLANS = 200; // plans/ 는 done 도 계속 누적 → MAX_BRANCHES 와 대칭으로 상한
 const FM_BYTES = 2048; // frontmatter 는 파일 맨 앞 몇 줄 → 전문 대신 head 만 read
+// `git rev-parse --local-env-vars` 가 열거하는 repo-routing 환경변수. 하나라도 남으면 `-C` 가 진다.
+const GIT_LOCAL_ENV = [
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_CONFIG', 'GIT_CONFIG_PARAMETERS', 'GIT_CONFIG_COUNT',
+  'GIT_OBJECT_DIRECTORY', 'GIT_DIR', 'GIT_WORK_TREE', 'GIT_IMPLICIT_WORK_TREE', 'GIT_GRAFT_FILE',
+  'GIT_INDEX_FILE', 'GIT_NO_REPLACE_OBJECTS', 'GIT_REPLACE_REF_BASE', 'GIT_PREFIX',
+  'GIT_INTERNAL_SUPER_PREFIX', 'GIT_SHALLOW_FILE', 'GIT_COMMON_DIR',
+];
 const CWD_BUDGET_MS = 2000; // O 신호 전체 시간 상한(동기 hook — settings 의 timeout 10s 를 혼자 먹지 않게)
 // stat 상한. "가장 오래된 것"을 찾는 게 목적이라 너무 낮으면 어질러진 repo 일수록 검출이 죽는다
 // (사전순 앞 20개만 보면 21번째가 제일 오래돼도 못 찾는다). statSync 는 싸고, 진짜 상한은 예산이다.
@@ -45,11 +52,10 @@ const STDIN_MS = 1000; // hook stdin 대기 상한. 형제 훅(dlc-early-stop.js
 
 function git(repoDir, args) {
   // 상속된 GIT_* 는 `-C` 를 이긴다 — GIT_DIR 이 남아 있는 셸에서 세션이 열리면 stdin 이 지목한 repo 가
-  // 아니라 그쪽 repo 를 답한다(실측). 테스트는 예전부터 이걸 스크럽했는데 프로덕션만 안 하고 있었다.
+  // 아니라 그쪽 repo 를 답한다(실측). 3개만 지우면 `GIT_COMMON_DIR` 로 그대로 새어나간다(이것도 실측) →
+  // repo 를 가리키는 변수 전체를 지운다. 목록 출처: `git rev-parse --local-env-vars`(git 2.50).
   const env = { ...process.env };
-  delete env.GIT_DIR;
-  delete env.GIT_WORK_TREE;
-  delete env.GIT_INDEX_FILE;
+  for (const k of GIT_LOCAL_ENV) delete env[k];
   return execFileSync(
     'git',
     // `core.fsmonitor` 는 repo 설정에 적힌 **명령을 실행**한다. 이 훅은 사용자가 아무 git 명령도 치기
@@ -365,15 +371,23 @@ function localDateString(ms) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// 추적 ref 하나에 대한 fetch 스탬프 파일명. 브리프와 fetch 훅이 **같은 함수**로 키를 만든다 —
+// 키가 갈라지면 한쪽은 못 찾고 다른 쪽은 굶는다(그 실패는 조용해서 더 나쁘다).
+function fetchStampName(fullRef) {
+  return `claude-fetch-${fullRef.replace(/[^\w.-]/g, '_')}`;
+}
+
 // remote-tracking ref 가 마지막으로 갱신된 시각(ms). 없으면 null — **모르면 아무 말도 하지 않는다**.
-// FETCH_HEAD 는 fetch 할 때마다 다시 쓰이므로 1순위다. 없을 수 있는(= 한 번도 fetch 안 한) 경우를
-// "오래됐다"로 단정하면 갓 clone 한 repo 에 거짓 경고를 낸다 → ref 파일·packed-refs 의 mtime 을 쓴다.
-// 그 둘은 clone 시각에 만들어지므로, 새 clone 은 신선하고 오래 방치된 clone 은 오래된 것으로 잡힌다.
-function lastRefreshMs(commonDir, ref) {
-  const remote = ref.slice(0, ref.indexOf('/'));
-  // 1순위는 session-fetch 훅이 남기는 remote 별 스탬프. `FETCH_HEAD` 는 **쓰지 않는다** — repo 전역이라
-  // 다른 remote 를 fetch 해도 갱신돼 이쪽이 신선한 것처럼 보인다(그 오판이 곧 침묵이다).
-  for (const rel of [`claude-fetch-${remote.replace(/[^\w.-]/g, '_')}`, path.join('refs', 'remotes', ref), 'packed-refs']) {
+// "한 번도 갱신 안 함"을 "오래됐다"로 단정하면 갓 clone 한 repo 에 거짓 경고를 낸다 → 근거가 없으면
+// 아무 말도 하지 않는다(null). ref 파일·packed-refs 는 clone 시각에 만들어지므로, 새 clone 은 신선하고
+// 오래 방치된 clone 은 오래된 것으로 잡힌다. 단 `packed-refs` 는 `git gc` 로도 다시 쓰이므로 오래
+// 방치된 repo 를 신선한 것처럼 보이게 할 수 있다 — **경고를 없애는 쪽으로만 틀리는** 폴백이라 두었다
+// (거짓 경고보다 낫다). fetch 훅이 도는 repo 는 매번 스탬프를 남기므로 이 폴백까지 오지 않는다.
+function lastRefreshMs(commonDir, fullRef) {
+  // 1순위는 session-fetch 훅이 남기는 **추적 ref 단위** 스탬프. `FETCH_HEAD` 는 쓰지 않는다 — repo
+  // 전역이라 다른 remote·브랜치를 fetch 해도 갱신돼 이쪽이 신선한 것처럼 보인다(그 오판이 곧 침묵이다).
+  // remote 단위 스탬프도 같은 이유로 안 된다: `main` 세션이 찍은 스탬프가 `feat` 세션의 판정을 덮는다.
+  for (const rel of [fetchStampName(fullRef), fullRef, 'packed-refs']) {
     try {
       return fs.statSync(path.join(commonDir, rel)).mtimeMs;
     } catch {
@@ -412,15 +426,19 @@ function currentRepoLine(cwd, repoDir, env, now) {
   // 이 워크플로우는 feature 브랜치를 push 하지 않는 것이 규약이라(글로벌 §8) upstream 없음이 정상이고,
   // 폴백을 두면 "main 에서 갈라진 지 오래됨"이라는 조치 불가능한 사실을 매 세션 낸다(실측: 한 repo 의
   // worktree 68개 중 60개가 그렇게 걸렸다). 그 잡음은 K 를 확장하지 않기로 한 이유와 같은 것이다.
-  let ref = null;
+  let ref = null; // 표시용 짧은 이름
+  let fullRef = null; // 스탬프 키·rev-list 용 정식 이름
   try {
-    ref = git(cwd, ['rev-parse', '--abbrev-ref', '@{upstream}']).trim() || null;
+    fullRef = git(cwd, ['rev-parse', '--symbolic-full-name', '@{upstream}']).trim() || null;
+    // `refs/remotes/origin/main` → `origin/main`. 로컬 브랜치가 upstream 이면(`branch.X.remote=.`)
+    // 그 접두가 없으므로 정식 이름을 그대로 보여준다 — 문자열을 쪼개 추측하지 않는다.
+    ref = fullRef && fullRef.startsWith('refs/remotes/') ? fullRef.slice('refs/remotes/'.length) : fullRef;
   } catch {
     ref = null; // upstream 미설정 → 밀림은 판정하지 않는다(무엇 대비인지 모르는 숫자는 만들지 않는다)
   }
   if (ref && !spent()) {
     try {
-      const [behind, ahead] = git(cwd, ['rev-list', '--left-right', '--count', `${ref}...HEAD`])
+      const [behind, ahead] = git(cwd, ['rev-list', '--left-right', '--count', `${fullRef}...HEAD`])
         .trim()
         .split(/\s+/)
         .map((x) => parseInt(x, 10));
@@ -489,7 +507,7 @@ function currentRepoLine(cwd, repoDir, env, now) {
   if (ref && !parts.length && !spent()) {
     const rawFetch = Number(env.CLAUDE_BRIEF_FETCH_DAYS);
     const fetchDays = Number.isFinite(rawFetch) && rawFetch >= 1 ? Math.floor(rawFetch) : 3;
-    const at = lastRefreshMs(commonDir, ref);
+    const at = lastRefreshMs(commonDir, fullRef);
     const stale = at === null ? null : daysSinceLocal(localDateString(at), now);
     if (stale !== null && stale >= fetchDays) {
       parts.push(`${stale}일째 fetch 하지 않았다 — ${ref} 대비 밀렸는지 알 수 없다`);
@@ -571,4 +589,4 @@ if (require.main === module) {
 }
 
 // session-fetch 훅이 fetch 직후 같은 문장을 내기 위해 가져다 쓴다 — 두 곳에서 만들면 갈라진다.
-module.exports = { currentRepoLine };
+module.exports = { currentRepoLine, samePath, fetchStampName, GIT_LOCAL_ENV };
