@@ -1,6 +1,6 @@
 ---
 title: brief-repo-scope — 세션 브리프가 현재 작업 repo 의 밀림·묵은 미커밋도 말하게 한다
-status: in_progress
+status: done
 started: 2026-08-31
 updated: 2026-08-31
 ---
@@ -43,13 +43,16 @@ updated: 2026-08-31
   session-start-pull 9, 나머지 불변), `settings.json` JSON 검증, plan-lint exit 0. 사용자의 기존
   dirty 파일(settings.json·plans 2건)은 건드리지 않았다. **배포본 스모크**: 뒤처진 worktree 를 주면
   기존 신호들과 함께 O 줄이 뜨고, 이 세션의 실제 cwd(동기화·clean)에서는 안 뜬다. 총 246ms.
+- 2026-08-31: `origin/main` 으로 push 했다(`ef18b3a..aa03f30`). 다른 머신은 각자의 다음 SessionStart
+  pull 훅으로 받는다(그 훅은 `main` 브랜치에서만 돈다 — 다른 브랜치에 있는 머신은 N 이 그 사실을 알린다).
+  이 plan 을 닫는다.
 # Next
 
-**사용자 승인 후 `origin/main` push.** 그 전까지는 이 머신에만 적용된다 — 다른 머신은 push 후
-각자의 다음 SessionStart pull 훅으로 받는다(그 훅은 `main` 브랜치에서만 돈다).
+없음 — 머지·push 로 배포 완료. 관찰만 남는다: 이 머신에서 새 세션을 열 때 대상 repo 가 밀려 있으면
+O 줄이 떠야 하고, 조용하면 안 떠야 한다(지금 이 머신은 후자가 정상).
 
-되돌리기: `git -C ~/.claude reset --keep ef18b3a` (머지 전 main). 즉시 무력화는
-`CLAUDE_BRIEF_CWD_OFF=1`.
+되돌리기: `git -C ~/.claude reset --keep ef18b3a` 후 push, 즉시 무력화는 `CLAUDE_BRIEF_CWD_OFF=1`.
+삭제한 작업 브랜치 복구는 `git -C ~/.claude branch brief-repo-scope aa03f30`.
 
 
 # Decisions
