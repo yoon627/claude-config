@@ -38,11 +38,18 @@ updated: 2026-08-31
   upstream 없는 `adapter-sandbox` 는 이제 무음(전에는 1022커밋 뒤처짐이라고 했다),
   `CSTP1-2898-dev-merge` 는 `origin/dev 대비 336커밋 뒤처짐 — 이 repo 에는 자동 pull 이 없다`,
   `cstp-ai-agent-defaults` 는 `미커밋 13일: wiki/index.md, …`.
+- 2026-08-31: 검증 통과 후 `~/.claude` main 에 ff-only 머지했다(`f89d84b`). CI(lint.yml)의 node 축을
+  그대로 재현 — `node --check` 전 파일, node 단위테스트 10종 전부 통과(session-brief **67**,
+  session-start-pull 9, 나머지 불변), `settings.json` JSON 검증, plan-lint exit 0. 사용자의 기존
+  dirty 파일(settings.json·plans 2건)은 건드리지 않았다. **배포본 스모크**: 뒤처진 worktree 를 주면
+  기존 신호들과 함께 O 줄이 뜨고, 이 세션의 실제 cwd(동기화·clean)에서는 안 뜬다. 총 246ms.
 # Next
 
-1. simplify 점검 후 `~/.claude` main 에 ff-only 머지.
-2. 머지 후 새 세션에서 실제로 뜨는지 관찰(현재 이 머신은 대상 repo 가 조용해 무음이 정상).
-3. push 는 사용자 승인 후.
+**사용자 승인 후 `origin/main` push.** 그 전까지는 이 머신에만 적용된다 — 다른 머신은 push 후
+각자의 다음 SessionStart pull 훅으로 받는다(그 훅은 `main` 브랜치에서만 돈다).
+
+되돌리기: `git -C ~/.claude reset --keep ef18b3a` (머지 전 main). 즉시 무력화는
+`CLAUDE_BRIEF_CWD_OFF=1`.
 
 
 # Decisions
