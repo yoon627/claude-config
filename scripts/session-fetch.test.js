@@ -71,6 +71,22 @@ ok('① 원격이 앞서면 ref 를 갱신하고 밀림 한 줄을 낸다', () =
   assert.notStrictEqual(upstreamSha(work), before, 'remote-tracking ref 가 갱신돼야 한다');
   assert.match(out, /2커밋 뒤처짐/);
   assert.match(out, /origin\/main/);
+  assert.ok(fs.existsSync(path.join(work, '.git', 'claude-fetch-origin')), 'rate-limit 스탬프를 남긴다');
+});
+
+ok('①b 다른 remote 를 fetch 해도 origin 은 건너뛰지 않는다', () => {
+  // FETCH_HEAD 는 repo 전역이라 `git fetch other` 만으로도 갱신된다. 그걸 기준으로 삼으면 정작 볼
+  // origin 을 "방금 했다"로 건너뛴다 — remote 별 스탬프를 쓰는 이유다.
+  const { remote, work } = cloned();
+  const other = initRepo('sf-other-');
+  commit(other, 'obase');
+  git(work, ['remote', 'add', 'other', other]);
+  git(work, ['fetch', '--quiet', 'other']); // FETCH_HEAD 가 방금 갱신된다
+  const before = upstreamSha(work);
+  commit(remote, 'r1');
+  const out = run(work, { CLAUDE_SESSION_FETCH_MIN_MINUTES: '9999' });
+  assert.notStrictEqual(upstreamSha(work), before, 'origin 스탬프는 없으므로 fetch 해야 한다');
+  assert.match(out, /1커밋 뒤처짐/);
 });
 
 ok('② merge 는 하지 않는다 — HEAD 와 작업트리가 그대로다', () => {
@@ -85,7 +101,7 @@ ok('② merge 는 하지 않는다 — HEAD 와 작업트리가 그대로다', (
 
 ok('③ 최근에 fetch 했으면 원격을 두드리지 않는다', () => {
   const { remote, work } = cloned();
-  fs.writeFileSync(path.join(work, '.git', 'FETCH_HEAD'), ''); // 방금 fetch 한 셈
+  fs.writeFileSync(path.join(work, '.git', 'claude-fetch-origin'), ''); // 이 훅이 방금 한 셈
   const before = upstreamSha(work);
   commit(remote, 'r1');
   const out = run(work, { CLAUDE_SESSION_FETCH_MIN_MINUTES: '9999' });

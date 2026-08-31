@@ -370,7 +370,10 @@ function localDateString(ms) {
 // "오래됐다"로 단정하면 갓 clone 한 repo 에 거짓 경고를 낸다 → ref 파일·packed-refs 의 mtime 을 쓴다.
 // 그 둘은 clone 시각에 만들어지므로, 새 clone 은 신선하고 오래 방치된 clone 은 오래된 것으로 잡힌다.
 function lastRefreshMs(commonDir, ref) {
-  for (const rel of ['FETCH_HEAD', path.join('refs', 'remotes', ref), 'packed-refs']) {
+  const remote = ref.slice(0, ref.indexOf('/'));
+  // 1순위는 session-fetch 훅이 남기는 remote 별 스탬프. `FETCH_HEAD` 는 **쓰지 않는다** — repo 전역이라
+  // 다른 remote 를 fetch 해도 갱신돼 이쪽이 신선한 것처럼 보인다(그 오판이 곧 침묵이다).
+  for (const rel of [`claude-fetch-${remote.replace(/[^\w.-]/g, '_')}`, path.join('refs', 'remotes', ref), 'packed-refs']) {
     try {
       return fs.statSync(path.join(commonDir, rel)).mtimeMs;
     } catch {
