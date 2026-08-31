@@ -6,7 +6,10 @@
 //     K 의 정반대 축 — K 는 "코드는 됐는데 안 머지됨", M 은 "머지는 됐는데 plan 이 안 닫힘".
 //   N 자동 pull 밀림: ~/.claude 가 origin/main 보다 뒤처졌을 때 **왜 자동 pull 이 못 따라잡았는지**.
 //     pull 훅은 async 라 stdout 이 첫 턴 뒤에 도달 → 시작 시점에 알려면 동기인 이 브리프가 말해야 한다.
-// 계약: 판정 아님·표시만(telemetry emit 안 함) · 전부 fail-open(무음 exit 0) · ~/.claude 한정 ·
+//   O 세션 repo 밀림: **지금 작업 중인 repo**(hook stdin 의 cwd)가 upstream 보다 뒤처졌거나 미커밋이
+//     오래 방치됐을 때. N 과 나누는 이유는 처방이 다르기 때문 — ~/.claude 는 자동 pull 훅이 있어
+//     "훅이 왜 못 따라잡았나"가 답이고, 다른 repo 는 훅이 없으니 "직접 pull 해야 한다"가 답이다.
+// 계약: 판정 아님·표시만(telemetry emit 안 함) · 전부 fail-open(무음 exit 0) ·
 //   동기 hook(async 면 stdout 이 첫 턴 후 도달) · git stderr 억제 · child git timeout ·
 //   신호끼리 예외 격리(한 신호가 죽어도 나머지 라인은 살린다 — stdout write 가 마지막에 1회라서).
 'use strict';
@@ -28,6 +31,9 @@ const MAINLINE = new Set(['main', 'master']);
 const STALE_CAP = 5;
 const MAX_PLANS = 200; // plans/ 는 done 도 계속 누적 → MAX_BRANCHES 와 대칭으로 상한
 const FM_BYTES = 2048; // frontmatter 는 파일 맨 앞 몇 줄 → 전문 대신 head 만 read
+const CWD_BUDGET_MS = 2000; // O 신호 전체 시간 상한(동기 hook — settings 의 timeout 10s 를 혼자 먹지 않게)
+const CWD_STAT_CAP = 20; // mtime 조회 상한(대형 repo 의 dirty 목록이 예산을 삼키지 않게)
+const STDIN_MS = 300; // hook stdin 대기 상한. 안 닫는 호출자가 세션 시작을 막지 못하게 한다
 
 function git(repoDir, args) {
   return execFileSync('git', ['-C', repoDir, ...args], {
@@ -265,7 +271,10 @@ function autopullStalledLine(repoDir, env) {
   }
   if (!behind) return null; // 최신 = 정상 무음(매 세션 잡음 금지)
 
-  const head = `~/.claude ${behind}커밋 뒤처짐`;
+  // 라벨은 감시 대상에서 유도한다. 하드코딩하면 CLAUDE_BRIEF_REPO 로 다른 repo 를 겨눴을 때
+  // "~/.claude 가 뒤처졌다"고 거짓 보고한다(실측으로 확인한 뒤 고쳤다).
+  const label = samePath(repoDir, path.join(os.homedir(), '.claude')) ? '~/.claude' : path.basename(repoDir);
+  const head = `${label} ${behind}커밋 뒤처짐`;
   // 아래 분기 순서 = 훅이 pull 을 포기하는 순서. 스스로 낫지 않는 원인을 "재시도하면 되겠지"로
   // 뭉뚱그리면, 이 신호가 없애려던 "조용히 밀리는데 괜찮은 줄 안다"를 문장만 바꿔 재생산한다.
   if (env.CLAUDE_AUTOPULL_OFF === '1') return `${head} — CLAUDE_AUTOPULL_OFF=1 로 자동 pull 을 꺼 둔 상태`;
@@ -309,7 +318,150 @@ function autopullStalledLine(repoDir, env) {
   return `${head} — 원인 미확인(마지막 pull 이 실패했거나 아직 안 돌았다)`;
 }
 
-function main() {
+// 경로 동일성. Windows 는 대소문자를 구분하지 않으므로 비교 전에 접는다.
+function samePath(a, b) {
+  const norm = (x) => {
+    const r = path.resolve(x);
+    return process.platform === 'win32' ? r.toLowerCase() : r;
+  };
+  return norm(a) === norm(b);
+}
+
+// mtime → `daysSinceLocal` 이 받는 로컬 달력 날짜 문자열. M 신호와 같은 시간 축을 쓴다.
+function localDateString(ms) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// O: 세션이 작업 중인 repo 가 upstream 보다 뒤처졌거나, 미커밋이 오래 방치됐으면 한 줄(없으면 null).
+// N 과 달리 이쪽에는 자동 pull 훅이 없다 — 원인을 묻는 게 아니라 사람이 직접 당겨야 한다고 말한다.
+// 동기 hook 이라 시간 상한을 들고 다닌다: fail-open 은 예외 정책이지 시간 정책이 아니다.
+function currentRepoLine(cwd, repoDir, env, now) {
+  if (!cwd) return null;
+  const deadline = Date.now() + CWD_BUDGET_MS;
+  const spent = () => Date.now() > deadline;
+
+  let top;
+  let commonDir;
+  try {
+    // 한 번의 spawn 으로 둘 다 받는다. --git-common-dir 은 cwd 상대일 수 있어 resolve 한다.
+    const out = git(cwd, ['rev-parse', '--show-toplevel', '--git-common-dir']).split('\n');
+    top = (out[0] || '').trim();
+    commonDir = path.resolve(cwd, (out[1] || '').trim());
+  } catch {
+    return null; // 비 git·경로 없음·git 실패 → 무음
+  }
+  if (!top) return null;
+  // 감시 repo(N) 자신이면 O 는 침묵한다 — worktree 로 들어가도 common dir 은 같으므로 여기서 걸린다.
+  if (samePath(commonDir, path.join(repoDir, '.git'))) return null;
+
+  const parts = [];
+
+  // upstream 후보를 순서대로 본다. **존재를 확인한 것만** 채택하고, 채택한 뒤 rev-list 가 실패하면
+  // 다음 후보로 내려가지 않는다 — 다른 기준으로 센 숫자를 같은 문장에 담으면 거짓말이 된다.
+  let ref = null;
+  for (const cand of ['@{upstream}', 'origin/HEAD', 'origin/main']) {
+    if (spent()) break;
+    try {
+      git(cwd, ['rev-parse', '--verify', '--quiet', cand]);
+      ref = cand;
+      break;
+    } catch {
+      /* 없는 후보 → 다음 */
+    }
+  }
+  if (ref && !spent()) {
+    try {
+      const [behind, ahead] = git(cwd, ['rev-list', '--left-right', '--count', `${ref}...HEAD`])
+        .trim()
+        .split(/\s+/)
+        .map((x) => parseInt(x, 10));
+      if (Number.isFinite(behind) && behind > 0) {
+        parts.push(
+          ahead > 0
+            ? `${behind}커밋 뒤처짐·로컬 ${ahead}커밋 앞섬 — 갈라져서 ff-only pull 이 불가능하다(rebase 나 push 필요)`
+            : `${behind}커밋 뒤처짐 — 이 repo 에는 자동 pull 이 없다(직접 pull 해야 한다)`,
+        );
+      }
+    } catch {
+      /* 판정 실패 → 밀림 파트만 포기 */
+    }
+  }
+
+  // 오래 방치된 미커밋. 편집 중인 파일로 매 세션 울리지 않도록 임계를 둔다.
+  const rawDays = Number(env.CLAUDE_BRIEF_DIRTY_DAYS);
+  const minDays = Number.isFinite(rawDays) && rawDays >= 1 ? Math.floor(rawDays) : 3;
+  if (!spent()) {
+    try {
+      // --no-renames: -z 의 rename 항목은 경로가 2개라 파서가 어긋난다. 나이만 볼 것이라 원경로면 충분.
+      const entries = gitPaths(cwd, ['status', '--porcelain', '--no-renames']);
+      let oldest = null;
+      const names = [];
+      for (const e of entries.slice(0, CWD_STAT_CAP)) {
+        const rel = e.slice(3); // `XY <path>`
+        if (!rel) continue;
+        let st;
+        try {
+          st = fs.statSync(path.join(top, rel));
+        } catch {
+          continue; // 삭제된 파일 등 stat 불가 → 나이를 알 수 없다
+        }
+        const days = daysSinceLocal(localDateString(st.mtimeMs), now);
+        if (days === null || days < minDays) continue;
+        if (oldest === null || days > oldest) oldest = days;
+        names.push(rel);
+      }
+      if (oldest !== null && names.length) {
+        const shown = names.slice(0, LIST_CAP).join(', ');
+        const more = names.length > LIST_CAP ? ` +${names.length - LIST_CAP}` : '';
+        parts.push(`미커밋 ${oldest}일: ${shown}${more}`);
+      }
+    } catch {
+      /* status 실패 → 미커밋 파트만 포기 */
+    }
+  }
+
+  if (!parts.length) return null; // 동기화 + clean = 정상 무음
+  // N 과 같은 모양(`<대상> <사실> — <처방>`). 이름 뒤에 대시를 또 넣으면 한 줄에 대시가 둘이 된다.
+  return `${path.basename(top)} ${parts.join(' · ')}`;
+}
+
+// hook stdin JSON 의 cwd 를 읽는다 — 형제 훅과 같은 입력원(dlc-task-router.js·guard-worktree-edit.js).
+// 공식 문서상 cwd 는 전 이벤트 공통 필드이고 worktree 진입·cd 를 따라간다. 터미널 직접 실행은
+// stdin 이 TTY 라 즉시 폴백하고(notify-hook.js 와 같은 가드), 안 닫히는 stdin 은 타이머가 끊는다.
+function readHookCwd(cb) {
+  if (process.stdin.isTTY) {
+    cb(process.cwd());
+    return;
+  }
+  let raw = '';
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    clearTimeout(timer);
+    let c = '';
+    try {
+      c = String(JSON.parse(raw).cwd || '');
+    } catch {
+      /* JSON 아님 → 프로세스 cwd 로 폴백 */
+    }
+    cb(c || process.cwd());
+  };
+  const timer = setTimeout(finish, STDIN_MS); // unref 하지 않는다 — 이 타이머가 유일한 진행 보장이다
+  try {
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', (c) => {
+      raw += c;
+    });
+    process.stdin.on('end', finish);
+    process.stdin.on('error', finish);
+  } catch {
+    finish();
+  }
+}
+
+function main(cwd) {
   const env = process.env;
   if (env.CLAUDE_SESSION_BRIEF_OFF === '1') return;
   const repoDir = env.CLAUDE_BRIEF_REPO || path.join(os.homedir(), '.claude');
@@ -328,12 +480,19 @@ function main() {
   collect('CLAUDE_BRIEF_IMPROVE_OFF', () => improveNudgeLine(env));
   collect('CLAUDE_BRIEF_STALE_OFF', () => stalePlanLine(repoDir, env, new Date()));
   collect('CLAUDE_BRIEF_AUTOPULL_OFF', () => autopullStalledLine(repoDir, env));
+  collect('CLAUDE_BRIEF_CWD_OFF', () => currentRepoLine(cwd, repoDir, env, new Date()));
   if (lines.length) process.stdout.write(lines.join('\n') + '\n');
 }
 
 try {
-  main();
+  readHookCwd((cwd) => {
+    try {
+      main(cwd);
+    } catch {
+      /* 어떤 예외도 세션 시작을 막지 않는다(fail-open) */
+    }
+    process.exit(0);
+  });
 } catch {
-  /* 어떤 예외도 세션 시작을 막지 않는다(fail-open) */
+  process.exit(0);
 }
-process.exit(0);

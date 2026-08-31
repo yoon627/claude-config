@@ -52,14 +52,24 @@ function blankSignalDir() {
 }
 
 // run brief; returns stdout string.
-function run(env) {
+// hookCwd: O 신호가 보는 repo(= hook stdin JSON 의 cwd). 명시 안 하면 빈 fixture — 안 그러면
+// 모든 기존 테스트가 이 파일이 놓인 실 worktree 상태에 물든다(K/M/N 을 fixture 로 돌린 것과 같은 이유).
+// hookCwd 를 null 로 주면 stdin 을 비워 "JSON 없음" 경로(process.cwd() 폴백)를 탄다.
+// spawnCwd: 그 폴백이 무엇을 보는지 결정하는 프로세스 cwd.
+function run(env, hookCwd, spawnCwd) {
   const merged = { ...process.env, ...env };
   // 테스트가 명시하지 않은 입력은 실 환경이 아니라 빈 fixture 를 보게 한다
   // (process.env 에 값이 있어도 테스트 기본값이 이기도록 병합 후 덮어쓴다).
   if (!env || !env.CLAUDE_BRIEF_REPO) merged.CLAUDE_BRIEF_REPO = blankRepo();
   if (!env || !env.CLAUDE_DLC_SIGNAL_DIR) merged.CLAUDE_DLC_SIGNAL_DIR = blankSignalDir();
+  const input =
+    hookCwd === null
+      ? ''
+      : JSON.stringify({ hook_event_name: 'SessionStart', cwd: hookCwd || blankRepo() });
+  const opts = { env: merged, input };
+  if (spawnCwd) opts.cwd = spawnCwd;
   try {
-    return execFileSync('node', [BRIEF], { env: merged }).toString();
+    return execFileSync('node', [BRIEF], opts).toString();
   } catch (e) {
     return e.stdout ? e.stdout.toString() : '';
   }
@@ -89,6 +99,9 @@ const OFF = { CLAUDE_BRIEF_IMPROVE_OFF: '1', CLAUDE_BRIEF_STALE_OFF: '1' }; // K
 // 읽으므로, M 이 켜져 있으면 그쪽 plan 상태에 따라 무음 단언이 깨진다.
 const MOFF = { CLAUDE_BRIEF_MERGE_OFF: '1', CLAUDE_BRIEF_STALE_OFF: '1' };
 const KLOFF = { CLAUDE_BRIEF_MERGE_OFF: '1', CLAUDE_BRIEF_IMPROVE_OFF: '1' }; // M 테스트 시 K·L 끄기
+// O 테스트 시 K·L·M·N 끄기 / 그 반대로 O 만 끄기. O 는 hook stdin 의 cwd 를 보므로 기본 fixture 가
+// 조용하지만, 명시적으로 꺼 두는 편이 단언 실패 시 원인을 좁힌다.
+const OOFF = { CLAUDE_BRIEF_MERGE_OFF: '1', CLAUDE_BRIEF_IMPROVE_OFF: '1', CLAUDE_BRIEF_STALE_OFF: '1', CLAUDE_BRIEF_AUTOPULL_OFF: '1' };
 
 // ---------- K: 머지 대기 ----------
 ok('ⓐ ahead>0 브랜치 → 머지 대기 목록 1줄', () => {
@@ -615,6 +628,92 @@ ok('ⓝ8 origin/main 이 없으면 무음(판정 불가)', () => {
   const r = initRepo();
   commit(r, 'base');
   assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...NOFF }), '');
+});
+
+// ---------- O: 현재 작업 repo(세션 cwd) ----------
+// upstream 을 가진 fixture. behind 만큼 원격이 앞서고, ahead 만큼 로컬이 앞선다.
+function upstreamRepo(behind, ahead) {
+  const r = initRepo();
+  commit(r, 'base');
+  const base = execFileSync('git', ['-C', r, 'rev-parse', 'HEAD']).toString().trim();
+  for (let i = 0; i < behind; i++) commit(r, `remote${i}`);
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  git(r, ['reset', '--hard', base]);
+  // remote 를 실제로 등록하지 않고 upstream 만 세운다 — `--set-upstream-to` 는 remote 설정이 없으면
+  // 거부하지만(exit 128), config 두 줄이면 `@{upstream}` 은 refs/remotes/origin/main 으로 해석된다.
+  git(r, ['config', 'branch.main.remote', 'origin']);
+  git(r, ['config', 'branch.main.merge', 'refs/heads/main']);
+  for (let i = 0; i < ahead; i++) commit(r, `local${i}`);
+  return r;
+}
+function ageFile(file, days) {
+  const t = Date.now() / 1000 - days * 86400;
+  fs.utimesSync(file, t, t);
+}
+
+ok('ⓞ1 세션 repo 가 upstream 보다 뒤처지면 repo 이름과 함께 1줄', () => {
+  const r = upstreamRepo(2, 0);
+  const out = run({ ...OOFF }, r);
+  assert.match(out, new RegExp(path.basename(r)));
+  assert.match(out, /2커밋 뒤처짐/);
+  assert.doesNotMatch(out, /~\/\.claude/); // 라벨이 ~/.claude 로 새지 않는다(이번 수정의 핵심)
+});
+
+ok('ⓞ2 갈라져 있으면(ahead>0) ff 로 못 따라잡는다고 말한다', () => {
+  const out = run({ ...OOFF }, upstreamRepo(2, 1));
+  assert.match(out, /갈라/);
+  assert.match(out, /rebase|push/);
+});
+
+ok('ⓞ3 동기화 + clean 이면 무음', () => {
+  assert.strictEqual(run({ ...OOFF }, upstreamRepo(0, 0)), '');
+});
+
+ok('ⓞ4 임계 이상 방치된 미커밋은 알린다', () => {
+  const r = upstreamRepo(0, 0);
+  const f = path.join(r, 'stale-edit.txt');
+  fs.writeFileSync(f, 'edited');
+  ageFile(f, 5);
+  const out = run({ ...OOFF }, r);
+  assert.match(out, /미커밋/);
+  assert.match(out, /stale-edit\.txt/);
+});
+
+ok('ⓞ5 방금 만든 미커밋은 무음(편집 중인 파일로 매 세션 울리지 않는다)', () => {
+  const r = upstreamRepo(0, 0);
+  fs.writeFileSync(path.join(r, 'fresh.txt'), 'edited');
+  assert.strictEqual(run({ ...OOFF }, r), '');
+});
+
+ok('ⓞ6 upstream 이 없으면 밀림은 판정하지 않는다 — 그래도 묵은 미커밋은 알린다', () => {
+  const r = initRepo();
+  commit(r, 'base');
+  assert.strictEqual(run({ ...OOFF }, r), ''); // 셀 기준도 없고 clean → 무음
+  const f = path.join(r, 'x.txt');
+  fs.writeFileSync(f, 'dirty');
+  ageFile(f, 5);
+  const out = run({ ...OOFF }, r);
+  assert.match(out, /미커밋 5일/); // 미커밋은 원격과 무관한 사실이다
+  assert.doesNotMatch(out, /뒤처짐/); // 기준이 없으면 숫자를 지어내지 않는다
+});
+
+ok('ⓞ7 세션 repo 가 감시 repo 자신이면 무음(N 과 중복하지 않는다)', () => {
+  const r = upstreamRepo(2, 0);
+  assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...OOFF }, r), '');
+});
+
+ok('ⓞ8 git repo 가 아니면 무음', () => {
+  assert.strictEqual(run({ ...OOFF }, fs.mkdtempSync(path.join(os.tmpdir(), 'sb-nogit-'))), '');
+});
+
+ok('ⓞ9 kill switch 로 끌 수 있다', () => {
+  const r = upstreamRepo(2, 0);
+  assert.strictEqual(run({ ...OOFF, CLAUDE_BRIEF_CWD_OFF: '1' }, r), '');
+});
+
+ok('ⓞ10 stdin JSON 이 없으면 프로세스 cwd 로 폴백한다(터미널 직접 실행)', () => {
+  const r = upstreamRepo(2, 0);
+  assert.match(run({ ...OOFF }, null, r), /2커밋 뒤처짐/);
 });
 
 ok('격리: repo 를 안 주면 실 ~/.claude 가 아니라 빈 fixture 를 본다', () => {
