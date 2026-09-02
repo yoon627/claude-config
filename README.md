@@ -217,14 +217,14 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 모든 프로젝트에 자동 로드되는 사용자 지시문. Claude Code 가 `~/.claude/CLAUDE.md` 를 모든 세션에서 읽음.
 
 14개 섹션 (0~13):
-0. 응답 언어 — 한국어, 의례적 preamble 금지
+0. 응답 언어 — 한국어, 의례적 preamble 금지(착수 한 줄·진행 업데이트·결론 요약은 preamble 아님), 수사 대신 직설
 1. 핵심 규칙 — 추측 금지, 코드 read 기반 답변, 근본 원인, 검증 후 "완료", 사용자 변경사항 보호, 승인은 위험기반(가역·로컬은 무확인 실행+보고 / 비가역·외부공개는 확인), 운영 자산 자가 수정 금지
 2. 컨텍스트 관리 — `/clear`, `/rewind`, subagent 위임 기준
 3. 작업 흐름 — Setup → Explore → Plan → Implement → Verify → Report
-4. 웹 검색 능동 사용 — 지식 컷오프 이후 정보, 라이브러리 버전별 동작 등
+4. 웹 검색 능동 사용 — 지식 컷오프 이후 정보, 라이브러리 버전별 동작, 이름 인지 ≠ 현재 상태 등
 5. Sub-agent — 표준 순서 (plan-reviewer → 구현 → code-reviewer → simplify 체크(메인 직접))
-6. 코드 규칙 — 동일 디렉토리 스타일, 타입 힌트, 임시 코드 표기
-7. 테스트 (TDD) — 테스트 작성 순서, 예외 조건
+6. 코드 규칙 — 동일 디렉토리 스타일, 타입 힌트, 임시 코드 표기, 부분 편집 우선(전체 재작성 지양)
+7. 테스트 (TDD) — 테스트 작성 순서, 예외 조건, 인접 테스트 규모에 맞춤·임시 체크의 영구 테스트화 금지
 8. Git / 보안 — destructive 명령 금지, 시크릿 출력 금지, 비trivial 은 worktree(`/wt`)에서
 9. Claude ↔ Codex 협업 — `.claude/plans/` 핸드오프 채널, 리뷰 매트릭스
 10. `.claude/plans/` 핸드오프 규약 — slug, frontmatter, 필수 6개 + 선택 섹션(Acceptance·Review Disposition·Deferred·Workflow Findings)
