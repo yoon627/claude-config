@@ -157,6 +157,9 @@
 - 근거: `CLAUDE_BRIEF_REPO` 로 겨눴을 때 라벨·원인이 둘 다 거짓이던 실측 출력, worktree 68개 중 60개가
   걸리던 폴백 잡음 실측, `origin/dev` 가 2.7일 얼어 있던 reflog.
 - 관련: [[git-hook-network-safety]](후속 async fetch 훅이 그 처방을 따른다), [[evidence-gate]].
+## [2026-09-02] lint | Claude effort·headroom 상태 동기화 검증
+- 전역 `CLAUDE_CODE_EFFORT_LEVEL` 강제와 bootstrap의 headroom 설치·MCP·proxy 재주입 경로를 제거한 뒤 wiki 링크를 점검했다.
+- 이번 변경으로 생긴 `headroom` orphan과 `codegraph` outbound 부족은 historical `[[headroom]]` 링크 복구로 해소했다. 기존 `lesson-fix-scoped-to-one-repo` index-only orphan 1건은 별도 정리 대상으로 남겼다.
 
 ## [2026-09-03] ingest | 세션 확정 사실 3건 + e-merge-mode 결정
 - 신규 entity 2: [[claude-code-hook-notification-turns]](UserPromptSubmit 이 알림 턴에도 발동 — transcript 실측, PR #149 수정), [[worktree-isolation-bash-guard]](격리 거부 트리거는 경로가 아니라 명령 텍스트의 git 언급·비결정적 — 리뷰어·메인 실측).

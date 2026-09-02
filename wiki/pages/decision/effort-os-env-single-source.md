@@ -2,7 +2,7 @@
 title: effort-os-env-single-source
 category: decision
 created: 2026-06-19
-updated: 2026-08-12
+updated: 2026-09-02
 sources:
   - 커밋 f1cbee0 (2026-08-12, settings=OS env=max 로 일치 — 불일치 해소)
   - 실측 2026-08-12 (CLI 2.1.228: effortLevel 검증자 $et() 는 max 를 버리고 env 파서 T9() 만 받음)
@@ -14,7 +14,10 @@ sources:
 
 # effort-os-env-single-source
 
-> [!note] 현재 상태 (2026-08-12 갱신) — 단일화 **해소됨**
+> [!note] 현재 상태 (2026-09-02)
+> 전역 `CLAUDE_CODE_EFFORT_LEVEL`을 settings와 bootstrap에서 제거했다. 새 shell도 상속된 stale 값을 해제하므로 `/effort`가 다시 설정 우선순위를 가진다. 아래 2026-08-12 내용은 env precedence를 확인한 historical 사례다.
+
+> [!note] 당시 상태 (2026-08-12, historical) — 단일화 **해소됨**
 > effort 전역 정책은 [[effort-global-xhigh]] 로 통일 — `settings.json` `env.CLAUDE_CODE_EFFORT_LEVEL` 를 단일 소스로 두기로 했다. 2026-08-12 커밋 `f1cbee0` 로 settings 를 `max` 로 올려 OS env 와 일치시키고 `effortLevel` 키를 제거해, 아래 08-11 불일치는 해소됐다.
 >
 > **이 페이지의 교훈이 더 강해진 근거가 하나 붙었다**: `max` 는 settings 의 `effortLevel` 키로는 아예 설정할 수 없다 — 검증자(CLI 2.1.228 `$et()`)가 `low|medium|high|xhigh` 만 통과시키고 `max` 를 조용히 버린다. env 파서만 `max` 를 받는다. 즉 "env 를 단일 레버로" 는 우선순위 문제이기 전에 **표현력 문제**다. 두 키를 같이 두면 값이 어긋난 채 숨으므로 한쪽만 둔다. 같은 계열의 실패(설정을 두 곳에 두어 어느 쪽이 진짜인지 흐려짐)를 tracked 경로에서 겪은 사례는 [[lesson-tracked-config-machine-paths]].

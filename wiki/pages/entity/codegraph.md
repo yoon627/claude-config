@@ -11,7 +11,7 @@ sources:
 
 # codegraph
 
-코드 심볼 그래프 MCP 서버. SQLite 지식그래프로 심볼·엣지·파일을 인덱싱해 sub-ms 조회를 제공한다. 이 repo 워크플로우(dlc Explore·코드 조회)가 의존하는 핵심 MCP 도구로, [[headroom]] 과 함께 글로벌 MCP(`~/.claude.json`)에 등록된다.
+코드 심볼 그래프 MCP 서버. SQLite 지식그래프로 심볼·엣지·파일을 인덱싱해 sub-ms 조회를 제공한다. 이 repo 워크플로우(dlc Explore·코드 조회)가 의존하는 핵심 MCP 도구로, [[headroom]]과 독립적으로 글로벌 MCP(`~/.claude.json`)에 등록된다. `headroom` 링크는 retired 구성의 historical 기록을 가리킨다.
 
 ## 설치·등록
 - 설치: `npm install -g @colbymchenry/codegraph` (node 스크립트, 0.9.9).
@@ -38,4 +38,4 @@ transcript 298개 전수 스캔 결과 codegraph MCP 호출은 **총 30회**이�
 > [!open] 전역 사용량 자체가 298 transcript 에 30회로 낮다. 코드 repo 에서도 값을 하는지는 별도 측정이 필요하다 — 이번 감사는 "이 repo 에서 끄는" 판단까지만 근거를 갖는다.
 
 ## 부트스트랩
-새 머신 재현은 [[headroom]] 과 함께 `scripts/bootstrap/setup.sh` 가 처리(설치 → MCP 등록 → init).
+새 머신 재현은 `scripts/bootstrap/setup.sh`가 처리(설치 → MCP 등록 → init). headroom은 더 이상 이 경로에 포함되지 않는다.

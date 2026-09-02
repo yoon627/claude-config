@@ -4,7 +4,7 @@
 # 사용법:  bash scripts/bootstrap/setup.sh [--memory-from <기존 ~/.claude 경로>] [--dry-run]
 #
 # 전제: claude(공식 설치), brew, git 이 이미 있어야 한다(이 repo 를 clone·실행하는 환경).
-# rtk 는 별도 설치가 아니라 headroom 번들(~/.headroom/bin/rtk)을 심링크+서명한다.
+# rtk 는 별도 standalone 설치본이 있으면 hook 을 검증·서명한다.
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -59,7 +59,7 @@ case ":$PATH:" in *":$LOCAL_BIN:"*) : ;; *) export PATH="$LOCAL_BIN:$PATH" ;; es
 if have node; then skip "node 있음 ($(node --version 2>/dev/null))"; else
   run "brew install node"; do_cmd brew install node && ok "node 설치"; fi
 
-# --- 2b. jq (rtk hook rtk-rewrite.sh 가 stdin JSON 파싱에 의존) ---
+# --- 2b. jq (rtk hook 이 stdin JSON 파싱에 의존) ---
 if have jq; then skip "jq 있음"; else
   run "brew install jq"; do_cmd brew install jq && ok "jq 설치"; fi
 
@@ -85,55 +85,39 @@ else
 fi
 ok "Codex jira-worklog skill 연결"
 
-# --- 4. headroom (uv tool install headroom-ai) — rtk 번들 전 선행 ---
-if have headroom; then skip "headroom 있음 ($(headroom --version 2>/dev/null | head -1))"; else
-  run "uv tool install headroom-ai"; do_cmd uv tool install headroom-ai && ok "headroom 설치"; fi
-
-# --- 5. codegraph (npm -g) ---
+# --- 4. codegraph (npm -g) ---
 if have codegraph; then skip "codegraph 있음"; else
   run "npm install -g @colbymchenry/codegraph"; do_cmd npm install -g @colbymchenry/codegraph && ok "codegraph 설치"; fi
 
-# --- 6. rtk (headroom 번들 → 심링크 + 서명; memory rtk-headroom-path-fix 규약) ---
-HEADROOM_RTK="$HOME/.headroom/bin/rtk"; RTK_LINK="$LOCAL_BIN/rtk"
-if [ -x "$HEADROOM_RTK" ]; then
-  # dangling 심링크 guard: 심링크이고(-L) 타겟 살아있고(-e) 타겟이 정확히 headroom rtk 여야 정상
-  if [ -L "$RTK_LINK" ] && [ -e "$RTK_LINK" ] && [ "$(readlink "$RTK_LINK")" = "$HEADROOM_RTK" ]; then skip "rtk 심링크 정상"; else
-    run "rtk 심링크 $RTK_LINK -> $HEADROOM_RTK"; do_cmd rm -f "$RTK_LINK"; do_cmd ln -s "$HEADROOM_RTK" "$RTK_LINK" && ok "rtk 심링크"; fi
-  # hook 서명: verify 통과면 skip, 아니면 init(서명). hook 파일 직접편집 금지.
+# --- 5. rtk (standalone 설치본 선택) ---
+if have rtk; then
   if [ "$DRY_RUN" = 1 ]; then skip "rtk hook 검증/서명(dry-run)"
-  elif "$RTK_LINK" verify >/dev/null 2>&1; then skip "rtk hook 무결성 OK"
-  else run "rtk init -g --hook-only --no-patch"; "$RTK_LINK" init -g --hook-only --no-patch && ok "rtk hook 등록·서명"; fi
+  elif rtk verify >/dev/null 2>&1; then skip "rtk hook 무결성 OK"
+  else
+    run "rtk init -g --hook-only --no-patch"
+    if rtk init -g --hook-only --no-patch; then ok "rtk hook 등록·서명"; else warn "rtk hook 등록·서명 실패 — standalone rtk 수동 확인 필요"; fi
+  fi
 else
-  warn "headroom 번들 rtk 없음 ($HEADROOM_RTK) — headroom 설치/기동 후 재실행하면 생성됨"
+  skip "rtk 미설치(선택)"
 fi
 
-# --- 7. MCP 등록 (홈 ~/.claude.json) ---
+# --- 6. MCP 등록 (홈 ~/.claude.json) ---
 mcp_list="$(claude mcp list 2>/dev/null || true)"
 if printf '%s\n' "$mcp_list" | grep -qi '^codegraph'; then skip "codegraph MCP 등록됨"; else
   run "codegraph install -y"; do_cmd codegraph install -y && ok "codegraph MCP 등록"; fi
-if printf '%s\n' "$mcp_list" | grep -qi '^headroom'; then skip "headroom MCP 등록됨"; else
-  run "claude mcp add headroom"; do_cmd claude mcp add headroom -- headroom mcp serve && ok "headroom MCP 등록"; fi
 
-# --- 8. headroom proxy (launchd service, token mode) ---
-hr_status="$(headroom install status 2>/dev/null || true)"
-# 'Status:   running' 줄만 정확 매칭 — 'not running'·로그 잔재 오매칭 회피 (BSD grep: \s 미지원 → [[:space:]])
-if printf '%s\n' "$hr_status" | grep -qiE '^status:[[:space:]]+running'; then skip "headroom proxy running"; else
-  run "headroom install apply (persistent-service, token)"
-  do_cmd headroom install apply --preset persistent-service --mode token
-  do_cmd headroom install start && ok "headroom proxy 기동"; fi
-
-# --- 9. codegraph init (~/.claude 인덱스) ---
+# --- 7. codegraph init (~/.claude 인덱스) ---
 if [ -d "$CLAUDE_DIR/.codegraph" ]; then skip "codegraph 인덱스 있음"; else
   run "codegraph init $CLAUDE_DIR"; do_cmd codegraph init "$CLAUDE_DIR" && ok "codegraph init"; fi
 
-# --- 10. zshrc env (marker 블록 멱등 교체; headroom 블록은 install 이 따로 관리) ---
+# --- 8. zshrc env (marker 블록 멱등 교체) ---
 ZSHRC="$HOME/.zshrc"; M_START="# >>> claude-bootstrap env >>>"; M_END="# <<< claude-bootstrap env <<<"
 read -r -d '' BLOCK <<EOF || true
 $M_START
 export PATH="\$HOME/.local/bin:\$PATH"
 [ -f "\$HOME/.cargo/env" ] && source "\$HOME/.cargo/env"
 export ANTHROPIC_MODEL='opus[1m]'
-export CLAUDE_CODE_EFFORT_LEVEL=max
+unset CLAUDE_CODE_EFFORT_LEVEL
 $M_END
 EOF
 touch "$ZSHRC"
@@ -158,7 +142,7 @@ else
     printf '\n%s\n' "$BLOCK" >> "$ZSHRC"; ok "zshrc marker 블록 추가"; fi
 fi
 
-# --- 11. memory 복원 (옵션; git 미추적이라 소스 필요) ---
+# --- 9. memory 복원 (옵션; git 미추적이라 소스 필요) ---
 if [ -n "$MEMORY_FROM" ]; then
   src="$MEMORY_FROM/projects"
   if [ -d "$src" ]; then
@@ -169,7 +153,7 @@ else
   skip "memory: --memory-from 미지정 (새 머신은 비어있음 — 기존 머신 ~/.claude 경로를 주면 복원)"
 fi
 
-# --- 12. git / gh 안내 ---
+# --- 10. git / gh 안내 ---
 git config --global user.name  >/dev/null 2>&1 || warn "git user.name 미설정 — git config --global user.name '...'"
 git config --global user.email >/dev/null 2>&1 || warn "git user.email 미설정 — git config --global user.email '...'"
 if have gh; then gh auth status >/dev/null 2>&1 || warn "gh 미인증 — gh auth login"; else warn "gh 미설치 — brew install gh"; fi

@@ -2,7 +2,7 @@
 title: headroom
 category: entity
 created: 2026-06-21
-updated: 2026-08-03
+updated: 2026-09-02
 sources:
   - headroom-ai 0.25.0 (headroom --help, 2026-06 확인)
   - docs/headroom-proxy-session-lifecycle.md
@@ -11,15 +11,18 @@ sources:
 
 # headroom
 
-LLM 컨텍스트 최적화 레이어. 세 역할: ① HTTP proxy(`ANTHROPIC_BASE_URL` 경유 토큰 압축·캐시) ② MCP 서버(compress/retrieve/stats) ③ rtk 번들. [[codegraph]] 와 함께 이 repo 워크플로우의 핵심 MCP·proxy 도구다.
+> [!note] Retired (2026-09-02)
+> 이 머신과 bootstrap의 현재 runtime 경로에서는 headroom을 사용하지 않는다. 아래 proxy·MCP·번들 rtk 내용은 과거 운영 기록으로 보존한다.
 
-## proxy (macOS 셋업)
+과거 사용한 LLM 컨텍스트 최적화 레이어. 세 역할은 ① HTTP proxy(`ANTHROPIC_BASE_URL` 경유 토큰 압축·캐시) ② MCP 서버(compress/retrieve/stats) ③ rtk 번들이었다. 현재 [[codegraph]]는 headroom과 독립적으로 사용한다.
+
+## proxy (historical)
 - `headroom install apply --preset persistent-service --mode token` → launchd service `com.headroom.default` 상시 기동 + `~/.zshrc` 에 `ANTHROPIC_BASE_URL`·`HEADROOM_MODE=token` 등 routing env 를 심는다.
 - token mode 압축은 이 macOS 머신에서 timeout 없이 동작(상세 `docs/headroom-proxy-session-lifecycle.md`). Windows 는 과거 압축 30s timeout 이력이 있어 cache mode 로 회피했다.
 - proxy 라우팅은 OS/셸 env 로 적용된다 → env 우선순위는 [[effort-os-env-single-source]] 와 같은 원칙(OS env 가 단일 소스).
 
-## rtk 번들
-rtk(Rust Token Killer)는 별도 설치가 아니라 headroom 이 `~/.headroom/bin/rtk` 에 번들한다. 심링크 `~/.local/bin/rtk` + `rtk init -g --hook-only --no-patch`(hook 서명)으로 PATH·hook 정합을 맞춘다. hook 파일 직접편집은 sha256 무결성 검증에 걸리므로 금지. 상세: memory `rtk-headroom-path-fix`.
+## rtk
+현재 rtk는 headroom과 독립된 standalone 설치본을 선택적으로 사용한다. bootstrap은 이미 설치된 `rtk`가 있을 때만 hook을 검증·서명하고, headroom 번들을 설치하지 않는다. hook 파일 직접편집은 sha256 무결성 검증에 걸리므로 금지.
 
 ## 실사용 감사 (2026-08-03) — 프록시는 값을 하고, MCP 표면은 죽어 있다
 
@@ -35,6 +38,6 @@ rtk(Rust Token Killer)는 별도 설치가 아니라 headroom 이 `~/.headroom/b
 
 번들 rtk 가 6개월 묵어 발생한 반복 실패는 [[lesson-stale-tool-version]] 참고 — 심링크만 0.44.2 로 재지정해 해소했고 headroom 번들 바이너리는 그대로 뒀다.
 
-## 설치
-- 설치: `uv tool install headroom-ai` (PyPI 패키지명 `headroom-ai`, 0.25.0 — 명령은 `headroom`).
-- 새 머신 재현은 [[codegraph]] 와 함께 `scripts/bootstrap/setup.sh`. rtk hook 의존 `jq` 도 같이 설치.
+## 과거 설치 경로
+- 과거 설치: `uv tool install headroom-ai` (PyPI 패키지명 `headroom-ai`, 0.25.0 — 명령은 `headroom`).
+- 현재 새 머신 bootstrap은 headroom을 설치·등록·기동하지 않고, [[codegraph]] 및 선택적 standalone `rtk`만 처리한다.

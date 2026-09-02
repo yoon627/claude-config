@@ -2,7 +2,7 @@
 title: effort-global-xhigh
 category: decision
 created: 2026-06-26
-updated: 2026-08-12
+updated: 2026-09-02
 sources:
   - 커밋 f1cbee0 (2026-08-12, env=max + effortLevel 제거 + model 핀 — 단일화 해소)
   - 실측 2026-08-12 (CLI 2.1.228 바이너리: $et() vs T9()/TSe() 파서 분기, WebSearch·WebFetch on max)
@@ -17,9 +17,12 @@ sources:
 
 # effort-global-xhigh
 
+> [!note] 현재 상태 (2026-09-02)
+> 전역 `CLAUDE_CODE_EFFORT_LEVEL` 강제를 제거했다. 현재 settings/bootstrap/shell은 effort를 고정하지 않으므로 `/effort` 또는 모델 기본값을 사용한다. 아래 2026-08-12 내용은 당시 `max` 정책과 그 근거를 보존한 historical 기록이다.
+
 메인 세션과 모든 subagent 를 `model: opus` + effort `xhigh` 단일 정책으로 통일한 결정(2026-06-26, PR #66·#67·#68 머지). [[subagent-model-effort-tiering]]의 model/effort 차등을 폐기하고 단일 레버로 되돌렸다.
 
-> [!note] 현재 상태 (2026-08-12)
+> [!note] 당시 상태 (2026-08-12, historical)
 > **현재값: `env.CLAUDE_CODE_EFFORT_LEVEL=max`, `effortLevel` 키 없음, `model: claude-opus-5[1m]` 핀** (커밋 f1cbee0). 08-11 에 깨져 있던 단일화는 **해소됐다** — settings 를 OS env 와 같은 `max` 로 맞추는 방향으로 풀었다(아래 warning 참조). 이 페이지에서 유효한 것은 **effort 를 전역 단일 레버로 둔다**는 원칙이고, 값은 `xhigh` 가 아니라 `max` 다. **model** 은 `inherit` 결정이 재개정되어 단계별 고정 — 타임라인 마지막 항목과 [[model-stage-tiering]] 이 현재값.
 >
 > 이번에 확정한 두 사실:
@@ -27,8 +30,8 @@ sources:
 > - **아래 "근거" 절의 `max` 경고와 웹툴 400 은 현재값에 적용되지 않는다** — 각각 상세는 그 절과 warning 에 인라인으로 적었다.
 
 ## 결정
-- **단일 레버**: `settings.json` `env.CLAUDE_CODE_EFFORT_LEVEL` 하나로 메인·subagent effort 를 전역 고정. (`effortLevel` 키도 같은 값으로 일치시켜 두되 실효 레버는 env.)
-  > [!note] 아래 warning 은 2026-08-12 에 해소됨 (이력 보존용으로 남김)
+- **당시 단일 레버**: `settings.json` `env.CLAUDE_CODE_EFFORT_LEVEL` 하나로 메인·subagent effort 를 전역 고정. 현재는 전역 강제를 제거했다.
+  > [!note] 아래 warning 은 2026-08-12 당시의 기록이다 (현재는 bootstrap도 수정됨)
   > `settings.json` 의 env 를 `max` 로 올려 OS env 와 일치시켰고 `effortLevel` 키는 제거했다 → 실효값과 설정이 더는 갈리지 않는다. **bootstrap 이 `max` 를 재주입하는 것 자체는 그대로**이고, 이제 그 값이 settings 와 같아 무해해졌을 뿐이다 — bootstrap 을 손대지 않았으므로 값을 `max` 아닌 것으로 되돌리려면 `setup.sh:118`·`setup.ps1:156` 을 함께 고쳐야 한다. 그 전까지 판정은 여전히 `printenv` 가 아니라 `ps eww <pid>`.
 
   > [!warning] 실제 값은 `xhigh` 가 아니다 — 그리고 "단일 소스"도 깨져 있다 (2026-08-11 실측, **08-12 해소**)

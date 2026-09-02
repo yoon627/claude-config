@@ -1,7 +1,4 @@
 {
-  "env": {
-    "CLAUDE_CODE_EFFORT_LEVEL": "max"
-  },
   "permissions": {
     "allow": [
       "mcp__codegraph__codegraph_explore",

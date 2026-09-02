@@ -22,14 +22,14 @@
 - [[claude-code-model-selection]] — alias(opusplan, fableplan 없음)·advisor tool 공식 수치·/model 저장·subagent model 함정(inherit×Fable)·pin 시 확정사실(`[1m]` 금지·자동 1M·폴백 없음).
 - [[claude-code-oss-frameworks]] — OSS 하네스 생태계 스냅샷(2026-08): 커버리지 부분적·프레임워크 후퇴·내부 확장이 정책 안전.
 - [[codegraph]] — 코드 심볼 그래프 MCP(npm @colbymchenry/codegraph)·worktree-local 인덱스(init 스냅샷·watcher 없어 stale→조회 전 재-sync).
-- [[headroom]] — 컨텍스트 최적화 proxy(token mode·launchd)·MCP·rtk 번들.
+- [[headroom]] — retired 컨텍스트 최적화 proxy/MCP의 historical 기록(현재 bootstrap·runtime 미사용).
 
 ## decision
-- [[effort-global-xhigh]] — effort 전역 단일 레버; 현재값 `max`(2026-08-12, 페이지명 `xhigh` 는 값 아닌 결정을 가리킴). `max` 는 `effortLevel` 키로 불가·env 로만 가능. 웹툴 400 은 `xhigh` 한정이고 `max` 엔 없음(실측). subagent model 은 opus→`inherit`→**단계별 고정**(2026-08-06) (#66·#67·#68).
+- [[effort-global-xhigh]] — effort 정책의 이력; 현재는 강제 env 없음으로 `/effort`·모델 기본값을 사용한다. `max`는 settings 파일이 아니라 env/일회성 옵션에서만 가능.
 - [[model-stage-tiering]] — dlc 단계별 모델 배치(2026-08-05): Fable=plan/설계만(50% 캡), 구현 opus(촘촘한 plan은 sonnet), 리뷰 opus, 조사 sonnet. **agents/*.md 고정 완료(2026-08-06)**.
 - [[harness-keep-and-borrow]] — 자작 하네스 유지+부품 차용 결정(2026-08-05): 대체 OSS 부재·프레임워크 후퇴·정책 안전성; 유지비 감시 + 네이티브 중복 역정리 조건(→ [[native-overlap-ledger]] 로 2026-08-06 구현).
 - [[subagent-model-effort-tiering]] — (superseded by [[effort-global-xhigh]]; model 차등만 2026-08-06 부분 복원 → [[model-stage-tiering]]) reviewer opus+max / simplifier sonnet / researcher haiku 차등 (#51).
-- [[effort-os-env-single-source]] — OS env > settings.json env, effort 단일소스화; env 가 frontmatter effort 도 override. 2026-08-11 재발 → **2026-08-12 해소**(settings 를 `max` 로 일치). 판정은 여전히 `printenv` 아닌 `ps eww`(bootstrap 재주입은 미수정).
+- [[effort-os-env-single-source]] — OS env > settings.json env라는 precedence와, 전역 env를 제거해 `/effort`를 복구한 결정.
 - [[dual-review-plan-and-code]] — plan 리뷰(구현 전) + code 리뷰(구현 후) 관점 분리.
 - [[deferred-and-scope-boundary]] — 범위 밖 발견 보존(# Deferred)·운영자산 자가수정 금지 (#50).
 - [[self-diagnosis-and-improvement-status]] — 자기진단 채택(#49) / 자기개선 = 수집·분석 기계화 채택(2026-07-03, dlc-signal+/improve), 반영은 승인 게이트 유지.
