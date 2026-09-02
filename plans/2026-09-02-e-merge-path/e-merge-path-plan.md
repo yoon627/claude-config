@@ -1,6 +1,6 @@
 ---
 title: e-merge-path — /e 에 push·PR·머지 마무리 경로(머지 모드) 추가 + 호출측(CLAUDE.md §3-6·§8, dlc Report) 정합
-status: in_progress
+status: done
 started: 2026-09-02
 updated: 2026-09-02
 ---
@@ -15,8 +15,10 @@ CLAUDE.md §3-6 과 dlc Report 가 "push·PR·머지는 `/e` 로" 위임하는�
 - 2026-09-02: 재검토 CONDITIONAL GO(B1~B4 해소, 조건 3+minor 4 → Decisions 반영) → 구현: `skills/e/SKILL.md` 모드 절·M1~M6·경계, `docs/worktree-lifecycle.md` §E+헤더 정정, CLAUDE.md §3-6/§8, dlc SKILL :119-120, README bullet (5 files, +58/-12). plan-lint 통과.
 - 2026-09-02: code-reviewer(+codex medium) REQUEST CHANGES(Major 6·Minor 12·Nit 2) → fix loop 2회(M2/M3 재배치·M6 4분류·`<default>`·M5 exit code·description·조건4 override·`/c` 예외5 등) → **APPROVE**(잔여 Minor 1·Nit 1 도 반영). simplify: M6 `--delete-branch` 근거를 §8 포인터로 축약(동작 불변). 6 files +73/-21. acceptance 항목은 `[post-merge]` smoke 하나만 남기고 전부 충족.
 
+- 2026-09-02: `/e merge` smoke — M1 통과(gh repo view OK·default main·미체크는 [post-merge] 뿐) → M2 fetch·PR 없음·ahead 1 → M3 push·PR #148·mergeable MERGEABLE/UNSTABLE(checks 전) → M4 done 커밋. 관찰: 하네스가 로드한 `/e` 본문은 main 의 옛 버전이라 새 규약은 worktree 파일을 보고 수동 추적(머지 후 세션부터 자동).
+
 # Next
-- `/e merge` 로 마무리(새 규약의 첫 실행 = smoke). 결과를 관찰해 규약대로 M1~M6·fetch·7단계 자동 정리가 되는지 확인, 어긋나면 `# Workflow Findings` 기록.
+- 없음 (PR #148 머지 시 완료).
 
 # Decisions
 - **트리거는 `/e merge`·`/e 머지` 만** (2026-09-02 사용자 확정 — 원안 `push`·`PR` alias 는 제거. 이유: `/e push` 를 머지 승인으로 해석하면 §1 비가역·외부공개 확인 위반). 그 외 `/e` 는 체크포인트 모드 그대로 — "push 안 함" 기본값 유지, 머지 모드는 `/e merge` 명시 인자 자체가 push·PR·머지 지시(§8 "push 는 요청 시만" 충족). `git push` 의 `permissions.ask` 가 뜨면 그것도 게이트, 거부되면 중단·plan 무변경.
