@@ -1,8 +1,8 @@
 ---
 title: router-notification-fp — dlc-task-router 가 subagent 알림 턴에 오발동하는 문제 수정
-status: in_progress
+status: done
 started: 2026-09-02
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # Goal
@@ -10,10 +10,11 @@ updated: 2026-09-02
 
 # Progress
 - 2026-09-02: `/improve` 후보 2 승인 → worktree. 가설 3(H1 알림 턴 발동 ✅ / H2 사용자 메시지 매치 ❌ / H3 Stop hook 턴 ❌). 재현 테스트 `scripts/dlc-task-router.test.js`(spawn 진입점, `CLAUDE_DLC_SIGNAL_OFF=1`) Red 확인 → 블록 제거 정규식 구현 → Green 8/8 → lint.yml 등록·README 갱신.
-- 2026-09-02: 격리 runner 25개 중 24 통과(실패 1 = baseline, Deferred). code-reviewer(+codex low) Major 1(알림 턴 `ledger.reset`)·Minor 5 → fix loop 1회 반영, 테스트 12 passed, 인접 ledger/drift 테스트 무회귀. targeted 재리뷰 APPROVE(조기 exit 이 reset 만 건너뛰고 방향이 보수적임을 확인). simplify 수정 없음. 브랜치 커밋.
+- 2026-09-02: 격리 runner 25개 중 24 통과(실패 1 = baseline, Deferred). code-reviewer(+codex low) Major 1(알림 턴 `ledger.reset`)·Minor 5 → fix loop 1회 반영, 테스트 12 passed, 인접 ledger/drift 테스트 무회귀. targeted 재리뷰 APPROVE(조기 exit 이 reset 만 건너뛰고 방향이 보수적임을 확인). simplify 수정 없음. 브랜치 커밋 `eafa069`.
+- 2026-09-03: `/e merge` — M1 통과 → M2 PR 없음·ahead 1 → M3 push·PR #149(MERGEABLE/UNSTABLE) → M4 done 커밋.
 
 # Next
-- `/e merge` 로 마무리(사용자 선택 대기).
+- 없음 (PR #149 머지 시 완료).
 
 # Decisions
 - **"시작이 태그면 skip" 이 아니라 "태그 블록을 걷어내고 남은 텍스트만 매칭"** (이유: 이 세션 첫 메시지처럼 하네스가 `<system-reminder>` 를 사용자 텍스트 *앞에* 붙이는 정상 프롬프트가 있어, 시작 문자 판정은 진짜 사용자 요청을 놓친다).
