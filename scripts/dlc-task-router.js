@@ -31,9 +31,15 @@ process.stdin.on('end', () => {
   } catch {
     process.exit(0);
   }
-  ledger.reset(input.session_id); // 새 턴 시작
-
-  const prompt = String(input.prompt || '').toLowerCase();
+  // 하네스가 붙이는 <system-reminder>/<task-notification>(subagent 결과 알림 등)은
+  // 사용자 발화가 아니다 — 그 안의 "재현·failing" 이 라우팅을 오발동시키고, 그 턴에
+  // 장부를 리셋하면 early-stop 의 changed/verified 판정이 조용히 꺼진다. 걷어낸 뒤
+  // 사용자 텍스트가 남을 때만 "새 턴" 으로 본다.
+  const prompt = String(input.prompt || '')
+    .toLowerCase()
+    .replace(/<(system-reminder|task-notification)>[\s\S]*?<\/\1>/g, '');
+  if (!prompt.trim()) process.exit(0);
+  ledger.reset(input.session_id); // 새 사용자 턴 시작
   const ctx = { session_id: input.session_id, cwd: input.cwd };
   const out = [];
   if (DBG.test(prompt)) {
