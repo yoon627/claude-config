@@ -47,7 +47,7 @@
 3. **Plan** — 큰 변경(50줄 초과, 다중 파일, public API, DB schema, migration, 아키텍처/보안 영향)은 계획 먼저 제시·승인 후 진행. 작은 변경(오타, 로그 한 줄)은 즉시.
 4. **Implement** — 작은 단계로. 요청 범위 밖 "지나가는 김에" 수정 금지. 단, 빌드/테스트를 깨는 직접 원인이면 수정하고 이유 명시. **범위 밖 발견은 유실도 금지** — 고치지 말고(§1 자가수정·스코프 경계 → 별도 작업) active plan `# Deferred`(§10, plan 없으면 Report)에 한 줄(내용·심각도·파일) 기록 후 진행.
 5. **Verify** — lint/typecheck/test 실행. 변경 함수/클래스 호출부를 `rg`(없으면 `grep -R`)로 확인. 미실행은 "미검증" 명시. **이번 변경이 깨뜨린 것만 수정** — 작업 전부터 깨진 baseline failure 는 pre-change 실행·base 재현으로 **입증된 것만** `# Deferred` 기록, 입증 안 되거나 완료를 막는 실패는 Deferred 금지 → 수정하거나 `status: blocked`/"미검증"(§1 에러 무시 금지). **주석·docstring·commit message 가 변경된 코드의 현재 동작과 어긋나지 않는지 항상 확인**(옛 설명·식별자·동작 서술 잔존 금지 — 특히 리팩토링·rename·fixup 흡수 후). **비trivial 은 plan `# Acceptance`(§10) 항목을 증거(실행·관찰·통과)로 대조한 뒤에만 완료** — 미충족·미검증이면 완료 금지. 실행 산출물(render/CLI/서버)은 정적 점검이 아니라 실제 실행·관찰로 검증.
-6. **Report** — 변경 요약 / 수정 파일 / 검증 결과 / 영향 범위 / 남은 리스크. **작업·세션 마무리는 결론 요약(≤3줄, 무엇이 끝났고 status)을 먼저 내고**(§0 preamble 금지와 무관 — 결론은 내용이지 의례가 아니다), 이어서 **선택지를 AskUserQuestion 으로**: 작업 확인 / 마무리·정리(코드작업이면 push·PR·머지)는 **`/e` 스킬로 수행**(plan 동기화·worklog 기록·worktree 정리를 수동 대체하지 말 것) / 다른 작업 이어가기(현재 worktree 에 얹지 말고 `/wt` 신규 — §8) / 종료 — 큰·낯선 변경이면 "변경 이해 리포트+퀴즈" 옵션 추가. 단 **최신 사용자 메시지에 지금 실행할 명시적 다음 액션이 있으면** 선택지 생략(중복 질문 금지). **Stop hook 경고·오탐 대응은 결론 1줄**("오탐 — <무엇>, 조치 불필요")로 제한, 판단 과정 서술 금지 — 근거는 채팅이 아니라 plan `# Workflow Findings`(누적 시 wiki `workflow-failures.md`)에.
+6. **Report** — 변경 요약 / 수정 파일 / 검증 결과 / 영향 범위 / 남은 리스크. **작업·세션 마무리는 결론 요약(≤3줄, 무엇이 끝났고 status)을 먼저 내고**(§0 preamble 금지와 무관 — 결론은 내용이지 의례가 아니다), 이어서 **선택지를 AskUserQuestion 으로**: 작업 확인 / 마무리·정리(코드작업이면 push·PR·머지 — **`/e merge`**, 체크포인트만이면 `/e`)는 **`/e` 스킬로 수행**(plan 동기화·worklog 기록·worktree 정리를 수동 대체하지 말 것) / 다른 작업 이어가기(현재 worktree 에 얹지 말고 `/wt` 신규 — §8) / 종료 — 큰·낯선 변경이면 "변경 이해 리포트+퀴즈" 옵션 추가. 단 **최신 사용자 메시지에 지금 실행할 명시적 다음 액션이 있으면** 선택지 생략(중복 질문 금지). **Stop hook 경고·오탐 대응은 결론 1줄**("오탐 — <무엇>, 조치 불필요")로 제한, 판단 과정 서술 금지 — 근거는 채팅이 아니라 plan `# Workflow Findings`(누적 시 wiki `workflow-failures.md`)에.
 
 > **문서 동기화** (evidence gate 항목): 변경이 README 문서화 컴포넌트(스크립트·설정·skill·agent·CLAUDE.md 섹션)에 영향 주면 README 도 **같은 브랜치에서 갱신**(비trivial 의 acceptance 항목, 검증과 동급). `wiki/pages/` 변경은 `wiki/index.md` 동기화 동반. 잊으면 `dlc-early-stop`(Stop hook)이 drift 를 capped 경고(보조망 — 단일 소스는 이 규약). plan 은 §10 동기화 규약.
 
@@ -126,7 +126,7 @@
 - **머지/완료 후 정리 — merged 면 묻지 말고 정리**(사용자 지시 2026-07-27): 작업 브랜치가 merged·정리해도 안전하면 worktree 정리를 방치·"선택사항" 언급만 하지 않고, **선택지로 올리지도 않는다**. **분기**:
   - **(a) merged + 안전조건 충족 → 확인 없이 worktree + 로컬 브랜치 자동 정리**. 조건 — ①대상 ≠ `main`/`master`/`origin/HEAD` ②**default 브랜치에 merged**(`git branch --merged <default>` 에 있음 — **로컬 main 머지도 포함**한다. push 하지 않는 워크플로우가 있어 `origin/<default>` 기준만 보면 영영 미머지로 오판한다. squash-merge 는 미감지 → (b)) ③working tree clean(untracked 포함) ④미보존 `.env`/ignored/미커밋 plan 없음. **누가 머지했는지는 묻지 않는다**(내 merge 든 우연히 merged 든 동일). 실행은 worktree → `git branch -d` 순, 삭제한 브랜치 tip sha 를 보고(merged 라 `git branch <name> <sha>` 로 복구 가능).
   - **(b) 확인 필요(AskUserQuestion)** — **원격 브랜치 삭제**(`git push origin --delete`)는 (a) 에 **포함되지 않는다: 항상 확인**. 그 외 안전조건 하나라도 미충족/불확실(dirty·squash-merge·미보존 산출물), `/wt rm <이름>` 직접 호출(오타로 엉뚱한 대상을 지울 수 있다) 도 확인. 이 경로에서 원격 삭제·`git branch -D` 는 명시 확인 없이 금지(데이터 유실 방지).
-  - 조건·실행 세부는 `/e` step7·worktree 정리 규칙. 사용자가 지시한 PR 머지의 `gh pr merge --delete-branch` 는 머지 지시에 원격 정리가 포함된 경우다. **main/master worktree 는 자동 정리 대상 아님.**
+  - 조건·실행 세부는 `/e` step7·worktree 정리 규칙. `gh pr merge --delete-branch` 는 **명령으로 쓰지 않는다**(로컬·원격 삭제를 묶어 §8(b) 분리 승인을 우회하고, worktree 가 main 을 점유한 환경에선 로컬 삭제가 실패/스킵되어 정리만 조용히 누락 — 실측 2026-08-05, wiki `workflow-failures`). 사용자가 그 플래그로 머지를 지시했다면 원격 삭제 승인으로 간주하고, 실행은 `/e merge` 경로(`--merge` 후 정리)로 하되 7단계 뒤 원격 삭제 재확인은 그 승인으로 갈음한다. **main/master worktree 는 자동 정리 대상 아님.**
 - generated/lock file 변경은 필요할 때만 포함, 이유 설명.
 - `.env`/private key/token/password/인증서 원문을 답변·로그·테스트 fixture·snapshot 에 출력 금지.
 - 인증/인가/암호화 코드는 기존 보안 패턴 먼저 확인. 임시 우회·hardcoded credential·TLS 검증 비활성화 금지.
@@ -164,7 +164,7 @@
   - 막힘 → `# Blockers` + `status: blocked`.
   - 핵심 파일 추가/이동 → `# Key Files` 동기화.
 - **턴 종료**: `# Progress` 오늘 진행 한 줄, frontmatter `updated:` 오늘. 빠뜨린 동기화 보강.
-- **완료**: 머지·배포·승인 **그 시점에 즉시** `status: done` — 미루지 않는다. **블로커**: `status: blocked` + `# Blockers`.
+- **완료**: 머지·배포·승인 **그 시점에 즉시** `status: done` — 미루지 않는다(`/e merge` 는 done 을 머지 PR 에 실어 보내고 머지가 거부되면 `in_progress` 로 복구한다). **블로커**: `status: blocked` + `# Blockers`.
 - **원칙**: plan 은 "현재 상태의 단일 진실 소스". 합의가 plan 에 없으면 다음 세션/도구가 모른다 — 항상 plan 우선 반영.
 - **동기화 (tracked)**: `plans/` 는 tracked(§8 whitelist `.gitignore`) — plan 을 작업 브랜치와 함께 commit·push 하면 다른 머신/세션이 pull 로 이어받아 "단일 진실 소스"가 머신 경계를 넘는다. secret 유출 방지: pre-commit-check 가 staged `plans/*.md` 토큰 스캔(+§8 원문 출력 금지) — plan 에 raw token/credential/PII 붙여넣기 금지.
 

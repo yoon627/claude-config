@@ -1,6 +1,6 @@
 ---
 name: e
-description: 진행 중이던 §10 plan 을 실제 git/코드 상태로 동기화 기록하고 작업을 마무리하는 plan-end 오케스트레이션. uncommitted 변경은 작업 브랜치에 임시(WIP) 커밋으로 보존하고(main/master 직접 커밋·push 는 안 함), Progress/Next/Decisions/status/updated 를 갱신해 다음 세션(/c)이 곧장 이어받게 한다. worktree 에서 작업이 done 으로 끝나고 clean·merged 면 worktree 와 로컬 브랜치를 묻지 않고 정리한다(원격 브랜치 삭제는 항상 확인). 마무리 후에는 세션을 main worktree 로 복귀시킨다(worktree 보존). `/e` 명시 호출 또는 "진행상황 기록하고 마무리 / 오늘 여기까지 / 일단 저장하고 끝"류 요청 시 사용. plan 이 없으면 새로 만들지 않는다(그건 dlc 몫). 단순 질문·탐색·읽기 전용에는 쓰지 않는다.
+description: 진행 중이던 §10 plan 을 실제 git/코드 상태로 동기화 기록하고 작업을 마무리하는 plan-end 오케스트레이션. 체크포인트 모드(기본)는 uncommitted 변경을 작업 브랜치에 임시(WIP) 커밋으로 보존하고(main/master 직접 커밋·push 는 안 함), `/e merge`·`/e 머지` 인자를 주면 머지 모드로 push → PR → plan done → checks → `gh pr merge --merge` → 정리까지 수행한다. Progress/Next/Decisions/status/updated 를 갱신해 다음 세션(/c)이 곧장 이어받게 한다. worktree 에서 작업이 done 으로 끝나고 clean·merged 면 worktree 와 로컬 브랜치를 묻지 않고 정리한다(원격 브랜치 삭제는 항상 확인). 마무리 후에는 세션을 main worktree 로 복귀시킨다(worktree 보존). `/e` 명시 호출 또는 "진행상황 기록하고 마무리 / 오늘 여기까지 / 일단 저장하고 끝"류 요청 시 사용. plan 이 없으면 새로 만들지 않는다(그건 dlc 몫). 단순 질문·탐색·읽기 전용에는 쓰지 않는다.
 ---
 
 # e — plan 마무리 (plan end)
@@ -10,6 +10,10 @@ description: 진행 중이던 §10 plan 을 실제 git/코드 상태로 동기�
 ## 적용
 - `/e` 명시 호출, 또는 "진행상황 기록하고 마무리 / 오늘 여기까지 / 일단 저장하고 끝" 류 요청 시.
 - 단순 질문·탐색·읽기 전용·한 턴짜리 명령은 제외. **plan 이 없으면 새로 만들지 않는다** (dlc/작업 시작의 몫).
+
+## 모드
+- **체크포인트 모드**(기본, `/e` 무인자 또는 머지 토큰 없음): 아래 1~8단계. push 안 함.
+- **머지 모드**(`/e merge` 또는 `/e 머지` — 이 두 토큰만. `push`·`PR` 은 트리거가 아니다): 1~4단계 → **M1~M6**(아래 "머지 모드") → 5~8단계. 사용자의 `/e merge` 인자 자체가 push·PR·머지 지시다(CLAUDE.md §8 "push 는 요청 시만" 충족). `git push` 에 `permissions.ask` 가 뜨면 그것도 게이트 — 거부되면 중단하고 plan 은 건드리지 않는다.
 
 ## 동작 (8단계: 찾기 → 상태 수집·임시 커밋 → plan 동기화 → 마무리 보고 → Jira 작업내용 승인·기록 → worklog 기록 → worktree 정리 → main 복귀)
 
@@ -22,7 +26,7 @@ description: 진행 중이던 §10 plan 을 실제 git/코드 상태로 동기�
 
 ### 2. 작업 상태 수집 + 임시 커밋
 - **수집 (`collect-state.sh` 1회)**: `bash skills/e/collect-state.sh` 로 읽기전용 상태 신호를 평문 `key: value` 로 받는다(개별 git 10+ 호출 1회 묶음). **헬퍼 실패·필드 누락이면** 보고에 명시하고 개별 git 명령으로 폴백. **필드 카탈로그·파싱 규칙(첫 `: ` split·list 필드)·조건별 폴백 명령은 `docs/worktree-lifecycle.md` §A**(상태 수집 분기에서 Read).
-- **임시 커밋**(아래 "임시 커밋 규칙"): uncommitted 있으면 작업 브랜치에 WIP 커밋으로 보존. 없으면 skip + "변경 없음" 명시.
+- **임시 커밋**(아래 "임시 커밋 규칙"): uncommitted 있으면 작업 브랜치에 WIP 커밋으로 보존. 없으면 skip + "변경 없음" 명시. **머지 모드는 WIP 를 만들지 않는다** — uncommitted 가 있으면 `AskUserQuestion`(정식 메시지로 커밋 / 취소). 이건 §1 위험 확인이 아니라 "작업이 끝났는가" 방향 합의다(§1 단서).
 
 ### 3. plan 동기화 기록 (메인이 single writer; §10)
 plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신:
@@ -40,7 +44,17 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
   - 막힘 → `blocked` + `# Blockers`.
   - 그 외 → `in_progress` 유지(체크포인트).
 - **보고**: plan 위치·title·status / 임시 커밋 sha(또는 "변경 없음") / 동기화한 항목 / 남은 작업(`# Next`·`# Blockers`) / "다음 세션은 `/c` 로 이어받기".
-- **recap 형식(CLAUDE.md §3-6)**: 위 보고는 **결론 요약(≤3줄, 무엇이 끝났고 status)을 먼저**. **`/e` 호출 자체가 "마무리" 지시**이므로 §3-6 예외(사용자가 이미 다음 지시를 준 흐름 → 선택지 생략)에 따라 작업 선택지용 새 AskUserQuestion은 만들지 않는다. 단, 아래 5단계의 Jira task 본문 반영 승인은 외부 쓰기라 별도로 반드시 받는다. 마무리 액션은 아래 7단계 worktree 정리(조건 충족 시)과 8단계 "다음 세션 `/c`" 안내가 담당한다.
+- **recap 형식(CLAUDE.md §3-6)**: 위 보고는 **결론 요약(≤3줄, 무엇이 끝났고 status)을 먼저**. **`/e` 호출 자체가 "마무리" 지시**이므로 §3-6 예외(사용자가 이미 다음 지시를 준 흐름 → 선택지 생략)에 따라 작업 선택지용 새 AskUserQuestion은 만들지 않는다. 단, 아래 5단계의 Jira task 본문 반영 승인은 외부 쓰기라 별도로 반드시 받는다. 마무리 액션은 아래 7단계 worktree 정리(조건 충족 시)과 8단계 "다음 세션 `/c`" 안내가 담당한다. **머지 모드에선 done 확인 질문을 생략한다** — `/e merge` 가 그 확인이다(§3-6 1회 원칙).
+
+### 머지 모드 M1~M6 (`/e merge` 일 때만, 4단계 뒤 · 5단계 앞)
+gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-lifecycle.md` §E(진입 시 Read). 여기엔 게이트·순서·닫힌 목록만.
+- **M1 진입 게이트(hard-stop, 닫힌 목록)** — 하나라도 걸리면 머지 모드 거부 + 사유 보고(체크포인트로 조용히 폴백하지 않는다): (1) 브랜치가 main/master 또는 detached (2) plan 없음 (3) `# Acceptance` 에 미체크 항목 — 섹션 자체가 없으면 통과·보고 1줄, `- [ ] [post-merge] …` 접두어 항목만 제외(의미 판정으로 제외하지 않는다) (4) `gh repo view` 실패(미인증·GitHub 아님·권한 없음). `<default>` = `git symbolic-ref --short refs/remotes/origin/HEAD` 에서 `origin/` 을 뗀 이름 → 실패 시 `gh repo view` 의 `defaultBranchRef.name` → 그것도 없으면 거부. `origin/main` 같은 remote-tracking ref 를 브랜치 이름 자리에 쓰지 않는다.
+- **M2 PR 조회 + 사전 점검(외부 쓰기 없음)**: 먼저 `git fetch origin <default>`(stale ref 로 오판 방지) 후 `gh pr list --head <branch> --base <default> --state all` — 후보 2개+ → 중단·보고. OPEN → 재사용(draft 면 중단·보고). **MERGED 또는 CLOSED → 재사용하지 않는다**(skip 경로로 두면 plan done 커밋을 실을 PR 이 없어 7단계 조건 2·3·5 를 넘지 못한다). **지름길**: `origin/<default>..HEAD` 커밋이 0개이고 plan 이 이미 `done` 이면 3단계가 쓴 plan 편집을 `git restore` 로 되돌리고(머지된 plan 이 단일 진실 — 브랜치를 base 보다 ahead 로 만들면 `git branch -d` 가 거부된다) M3~M5 없이 **M6 의 확인·fetch 로**.
+- **M3 push + PR 확보**: 직전 PR 이 MERGED/CLOSED 라 새 PR 이 필요하면 **M4(plan done 커밋)를 먼저 수행한 뒤** push·생성한다(커밋 0 상태의 `gh pr create` 는 실패). `git push -u origin HEAD`(권한 프롬프트 거절·실패 → 중단, plan 무변경 — M4 를 선행한 경로면 로컬 done 커밋이 남으므로 복구 규칙으로 `in_progress` 로 되돌리고 보고). PR 이 없으면 `gh pr create --base <default>`(title = plan title 또는 첫 커밋 subject, body 는 스크래치 파일 — §E 템플릿). PR 의 `mergeable`/`mergeStateStatus` 를 **done 을 쓰기 전에** 확인: CONFLICTING·DIRTY → 중단·사유 보고(plan 무변경), UNKNOWN → 짧게 재조회. BEHIND·BLOCKED 는 required check 전엔 정상 상태라 여기서 막지 않고 M6 직전에 재평가한다.
+- **M4 plan done 커밋**: `status: done` · `# Progress` "PR #N" · `# Next` 비움 → plan-lint(실패 → 중단, 커밋 안 함) → 커밋·push. §10 "머지 시점에 done" 을 PR 단위로 앞당긴 것이며 아래 복구 규칙이 그 간극을 메운다. **복구 규칙(hard-stop)**: M5·M6 에서 **REJECTED 로 확정된 경우에만** 즉시 `status: in_progress` 복구 + `# Blockers`(timeout 은 `# Next` "PR #N checks 대기, `/e merge` 재실행") → 커밋·push 후 중단. 복구 push 가 거부되면 로컬 커밋만 남기고 보고. **REJECTED 로 확정되면 done 을 남기지 않는다**; 결과 불명(UNKNOWN)·대기(QUEUED)·head 불일치는 done 을 유지하고 `# Next` 재실행 안내로 닫는다(아래).
+- **M5 checks(exit code 기준 닫힌 목록)**: `gh pr view` 의 `headRefOid` 가 로컬 HEAD 와 같은지 대조(다르면 M3 의 push 만 재실행, 그래도 다르면 중단·plan 무변경) → `gh pr checks <N> --watch`(도구 timeout 10분). exit 0 → **별도 호출** `gh pr checks <N> --json name,bucket` 로 재조회, 모든 bucket ∈ {pass, skipping} 일 때만 M6, `fail`/`cancel` 이 하나라도 있으면 REJECTED(--watch 는 cancel 을 exit 에 반영하지 않는다) / exit 8(pending 잔존)·도구 timeout → REJECTED(timeout) / exit 1 이고 stderr 에 `no checks reported`(소문자 부분일치) → 15초 간격 3회 재조회, 그래도 없을 때만 required 없음으로 M6(이유: done push 직후 check run 미등록 레이스로 CI 를 건너뛸 수 있다) / 그 외 exit 1 → REJECTED.
+- **M6 머지 + 결과 분류 + fetch(hard invariant)**: 머지 직전 `mergeable`/`mergeStateStatus` 재확인(CONFLICTING → REJECTED, BEHIND·BLOCKED 가 남아 있으면 REJECTED — checks 통과 후에도 남았다면 branch protection 미충족) → `gh pr merge <N> --merge --match-head-commit <M5 시점 headRefOid>`(head 불일치 거부 → 중단·보고, 복구 아님). **`--delete-branch` 금지**(CLAUDE.md §8 — 원격 삭제 분리 승인 우회 + worktree 에서 로컬 삭제 실패). repo 가 merge 커밋을 불허하면(M1 의 `gh repo view` 로 읽은 설정) `--squash`. 결과를 넷으로 분류: **MERGED**(`gh pr view` 의 `mergedAt` non-null) → `git fetch origin <default>` 후 5단계로 / **QUEUED**(명령 성공인데 `mergedAt` null — merge queue) → plan 무변경, "큐 대기, 완료 후 `/e merge` 재실행" 보고·중단(복구 push 금지 — head 가 바뀌면 큐가 무효) / **REJECTED**(merge 명령 실패·권한 프롬프트 거절) → 복구 규칙 / **UNKNOWN**(확인·fetch 명령 실패) → plan 무변경, 재조회 안내·중단. 그 외 오류는 전부 plan 무변경 중단. **확인된 `mergedAt` 은 7단계 조건4 를 직접 충족**한다(squash 면 git 신호가 false 여도 재유도하지 않는다) — `collect-state.sh` 는 fetch 하지 않으므로 fetch 없이는 서버 머지를 영원히 못 본다. 재실행은 M2 에서 MERGED 를 재사용하지 않으므로 merge 를 재호출하지 않는다.
+- 원격 브랜치 삭제는 여기서 하지 않는다 — 7단계 자동 정리가 끝난 뒤 머지 모드에선 **항상 1회** `AskUserQuestion`(§8(b). 사용자가 `--delete-branch` 로 지시했던 경우만 그 승인으로 갈음).
 
 ### 5. Jira task 본문 작업내용 (사용자 승인 후)
 
@@ -64,13 +78,13 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
   1. **비-메인 worktree**(`root` ≠ `mainWorktree`; 메인이면 제안 안 함)
   2. **`detached`=false + plan `status == done`**(4단계 확정)
   3. **working tree clean**(untracked 포함; `dirty`=unknown 이면 생략)
-  4. **default 브랜치에 merged** — `mergedToLocalBase`=true(헬퍼가 `git branch --merged <localDefault>` 로 판정) **또는** `inBase`/`patchInBase`=true. **로컬 `main` 머지도 인정**한다(push 하지 않는 워크플로우에서는 `origin/<default>` 기준인 `inBase` 가 영영 false/unknown 이라 그것만 보면 자동 정리가 실효). 셋 다 false/unknown 이면 미머지로 보고 유지. squash merge 는 미감지 = 유지 방향이라 안전.
+  4. **default 브랜치에 merged** — `mergedToLocalBase`=true(헬퍼가 `git branch --merged <localDefault>` 로 판정) **또는** `inBase`/`patchInBase`=true. **로컬 `main` 머지도 인정**한다(push 하지 않는 워크플로우에서는 `origin/<default>` 기준인 `inBase` 가 영영 false/unknown 이라 그것만 보면 자동 정리가 실효). 셋 다 false/unknown 이면 미머지로 보고 유지. squash merge 는 미감지 = 유지 방향이라 안전. **예외: 머지 모드에서 M6 가 `mergedAt` 을 확인했으면 이 조건은 충족** — git 신호가 false 여도 재유도하지 않는다.
   5. **미보존 산출물 안전**(`git worktree remove`/`--force` 가 gitignored `.env`·미커밋 plan 을 유실시킴 — 이 worktree `plans/` 에 이번 갱신한 미커밋 plan 있으면 정리 생략; `.env`·secret 후보 있으면 삭제 목록 명시; `ignoredStatus`=unknown 이면 생략)
   6. **worktree 를 잡고 있는 프로세스 없음** — 이 세션에서 검증용으로 띄운 서버·데몬이 살아 있으면 `git worktree remove` 가 OS 레벨에서 실패한다(Windows: "Invalid argument"·"Access is denied"). **내가 띄운 것은 삭제 전에 내가 회수한다**(경로로 대상을 특정해 종료 — 사용자 서버·다른 worktree 프로세스는 건드리지 않는다). 회수 못 하면 정리 생략 + 사유 보고.
   - **각 조건의 판정 git 명령·폴백·`inBase`/`patchInBase`/`remoteContainingHead` 세부·squash/rebase 한계는 `docs/worktree-lifecycle.md` §B**(삭제 판정 분기에서 Read).
   - 하나라도 불충족/위험/헬퍼 불가 → 정리 생략 + 보고에 사유 한 줄("미머지 → 유지"·"dirty → 유지"·"plan 이 worktree 내부 → 유지").
 - **실행**: 조건 충족 시 **묻지 않고** worktree → 로컬 `git branch -d` 순으로 정리하고, 삭제한 브랜치 tip sha 를 한 줄 보고(`git branch <name> <sha>` 로 복구 가능). `git worktree remove` 가 부분 성공(등록 해제 후 디렉터리 삭제 실패)할 수 있으니 **결과를 확인**하고, 잔여 디렉터리가 있으면 조건6 처리 후 마저 지운다. 실행 세부는 "worktree 정리 규칙"(+ `docs/worktree-lifecycle.md` §C).
-- **원격 브랜치는 별개** — 지울 필요가 있다고 판단되면 그때만 AskUserQuestion(§8(b)). 자동 정리에 얹지 않는다.
+- **원격 브랜치는 별개** — 체크포인트 모드에선 지울 필요가 있다고 판단되면 그때만, 머지 모드에선 머지 성공 + 로컬 정리 완료 후 항상 1회 AskUserQuestion(§8(b)). 자동 정리에 얹지 않는다.
 
 ### 8. 세션을 main worktree 로 복귀
 1~7단계 후 세션을 main worktree 로 되돌린다(작업 기록은 worktree 에 남기고 다음 작업은 main 에서). **비파괴적**(worktree·브랜치 보존)이라 자동 수행.
@@ -100,9 +114,9 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
 - 한 줄 보고: 제거한 worktree·브랜치(또는 유지 사유).
 
 ## 경계 (안 하는 것)
-- **push 안 함**(§8). **main/master 직접 커밋 안 함** — 확인 후 분리.
-- plan 없으면 **새로 만들지 않음** — 임시 커밋 + "마무리할 plan 없음" 보고만(plan 가치 있어 보이면 dlc 제안 한 줄).
-- done **자동 전환 안 함** — 확정 완료 신호 + 사용자 확인 시만. 기본 in_progress 체크포인트.
+- **체크포인트 모드는 push 안 함**(§8). push·PR·머지는 **머지 모드(`/e merge`·`/e 머지`)에서만** — 그 인자가 지시다. `push`·`PR` 단어는 트리거가 아니다. **main/master 직접 커밋 안 함** — 확인 후 분리.
+- plan 없으면 **새로 만들지 않음** — 임시 커밋 + "마무리할 plan 없음" 보고만(plan 가치 있어 보이면 dlc 제안 한 줄). 머지 모드는 plan 없음이 M1 거부 사유.
+- done **자동 전환 안 함** — 확정 완료 신호 + 사용자 확인 시만. 기본 in_progress 체크포인트. 머지 모드의 M4 done 은 `/e merge` 가 그 확인이며, 머지 실패 시 복구 규칙으로 되돌린다.
 - plan 갱신은 **사실 기반만**(§1) — git/파일로 확인된 것만. 추측으로 Progress/Decisions 채우지 않는다.
 - subagent 위임 아님 — plan single writer 는 메인. 메인이 직접 커밋/기록한다.
 - **worktree 정리는 7단계 조건(비-메인·done·clean·merged·미보존 산출물 없음·점유 프로세스 없음) 충족 시 무확인 실행** — 조건 하나라도 불충족이면 정리 생략(강행 금지). `--force`·`git branch -D`(미머지)·**원격 삭제(`git push origin --delete`)**는 여기 포함되지 않으며 명시 확인 없이 금지(§8).

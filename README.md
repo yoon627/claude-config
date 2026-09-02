@@ -296,12 +296,13 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 `/e` 로 진행 중이던 plan(§10)을 **실제 git/코드 상태로 동기화 기록**하고 작업을 마무리. c(이어가기)의 대칭.
 - **마무리 recap(CLAUDE.md §3-6)**: 최종 메시지는 **결론 요약(≤3줄) 먼저**, 마무리 선택지(정리/이어가기/종료)는 아래 worktree 정리 제안 + 다음 세션 `/c` 안내가 겸한다. Jira task 본문 반영만은 외부 쓰기라 preview 후 별도 사용자 승인을 받는다.
-- uncommitted 변경은 작업 브랜치에 **임시(WIP) 커밋**으로 보존 — `main`/`master` 직접 커밋·push 는 안 함(§8), `.env`·key 등 위험 파일은 커밋 보류 후 확인.
+- 체크포인트 모드에서는 uncommitted 변경을 작업 브랜치에 **임시(WIP) 커밋**으로 보존 — `main`/`master` 직접 커밋·push 는 안 함(§8), `.env`·key 등 위험 파일은 커밋 보류 후 확인.
+- **머지 모드 `/e merge`**(`/e 머지` — 이 두 토큰만): PR 조회·사전 점검 → push → PR(open 재사용, merged/closed 는 새로) → plan `done` 커밋 → `gh pr checks --watch`(exit code + bucket 재조회) → `gh pr merge --merge --match-head-commit`(`--delete-branch` 금지) → 결과를 MERGED/QUEUED/REJECTED/UNKNOWN 으로 분류, MERGED 면 `git fetch` 후 5~8단계. REJECTED 만 plan 을 `in_progress` 로 복구해 done 인 미머지 plan 을 남기지 않는다. 진입 게이트·닫힌 목록은 SKILL, gh 명령·시나리오 표는 `docs/worktree-lifecycle.md` §E.
 - `# Progress`/`# Next`/`# Decisions`/`status`/`updated` 를 사실 기반으로 갱신 → 다음 세션이 `/c` 로 곧장 이어받음.
-- done 자동 전환 안 함 (확정 완료 신호 + 사용자 확인 시만, 기본 `in_progress` 체크포인트). plan 없으면 새로 만들지 않음 — 임시 커밋 + 보고만.
+- 체크포인트 모드에서는 done 자동 전환 안 함 (확정 완료 신호 + 사용자 확인 시만, 기본 `in_progress` 체크포인트; 머지 모드의 done 은 `/e merge` 가 그 확인). plan 없으면 새로 만들지 않음 — 임시 커밋 + 보고만.
 - worktree 에서 작업이 `done`·clean·merged 이고 내부에 잃을 ignored 산출물(plan·`.env`)이 없으면 **묻지 않고 worktree + 로컬 브랜치를 정리**한다(CLAUDE.md §8(a) — 누가 머지했는지 불문). merged 판정은 `origin/<default>` 뿐 아니라 **로컬 `main` 머지도 인정**한다(push 하지 않는 워크플로우에서 자동 정리가 실효되지 않도록). 삭제한 브랜치 tip sha 를 보고(`git branch <name> <sha>` 로 복구 가능). **확인이 필요한 것(§8(b))**: **원격 브랜치 삭제**(`git push origin --delete`)는 항상, 그리고 안전조건 미충족/불확실(dirty·squash-merge·미보존 산출물)·`wt rm <이름>` 직접 호출·`--force`·`branch -D`. 삭제 시 main 으로 빠져나간 뒤 `git worktree remove`(내가 띄운 점유 프로세스는 먼저 회수). merge/done 후 정리를 방치하지 않는 규약은 CLAUDE.md §8.
 - **`collect-state.sh`** (헬퍼): 마무리 2단계·7단계의 읽기전용 git 신호(worktree 위치·dirty·upstream/unpushed·base merged·**로컬 default merged**(`localDefault`·`mergedToLocalBase`)·ignored)를 평문 `key:value` 로 1회에 수집 — 분산된 개별 git 호출의 왕복을 줄인다. read-only(판정·삭제·파괴 명령은 SKILL 메인), 각 점검 fail-safe(실패 필드 none/unknown), `unpushedStatus` 는 false 와 unknown 을 구분해 false-positive 삭제를 막는다.
-- **`docs/worktree-lifecycle.md`** (참조, 자동 로드 안 됨): `/e` 의 상태 수집 필드 카탈로그·worktree 삭제 판정 6조건 메커닉·정리 실행 폴백·복귀 pull 의 git 세부를 담는다. SKILL 본문엔 게이트·닫힌목록·안전 규칙만 남기고 세부는 여기로 이관(해당 분기 진입 시 Read — `docs/codex-review.md` 와 같은 참조 패턴).
+- **`docs/worktree-lifecycle.md`** (참조, 자동 로드 안 됨): `/e` 의 상태 수집 필드 카탈로그·머지 모드 gh 메커닉·시나리오 표(§E)·worktree 삭제 판정 6조건 메커닉·정리 실행 폴백·복귀 pull 의 git 세부를 담는다. SKILL 본문엔 게이트·닫힌목록·안전 규칙만 남기고 세부는 여기로 이관(해당 분기 진입 시 Read — `docs/codex-review.md` 와 같은 참조 패턴).
 
 ### skills/wt/ — Git worktree 빠른 관리
 
