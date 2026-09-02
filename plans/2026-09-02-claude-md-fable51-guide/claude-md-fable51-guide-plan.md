@@ -1,6 +1,6 @@
 ---
 title: claude-md-fable51-guide — CLAUDE.md 에 Fable 5.1 프롬프팅 가이드 4건 반영
-status: in_progress
+status: done
 started: 2026-09-02
 updated: 2026-09-02
 ---
@@ -10,10 +10,11 @@ Anthropic "Prompting Claude Fable 5.1" 문서를 CLAUDE.md 와 대조해 사용�
 
 # Progress
 - 2026-09-02: 문서 16개 섹션 대조 → 하네스 시스템 프롬프트가 이미 주입하는 블록(진행 업데이트·Finish the whole task·Delivering work·tool 배치)은 제외, 4건 제안 → 사용자 4건 모두 승인 → worktree 생성, 규모 small(단일 파일 doc, <50줄).
-- 2026-09-02: CLAUDE.md 4곳 + README 요약 편집 → code-reviewer+Codex(low) 리뷰 Major 2·Minor 5·Nit 5 → fix loop 1회 반영(`sed` 제거·§7 경계 단서·§4 재배치 등) → simplify 수정 없음 → plan-lint 통과. 검증: lint.yml 표면(JS·sh·JSON) 미변경·마크다운 린터 없음 → diff 육안 대조로 acceptance 충족. 브랜치에 커밋.
+- 2026-09-02: CLAUDE.md 4곳 + README 요약 편집 → code-reviewer+Codex(low) 리뷰 Major 2·Minor 5·Nit 5 → fix loop 1회 반영(`sed` 제거·§7 경계 단서·§4 재배치 등) → simplify 수정 없음 → plan-lint 통과. 검증: lint.yml 표면(JS·sh·JSON) 미변경·마크다운 린터 없음 → diff 육안 대조로 acceptance 충족. 브랜치에 커밋 `117937c`.
+- 2026-09-02: `/e` — 사용자 지시로 push·PR #147 생성·main 머지. status done.
 
 # Next
-- 사용자 선택: `/e` 로 push·PR·머지 또는 종료. 머지 시점에 `status: done`.
+- 없음 (머지 완료). Deferred 3건은 별도 작업으로.
 
 # Decisions
 - 하네스가 이미 주입하는 문장은 CLAUDE.md 에 중복 기재하지 않는다 (이유: 전문 100% 주입되는 파일이라 토큰 낭비이고, 하네스 버전이 바뀌면 이중 관리가 된다).
