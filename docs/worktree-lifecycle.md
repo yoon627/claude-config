@@ -1,8 +1,8 @@
 # worktree-lifecycle — /e 상태 수집·worktree 정리 메커닉 (참조)
 
-`/e` SKILL(`skills/e/SKILL.md`)의 상태 수집(2단계)·worktree 삭제 판정(7단계)·정리 실행(정리 규칙)·복귀 pull(8단계 ⓑ)의 **git 메커닉·폴백·엣지 처리**를 담는다. SKILL 본문엔 게이트·닫힌목록·안전 규칙만 남기고 세부는 여기로.
+`/e` SKILL(`skills/e/SKILL.md`)의 상태 수집(2단계)·머지 모드(M1~M6)·worktree 삭제 판정(7단계)·정리 실행(정리 규칙)·복귀 pull(8단계 ⓑ)의 **git/gh 메커닉·폴백·엣지 처리**를 담는다. SKILL 본문엔 게이트·닫힌목록·안전 규칙만 남기고 세부는 여기로.
 
-> 이 파일은 자동 로드되지 않는다 — `/e` 가 **상태 수집·worktree 삭제 판정/실행·복귀 pull 분기에 실제로 들어갔을 때** 이 파일을 Read 한다. 판정 골격(6조건 AND·자동삭제 금지·안전 게이트)은 SKILL 본문이 단일 소스이고, 여기는 "어떻게"만.
+> 이 파일은 자동 로드되지 않는다 — `/e` 가 **상태 수집·머지 모드(M1 진입)·worktree 삭제 판정/실행·복귀 pull 분기에 실제로 들어갔을 때** 이 파일을 Read 한다. 판정 골격(6조건 AND·자동삭제 금지·안전 게이트)은 SKILL 본문이 단일 소스이고, 여기는 "어떻게"만.
 
 > **범위**: 이 파일은 **CLAUDE.md §8(a) 자동 정리**(조건 충족 시 worktree + 로컬 브랜치를 **묻지 않고** 정리)와 **§8(b) 확인 경로**(원격 브랜치 삭제·안전조건 미충족·`wt rm <이름>` 직접 호출)의 판정 메커닉을 함께 다룬다. 조건 판정은 같고 **결과 처리만 갈린다** — 전부 충족이면 무확인 실행, 하나라도 불충족이면 정리 생략(강행 금지), 원격 삭제는 언제나 AskUserQuestion.
 
@@ -14,7 +14,7 @@
 - 점검 실패(origin 없음·status 오류)는 해당 필드 `none`/`unknown` — `false` 로 평탄화하지 않는다.
 - 헬퍼 실패·필드 누락이면 보고에 명시하고 아래 조건별 폴백 git 명령으로.
 
-## B. worktree 삭제 판정 6조건 메커닉 (SKILL §5)
+## B. worktree 삭제 판정 6조건 메커닉 (SKILL §7)
 SKILL 은 "6조건 AND + 하나라도 불충족/헬퍼불가면 제안 생략(보수)"만 명시. 각 조건 판정과 폴백:
 1. **비-메인 worktree**: `root` ≠ `mainWorktree`. 폴백 `git rev-parse --show-toplevel` vs `git worktree list --porcelain` 첫 `worktree <path>`. 슬래시 방향·대소문자 normalize 후 비교(메인 책임 — 헬퍼는 raw path). 메인이면 제안 안 함.
 2. **detached=false + plan status==done**: plan 의존이라 헬퍼 밖(4단계 확정값). detached 면 생략.
@@ -49,5 +49,42 @@ SKILL 은 "6조건 AND + 하나라도 불충족/헬퍼불가면 제안 생략(�
 - **로컬 브랜치**: worktree 제거 성공 후 `git branch -d <target_branch>`(자동 정리에 포함). 미머지로 `-d` 거부면 `-D` 는 **별도 AskUserQuestion 후에만**(§8) — `-d` 거부 자체가 merged 판정이 틀렸다는 신호다.
 - **원격 브랜치**: 자동 정리에 **포함하지 않는다**. 필요 시 worktree·로컬 삭제 성공 후 `git push origin --delete <target_branch>` 를 **AskUserQuestion 으로 확인받고**만 실행(원격 ref 부재면 no-op·경고만). merged 판정은 확정이 아니고(특히 5(b) 진행중 child·squash 미감지) 원격 삭제는 다른 머신의 유일본을 지울 수 있다.
 
-## D. 복귀 후 main-autopull pull (SKILL §6 ⓑ)
+## D. 복귀 후 main-autopull pull (SKILL §8 ⓑ)
 세션이 **실제로 main 에 복귀했을 때만** `git pull --ff-only origin "$(git rev-parse --abbrev-ref HEAD)"` 1회 — 세션 중 머지·원격 진행분 반영(post-checkout hook 은 `git checkout` 에만 뜨고 ExitWorktree 복귀엔 안 뜨므로 이 구간 커버). **원격은 반드시 현재 브랜치**(하드코딩 `main` 금지 — master repo 오대응 방지). 선행 가드 전부 충족 시에만: ① main worktree ② `git rev-parse --abbrev-ref HEAD` ∈ {main,master} ③ working tree clean. **no-op(feature 브랜치 잔류)·dirty·ff 실패·origin 부재면 skip**(feature 브랜치에 origin/main merge 하는 파괴 방지). 자동 rebase·stash·force 없음(§8).
+
+## E. 머지 모드 gh 메커닉 (SKILL M1~M6)
+SKILL 의 게이트·순서·닫힌 목록이 단일 소스. 여기는 명령·필드·템플릿·시나리오 표. 아래 JSON 필드는 gh 2.89 `--help` 로 실존 확인(2026-09-02).
+
+- **M1 조회**: 브랜치 `git rev-parse --abbrev-ref HEAD`(`HEAD` 면 detached). `gh repo view --json defaultBranchRef,mergeCommitAllowed,squashMergeAllowed` 한 번으로 인증·GitHub 여부·`<default>` 폴백·머지 방식을 같이 얻는다(실패 = M1 거부). `<default>` 는 `git symbolic-ref --short refs/remotes/origin/HEAD` 에서 `origin/` 을 뗀 이름 → 실패 시 위 `defaultBranchRef.name`.
+- **M2 PR 조회**: `git fetch origin <default>` → `gh pr list --head <branch> --base <default> --state all --json number,state,isDraft,url`. `state` ∈ {OPEN, MERGED, CLOSED}. 후보 2개+ → 중단. 지름길 판정은 `git rev-list --count origin/<default>..HEAD` = 0 + plan `status: done`; 진입 시 `git restore plans/<dir>/<slug>-plan.md`. OPEN 이면 `gh pr view <N> --json mergeable,mergeStateStatus,headRefOid` 로 사전 점검.
+- **PR 생성(M3)**: `gh pr create --base <default> --head <branch> --title "<title>" --body-file <scratchpad>/pr-body.md`. body 는 `## Summary`(plan `# Goal`·주요 변경 bullet) · `## Review`(리뷰어·처분 요약) · `## Verification`(실행한 검증 명령·결과) · 트레일러(`🤖 Generated with [Claude Code](https://claude.com/claude-code)` + 세션 URL, 하네스 지시 그대로). 파일로 쓰는 이유는 CLAUDE.md §2(긴 payload 를 tool 파라미터에 넣지 않는다).
+- **사전 점검 값**: `mergeable` ∈ {MERGEABLE, CONFLICTING, UNKNOWN}, `mergeStateStatus` ∈ {CLEAN, UNSTABLE, HAS_HOOKS, UNKNOWN, DIRTY, BEHIND, BLOCKED, DRAFT}. CONFLICTING/DIRTY/DRAFT → 중단·사유 보고(plan 무변경). UNKNOWN 은 10초 후 최대 3회 재조회. BEHIND/BLOCKED 는 required check 전엔 정상이라 M3 에선 통과, M6 직전 재평가에서 남아 있으면 REJECTED.
+- **M5 checks**: `gh pr view <N> --json headRefOid` = `git rev-parse HEAD` 대조 → `gh pr checks <N> --watch`(Bash timeout 600000). exit 0 → `gh pr checks <N> --json name,bucket`(`--watch` 와 `--json` 은 병용 불가라 별도 호출) 로 bucket ∈ {pass, fail, pending, skipping, cancel} 확인. exit 8 = pending 잔존. exit 1 + stderr `no checks reported on the '<branch>' branch`(소문자 부분일치 `no checks reported`) = checks 없음 → `sleep 15` 후 `gh pr view <N> --json statusCheckRollup` 3회, 배열이 계속 비어 있을 때만 required 없음.
+- **M6 머지·분류**: `gh pr merge <N> --merge --match-head-commit <headRefOid>`(`mergeCommitAllowed: false` 면 `--squash`). 성공 exit 후 `gh pr view <N> --json state,mergedAt,mergeCommit` — `mergedAt` non-null = MERGED, null = QUEUED(merge queue). 명령 실패 = REJECTED, 확인 명령 실패 = UNKNOWN. MERGED 면 `git fetch origin <default>`. 7단계 재수집(`collect-state.sh`)에서 조건4 는 이 `mergedAt` 로 충족(squash 는 `inBase`·`patchInBase` 가 false 일 수 있다 — §B 의 squash 미감지 한계).
+- **커밋 메시지**: done `docs(plan): close <slug> (PR #N)`, 복구 `docs(plan): reopen <slug> (PR #N <사유>)`.
+
+### 시나리오 표 (외부 쓰기 · plan status · `# Next` · 재실행)
+| 시나리오 | 외부 쓰기 | plan status | `# Next` | 재실행(`/e merge`) 결과 |
+|---|---|---|---|---|
+| 새 PR, checks pass, MERGED | push·PR·merge | done | 없음 | M2: base 에 없는 커밋 0·done → M6 확인·fetch → 5~8 |
+| 기존 open PR | push(변경 있을 때) | done | 없음 | 동일 PR 재사용 |
+| 기존 merged/closed PR + 새 커밋(plan done 등) | push·새 PR·merge | done | 없음 | 새 PR 재사용 |
+| draft PR | 없음(M2 에서 중단) | 불변 | 불변 | draft 해제 후 재실행 |
+| 사전 점검 CONFLICTING/DIRTY | push·PR(생성된 경우) | 불변(done 전 중단) | 불변 | 해소 후 재실행 → M2 재사용 |
+| M6 직전 BEHIND/BLOCKED 잔존 (REJECTED) | push·PR | in_progress(복구) | protection 충족 후 재실행 | M2 재사용 → M5 |
+| MERGED/CLOSED PR + plan 미done 재실행 | push·새 PR·merge | done(M4 선행) | 없음 | 새 PR 재사용 |
+| checks none(3회 재조회 후에도) | push·PR·merge | done | 없음 | required 없음으로 진행 |
+| checks pending→pass | 위와 동일 | done | 없음 | — |
+| checks fail·cancel (REJECTED) | push·PR | in_progress(복구) | 수정 후 재실행 | 수정·push 후 M2 재사용 → M5 |
+| checks timeout / exit 8 (REJECTED) | push·PR | in_progress(복구) | "PR #N checks 대기, `/e merge` 재실행" | M2 재사용 → M5 |
+| 머지 직전 CONFLICTING (REJECTED) | push·PR | in_progress(복구) | 충돌 해소 후 재실행 | rebase/merge 후 push → M5 |
+| `--match-head-commit` 불일치 | push·PR | done 유지(중단·보고) | 불변 | head 확인 후 재실행 |
+| merge 커밋 불허 → squash MERGED | push·PR·merge(squash) | done | 없음 | mergedAt 로 조건4 충족 |
+| 권한 프롬프트 거절·branch protection (REJECTED) | push·PR | in_progress(복구) | 사유 해소 후 재실행 | M2 재사용 |
+| QUEUED(merge queue) | push·PR·merge(큐) | done 유지 | "큐 완료 후 `/e merge` 재실행" | M2: MERGED 재사용 안 함·커밋 0 → M6 확인·fetch |
+| UNKNOWN(확인·fetch 실패) | push·PR·merge(?) | done 유지 | "`gh pr view` 재조회 후 재실행" | M2 분기 |
+| `gh repo view` 실패(미인증·GitHub 아님) | 없음 | 불변 | 불변 | M1 거부 |
+| push 거부(`permissions.ask` 거절) | 없음 | 불변(M4 선행 시 로컬 done → 복구) | 불변 | M3 중단 |
+| plan 없음 / 브랜치 main·detached / Acceptance 미체크 | 없음 | — | — | M1 거부 |
+| 머지 후 5~8단계 실패 | 없음 추가 | done | 실패 단계 기록 | merge 재호출 없이 5~8 재시도 |
+| 복구 push 거부 | 없음 | in_progress(로컬만) | 로컬 커밋 push 필요 보고 | push 후 M2 |
