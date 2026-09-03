@@ -82,6 +82,17 @@
 
 **simplify 점검은 모든 코드 변경에 필수** — 메인 직접(전용 subagent 없음), 생략 사유는 Report 에. 상세는 `skills/dlc/SKILL.md` 13단계.
 
+### Workflow(ultracode) subagent 의 effort 는 단계별로 명시한다 (사용자 지시 2026-09-03)
+
+Workflow 스크립트의 `agent()` 는 `model` 을 생략하고(세션 모델 상속) `effort` 를 **항상 명시**한다 — 생략하면 세션 effort(ultracode = xhigh)를 상속해 탐색 agent 까지 xhigh 로 돈다.
+
+- `low` — 파일 탐색·grep·목록 수집·테스트 실행·기계적 변환
+- `medium` — 구현·단순 리팩토링
+- `high` — 검증·adversarial verify·judge·복잡한 디버깅
+- `xhigh`/`max` — 명시적으로 어려운 판정에만. 결과 통합·최종 판단은 스크립트가 아니라 메인(세션 effort)이 한다.
+
+`agentType` 으로 `~/.claude/agents/` 정의를 쓰면 그 frontmatter `model`(reviewer 들은 `opus`)이 세션 모델보다 우선한다. Agent 도구(단발 subagent)에는 effort 파라미터가 없어 정의 frontmatter `effort:` 로만 정한다.
+
 ---
 
 ## 6. 코드 규칙

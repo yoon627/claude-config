@@ -222,7 +222,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 2. 컨텍스트 관리 — `/clear`, `/rewind`, subagent 위임 기준
 3. 작업 흐름 — Setup → Explore → Plan → Implement → Verify → Report
 4. 웹 검색 능동 사용 — 지식 컷오프 이후 정보, 라이브러리 버전별 동작, 이름 인지 ≠ 현재 상태 등
-5. Sub-agent — 표준 순서 (plan-reviewer → 구현 → code-reviewer → simplify 체크(메인 직접))
+5. Sub-agent — 표준 순서 (plan-reviewer → 구현 → code-reviewer → simplify 체크(메인 직접)), Workflow(ultracode) subagent 는 단계별 effort 명시
 6. 코드 규칙 — 동일 디렉토리 스타일, 타입 힌트, 임시 코드 표기, 부분 편집 우선(전체 재작성 지양)
 7. 테스트 (TDD) — 테스트 작성 순서, 예외 조건, 인접 테스트 규모에 맞춤·임시 체크의 영구 테스트화 금지
 8. Git / 보안 — destructive 명령 금지, 시크릿 출력 금지, 비trivial 은 worktree(`/wt`)에서
