@@ -18,7 +18,8 @@ JIRA_WORKLOG_TEST_ARGS="$args_file" \
 PATH="$fake_bin:/usr/bin:/bin" \
 bash "$PWD/skills/jira-worklog/run_worklog.sh" --all --comment "space value"
 
-mapfile -t args < "$args_file"
+args=()
+while IFS= read -r line; do args+=("$line"); done < "$args_file"  # mapfile 은 bash 4+ — macOS /bin/bash 3.2 호환
 case "${args[0]}" in
   */skills/jira-worklog/jira_worklog.py) ;;
   *) echo "launcher did not pass its script path" >&2; exit 1 ;;
