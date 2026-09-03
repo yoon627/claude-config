@@ -50,4 +50,4 @@ code-reviewer(+codex low) REQUEST CHANGES → fix loop 1회.
 - open(❌모름) — subagent 알림이 `<system-reminder>` 래퍼로 오는 형태의 존재 여부: 정규식은 두 형태 모두 처리하므로 결과 무관.
 
 # Deferred
-- `skills/jira-worklog/test_launcher.sh:21` 이 `mapfile`(bash 4+)을 써서 macOS 기본 `/bin/bash` 3.2 로컬에선 exit 127. CI(ubuntu, bash 5)는 통과하므로 로컬 전용 baseline 실패 — 입증: 이 worktree 의 `skills/jira-worklog/` 는 origin/main 대비 diff 0. 수정 후보: `mapfile` → `while read` 루프 또는 shebang 을 `#!/usr/bin/env bash` + brew bash 안내. 심각도 minor.
+- `skills/jira-worklog/test_launcher.sh:21` 이 `mapfile`(bash 4+)을 써서 macOS 기본 `/bin/bash` 3.2 로컬에선 exit 127. CI(ubuntu, bash 5)는 통과하므로 로컬 전용 baseline 실패 — 입증: 이 worktree 의 `skills/jira-worklog/` 는 origin/main 대비 diff 0. 수정 후보: `mapfile` → `while read` 루프 또는 shebang 을 `#!/usr/bin/env bash` + brew bash 안내. 심각도 minor. **→ 해소(2026-09-03, plan `launcher-test-bash3` — `while read` 루프로 교체).**
