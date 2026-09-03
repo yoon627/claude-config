@@ -12,7 +12,7 @@ plans-sync 방안 A(plan tracked, 코드 브랜치와 함께 다머신 동기화
 
 # Progress
 
-- 2026-09-03: **wontfix 로 종료**(사용자 결정). 구현 없음. 사유는 `# Decisions` 마지막 항목.
+- 2026-09-03: **wontfix 로 종료**(사용자 결정, PR #153). 구현 없음. 사유는 `# Decisions` 마지막 항목.
 - 2026-08-20: worktree 정리. 구현이 전혀 없는 draft 라 **plan 만 main 에 squash 반영**하고 worktree·브랜치는 삭제했다 — 핵심 미결(삭제 타이밍)이 설계 결정이라 임의 착수하지 않았다. 재개 방법은 `# Next` 참조.
 - 2026-07-22: Explore 완료. 상호작용 3종 검토 — ① `dlc-evidence-ledger.js` `isPlan`(L73-75)은 plans/ 경로를 evidence gate 에서 제외 + Edit/Write 만 잡아 **삭제(git rm)와 완전 무관** ② `guard-worktree-edit.js`(L107)는 main plans/ 편집·삭제 allow ③ `c` skill fallback(L26)은 in_progress|blocked 만 이어받기 대상 → **done 삭제와 무관**(삭제된 plan 은 매칭 실패=정상). 핵심 미결=삭제 타이밍(아래 Decisions).
 - 2026-07-22 (/e): draft plan WIP 커밋 보존. 세션이 길어 체크포인트 — 새 세션 `/c` 로 plan-reviewer 부터 이어받기. 이 브랜치는 원격 미push(같은 머신 새 세션 전제; 다른 머신 이어받으려면 push 필요).
