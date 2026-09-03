@@ -1,6 +1,6 @@
 ---
 title: wiki-session-ingest — 2026-09-02 세션 확정 사실 3건 + e-merge-mode 결정 wiki 적립
-status: in_progress
+status: done
 started: 2026-09-03
 updated: 2026-09-03
 ---
@@ -9,10 +9,10 @@ updated: 2026-09-03
 `/wiki ingest`: UserPromptSubmit 알림 턴 발동(entity), worktree 격리 Bash 가드 관찰(entity), `/e` 머지 모드 설계(decision)를 페이지로 적립하고 workflow-failures(rtk fixed·라우터 fixed·codex 정본 거부 proposed)·headroom(삭제된 memory 참조) 를 갱신, index/log 동기화.
 
 # Progress
-- 2026-09-03: 페이지 3 신규·2 갱신, index 3 등재, log append. `check_links.py` 위반 1(기존 orphan `lesson-fix-scoped-to-one-repo`, 범위 밖). 시크릿 스캔 0.
+- 2026-09-03: 페이지 3 신규·2 갱신, index 3 등재, log append. `check_links.py` 위반 1(기존 orphan `lesson-fix-scoped-to-one-repo`, 범위 밖). 시크릿 스캔 0. 커밋 `18e1fe7` → `/e merge` PR #150.
 
 # Next
-- `/e merge`.
+- 없음 (PR #150 머지 시 완료).
 
 # Decisions
 - wiki 페이지는 tracked 라 main 직접 편집 대신 worktree 브랜치에서 ingest 하고 `/e merge` 로 닫는다 (이유: §8 비trivial 은 worktree; guard-worktree-edit 는 auto 모드에서 hard gate 가 아니라 규약만 남음).
