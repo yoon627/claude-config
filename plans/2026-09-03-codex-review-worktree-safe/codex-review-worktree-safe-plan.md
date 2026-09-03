@@ -1,6 +1,6 @@
 ---
 title: codex-review-worktree-safe — codex 정본 호출을 worktree 격리 가드에 안 걸리는 형태로 갱신
-status: in_progress
+status: done
 started: 2026-09-03
 updated: 2026-09-03
 ---
@@ -10,9 +10,10 @@ updated: 2026-09-03
 
 # Progress
 - 2026-09-03: §3 정본 재작성, `agents/architecture-reviewer.md` 호출 예시 동일 형태로, README 한 줄. 새 정본을 worktree 에서 실제 실행(effort low smoke) → exit 0·응답 OK, 가드 미발동.
+- 2026-09-03: code-reviewer(+codex low, 새 정본으로 병행 — 가드 활성 상태에서 첫 시도 통과) REQUEST CHANGES Major 4 → fix loop 1회(`0e76a88`) → APPROVE, Nit 반영(`ace6238`). `/e merge` PR #151.
 
 # Next
-- code-reviewer(low, 새 정본으로 codex 병행 = 2차 smoke) → `/e merge`.
+- 없음 (PR #151 머지 시 완료).
 
 # Decisions
 - `--skip-git-repo-check` 는 정본에서 제거 (이유: 리뷰는 항상 git repo(worktree) 안에서 돌아 불필요하고, 플래그명 자체가 가드에 걸린다). repo 밖 예외만 각주.
