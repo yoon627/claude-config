@@ -40,10 +40,12 @@ codex exec --sandbox read-only --ephemeral -c 'model_reasoning_effort="medium"' 
   | 작업 | effort |
   |---|---|
   | 논의·질의·소규모 diff·문서·설정 검토 | `low` |
-  | 일반 코드 리뷰 · plan 리뷰 | `medium` |
+  | plan 리뷰 · 소규모 코드 리뷰 | `medium` |
+  | **구현 후 code-reviewer 병행 — 브랜치 전체 diff** | `high` (2026-09-03 부터 repo pre-push codex 게이트를 대체하는 유일한 codex 코드 리뷰 — coin-trading-bot 은 게이트 제거) |
   | 보안·동시성·복잡 버그·대규모 구조 검토 | `high` |
   | 최심층 (지원 모델 한정) | `xhigh` |
 
+- **구현 후 리뷰의 범위는 브랜치 전체 diff** — 프롬프트에 `git diff <base>...HEAD`(base = `origin/<default>` 또는 호출 측이 준 sha)를 명시하고 codex 가 read-only sandbox 안에서 직접 실행하게 한다(번들 파일 목록만 주면 pre-push 가 잡던 범위 밖 결함을 놓친다). P0/P1 급(돈·데이터·보안) 결함을 먼저 보고하게 한다.
 - **effort 는 항상 `-c model_reasoning_effort=...` 로 명시한다.** 생략하면 `~/.codex/config.toml` 기본값(현재 `xhigh`)이 적용돼 토큰이 최대로 샌다.
 - `minimal` 은 일부 모델(gpt-5.5 등)에서 `web_search`/`image_gen` 툴과 충돌(400)하니 실질 최저는 `low`.
 - `xhigh` 는 지원 모델(gpt-5.1-codex-max / gpt-5.2-codex / gpt-5.5 등) 한정. 미지원 모델은 자동 폴백되지 않으니 호출 전 모델 확인.

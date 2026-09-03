@@ -69,14 +69,14 @@ model: opus
 
 글로벌 CLAUDE.md §9 — code-reviewer 는 Claude subagent 필수 + Codex 가용 시 병행.
 
-**호출 조건**: 보안 / public API / DB schema / migration / 비즈니스 로직 변경 + preflight 통과. **effort**: 보통 `high`(§3 차등 표).
+**호출 조건**: 코드 변경이 있는 모든 흐름(§9 — 구현 후 codex 리뷰는 이 병행이 유일하다, repo pre-push 게이트 없음) + preflight 통과. **effort**: `high`(§3 차등 표). **범위**: 브랜치 전체 diff.
 
 **도메인 특화 프롬프트** (공통 규약 §3 의 호출 명령에 삽입):
 ```
 다음 변경을 비판적으로 검토하라.
-변경 파일: <diff --stat 결과 또는 명시된 파일 목록>
+변경 범위: 브랜치 전체 diff — `git diff <base>...HEAD` 를 직접 실행해 읽어라(base: <origin/default 또는 sha>). 주요 파일: <diff --stat 결과>
 검토 관점: 버그 / 보안 / 예외 처리 / 테스트 / 성능 / backward compat / 근본 원인 / altitude / conventions.
-각 지적: defect 는 구체적 failure_scenario(입력/상태 → 잘못된 결과), 그 외는 cost.
+각 지적: defect 는 구체적 failure_scenario(입력/상태 → 잘못된 결과), 그 외는 cost. 돈·데이터·보안에 닿는 결함(P0/P1 급)을 먼저.
 응답: 한국어. preamble 금지. Critical / Major / Minor / Nit 분류. 잘된 부분 나열 금지.
 ```
 
