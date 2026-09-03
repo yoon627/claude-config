@@ -33,6 +33,9 @@ history.jsonl
 *.bak.*
 tmp_*
 
+# Orca 앱이 설치·갱신하는 skill — 머신 로컬, 추적하지 않는다
+/skills/orca-cli/
+
 # Python bytecode cache inside whitelisted dirs (e.g. scripts/)
 __pycache__/
 *.pyc
