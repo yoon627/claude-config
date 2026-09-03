@@ -18,18 +18,22 @@ reviewer subagent(plan-reviewer / code-reviewer / architecture-reviewer)와 dlc 
 
 **MUST — codex 는 Bash 도구로 호출한다.** `codex exec` 는 PROMPT 인자가 있어도 stdin 을 추가로 읽어, PowerShell 도구로 호출하면 stdin 이 안 닫혀 `Reading additional input from stdin...` 에서 무한 hang 한다(재현). 무거운 작업 전 짧은 smoke test(≤60s)로 응답부터 확인하고, hang/사용량 초과 시 즉시 중단하고 단독 진행 + 사유 명시. (PowerShell 만 가용한 환경의 폴백은 §4.)
 
-read-only sandbox, ephemeral, git repo 체크 skip. **effort 는 작업 난이도별 차등**(아래 표). reasoning 로그 노이즈는 `-c hide_agent_reasoning=true` 로 억제(출력에서 결론 추출이 쉬워진다).
+read-only sandbox, ephemeral. **effort 는 작업 난이도별 차등**(아래 표). reasoning 로그 노이즈는 `-c hide_agent_reasoning=true` 로 억제(출력에서 결론 추출이 쉬워진다).
+
+**프롬프트는 파일로, 명령은 짧게** — worktree 격리 세션의 네이티브 Bash 가드는 명령 텍스트에 `git` 이 들어간 형태(heredoc 본문의 `git diff` 언급, `--skip-git-repo-check` 플래그명 자체)를 거부하며 비결정적이다(wiki `worktree-isolation-bash-guard`, 2026-09-02 실측). 비trivial 리뷰는 항상 worktree 에서 돌므로 정본이 그 가드를 피해야 한다. `--skip-git-repo-check` 는 쓰지 않는다 — 리뷰는 항상 git repo(worktree) 안에서 실행되므로 필요도 없다.
 
 ```bash
-cd "<repo-root>" && codex exec --sandbox read-only --skip-git-repo-check --ephemeral \
-  -c 'model_reasoning_effort="medium"' -c hide_agent_reasoning=true - > /tmp/codex-review.txt 2>&1 <<'CDXPROMPT'
-<도메인 특화 프롬프트>
-- 변경 파일: <git diff --stat 또는 명시 범위>
-- 입력 번들: <호출부 / 생성 경로 / 의존 방향 / 테스트 fixture 요약>
-- 검토 관점: <해당 agent 관점>
-- 응답: 한국어. preamble 금지. Critical / Major / Minor 분류.
-CDXPROMPT
+# 1) 프롬프트를 Write 도구로 스크래치 파일에 쓴다 (예: $SCRATCH/codex-prompt.txt)
+#    <도메인 특화 프롬프트>
+#    - 변경 파일: <diff --stat 또는 명시 범위>   ← 본문에 "git" 토큰을 넣지 않는다
+#    - 입력 번들: <호출부 / 생성 경로 / 의존 방향 / 테스트 fixture 요약>
+#    - 검토 관점: <해당 agent 관점>
+#    - 응답: 한국어. preamble 금지. Critical / Major / Minor 분류.
+# 2) 한 줄로 실행
+codex exec --sandbox read-only --ephemeral -c 'model_reasoning_effort="medium"' -c hide_agent_reasoning=true - < "$SCRATCH/codex-prompt.txt" > "$SCRATCH/codex-review.txt" 2>&1
 ```
+
+repo 밖(예: 스크래치 디렉토리)에서 돌려야 하는 예외 상황에서만 `--skip-git-repo-check` 를 붙이되, 그 명령은 worktree 세션에서 거부될 수 있다.
 
 - **effort 차등** (호출 측이 phase 난이도로 지정):
 

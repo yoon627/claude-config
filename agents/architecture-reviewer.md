@@ -101,19 +101,21 @@ model: opus
 - 호출 측이 외부에서 codex 를 이미 호출 중이 아님 (env `CLAUDE_REVIEW_CODEX_MODE=external` 이면 호출 생략)
 - `codex --version` 가용성 확인 성공
 
-**호출 명령** (참고 — effort 기준은 `docs/codex-review.md` §3 차등 표. 구조 검토는 보통 `high`):
+**호출 명령** (참고 — effort 기준은 `docs/codex-review.md` §3 차등 표. 구조 검토는 보통 `high`. 프롬프트는 heredoc 이 아니라 **스크래치 파일**로 — §3 의 worktree 가드 사유):
 ```bash
-codex exec --sandbox read-only --skip-git-repo-check --ephemeral -c 'model_reasoning_effort="high"' -c hide_agent_reasoning=true - <<'CDXPROMPT'
+codex exec --sandbox read-only --ephemeral -c 'model_reasoning_effort="high"' -c hide_agent_reasoning=true - < "$SCRATCH/codex-prompt.txt"
+```
+프롬프트 파일 내용(본문에 `git` 토큰을 넣지 않는다):
+```text
 다음 변경의 구조적 결정을 검토하라.
 
-변경 파일: <git diff --stat>
+변경 파일: <diff --stat>
 입력 번들: <호출부 / 생성 경로 / 의존 방향 / 테스트 fixture / 인터페이스 위치 요약>
 
 검토 관점: 의존 방향 / 레이어 경계 / 객체 생명주기 / DI/IoC / 인터페이스 위치 / 테스트 가능 구조 / 메서드 추출 / 확장성.
 응답: 한국어. preamble 금지. Critical / Major / Minor 분류.
 각 항목은 "현재 의존 경로 / 문제 이유 / 제안 구조 / 비용 / 안 해도 되는 이유" 형식 강제.
 취향 기반 제안 금지.
-CDXPROMPT
 ```
 
 출력 처리·실패 fallback·통합·외부 codex 모드는 위 `docs/codex-review.md` 규약을 따른다.
