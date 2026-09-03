@@ -36,4 +36,4 @@ code-reviewer(단독 — Codex 는 크레딧 소진으로 미가용, 호출은 �
 # Acceptance
 - [x] macOS `/bin/bash` 3.2 에서 `bash skills/jira-worklog/test_launcher.sh` exit 0 — 검증: 실행 관찰.
 - [x] `shellcheck skills/jira-worklog/test_launcher.sh` 통과.
-- [ ] CI lint.yml 통과 — 검증: PR checks.
+- [ ] [post-merge] CI lint.yml 통과 — 검증: PR checks(`/e merge` M5).
