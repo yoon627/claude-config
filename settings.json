@@ -19,6 +19,7 @@
     ],
     "defaultMode": "auto"
   },
+  "model": "claude-fable-5-1[1m]",
   "hooks": {
     "PreToolUse": [
       {
@@ -248,8 +249,9 @@
     "command": "node ~/.claude/subagent-statusline.js"
   },
   "enabledPlugins": {
-    "pyright-lsp@claude-plugins-official": false,
-    "claude-md-management@claude-plugins-official": true
+    "pyright-lsp@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "gitkraken-hooks@gitkraken": true
   },
   "extraKnownMarketplaces": {
     "openai-codex": {
@@ -259,10 +261,18 @@
       }
     }
   },
-  "model": "claude-opus-5[1m]",
+  "modelSettings": {
+    "claude-sonnet-5": {
+      "effortLevel": "high"
+    },
+    "claude-fable-5-1": {
+      "effortLevel": "high"
+    }
+  },
   "tui": "fullscreen",
   "skipDangerousModePermissionPrompt": true,
   "skipWorkflowUsageWarning": true,
   "theme": "dark",
-  "preferredNotifChannel": "notifications_disabled"
+  "preferredNotifChannel": "notifications_disabled",
+  "agentPushNotifEnabled": true
 }
