@@ -6,7 +6,7 @@ updated: 2026-08-03
 sources:
   - headroom-ai 0.25.0 (headroom --help, 2026-06 확인)
   - docs/headroom-proxy-session-lifecycle.md
-  - memory rtk-headroom-path-fix
+  - memory rtk-headroom-path-fix (2026-09-02 삭제 — headroom retire 로 무효. rtk 는 `~/.local/bin/rtk-0.44.2` 독립 설치)
 ---
 
 # headroom

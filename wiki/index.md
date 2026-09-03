@@ -16,6 +16,8 @@
 
 ## entity
 - [[anthropic-claude-models]] — Claude 5 세대 가격·Fable 주간 50% 캡·벤치 구도(닫힌 코딩 Opus5≥Fable)·effort 지원 (2026-08).
+- [[claude-code-hook-notification-turns]] — UserPromptSubmit 은 subagent 완료 `<task-notification>` 턴에도 발동(2.1.258 실측) — hook 의 prompt 를 사용자 발화로 가정하지 말 것; dlc-task-router 오발동·장부 리셋 원인(PR #149).
+- [[worktree-isolation-bash-guard]] — worktree 격리 세션의 네이티브 Bash 거부는 경로가 아니라 명령 텍스트의 git 언급이 트리거(플래그명·heredoc 본문 포함)·비결정적; 우회는 payload 파일 분리 + git 토큰 제거. codex 정본 호출이 막힘.
 - [[claude-code-subagent-config]] — subagent frontmatter model/effort·env 우선순위·Haiku effort.
 - [[claude-code-model-selection]] — alias(opusplan, fableplan 없음)·advisor tool 공식 수치·/model 저장·subagent model 함정(inherit×Fable)·pin 시 확정사실(`[1m]` 금지·자동 1M·폴백 없음).
 - [[claude-code-oss-frameworks]] — OSS 하네스 생태계 스냅샷(2026-08): 커버리지 부분적·프레임워크 후퇴·내부 확장이 정책 안전.
@@ -34,6 +36,7 @@
 - [[comment-and-commit-policy]] — 주석 최소·변경 경위는 커밋/PR 에 (#26·#34·#25).
 - [[codex-bash-invocation]] — codex 는 Bash 도구로 호출(PowerShell stdin hang 회피, #23).
 - [[evidence-gate]] — 검증 항목화 + 증거 충족 시만 완료(plan # Acceptance + Stop hook 보조, capped·fail-open).
+- [[e-merge-mode]] — `/e merge` 머지 모드 설계(2026-09-02): 트리거 토큰 한정·done 을 PR 에 싣고 REJECTED 만 복구·mergedAt+fetch invariant·MERGED PR 재사용 안 함·checks 는 exit code+bucket·`--delete-branch` 금지.
 - [[dlc-wt-autoflow]] — dlc 가 비trivial 이면 wt worktree 자동 경유(순환 방지·생성은 무확인, 2026-08-03 확인 폐지).
 - [[risk-based-approval]] — 승인은 가역성으로 가른다: 비가역·외부공개·파괴적만 확인, 가역·로컬은 무확인 실행 후 되돌릴 정보 보고 (2026-08-03, graph engineering HITL 원칙).
 - [[fablize-adopted-disciplines]] — fablize 검증 규율 차용(grounding·investigation·early-stop), 플러그인 없이 직접 구현.
