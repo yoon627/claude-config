@@ -30,7 +30,7 @@ read-only sandbox, ephemeral. **effort 는 작업 난이도별 차등**(아래 �
 2. 한 줄로 실행(2026-09-02·03 worktree 가드 활성 상태에서 통과 실증):
 
 ```bash
-codex exec --sandbox read-only --ephemeral -c 'model_reasoning_effort="medium"' -c hide_agent_reasoning=true - < <scratch>/codex-prompt.txt > <scratch>/codex-review.txt 2>&1
+codex exec --sandbox read-only --ephemeral -c 'model_reasoning_effort="medium"' -c hide_agent_reasoning=true - < "<scratch>/codex-prompt.txt" > "<scratch>/codex-review.txt" 2>&1
 ```
 
 비-git 디렉토리가 대상이면 codex 자체가 뜨지 않는다(`--skip-git-repo-check` 는 그 경우를 여는 플래그인데 worktree 세션에선 플래그명이 가드에 걸린다) → §1 preflight 대로 **병행 생략 + 사유 기록**으로 결론짓는다.
