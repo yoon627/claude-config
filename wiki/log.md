@@ -166,3 +166,8 @@
 - 신규 decision 1: [[e-merge-mode]](/e 머지 모드 설계 결정과 리뷰로 뒤집힌 원안 — PR #148).
 - [[workflow-failures]]: rtk 행 proposed→fixed(0.44.2 설치), 라우터 오발동 fixed 행·codex 정본 호출 거부 proposed 행 추가. [[headroom]]: 삭제된 memory 참조에 무효 표기.
 - 근거: ~/.claude/projects 의 task-notification 1841건 중 6건 파싱, plan e-merge-path 의 리뷰어 실측 표, ~/.local/bin/rtk-0.44.2.
+
+## [2026-09-03] ingest | agent hook `if` best-effort 교훈
+- 신규 decision 1: [[lesson-agent-hook-if-best-effort]](coin-trading-bot agent hook 이 비커밋 명령 37건 오탐 차단 — code-reviewer codex 병행 차단의 실제 원인; `shell: powershell` 민감파일 hook 의 macOS fail-open. PR #165).
+- [[worktree-isolation-bash-guard]]: agent hook 오탐과의 구분 절 + codex 플래그 행 재확인 open 추가. [[workflow-failures]]: fixed 행 추가.
+- 근거: coin-trading-bot 트랜스크립트 차단 40건 분석, headless claude -p 실측 7케이스, docs hooks#if.

@@ -27,6 +27,11 @@ Claude Code(2.1.258 기준)가 `EnterWorktree` 로 격리된 세션에서 Bash �
 
 즉 분류기는 **비결정적**이고 하네스 버전 의존이다. "worktree 상대경로만 쓰면 된다"는 규칙은 틀렸다(플래그명·heredoc 본문에도 걸린다) — 그래서 CLAUDE.md §8 에 규칙으로 올리지 않고 여기 관찰로 둔다.
 
+## 혼동 주의 — repo 의 agent hook 오탐과 다른 기전
+거부 메시지가 `PreToolUse:Bash hook error: Agent hook condition was not met: …` 이면 이 가드가 아니라 **repo `.claude/settings.json` 의 `type: agent` hook** 이다. coin-trading-bot 에서 code-reviewer 의 `codex exec` 가 막힌 2건(2026-08-22 06:54·2026-09-02 14:07)은 후자였다 — `if: Bash(git commit*)` 가 best-effort 라 `$`·backtick·heredoc 이 든 명령에 발화하고 프롬프트가 범위 자체 판정을 안 해 차단([[lesson-agent-hook-if-best-effort]], PR #165 수정). 이 가드의 메시지는 "This session is isolated in the worktree …" 로 시작한다.
+
+> [!open] 위 표의 `codex exec --skip-git-repo-check` 행은 ~/.claude 세션 실측이다. coin-trading-bot 트랜스크립트에선 같은 명령의 거부가 전부 agent hook 쪽이었으므로, 이 가드가 플래그명만으로 거부하는지는 ~/.claude 세션에서 재확인 필요.
+
 ## 실용 우회
 - 긴 payload(heredoc·PR body·프롬프트)는 `Write` 도구로 스크래치 파일에 쓰고, Bash 는 `cat a b > c`·`bash x.sh` 같은 짧은 평문으로.
 - git 이 아닌 명령에 `git` 처럼 보이는 텍스트를 섞지 않는다(플래그·주석·문자열 포함).
