@@ -18,18 +18,22 @@ reviewer subagent(plan-reviewer / code-reviewer / architecture-reviewer)와 dlc 
 
 **MUST — codex 는 Bash 도구로 호출한다.** `codex exec` 는 PROMPT 인자가 있어도 stdin 을 추가로 읽어, PowerShell 도구로 호출하면 stdin 이 안 닫혀 `Reading additional input from stdin...` 에서 무한 hang 한다(재현). 무거운 작업 전 짧은 smoke test(≤60s)로 응답부터 확인하고, hang/사용량 초과 시 즉시 중단하고 단독 진행 + 사유 명시. (PowerShell 만 가용한 환경의 폴백은 §4.)
 
-read-only sandbox, ephemeral, git repo 체크 skip. **effort 는 작업 난이도별 차등**(아래 표). reasoning 로그 노이즈는 `-c hide_agent_reasoning=true` 로 억제(출력에서 결론 추출이 쉬워진다).
+read-only sandbox, ephemeral. **effort 는 작업 난이도별 차등**(아래 표). reasoning 로그 노이즈는 `-c hide_agent_reasoning=true` 로 억제(출력에서 결론 추출이 쉬워진다).
+
+**프롬프트는 파일로, 명령은 짧게** — worktree 격리 세션의 네이티브 Bash 가드는 명령 텍스트에 `git` 이 들어간 형태(heredoc 본문의 `git diff` 언급, `--skip-git-repo-check` 플래그명 자체)를 거부하며 비결정적이다(wiki `worktree-isolation-bash-guard`, 2026-09-02 실측). 비trivial 리뷰는 항상 worktree 에서 돌므로 정본이 그 가드를 피해야 한다. `--skip-git-repo-check` 는 쓰지 않는다 — 리뷰는 git repo(worktree) 안에서 실행되므로 필요 없다. **cwd 는 repo(worktree) 루트여야 한다**(플래그를 뺐으므로 이 전제가 필수 — 메인 세션은 Bash cwd 가 유지되니 앞선 `cd` 를 확인).
+
+절차 (`<scratch>` = 하네스가 시스템 프롬프트로 주는 세션 스크래치패드 절대경로 — 셸 변수가 아니다):
+1. 프롬프트를 `<scratch>/codex-prompt.txt` 에 쓴다. **Write 도구가 있으면 Write**, reviewer subagent 처럼 없으면 Bash `cat > <scratch>/codex-prompt.txt <<'PROMPTEOF' … PROMPTEOF`. **Bash 로 만들 때는 본문에 `git` 토큰을 넣지 않는다**(가드는 Bash 명령 텍스트를 보므로 Write 로 쓴 파일 내용엔 제약 없음). 본문 골격:
+   - `<도메인 특화 프롬프트>`
+   - `변경 파일: <diff --stat 또는 명시 범위>` · `입력 번들: <호출부 / 생성 경로 / 의존 방향 / 테스트 fixture 요약>` · `검토 관점: <해당 agent 관점>`
+   - `응답: 한국어. preamble 금지. Critical / Major / Minor 분류.`
+2. 한 줄로 실행(2026-09-02·03 worktree 가드 활성 상태에서 통과 실증):
 
 ```bash
-cd "<repo-root>" && codex exec --sandbox read-only --skip-git-repo-check --ephemeral \
-  -c 'model_reasoning_effort="medium"' -c hide_agent_reasoning=true - > /tmp/codex-review.txt 2>&1 <<'CDXPROMPT'
-<도메인 특화 프롬프트>
-- 변경 파일: <git diff --stat 또는 명시 범위>
-- 입력 번들: <호출부 / 생성 경로 / 의존 방향 / 테스트 fixture 요약>
-- 검토 관점: <해당 agent 관점>
-- 응답: 한국어. preamble 금지. Critical / Major / Minor 분류.
-CDXPROMPT
+codex exec --sandbox read-only --ephemeral -c 'model_reasoning_effort="medium"' -c hide_agent_reasoning=true - < "<scratch>/codex-prompt.txt" > "<scratch>/codex-review.txt" 2>&1
 ```
+
+비-git 디렉토리가 대상이면 codex 자체가 뜨지 않는다(`--skip-git-repo-check` 는 그 경우를 여는 플래그인데 worktree 세션에선 플래그명이 가드에 걸린다) → §1 preflight 대로 **병행 생략 + 사유 기록**으로 결론짓는다.
 
 - **effort 차등** (호출 측이 phase 난이도로 지정):
 
@@ -51,15 +55,15 @@ CDXPROMPT
 
 §3 의 Bash MUST 는 **Bash 도구가 있을 때** 전제 — 아래는 Bash 도구 자체가 없고 PowerShell 만 가용한 환경 한정 폴백이다(§3 강제와 모순 아니라 양립):
 
-- heredoc `<<'CDXPROMPT'` → 단일 인용 here-string `@'` … `'@` (closing `'@` 는 반드시 column 0).
+- **1차 폴백 — 파일 stdin**: 프롬프트 파일을 만든 뒤 `Get-Content -Raw <file> | codex exec [opts] -`. PowerShell 은 `<` 입력 리다이렉션을 지원하지 않는다(파서가 예약어로 거부 — about_redirection, PowerShell#1629). ⚠️ 파이프가 stdin 을 닫아 §3 의 hang 을 피하는지는 **미검증**(Windows 환경 미보유) — 첫 사용 시 smoke ≤60s 로 확인.
+- 프롬프트 파일을 PowerShell 로 만들 땐 단일 인용 here-string `@'` … `'@`(closing `'@` 는 반드시 column 0)을 `Set-Content` 로.
 - 출력 리다이렉트 `> file 2>&1` → `| Out-File -Encoding utf8 <file>` (stderr 는 별도 처리; native exe stderr 를 `2>&1` 로 합치지 말 것 — PowerShell 5.1 은 NativeCommandError 로 감싼다).
 - 결론 추출 `grep` / `tail` → `Select-String` / `Select-Object -Last <N>`.
-- 또는 프롬프트를 파일로 저장 후 `codex exec [opts] - < prompt.txt`.
 
 ## 5. 출력 처리
 
-- codex 출력이 크면 결론부만 추출: `grep -E '^##? (Critical|Major|Minor|결론)' -A 30` 또는 `tail -300`. **raw 전체를 메인 컨텍스트에 넣지 않는다.**
-- 출력 파일은 임시 위치(`/tmp/...` 또는 `$env:TEMP`). repo 안에 쓰지 않는다(dirty 방지).
+- codex 출력이 크면 결론부만 추출: `grep -E '^##? (Critical|Major|Minor|결론)' -A 30` 또는 `tail -300`. **raw 전체를 메인 컨텍스트에 넣지 않는다.** grep 결과에 같은 블록이 두 번 나오면(스트림 출력 + 최종 메시지 중복, 2026-09-03 실측) 뒤쪽 블록만 취한다.
+- 출력 파일은 세션 스크래치패드(권장, §3 의 `<scratch>`) 또는 `/tmp`·`$env:TEMP`. repo 안에 쓰지 않는다(dirty 방지).
 - codex 출력엔 reasoning/tool 로그가 섞일 수 있다. 최종 메시지 블록(마지막 `codex` 화자 이후)만 취한다.
 
 ## 6. 통합

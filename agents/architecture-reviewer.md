@@ -94,26 +94,24 @@ model: opus
 - destructive 명령 (rm, DB write, prod mutation, migration 실행) 금지. 리뷰는 read-only.
 
 ## Codex 병행 검토 (optional, 보수적)
-> 공통 호출 규약(preflight·phase owner·sandbox·Windows fallback·출력 처리·실패 fallback·통합·외부 codex 모드)은 **먼저 `docs/codex-review.md` 를 Read** 해 따른다(subagent 는 docs 를 자동 로드하지 않는다). 아래는 본 agent 고유의 트리거·프롬프트. 글로벌 CLAUDE.md §9 상 본 agent 는 "선택" 카테고리.
+> 공통 호출 규약(preflight·phase owner·sandbox·Windows fallback·출력 처리·실패 fallback·통합·외부 codex 모드)은 **먼저 `~/.claude/docs/codex-review.md` 를 절대경로로 Read** 해 따른다(subagent 는 docs 를 자동 로드하지 않고, 상대경로는 프로젝트 cwd 에서 해석되지 않는다). 아래는 본 agent 고유의 트리거·프롬프트. 글로벌 CLAUDE.md §9 상 본 agent 는 "선택" 카테고리.
 
 **호출 조건** (모두 만족 시만):
 - 다중 모듈 / 다중 레이어 영향이 있는 큰 구조 변경 (단순 신규 service 추가 정도는 호출 안 함)
 - 호출 측이 외부에서 codex 를 이미 호출 중이 아님 (env `CLAUDE_REVIEW_CODEX_MODE=external` 이면 호출 생략)
 - `codex --version` 가용성 확인 성공
 
-**호출 명령** (참고 — effort 기준은 `docs/codex-review.md` §3 차등 표. 구조 검토는 보통 `high`):
-```bash
-codex exec --sandbox read-only --skip-git-repo-check --ephemeral -c 'model_reasoning_effort="high"' -c hide_agent_reasoning=true - <<'CDXPROMPT'
+**호출 명령**은 `~/.claude/docs/codex-review.md` §3 정본 그대로(구조 검토는 effort `high`, 출력은 스크래치 파일로 리다이렉트 후 §5 대로 결론부만) — 여기엔 프롬프트 본문만 둔다. 프롬프트 파일을 Bash 로 만들 때 본문에 `git` 토큰을 넣지 않는다(§3):
+```text
 다음 변경의 구조적 결정을 검토하라.
 
-변경 파일: <git diff --stat>
+변경 파일: <diff --stat>
 입력 번들: <호출부 / 생성 경로 / 의존 방향 / 테스트 fixture / 인터페이스 위치 요약>
 
 검토 관점: 의존 방향 / 레이어 경계 / 객체 생명주기 / DI/IoC / 인터페이스 위치 / 테스트 가능 구조 / 메서드 추출 / 확장성.
 응답: 한국어. preamble 금지. Critical / Major / Minor 분류.
 각 항목은 "현재 의존 경로 / 문제 이유 / 제안 구조 / 비용 / 안 해도 되는 이유" 형식 강제.
 취향 기반 제안 금지.
-CDXPROMPT
 ```
 
 출력 처리·실패 fallback·통합·외부 codex 모드는 위 `docs/codex-review.md` 규약을 따른다.

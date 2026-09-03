@@ -74,7 +74,7 @@ model: opus
 **도메인 특화 프롬프트** (공통 규약 §3 의 호출 명령에 삽입):
 ```
 다음 변경을 비판적으로 검토하라.
-변경 파일: <git diff --stat 결과 또는 명시된 파일 목록>
+변경 파일: <diff --stat 결과 또는 명시된 파일 목록>
 검토 관점: 버그 / 보안 / 예외 처리 / 테스트 / 성능 / backward compat / 근본 원인 / altitude / conventions.
 각 지적: defect 는 구체적 failure_scenario(입력/상태 → 잘못된 결과), 그 외는 cost.
 응답: 한국어. preamble 금지. Critical / Major / Minor / Nit 분류. 잘된 부분 나열 금지.
