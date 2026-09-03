@@ -28,5 +28,16 @@ updated: 2026-09-03
 
 # Acceptance
 - [x] 새 정본을 worktree 세션에서 실행해 통과 — 검증: `codex exec … - < prompt.txt` exit 0, 응답 OK.
-- [ ] code-reviewer 가 새 정본대로 codex 병행에 성공 — 검증: 리뷰 결과의 "Codex 병행: 실행함".
-- [x] agents·README 동기화 — 검증: grep `skip-git-repo-check` 가 정본 각주 1곳만.
+- [x] code-reviewer 가 새 정본 형태로 codex 병행에 성공 — 검증: 리뷰 결과 "가드 활성 상태에서 첫 시도 통과, exit 0". 단 문서대로는 못 따라(`$SCRATCH`·Write 부재) 우회했음 → fix loop 로 정본 절차 교정.
+- [x] agents·README 동기화 — 검증: `grep -rn "git diff --stat" agents/` 가 Claude 자체 조사 절차(code-reviewer:16)만 남고 codex 프롬프트 본문엔 0건; `skip-git-repo-check` 는 docs §3 사유·각주 2곳 + README 1곳(포인터)만.
+
+# Review Disposition
+code-reviewer(+codex low, 새 정본으로 병행) REQUEST CHANGES → fix loop 1회.
+- fix — `$SCRATCH` 미정의 (Major): `<scratch>` 플레이스홀더 + "하네스가 주는 스크래치패드 절대경로, 셸 변수 아님" 명시.
+- fix — reviewer 3종에 Write 도구 없음 (Major): 1단계를 도구 중립(Write 가용 시 / 아니면 Bash heredoc, 본문에 git 토큰 금지 — 통과 실증).
+- fix — `agents/code-reviewer.md:77` `<git diff --stat …>` 잔존 (Major): `<diff --stat …>`.
+- fix — §4 PowerShell `<` 미지원 (Major): `Get-Content -Raw | codex exec -` 를 1차 폴백(미검증 표기), here-string 은 파일 생성용으로 격하.
+- fix — Minor 7: §5 출력 위치 통일·grep 중복 블록 주의, cwd 전제 1줄, 비-git 각주를 "병행 생략+사유" 로 결론, arch 예시의 명령 중복 제거(§3 포인터)+절대경로 참조, "git 토큰 금지" 를 Bash 생성 시 한정, README 포인터로 축약, plan acceptance 교정.
+- wontfix — 펜스 nit(절차를 번호목록으로 이미 분리, 펜스엔 실행 한 줄만).
+- false-positive(리뷰어 refuted 3건 동의) — README 범위·agents 절대경로 스큐·CDXPROMPT 잔존(§4 로 흡수).
+- open(❌모름) — PowerShell 파이프의 stdin 종료 여부 → 문서에 미검증 표기.
