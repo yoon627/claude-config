@@ -252,15 +252,16 @@ ok('⑪ 워치독이 매달린 fetch 를 상한 안에 죽인다', () => {
   const t0 = Date.now();
   const { code } = runChain(
     home,
-    { PATH: `${stub}${path.delimiter}${process.env.PATH}`, CLAUDE_AUTOPULL_TIMEOUT: '2' },
+    { PATH: `${stub}${path.delimiter}${process.env.PATH}`, CLAUDE_AUTOPULL_TIMEOUT: '3' },
     { timeout: 30000 },
   );
   const elapsed = Date.now() - t0;
   assert.strictEqual(code, 0, '워치독 발동 후에도 fail-open 이어야 한다');
-  // 상한 2s 를 준 만큼 범위를 좁게 잡는다. 넉넉한 상한(20s)은 spawnSync timeout 이 이미
-  // 잡아주는 범위라 아무것도 추가로 잠그지 않는다. 하한은 "너무 일찍 죽지 않음"을 건다 —
-  // timeout 파싱이 깨져 deadline=now 가 되면 무음으로 매번 즉시 kill 된다.
-  assert.ok(elapsed >= 1500, `상한 전에 죽으면 안 된다 (실제 ${elapsed}ms)`);
+  // 하한은 "너무 일찍 죽지 않음"을 건다 — timeout 파싱이 깨져 deadline=now 가 되면 무음으로
+  // 매번 즉시 kill 된다(그 경우 0.3s 안에 끝난다).
+  // **N-1 초까지 내려갈 수 있다**: 마감이 `date +%s` 초 단위라 절삭된다. 시작이 X.99 초면
+  // 마감 X+3 은 실제 2.01 초 뒤다. 이걸 몰라 1500ms 로 잡았다가 CI 가 1427ms 로 잡아냈다.
+  assert.ok(elapsed >= 1800, `상한 전에 죽으면 안 된다 (실제 ${elapsed}ms)`);
   // 상한 쪽은 느린 파일시스템(네트워크 마운트·WSL /mnt)에서 사전 git 호출이 길어질 수 있어
   // 여유를 둔다. **설계(wall-clock)를 잠그는 것은 위 텍스트 단언**이고 여기서는 "워치독이 아예
   // 없다/카운트가 터무니없다"급 회귀만 잡는다(post-checkout 식 100회 루프면 ~23s 라 걸린다).

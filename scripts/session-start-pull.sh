@@ -63,6 +63,8 @@ main() {
 
   # 상한은 iteration 수가 아니라 wall-clock 이다. Git Bash 에서 `sleep 0.2` 는 실제 ~235ms 라
   # 카운트로 재면 플랫폼마다 상한이 달라지고 Windows 에서 20% 넘게 초과한다(실측).
+  # `date +%s` 는 초 단위라 마감이 절삭된다 — 실제 대기는 (_t-1, _t] 초다. 안전 상한이라
+  # 짧아지는 쪽은 무해하다.
   _deadline=$(( $(date +%s) + _t ))
   while kill -0 "$_pid" 2>/dev/null; do
     if [ "$(date +%s)" -ge "$_deadline" ]; then

@@ -67,7 +67,14 @@ updated: 2026-09-04
   CI red 아님. 문서의 "손자까지 거둔다"는 bash 한정으로 좁혔다.
 - 2026-09-04 최종: `session-start-pull` 9→**19**개, `session-brief` 74→**75**개, shellcheck clean,
   Windows·Linux 양쪽 통과. 커밋 `dd1956c`.
-- 2026-09-04 **PR #159** 생성·머지 → `status: done`.
+- 2026-09-04 **PR #159 CI 가 내 오판을 잡았다** — `⑪` 의 하한 단언 `elapsed >= 1500` 이 실제
+  1427ms 로 실패. 원인은 워치독 마감이 `date +%s` **초 단위라 절삭**되는 것: `timeout=N` 이어도
+  시작이 X.99 초면 마감 `X+N` 은 실제 (N-1).01 초 뒤다. 즉 **실제 대기는 (N-1, N] 초**.
+  → 하한을 그 성질에 맞게 재설정(`timeout=3`, 하한 1800ms) + 스크립트 주석에 granularity 명시.
+  **이 발견은 앞서 "WSL `/mnt/c` 9p 일관성 아티팩트"라고 적었던 간헐 실패(31회 중 3회)의 진짜
+  원인이기도 하다** — 같은 단언이었고, 내 추정은 틀렸다. 그 Deferred 항목은 삭제했다.
+  교훈: 재현이 안 되는 간헐 실패를 환경 탓으로 돌리기 전에 **실패 단언 자체를 포착**할 것.
+- 2026-09-04 **PR #159** 머지 → `status: done`.
 
 # Next
 
@@ -410,13 +417,6 @@ hang 방어 4종 + 워치독 + fetch/merge 분리라는 **실체가 생긴다** 
   이번 스코프 밖(그쪽은 발화 빈도가 낮아 위험도가 낮다). 심각도 중.
 - 체인이 `main` 만 보고 `master` 를 skip 하는 정책 불일치(post-checkout 은 `main|master`).
   README 에 이미 명시. 심각도 하.
-- **WSL `/mnt/c` 에서만 관측된 간헐 실패 (⚠️추정 — CI 위험 낮음)** — `session-start-pull.test.js` 가
-  WSL Ubuntu 에서 **~31회 중 3회** 실패했다. 3회 모두 **Windows 쪽에서 파일을 쓴 직후 첫 실행**
-  창에서만 났고, 그 조건을 의도적으로 만들어 6회 반복했을 때 1회 재현됐다. 전체 출력을 캡처한
-  10회·6회 연속 실행에서는 한 번도 재현되지 않아 **실패 단언을 끝내 포착하지 못했다**.
-  9p(`/mnt/c`) 파일 일관성 지연으로 판단하며, CI(ubuntu-latest, 네이티브 체크아웃, 크로스-OS
-  write 없음)에는 그 조건이 성립하지 않는다. 완화로 `⑪` 의 상한 단언만 느슨하게 했다(설계 고정은
-  텍스트 단언이 담당). **CI 에서 이 테스트가 간헐 실패하면 이 항목을 근거로 재조사할 것.**
 - **baseline failure (입증됨, 이번 변경과 무관)** — `python skills/jira-worklog/test_session_time.py`
   의 `test_malformed_cwd_does_not_abort` 가 실패한다:
   `classify_cwd("/repo/\0bad", ROOT, [ROOT]).kind` 가 `UNMATCHED` 이어야 하는데 `MAIN` 을 반환.
