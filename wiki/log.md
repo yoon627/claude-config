@@ -181,3 +181,9 @@
 - 근거: plan `2026-09-04-auto-commit-rule`, trivial 영향 범위 전수 조사 18파일 49곳, `scripts/guard-worktree-edit.js` 는 규모 개념이 없어 코드 변경 불필요 확인(테스트 23케이스 PASS).
 - 실측: **worktree 세션에서 `projects/…/memory/MEMORY.md` 편집이 하네스 네이티브 격리에 차단**됐다("Edit the worktree copy" — gitignored 라 사본이 없다). [[native-overlap-ledger]] 의 2026-08-12 실측이 현행 하네스에서도 유효. `guard-worktree-edit.js` 의 allow 보다 네이티브 격리가 상위라, 규약에 예외를 적는 것만으로는 [[feedback-memory]] 적립이 불가능 → "main 복귀 후 적립"으로 규약 정정([[dlc-wt-autoflow]] 예외 절).
 - [[lesson-grep-absence-not-proof]] 확장(§13): 같은 세션에서 영향 범위 조사 실패 2회 재현 — **범위 누락**(`wiki/` 를 grep 대상에서 제외해 9줄 중 6줄 누락) + **매칭 결과 오독**(`skills/c/SKILL.md:68` 이 잡혔는데 "결론은 참"이라 유지 판정 → 역함의로 규약 구멍 재개방). 둘 다 자기 점검은 통과하고 리뷰어가 잡았다. "올바른 방법"에 범위 기본 포함·역함의 점검·리뷰어 전수 재조사 위임 추가.
+
+## [2026-09-04] ingest | lesson-tracked-config-machine-paths 재발 1회 (gitkraken marketplace)
+- [[lesson-tracked-config-machine-paths]] 에 "재발 1회" 절 추가. 2026-08-12 orca 훅과 **완전히 같은 증상**이 `extraKnownMarketplaces.gitkraken`(`source: directory` → 머신 절대경로)에서 반복됐다: Windows 경로가 커밋 → Mac 에서 Claude Code 가 로컬 경로로 재작성 → `settings.json` dirty → `git pull --rebase` 거부.
+- 핵심은 경로 자체가 아니라 **제외 결정의 소실**이다. `80dbb3c`(09-03)이 이 페이지를 근거로 그 항목을 의도적으로 제외했는데, 이유가 **커밋 본문에만** 있어서 하루 뒤 `3a11a92` 가 "등록 누락분 보강"으로 오인해 재도입했다. 부재는 흔적을 남기지 않으므로 *부재의 이유*를 README·wiki 에 적는 것이 규칙 — 커밋 메시지는 아무도 다시 읽지 않는다.
+- 복원 `0ec47a1`: 항목 제거 후에도 `claude plugin list` 에서 `gitkraken-hooks@gitkraken` enabled 실측 확인(`enabledPlugins` 는 이름 기반이라 머신 무관). 머신별 등록이 정 필요하면 gitignored `settings.local.json`(`extraKnownMarketplaces` 는 "any file" 스코프).
+- 동반 README 정정 2건: 이 키를 여기 두지 않는 이유 명시 + `pyright-lsp` 서술이 `false` 로 stale 했던 것(`80dbb3c` 가 `true` 로 되돌림)을 실제 상태로 동기화.

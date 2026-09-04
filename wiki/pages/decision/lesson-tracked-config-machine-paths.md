@@ -2,13 +2,16 @@
 title: lesson-tracked-config-machine-paths
 category: decision
 created: 2026-08-12
-updated: 2026-08-12
+updated: 2026-09-04
 sources:
   - 커밋 f1cbee0 (orca 훅 경로 머신 무관화)
   - 커밋 bde82de (README 동기화 + ~ 표기 통일)
   - 커밋 f4011a5 (2026-08-03, Orca agent-hooks 주입분 반영 — macOS 절대경로 커밋)
   - 커밋 c20c246 (2026-08-04, autopull 개선 — staged 스냅샷이 되돌리고 있던 것)
   - 실측 2026-08-12 (staged 6일 방치, autopull 정지, 훅 3분기 테스트)
+  - 커밋 80dbb3c (2026-09-03, gitkraken marketplace 절대경로를 이 페이지 근거로 제외)
+  - 커밋 3a11a92 (2026-09-04, 그 제외를 "누락 보강"으로 오인해 재도입 — 재발)
+  - 커밋 0ec47a1 (2026-09-04, 재도입분 제거 + plugin enable 만으로 로드됨 실측)
 ---
 
 # lesson-tracked-config-machine-paths
@@ -45,6 +48,18 @@ Orca 가 주입하는 관측 훅 11개가 `settings.json` 에 **주입된 머신
   `~` 는 **따옴표 없는 대입에서만** 확장된다. `c="~/…"` 는 리터럴이 되어 무음 fallback 으로 샌다 — 이 함정으로 검증이 한 번 거짓 통과했다([[lesson-test-copies-artifact]]).
 - **동기화 훅에 dirty 게이트를 걸지 않는다.** `git pull --ff-only` 는 실제로 덮어쓸 때만 거부하므로 무관 파일이면 성공한다. 미리 skip 하면 위 2번처럼 자기 차단이 된다. 이 원칙은 [[git-hook-network-safety]] 의 async/동기 분리와 짝이다.
 - **재주입 도구가 있으면 그 사실을 문서에 박는다.** Orca 는 재주입 시 다시 절대경로로 되돌릴 수 있다 → push 전 `git diff` 확인.
+
+## 재발 1회 — gitkraken marketplace (2026-09-04)
+
+같은 실패가 `settings.json` 의 다른 키에서 반복됐다. `extraKnownMarketplaces.gitkraken` 은 `source: directory` 라 값이 **머신 절대경로**다.
+
+- `80dbb3c`(09-03)은 이 항목을 **의도적으로 제외**했다 — "plugin enable 만으로 동작해 불필요"라며 이 페이지를 근거로 명시.
+- 하루 뒤 `3a11a92`(09-04)이 "등록 누락분 보강"이라며 **Windows 절대경로로 다시 넣었다.** 제외 이유가 커밋 본문에만 있고 README·이 페이지에는 없어서, 다음 작업자(다른 세션)가 그것을 누락으로 오인했다.
+- Mac 에서 Claude Code 가 그 값을 로컬 경로로 재작성 → `settings.json` dirty → `git pull --rebase` 거부. 2026-08-12 과 **완전히 같은 증상**이다.
+- `0ec47a1` 이 항목을 제거해 복원하고, 뺀 뒤에도 `claude plugin list` 에서 `gitkraken-hooks@gitkraken` 이 enabled 임을 실측 확인했다.
+
+> [!warning] 제외 결정은 커밋 본문에만 두면 재도입된다
+> `80dbb3c` 는 이유까지 정확히 적었지만 **커밋 메시지는 아무도 다시 읽지 않는다.** "이 키를 여기 두지 않는다"는 결정은 그 설정을 문서화한 자리(README)와 이 페이지에 남겨야 다음 사람이 누락으로 오인하지 않는다. 부재는 흔적을 남기지 않으므로 **부재의 이유를 적는 것**이 규칙이다.
 
 ## 탐지 신호
 
