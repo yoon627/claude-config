@@ -1,6 +1,6 @@
 ---
 title: auto-commit-rule — 검증 통과 후 자동 커밋 규약 도입 (CLAUDE.md §8 + dlc 파이프라인)
-status: in_progress
+status: done
 started: 2026-09-04
 updated: 2026-09-04
 ---
@@ -27,9 +27,11 @@ updated: 2026-09-04
 - 2026-09-04: 2차 커밋 `69d3e88`. 이어 §13 적립(사용자 결정) — `wiki/pages/decision/lesson-grep-absence-not-proof.md` 를 확장(중복 금지로 새 페이지 대신 기존 페이지에 사례 2·3 추가).
 - 2026-09-04: **D15 가 불충분함이 실측으로 드러남** — `MEMORY.md` 인덱스를 갱신하려다 **하네스 네이티브 격리에 차단**("Edit the worktree copy" — gitignored 라 사본이 없다). `guard-worktree-edit.js` 는 allow 하지만 네이티브 격리가 그 위에 있다. code-reviewer 의 Open question(2026-08-12 실측이 현행 하네스에서도 유효한가)이 **재현으로 확인**됨. → CLAUDE.md §3-1·wiki 예외 절을 "main 경로 편집이 정상" → "**worktree 안에서 시도하지 말고 main 복귀 후 적립**"으로 정정.
 
+- 2026-09-04: 3차 커밋 `6f816db`(lesson 확장 + 격리 실측 반영). `/e merge` 로 **PR #158** 생성 — 커밋 3개(`f643a61`·`69d3e88`·`6f816db`).
+
 # Next
 
-3차 커밋 → `/e merge`(push·PR·머지·정리) → **main 복귀 후 `MEMORY.md` 인덱스 갱신**(worktree 안에서는 네이티브 격리로 불가)
+(없음 — post-merge: main 복귀 후 `MEMORY.md` 인덱스 줄을 lesson 확장에 맞춰 갱신. worktree 안에서는 네이티브 격리로 불가해 미룬 항목)
 
 # Decisions
 
