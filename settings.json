@@ -1,281 +1,286 @@
 {
-  "permissions": {
-    "allow": [
-      "mcp__codegraph__codegraph_explore",
-      "mcp__codegraph__codegraph_search",
-      "mcp__codegraph__codegraph_node",
-      "mcp__codegraph__codegraph_callers",
-      "mcp__codegraph__codegraph_callees",
-      "mcp__codegraph__codegraph_impact",
-      "mcp__codegraph__codegraph_files",
-      "mcp__codegraph__codegraph_status"
-    ],
-    "deny": [],
-    "ask": [
-      "Bash(git push)",
-      "Bash(git push *)",
-      "PowerShell(git push)",
-      "PowerShell(git push *)"
-    ],
-    "defaultMode": "auto"
-  },
-  "model": "claude-fable-5-1[1m]",
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node ~/.claude/scripts/guard-worktree-edit.js",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "command -v rtk >/dev/null 2>&1 && rtk hook claude || exit 0",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node ~/.claude/scripts/dlc-task-router.js",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write|NotebookEdit|Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node ~/.claude/scripts/dlc-evidence-ledger.js",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ \"${CLAUDE_AUTOPULL_OFF:-}\" = 1 ] || { g=$(git -C ~/.claude rev-parse --absolute-git-dir 2>/dev/null) && [ -z \"$(ls -d \"$g\"/rebase-merge \"$g\"/rebase-apply \"$g\"/MERGE_HEAD \"$g\"/BISECT_LOG 2>/dev/null)\" ] && git -C ~/.claude rev-parse --abbrev-ref HEAD 2>/dev/null | grep -qx main && before=$(git -C ~/.claude rev-parse HEAD 2>/dev/null) && git -C ~/.claude pull --ff-only --quiet origin main >/dev/null 2>&1 && after=$(git -C ~/.claude rev-parse HEAD 2>/dev/null) && [ \"$before\" != \"$after\" ] && echo \"~/.claude updated from origin/main ($before -> $after); review pulled changes before relying on scripts/hooks this session.\"; }; true",
-            "timeout": 30,
-            "statusMessage": "Checking ~/.claude for updates",
-            "async": true
-          },
-          {
-            "type": "command",
-            "command": "node ~/.claude/scripts/session-brief.js",
-            "timeout": 10,
-            "statusMessage": "세션 브리프"
-          },
-          {
-            "type": "command",
-            "command": "node ~/.claude/scripts/session-fetch.js",
-            "timeout": 30,
-            "statusMessage": "작업 repo fetch",
-            "async": true
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node ~/.claude/scripts/dlc-early-stop.js",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node ~/.claude/scripts/notify-hook.js Stop",
-            "async": true
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "Notification": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node ~/.claude/scripts/notify-hook.js Notification",
-            "async": true
-          }
-        ]
-      }
-    ],
-    "StopFailure": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "SubagentStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "TeammateIdle": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "PostToolUseFailure": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "PermissionRequest": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
-            "timeout": 10
-          }
-        ]
-      }
-    ]
-  },
-  "statusLine": {
-    "type": "command",
-    "command": "node ~/.claude/statusline.js",
-    "refreshInterval": 2
-  },
-  "subagentStatusLine": {
-    "type": "command",
-    "command": "node ~/.claude/subagent-statusline.js"
-  },
-  "enabledPlugins": {
-    "pyright-lsp@claude-plugins-official": true,
-    "claude-md-management@claude-plugins-official": true,
-    "gitkraken-hooks@gitkraken": true
-  },
-  "extraKnownMarketplaces": {
-    "openai-codex": {
-      "source": {
-        "source": "github",
-        "repo": "openai/codex-plugin-cc"
-      }
-    }
-  },
-  "modelSettings": {
-    "claude-opus-5": {
-      "effortLevel": "high"
-    },
-    "claude-sonnet-5": {
-      "effortLevel": "high"
-    },
-    "claude-fable-5-1": {
-      "effortLevel": "high"
-    }
-  },
-  "tui": "fullscreen",
-  "skipDangerousModePermissionPrompt": true,
-  "skipWorkflowUsageWarning": true,
-  "theme": "dark",
-  "preferredNotifChannel": "notifications_disabled",
-  "agentPushNotifEnabled": true
+	"permissions": {
+		"allow": [
+			"mcp__codegraph__codegraph_explore",
+			"mcp__codegraph__codegraph_search",
+			"mcp__codegraph__codegraph_node",
+			"mcp__codegraph__codegraph_callers",
+			"mcp__codegraph__codegraph_callees",
+			"mcp__codegraph__codegraph_impact",
+			"mcp__codegraph__codegraph_files",
+			"mcp__codegraph__codegraph_status"
+		],
+		"deny": [],
+		"ask": [
+			"Bash(git push)",
+			"Bash(git push *)",
+			"PowerShell(git push)",
+			"PowerShell(git push *)"
+		],
+		"defaultMode": "auto"
+	},
+	"hooks": {
+		"PreToolUse": [
+			{
+				"matcher": "Edit|Write|NotebookEdit",
+				"hooks": [
+					{
+						"type":    "command",
+						"command": "node ~/.claude/scripts/guard-worktree-edit.js",
+						"timeout": 10
+					}
+				]
+			},
+			{
+				"matcher": "Bash",
+				"hooks": [
+					{
+						"type":    "command",
+						"command": "command -v rtk >/dev/null 2>&1 && rtk hook claude || exit 0",
+						"timeout": 10
+					}
+				]
+			},
+			{
+				"matcher": "*",
+				"hooks": [
+					{
+						"type":    "command",
+						"command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+						"timeout": 10
+					}
+				]
+			}
+		],
+		"UserPromptSubmit": [
+			{
+				"hooks": [
+					{
+						"type":    "command",
+						"command": "node ~/.claude/scripts/dlc-task-router.js",
+						"timeout": 10
+					}
+				]
+			},
+			{
+				"hooks": [
+					{
+						"type":    "command",
+						"command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+						"timeout": 10
+					}
+				]
+			}
+		],
+		"PostToolUse": [
+			{
+				"matcher": "Edit|Write|NotebookEdit|Bash",
+				"hooks": [
+					{
+						"type":    "command",
+						"command": "node ~/.claude/scripts/dlc-evidence-ledger.js",
+						"timeout": 10
+					}
+				]
+			},
+			{
+				"matcher": "*",
+				"hooks": [
+					{
+						"type":    "command",
+						"command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+						"timeout": 10
+					}
+				]
+			}
+		],
+		"SessionStart": [
+			{
+				"hooks": [
+					{
+						"type":          "command",
+						"command":       "[ \"${CLAUDE_AUTOPULL_OFF:-}\" = 1 ] || { g=$(git -C ~/.claude rev-parse --absolute-git-dir 2>/dev/null) && [ -z \"$(ls -d \"$g\"/rebase-merge \"$g\"/rebase-apply \"$g\"/MERGE_HEAD \"$g\"/BISECT_LOG 2>/dev/null)\" ] && git -C ~/.claude rev-parse --abbrev-ref HEAD 2>/dev/null | grep -qx main && before=$(git -C ~/.claude rev-parse HEAD 2>/dev/null) && git -C ~/.claude pull --ff-only --quiet origin main >/dev/null 2>&1 && after=$(git -C ~/.claude rev-parse HEAD 2>/dev/null) && [ \"$before\" != \"$after\" ] && echo \"~/.claude updated from origin/main ($before -> $after); review pulled changes before relying on scripts/hooks this session.\"; }; true",
+						"timeout":       30,
+						"statusMessage": "Checking ~/.claude for updates",
+						"async":         true
+					},
+					{
+						"type":          "command",
+						"command":       "node ~/.claude/scripts/session-brief.js",
+						"timeout":       10,
+						"statusMessage": "세션 브리프"
+					},
+					{
+						"type":          "command",
+						"command":       "node ~/.claude/scripts/session-fetch.js",
+						"timeout":       30,
+						"statusMessage": "작업 repo fetch",
+						"async":         true
+					}
+				]
+			},
+			{
+				"hooks": [
+					{
+						"type":    "command",
+						"command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+						"timeout": 10
+					}
+				]
+			}
+		],
+		"Stop": [
+			{
+				"hooks": [
+					{
+						"type":    "command",
+						"command": "node ~/.claude/scripts/dlc-early-stop.js",
+						"timeout": 10
+					}
+				]
+			},
+			{
+				"hooks": [
+					{
+						"type":    "command",
+						"command": "node ~/.claude/scripts/notify-hook.js Stop",
+						"async":   true
+					}
+				]
+			},
+			{
+				"hooks": [
+					{
+						"type":    "command",
+						"command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+						"timeout": 10
+					}
+				]
+			}
+		],
+		"Notification": [
+			{
+				"hooks": [
+					{
+						"type":    "command",
+						"command": "node ~/.claude/scripts/notify-hook.js Notification",
+						"async":   true
+					}
+				]
+			}
+		],
+		"StopFailure": [
+			{
+				"hooks": [
+					{
+						"type":    "command",
+						"command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+						"timeout": 10
+					}
+				]
+			}
+		],
+		"SubagentStart": [
+			{
+				"hooks": [
+					{
+						"type":    "command",
+						"command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+						"timeout": 10
+					}
+				]
+			}
+		],
+		"SubagentStop": [
+			{
+				"hooks": [
+					{
+						"type":    "command",
+						"command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+						"timeout": 10
+					}
+				]
+			}
+		],
+		"TeammateIdle": [
+			{
+				"hooks": [
+					{
+						"type":    "command",
+						"command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+						"timeout": 10
+					}
+				]
+			}
+		],
+		"PostToolUseFailure": [
+			{
+				"matcher": "*",
+				"hooks": [
+					{
+						"type":    "command",
+						"command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+						"timeout": 10
+					}
+				]
+			}
+		],
+		"PermissionRequest": [
+			{
+				"matcher": "*",
+				"hooks": [
+					{
+						"type":    "command",
+						"command": "c=~/.orca/agent-hooks/claude-hook.cmd; s=~/.orca/agent-hooks/claude-hook.sh; if [ -f \"$c\" ]; then \"$c\"; elif [ -f \"$s\" ] && [ -r \"$s\" ]; then /bin/sh \"$s\"; else { command -p cat 2>/dev/null || cat; } >/dev/null 2>&1 || :; fi",
+						"timeout": 10
+					}
+				]
+			}
+		]
+	},
+	"statusLine": {
+		"type":            "command",
+		"command":         "node ~/.claude/statusline.js",
+		"refreshInterval": 2
+	},
+	"subagentStatusLine": {
+		"type":    "command",
+		"command": "node ~/.claude/subagent-statusline.js"
+	},
+	"enabledPlugins": {
+		"pyright-lsp@claude-plugins-official":          true,
+		"claude-md-management@claude-plugins-official": true,
+		"gitkraken-hooks@gitkraken":                    true
+	},
+	"extraKnownMarketplaces": {
+		"gitkraken": {
+			"source": {
+				"path":   "C:\\Users\\yoon627\\.claude\\plugins\\marketplaces\\gitkraken",
+				"source": "directory"
+			}
+		},
+		"openai-codex": {
+			"source": {
+				"repo":   "openai/codex-plugin-cc",
+				"source": "github"
+			}
+		}
+	},
+	"modelSettings": {
+		"claude-opus-5": {
+			"effortLevel": "high"
+		},
+		"claude-sonnet-5": {
+			"effortLevel": "high"
+		},
+		"claude-fable-5-1": {
+			"effortLevel": "high"
+		}
+	},
+	"tui":                               "fullscreen",
+	"skipDangerousModePermissionPrompt": true,
+	"skipWorkflowUsageWarning":          true,
+	"theme":                             "dark",
+	"preferredNotifChannel":             "notifications_disabled",
+	"agentPushNotifEnabled":             true
 }

@@ -25,6 +25,10 @@
 # LLM Wiki: pages/index/log are tracked; raw sources are not (copyright/size).
 wiki/raw/
 
+# Claude Code plan mode 가 plans/ 루트에 남기는 랜덤 slug 산출물(다른 프로젝트 계획) — 추적하지 않는다.
+# §10 핸드오프 plan 은 plans/<YYYY-MM-DD>-<slug>/<slug>-plan.md 로 하위 디렉토리에 있어 이 패턴에 안 걸린다.
+/plans/*.md
+
 # Belt-and-suspenders: never push these even if the whitelist is changed by mistake.
 .credentials.json
 settings.local.json
