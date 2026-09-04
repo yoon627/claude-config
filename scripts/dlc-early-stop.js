@@ -14,6 +14,8 @@
 //   - capped(CAP=1): 각 누락당 1회만 block, 재종료 시 통과 → trivial·예외에 최소 마찰.
 //   - 의존/파싱/ledger 오류 → exit 0(절대 막지 않음). doc-drift 모듈만 없으면 검증 경고는 유지.
 'use strict';
+const fs = require('fs');
+const path = require('path');
 let ledger;
 try {
   ledger = require('./dlc-ledger.js');
@@ -69,15 +71,44 @@ process.stdin.on('end', () => {
   }
 
   // (2) 문서 drift
+  let docSettled = false;
   if (drift && process.env.CLAUDE_DLC_DOCDRIFT_OFF !== '1' && (data.docBlocks || 0) < CAP) {
-    const docMsgs = drift.evaluate(data);
+    // 장부의 dirty flag 는 Edit/Write 로 고친 것만 본다 — README 를 Bash 로 고치면 dirty 가 안
+    // 풀려 "고쳤는데도 경고"가 난다. 실제 파일 mtime 을 주입해 drift 가 상태로 재확인하게 한다.
+    // **root 를 대조하는 이유**: pending 의 rel 은 *편집 시점* root 기준이다. 세션이 그 뒤 다른
+    // worktree·main 으로 옮기면(§3-1·/e 8단계가 main 복귀를 시킨다) 같은 rel 이 **다른 파일**을
+    // 가리키고, main 은 README 가 매 머지마다 재작성돼 거의 항상 최신이라 게이트가 통째로 꺼진다.
+    const root = drift.resolveRoot(input.cwd);
+    const mtimeOf =
+      root && root === data.driftRoot
+        ? (rel) => {
+            try {
+              return fs.statSync(path.join(root, rel)).mtimeMs;
+            } catch {
+              return null; // 부재·권한 실패 → 판정 불가(경고 유지)
+            }
+          }
+        : null; // root 불일치·미해석 → 종전 동작(장부 flag 만)
+    docSettled = drift.settle(data, mtimeOf); // 확인된 동기화를 covered 로 (재편집 오탐 차단)
+    const docMsgs = drift.evaluate(data, mtimeOf);
     if (docMsgs.length) {
       data.docBlocks = (data.docBlocks || 0) + 1;
-      reasons.push(...docMsgs);
-      if (sig && data.readmeDirty) sig.emit('doc-drift-readme', { ...sigCtx, detail: data.readmeTrigger });
-      if (sig && data.indexDirty) sig.emit('doc-drift-index', { ...sigCtx, detail: data.indexTrigger });
+      reasons.push(...docMsgs.map((m) => m.message));
+      // 신호는 **실제로 출력한 축만** — dirty flag 로 emit 하면 억제된 축의 failure 가 남아
+      // /improve 집계·브리프 nudge 가 이미 고친 오탐을 계속 "반복 실패"로 센다.
+      if (sig) {
+        for (const m of docMsgs) {
+          const kind = m.axis === 'readme' ? 'doc-drift-readme' : 'doc-drift-index';
+          const trigger = m.axis === 'readme' ? data.readmeTrigger : data.indexTrigger;
+          sig.emit(kind, { ...sigCtx, detail: trigger });
+        }
+      }
     }
   }
+
+  // settle 이 covered 를 옮겼으면 경고가 없어도 저장해야 한다 — 안 그러면 다음 Stop 에서
+  // 같은 판정을 다시 하고, 그 사이 재편집이 오탐으로 되살아난다.
+  if (!reasons.length && docSettled) ledger.write(input.session_id, data);
 
   if (reasons.length) {
     ledger.write(input.session_id, data); // 카운터 증가는 출력과 함께만 — 미출력 소모 없음

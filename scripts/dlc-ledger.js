@@ -12,7 +12,10 @@ const path = require('path');
 // *Trigger: 마지막으로 해당 dirty/changed 를 유발한 파일(repo-relative rel · basename). 신호 detail 용 — /improve 가 오탐 패턴(예: readmeTrigger=CLAUDE.md 내부 dedup) 식별. dirty 해제 시 null.
 // *Covered/*Pending: 이번 세션에 문서화된(= target 갱신으로 커버된) trigger 파일 / 아직 커버 안 된 것.
 //   재편집 오탐 차단용(dlc-doc-drift). `{...DEFAULT}` 얕은 복사로 쓰이므로 소비자는 push 대신 concat 으로 새 배열을 할당한다.
-const DEFAULT = { changed: false, verified: false, blocks: 0, readmeDirty: false, indexDirty: false, docBlocks: 0, readmeTrigger: null, indexTrigger: null, changedTrigger: null, readmeCovered: [], readmePending: [], indexCovered: [], indexPending: [] };
+// driftRoot: *Pending/*Covered 의 rel 이 어느 root 기준인가. Stop 시점 root 와 다르면 그 rel 로
+//   파일을 stat 할 수 없다(다른 worktree·main 의 동명 파일을 재게 된다) → mtime 판정을 포기한다.
+//   한 세션이 두 root 를 오가면 '' (mixed) 로 두어 어떤 root 와도 일치하지 않게 한다.
+const DEFAULT = { changed: false, verified: false, blocks: 0, readmeDirty: false, indexDirty: false, docBlocks: 0, readmeTrigger: null, indexTrigger: null, changedTrigger: null, readmeCovered: [], readmePending: [], indexCovered: [], indexPending: [], driftRoot: null };
 
 function ledgerPath(sessionId) {
   const id = String(sessionId || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
