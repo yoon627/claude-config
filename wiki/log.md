@@ -171,3 +171,11 @@
 - 신규 decision 1: [[lesson-agent-hook-if-best-effort]](coin-trading-bot agent hook 이 비커밋 명령 37건 오탐 차단 — code-reviewer codex 병행 차단의 실제 원인; `shell: powershell` 민감파일 hook 의 macOS fail-open. PR #165).
 - [[worktree-isolation-bash-guard]]: agent hook 오탐과의 구분 절 + codex 플래그 행 재확인 open 추가. [[workflow-failures]]: fixed 행 추가.
 - 근거: coin-trading-bot 트랜스크립트 차단 40건 분석, headless claude -p 실측 7케이스, docs hooks#if.
+
+## [2026-09-04] ingest | 자동 커밋 규약 + trivial 도 worktree
+- [[dlc-wt-autoflow]] 갱신: 진입 분기 기준을 "비trivial 인가" → **"코드/파일을 바꾸는가"**로 확대, trivial 도 wt 경유(절차만 생략). 2026-08-03 의 "trivial 은 새 worktree 불필요"를 대체하는 결정 절 추가.
+- [[worktree-per-task]] 갱신: 강제 기준을 규모 불문으로. 부수로 "`git worktree remove` 가 `plans/` 를 무경고 삭제" 오기재 정정(tracked 라 remove 가 거부).
+- [[dlc-development-cycle]] 갱신: 규모 gate 표에 커밋 편입(trivial·small 행), structural 요지 말미를 `마무리(evidence gate → plan 갱신 → 커밋 → Report)` 로, "규모는 도는 단계만 정하고 worktree 여부는 코드/파일 변경인가가 정한다" 명시.
+- 계기: CLAUDE.md §8 에 "검증 통과분은 요청 없이 커밋" 규약을 신설(dlc 16단계에 커밋 편입)했는데, main 커밋 금지와 맞물려 **trivial-on-main 에서 커밋이 도달 불가**한 사각이 드러났다 — code-reviewer 지적 → 사용자 결정.
+- 종결 경로 결정 동반: trivial·small 은 push·PR 없이 **로컬 `git merge --ff-only`** 후 §8(a) 정리(PR 왕복 비용으로 머지가 미뤄져 worktree 가 쌓이는 것을 막는다). gitignored 글로벌 상태(`projects/…/memory/`·`settings.local.json`)는 worktree 강제에서 **제외** — 안 그러면 [[feedback-memory]] 적립이 격리에 막힌다([[native-overlap-ledger]]).
+- 근거: plan `2026-09-04-auto-commit-rule`, trivial 영향 범위 전수 조사 18파일 49곳, `scripts/guard-worktree-edit.js` 는 규모 개념이 없어 코드 변경 불필요 확인(테스트 23케이스 PASS).

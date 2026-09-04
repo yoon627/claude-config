@@ -39,7 +39,7 @@ repo root 에서 `bash skills/improve/improve.sh` 를 **1회** 실행(read-only)
 - 각 후보 = `무엇이 문제 · 근거(신호 수치/파일:라인) · 제안 변경(어느 파일을 어떻게) · 예상 효과(어떤 신호가 줄어야 하나)`.
 - 랭킹 기준: failure 신호 unique-session 빈도 × 심각도(실행경로 깨짐 > 반복 마찰 > 인벤토리) × 수정 비용(작을수록 위).
 - **효과 확인**: 이전에 `fixed` 로 처리된 항목의 신호가 실제로 줄었는지 추이를 보고(안 줄었으면 재개선 후보로 복귀).
-- **처분**: 사용자 승인 시 그 수정은 **별도 작업(wt→dlc)** — 운영 자산 변경은 비trivial 이라 worktree 필수. dlc 의 "같은 실패 2회+ 반복 시 해결 제안" 규칙(wiki workflow-failures)과 동일 경로로 합류. error 0 + 유의미 신호 없음이면 "개선 후보 없음" 보고.
+- **처분**: 사용자 승인 시 그 수정은 **별도 작업(wt→dlc)** — 운영 자산 변경은 파일 변경이라 worktree 필수. dlc 의 "같은 실패 2회+ 반복 시 해결 제안" 규칙(wiki workflow-failures)과 동일 경로로 합류. error 0 + 유의미 신호 없음이면 "개선 후보 없음" 보고.
 
 ### 5. 광역 관측 — `improve.sh deep` (opt-in)
 기본 4단계로 부족하거나 주기 점검 시 `bash skills/improve/improve.sh deep` 로 3개 섹션을 더 본다(여전히 read-only·secret 미출력):

@@ -2,10 +2,10 @@
 title: dlc-development-cycle
 category: concept
 created: 2026-06-19
-updated: 2026-07-04
+updated: 2026-09-04
 sources:
   - skills/dlc/SKILL.md
-  - CLAUDE.md (§3 작업 흐름, §5 Sub-agent)
+  - CLAUDE.md (§3 작업 흐름, §5 Sub-agent, §8 커밋 규약)
 ---
 
 # dlc-development-cycle
@@ -13,15 +13,15 @@ sources:
 비자명한 코드 변경(버그 수정·기능 추가·리팩토링)을 시작할 때 적용하는 개발 사이클 오케스트레이션 skill. CLAUDE.md §3 작업 흐름의 구체화 버전(충돌 시 CLAUDE.md 우선). 메인이 hub, 리뷰/검토만 격리 subagent([[hub-and-spoke-isolation]]). `/dlc` 명시 호출 또는 비자명한 코드 변경 시 자동 적용.
 
 ## 규모 gate
-변경 규모를 판정해 도는 단계를 차등한다 — 작은 변경에 과한 절차를 피하기 위함.
-- **trivial**(오타·로그 1줄): 구현→검증→Report (리뷰/plan/TDD 생략).
-- **small**(<50줄, 단일 모듈): Explore→(버그면 TDD Red)→구현→code-reviewer→검증.
+변경 규모를 판정해 도는 단계를 차등한다 — 작은 변경에 과한 절차를 피하기 위함. 규모가 정하는 것은 **도는 단계**뿐이고, worktree 경유 여부는 규모가 아니라 "코드/파일을 바꾸는가"가 정한다([[dlc-wt-autoflow]], 2026-09-04).
+- **trivial**(오타·로그 1줄): 구현→검증→커밋→Report (리뷰/plan/TDD 생략).
+- **small**(<50줄, 단일 모듈): Explore→(버그면 TDD Red)→구현→code-reviewer→검증→커밋.
 - **medium**(50~150줄): small + draft plan→plan-reviewer→simplify 체크.
 - **structural**(다계층·public API·DB·신규 service·150줄+): 전체 16단계 파이프라인.
 - 규모는 **예비값** — Explore 후·구현 diff 후 재판정해 승급하면 skip한 단계를 되살린다.
 
 ## structural 파이프라인 (요지)
-Setup → Explore → draft plan → plan-reviewer → TDD Red → 구현 → Green → code-reviewer+architecture-reviewer(병렬) → fix loop(≤2) → simplify 체크(메인 직접) → targeted 재리뷰 → 최종 검증 → Report. 최종 검증은 격리 runner가 실행하고 메인이 판단.
+Setup → Explore → draft plan → plan-reviewer → TDD Red → 구현 → Green → code-reviewer+architecture-reviewer(병렬) → fix loop(≤2) → simplify 체크(메인 직접) → targeted 재리뷰 → 최종 검증 → **마무리(evidence gate → plan 갱신 → 커밋 → Report)**. 최종 검증은 격리 runner가 실행하고 메인이 판단. 커밋을 plan 갱신 뒤에 두는 이유는 [[comment-and-commit-policy]] 와 CLAUDE.md §8.
 
 ## 요구사항 명확화 게이트
 규모 판정 직후, 요구의 공백(완료기준·범위·산출물·제외)이 acceptance를 바꾸면 `AskUserQuestion`. 공백 없으면 침묵 진행. "무엇이 빠지면 질문, 방법만 갈리면 분석 후 추천".

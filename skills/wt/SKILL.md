@@ -67,6 +67,7 @@ worktree 세션 안에서 `EnterWorktree` 는 `.claude/worktrees/` 하위 대상
 
 ### 3. 생성 (확인 없이 — 위험기반 승인, CLAUDE.md §1)
 worktree 생성은 로컬·비파괴이고 `/wt rm <slug>` 한 번으로 되돌아가므로 **slug 승인을 묻지 않는다**. 대신 되돌리는 데 필요한 정보를 §4 보고에 담는다.
+0. **main dirty 확인**: `git status --porcelain` 으로 main worktree 의 미커밋 변경을 본다. 요청 대상 파일이 dirty 면 새 worktree 는 `origin/<default>` 기준이라 **그 편집이 담기지 않으므로** 생성 전에 그 사실을 보고한다(§1 사용자 변경사항 보호 — 모르고 옛 버전을 고치면 머지 때 충돌하거나 사용자 편집을 조용히 되돌린다).
 1. base ref: `git symbolic-ref --short refs/remotes/origin/HEAD` → 실패 시 `origin/main` 폴백.
 2. `git fetch origin <default>` (실패해도 경고만 — 단 **fetch 실패 사실은 §4 보고에 stale base 로 노출**). fetch 후 `git rev-parse --short <default>` 로 **base sha 를 캡처**(§4 보고값 — 어느 시점 base 위에 만들었는지가 되돌림 판단의 근거).
 3. `git worktree add --no-track -b <slug> .claude/worktrees/<slug> origin/<default>`. (`--no-track` 이유·첫 push autoSetupRemote 는 `references/rm-recovery.md` §A.)
