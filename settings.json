@@ -253,12 +253,6 @@
 		"gitkraken-hooks@gitkraken":                    true
 	},
 	"extraKnownMarketplaces": {
-		"gitkraken": {
-			"source": {
-				"path":   "C:\\Users\\yoon627\\.claude\\plugins\\marketplaces\\gitkraken",
-				"source": "directory"
-			}
-		},
 		"openai-codex": {
 			"source": {
 				"repo":   "openai/codex-plugin-cc",
