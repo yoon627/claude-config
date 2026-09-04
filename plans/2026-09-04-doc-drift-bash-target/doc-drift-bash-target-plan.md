@@ -1,6 +1,6 @@
 ---
 title: doc-drift-bash-target — README 를 Bash 로 고치면 문서 drift 게이트가 오탐하는 문제
-status: in_progress
+status: done
 started: 2026-09-04
 updated: 2026-09-04
 ---
@@ -30,9 +30,16 @@ dlc 문서 drift 게이트(Stop hook)가 "README 를 갱신하지 않았다"고 
   `plans/2026-09-04-autopull-hang-guard` 에 입증 기록).
   **Linux 미검증**: 이 세션이 worktree 격리라 가드가 WSL 실행을 거부한다 → CI 가 판정한다.
 
+- 2026-09-04 최신 `origin/main` 재확인 — `0ec47a1`·`5f64718` 이 2커밋 앞서 있었으나 **dlc 훅
+  파일은 무변경**(README·settings.json·wiki 만)이라 버그는 그대로였고 충돌도 없었다
+  (`git merge-tree` 깨끗). 그 위로 rebase 후 재검증. 부수 확인: 그 커밋들이
+  `plans/2026-09-04-autopull-hang-guard` 의 `# Deferred` "배달 순환"(tracked `settings.json`
+  이 머신마다 더러워져 커밋이 배달되지 않음, 심각도 상)을 실제로 닫았다.
+- 2026-09-04 **PR #160** 생성·머지 → `status: done`.
+
 # Next
 
-커밋 → push·PR → CI(Linux) 확인 → 머지.
+(없음 — PR #160 로 머지 완료.)
 
 # Decisions
 
