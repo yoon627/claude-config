@@ -225,7 +225,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 5. Sub-agent — 표준 순서 (plan-reviewer → 구현 → code-reviewer → simplify 체크(메인 직접)), Workflow(ultracode) subagent 는 단계별 effort 명시
 6. 코드 규칙 — 동일 디렉토리 스타일, 타입 힌트, 임시 코드 표기, 부분 편집 우선(전체 재작성 지양)
 7. 테스트 (TDD) — 테스트 작성 순서, 예외 조건, 인접 테스트 규모에 맞춤·임시 체크의 영구 테스트화 금지
-8. Git / 보안 — destructive 명령 금지, 시크릿 출력 금지, 비trivial 은 worktree(`/wt`)에서
+8. Git / 보안 — destructive 명령 금지, 시크릿 출력 금지, 비trivial 은 worktree(`/wt`)에서, **검증 통과분은 요청 없이 작업 브랜치 커밋**(push 는 요청 시만)
 9. Claude ↔ Codex 협업 — `.claude/plans/` 핸드오프 채널, 리뷰 매트릭스
 10. `.claude/plans/` 핸드오프 규약 — slug, frontmatter, 필수 6개 + 선택 섹션(Acceptance·Review Disposition·Deferred·Workflow Findings)
 11. 영속 프로젝트 메모리 (LLM Wiki) — `wiki/` 누적 지식, `plans/` 와 경계 (일시적 vs 영속)
@@ -283,6 +283,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - `.claude/plans/<slug>-plan.md` 가 subagent 간 단일 공유 채널 (메인만 write).
 - codex 병행 검토 호출 규약은 `docs/codex-review.md` (phase 당 codex owner 1개 지정으로 중복 호출 방지, Windows/PowerShell fallback 포함). 정본 명령은 프롬프트를 스크래치 파일로 넘기고 `--skip-git-repo-check` 를 쓰지 않는다(사유는 §3 — worktree 격리 가드).
 - SKILL 본문엔 진입 게이트·규모 gate·16단계 표·닫힌목록·안전 규칙만 두고, 특정 분기에서만 찾는 절차 상세(요구사항 명확화 심화·조사 프로토콜 elaboration·wiki 연계 메커닉·Workflow Findings 기록형식·격리 runner 계약/simplify 체크리스트)는 `docs/dlc-details.md` 로 분리(자동 로드 안 됨 — 해당 분기 진입 시 Read).
+- **16단계 마무리에 커밋 편입**: `evidence gate → plan 업데이트 → 커밋 → Report`. 커밋 **규칙**(요청 없이 커밋·stage 범위·커밋 안 하는 경우·`--no-verify` 금지)은 CLAUDE.md §8 이 단일 소스이고 **전역**(dlc 를 안 타는 흐름·타 repo 에도 적용), SKILL 커밋 bullet 은 절차(경로 확정·메시지·실행 폴백)만 담는다. `/e` 의 `wip:` 체크포인트와 구분 — 여기는 검증 통과한 정식 커밋.
 - **evidence·라우팅 hook** (`scripts/dlc-*.js`, `settings.json` 등록, fail-open): `dlc-task-router`(UserPromptSubmit — 디버깅/render 키워드에 discipline 주입), `dlc-evidence-ledger`(PostToolUse — 변경·검증 기록 + 문서 drift dirty flag), `dlc-early-stop`(Stop — 변경 후 검증 누락 **및 문서화 표면↔README/index drift** 시 capped 1회 경고; 판정은 `dlc-doc-drift.js` 모듈). plan `# Acceptance` evidence gate 의 보조 누락방지망 — 검증 *성공* 판정은 acceptance(메인)가 단일 소스. `CLAUDE_DLC_EARLYSTOP_OFF=1`(검증)·`CLAUDE_DLC_DOCDRIFT_OFF=1`(문서) 로 각각 비활성(holdout). syntax 검사 + 단위테스트는 CI `lint.yml`.
 
 ### skills/c/ — plan 이어가기

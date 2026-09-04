@@ -30,13 +30,13 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 ## 0. 규모 gate
 | 규모 | 트리거 | 도는 단계 |
 |---|---|---|
-| **trivial** | 오타·주석·포맷·import·로그 1줄 | 구현 → 검증 → Report (리뷰/plan/TDD 생략 — CLAUDE.md §7 예외) |
-| **small** | 단일 함수/파일, <50줄, 단일 모듈 | Explore → (버그면 재현 TDD Red) → 구현 → Green → code-reviewer → simplify 체크 → 검증 → Report |
+| **trivial** | 오타·주석·포맷·import·로그 1줄 | 구현 → 검증 → 커밋 → Report (리뷰/plan/TDD 생략 — CLAUDE.md §7 예외) |
+| **small** | 단일 함수/파일, <50줄, 단일 모듈 | Explore → (버그면 재현 TDD Red) → 구현 → Green → code-reviewer → simplify 체크 → 검증 → 커밋 → Report |
 | **medium** | 다중 함수/1 모듈, 50~150줄 | small + draft plan → plan-reviewer → simplify 체크(+재검증) |
 | **structural** | 다계층·public API·DB·migration·신규 service·150줄+ | 전체 파이프라인(아래) |
 
 - 규모는 **예비값** — Explore 후/구현 diff 후 **재판정**. small 로 시작했다 public API·DB·2계층·150줄+ 되면 승급하고 skip 한 plan-review/arch 를 되살린다.
-- **최종 검증 위임**: 표 마지막 '검증'(전 규모·structural 15단계·승급 합류)은 **격리 runner** 실행·메인 판단(아래 격리 경계). **trivial 검증·10단계 Green·14단계 targeted 재검증은 메인 직접**. 격리=완료 전 전체 스위트(lint 포함), 메인=구현 중 최소·targeted.
+- **최종 검증 위임**: 표의 '검증'(전 규모·structural 15단계·승급 합류)은 **격리 runner** 실행·메인 판단(아래 격리 경계). **trivial 검증·10단계 Green·14단계 targeted 재검증은 메인 직접**. 격리=완료 전 전체 스위트(lint 포함), 메인=구현 중 최소·targeted.
 
 ## 요구사항 명확화 (규모 gate 직후, 비-trivial)
 규모 판정 후 Explore 전, 요구의 **공백**을 점검한다 — §3 "모호하면 질문"의 판정 절차. 임의 추론으로 메우지 않는다.
@@ -76,7 +76,7 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 13 simplify 체크    [메인 직접 · blocker 없을 때만]
 14 재리뷰           simplify 체크의 substantive edit 시 targeted
 15 최종 검증         lint / typecheck / test / build   [격리 runner · 실행만]
-16 Report + plan 업데이트   ← evidence gate: # Acceptance 전 항목 증거 대조 통과 후에만 완료
+16 마무리           evidence gate(# Acceptance 전 항목 대조 · 통과 후에만 완료) → plan 업데이트 → 커밋 → Report
 ```
 
 ## wiki 연계 (CLAUDE.md §11)
@@ -116,7 +116,8 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 
 ## 필수 산출물 / 핵심 규칙
 - plan(CLAUDE.md §10): 매 턴 `Progress`/`Next` 갱신. **subagent 는 plan 안 씀** — 메인이 single writer, 쓰기 직전 re-read 후 외부 변경 merge.
-- **16 Report — recap+선택지로 닫기(CLAUDE.md §3-6)**: 증거 게이트 통과 후, 보고는 **결론 요약(≤3줄, 무엇이 끝났고 status)을 먼저** 내고 이어서 **선택지를 AskUserQuestion** 으로(작업 확인 / 마무리·정리(push·PR·머지·worktree 정리 — 선택 시 `/e merge` 로 invoke) / 다른 작업 이어가기(`/wt` 신규 — §8) / 종료 — 큰·낯선 변경이면 "변경 이해 리포트+퀴즈" 옵션 추가). **merged·완료면 "마무리·정리" 선택지는 아래 정리 판정 제안 그 자체**(별도 2차 질문 아님 — 마무리 1회 원칙). 최신 사용자 메시지에 지금 실행할 명시 액션이 있으면 선택지 생략(중복 질문 금지). recap 은 보고 형식일 뿐 16단계 표에 새 단계를 더하지 않는다.
+- **커밋(16단계 · 조건과 금지는 CLAUDE.md §8 단일 소스, 여기는 절차)**: evidence gate 통과 + plan 업데이트 **뒤에** 커밋한다 — 순서를 바꾸면 plan 갱신이 uncommitted 로 남아 §8 자동 정리가 막히고 `/e` WIP 이중 커밋이 생긴다. **경로 확정**: `git status --porcelain` 과 plan `# Key Files` 를 대조해 이번 작업이 건드린 경로를 열거(편집 이력이 compaction 으로 흐려졌을 때의 폴백 — 추측으로 `add -A` 회귀 금지). **메시지**: 그 repo 의 `git log` 관례(없으면 Conventional Commits `<type>(<scope>): <요약>`) + `Co-Authored-By` 트레일러, 본문에 *왜*(CLAUDE.md §6 — 경위는 주석이 아니라 커밋에). **커밋 sha 는 plan 이 아니라 Report 에 적는다**(plan 에 적으면 tree 가 다시 dirty 가 돼 순서 규칙이 무효화된다). fix loop 로 16 을 다시 돌아도 중복 커밋을 만들지 않는다. 커밋 명령이 worktree 격리 가드에 거부되면 체이닝·`git -C` 없이 단일 명령으로, 다른 도구 경로로 재시도(상세 wiki `worktree-isolation-bash-guard`). `/e` 의 `wip:` 체크포인트와 구분 — 여기 커밋은 **검증 통과한 정식 커밋**, `/e` WIP 는 미완·미검증 보존.
+- **16 Report — recap+선택지로 닫기(CLAUDE.md §3-6)**: 증거 게이트 통과 → plan 업데이트 → 커밋(위) 후, 보고는 **결론 요약(≤3줄, 무엇이 끝났고 status)을 먼저** 내고 이어서 **선택지를 AskUserQuestion** 으로(작업 확인 / 마무리·정리(push·PR·머지·worktree 정리 — 선택 시 `/e merge` 로 invoke) / 다른 작업 이어가기(`/wt` 신규 — §8) / 종료 — 큰·낯선 변경이면 "변경 이해 리포트+퀴즈" 옵션 추가). **merged·완료면 "마무리·정리" 선택지는 아래 정리 판정 제안 그 자체**(별도 2차 질문 아님 — 마무리 1회 원칙). 최신 사용자 메시지에 지금 실행할 명시 액션이 있으면 선택지 생략(중복 질문 금지). recap 은 보고 형식일 뿐 16단계 표에 새 단계를 더하지 않는다.
 - **정리 판정(CLAUDE.md §8, wiki 유무 무관·always)**: 작업이 main 에 merged 되고 완료면 Report 에서 worktree 정리(worktree+로컬·원격 브랜치)를 처리한다(방치·"선택사항" 언급만 금지). **내가 이 세션에서 직접 수행한 merge 직후 + §8(a) 안전조건 전부 충족이면 worktree + 로컬 브랜치는 확인 없이 자동 정리**(삭제한 로컬 tip sha 1줄 보고). **원격 브랜치 삭제는 항상 AskUserQuestion**(§8(b) — 자동 정리에 포함하지 않는다). 그 외(우연 머지·안전조건 미충족/불확실)는 **능동 제안(AskUserQuestion)** — §8(b). dlc 는 Report 가 종점이라 여기서 `/e merge`(push·PR·머지·정리까지)로 넘기거나 직접 실행. 미머지·미완이면 제안 안 함(정확한 조건은 §8·`/e` 7단계의 6조건).
 - 검증 명령 미식별: README/package/pyproject/Makefile/CI 확인해도 없으면 "미식별" 기록 + 추측 실행 금지. 이 상태에서 "검증 완료" 금지. 식별한 명령은 runner 에 **문자열·worktree cwd 그대로** 전달(runner 는 재탐색·수리 안 함).
 - researcher 재진입: 어느 단계든 외부 사실(버전/API/CVE) 의문 시 호출.
