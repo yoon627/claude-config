@@ -48,18 +48,29 @@ main() {
   # stdio 를 끊지 않으면 백그라운드 자식이 호출자의 파이프를 물고 있어, 이 스크립트를 파이프로
   # 읽는 쪽(테스트·CI)이 자식이 죽을 때까지 반환하지 못한다.
   #
-  # `set -m` 은 백그라운드 job 을 자기 프로세스 그룹에 둔다. bash(Git Bash·macOS)에서는 이게
-  # 그룹 kill 을 가능하게 해 git 이 띄운 ssh·git-remote-https 손자까지 거둔다(실측). dash 는
-  # tty 없이 job control 을 켜지 않아 그룹 kill 이 거부되므로 아래 폴백이 받는다(실측).
-  set -m
-  git -C "$repo" \
+  # fetch 를 **자기 프로세스 그룹**에 띄워야 워치독이 그룹째 죽여 git 이 띄운
+  # ssh·git-remote-https 손자까지 거둘 수 있다. 그룹을 가르는 수단이 플랫폼마다 다르다:
+  #   - Linux: `setsid`(util-linux). dash 는 tty 없이 job control 을 켜지 않아 `set -m` 만으로는
+  #     그룹이 갈리지 않고 손자가 살아남는다(CI 실측).
+  #   - Git Bash(Windows): `setsid` 가 없다. bash 의 `set -m` 이 그 역할을 한다(실측).
+  # **둘을 겹쳐 쓰지 않는다**: `set -m` 하에서는 백그라운드 job 이 이미 그룹 리더라 `setsid` 가
+  # fork 를 하고, 그러면 `$!` 가 곧 끝나는 래퍼를 가리켜 `wait` 가 조기 반환하고 kill 대상도 잃는다.
+  _launch=
+  if command -v setsid >/dev/null 2>&1; then
+    _launch=setsid
+  else
+    set -m
+  fi
+  # 빈 값이면 인자 없이 확장돼야 한다 — 의도적 word splitting.
+  # shellcheck disable=SC2086
+  $_launch git -C "$repo" \
     -c core.askpass= \
     -c credential.helper= \
     -c http.lowSpeedLimit=1000 \
     -c http.lowSpeedTime=10 \
     fetch --quiet origin main >/dev/null 2>&1 </dev/null &
   _pid=$!
-  set +m
+  [ -z "$_launch" ] && set +m
 
   # 상한은 iteration 수가 아니라 wall-clock 이다. Git Bash 에서 `sleep 0.2` 는 실제 ~235ms 라
   # 카운트로 재면 플랫폼마다 상한이 달라지고 Windows 에서 20% 넘게 초과한다(실측).
