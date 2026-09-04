@@ -24,9 +24,12 @@ updated: 2026-09-04
 - 2026-09-04: 2차 구현 — 분기 기준 치환 11곳(`CLAUDE.md`·`skills/dlc`·`README`) + wiki 4파일 동기화(`dlc-wt-autoflow` 결정 절 신설·`worktree-per-task`·`index`·`log`). 규모 재판정 **small**(문장 치환·새 로직 0·설계 선택지 없음)이라 plan-reviewer 생략, code-reviewer 로 검증.
 - 2026-09-04: code-reviewer 2차 **REQUEST CHANGES** Major 6 → fix loop 1회로 반영. 핵심: ① 새 기준이 **worktree 사본 없는 gitignored 글로벌 상태**(`projects/…/memory/`·`settings.local.json`)까지 삼켜 §12 memory 적립이 불가 → §3-1·§8 에 예외 명시 ② `skills/c/SKILL.md:68` 옛 기준 잔존(전수 조사 재누락) → 치환 ③ `wiki/pages/concept/dlc-development-cycle.md` 가 1차 커밋 편입 미반영(defer 전제 오류) → 동기화 ④ worktree base=`origin/default` 라 main dirty 파일이 안 담김 → `skills/wt/SKILL.md` §3 에 dirty 확인 0단계 추가 ⑤ main 편집 발생 시 복구 절차 부재 → §8 에 "`/wt` 로 옮겨 재적용" 추가 ⑥ 경량 종결 경로 부재(아래 `# Blockers`). Minor 6·Nit 4 도 반영(역함의 문구 3곳·`plans/` 오기재·미짝 `**`·용어 통일).
 
+- 2026-09-04: 2차 커밋 `69d3e88`. 이어 §13 적립(사용자 결정) — `wiki/pages/decision/lesson-grep-absence-not-proof.md` 를 확장(중복 금지로 새 페이지 대신 기존 페이지에 사례 2·3 추가).
+- 2026-09-04: **D15 가 불충분함이 실측으로 드러남** — `MEMORY.md` 인덱스를 갱신하려다 **하네스 네이티브 격리에 차단**("Edit the worktree copy" — gitignored 라 사본이 없다). `guard-worktree-edit.js` 는 allow 하지만 네이티브 격리가 그 위에 있다. code-reviewer 의 Open question(2026-08-12 실측이 현행 하네스에서도 유효한가)이 **재현으로 확인**됨. → CLAUDE.md §3-1·wiki 예외 절을 "main 경로 편집이 정상" → "**worktree 안에서 시도하지 말고 main 복귀 후 적립**"으로 정정.
+
 # Next
 
-Major 6(trivial 종결 경로) 사용자 결정 → 반영 → 최종 검증 → 2차 커밋
+3차 커밋 → `/e merge`(push·PR·머지·정리) → **main 복귀 후 `MEMORY.md` 인덱스 갱신**(worktree 안에서는 네이티브 격리로 불가)
 
 # Decisions
 
@@ -130,4 +133,6 @@ Major 6(trivial 종결 경로) 사용자 결정 → 반영 → 최종 검증 →
 
 - 2026-09-04: dlc 파이프라인에 커밋 단계가 없어, 검증까지 끝낸 변경이 uncommitted 로 남고 사용자가 매번 "커밋해"라고 지시해야 했다 — 사용자 명시 지적(트리거 ③). 이 작업이 그 수정.
 - 2026-09-04: Explore 에서 `wiki/` 를 grep 범위에서 제외해 참조 6줄을 놓쳤다(3곳이라 단정 → 실제 9줄). "무매칭을 없음으로 단정 금지"의 인접 실패 — **검색 범위 누락**. 영향 범위 조사 시 `wiki/`·`docs/` 를 기본 포함할 것.
-- 2026-09-04: `dlc-early-stop` 이 README 를 이미 같은 브랜치에서 갱신(`README.md:286`)했는데도 "README 동기화 안 됨" 경고를 냈다(오탐 1회). `dlc-doc-drift.test.js` 는 56 assertions 통과라 분류 로직 자체는 정상 — ledger 의 갱신 감지 시점 문제로 추정(⚠️추정). 2회+ 재현되면 wiki `workflow-failures` 로 승격.
+- 2026-09-04: `dlc-early-stop` 이 README·`wiki/index.md` 를 이미 같은 브랜치에서 갱신했는데도 "동기화 안 됨" 경고를 냈다(오탐 **2회** — README 축 1회, wiki index 축 1회). `dlc-doc-drift.test.js` 는 56 assertions 통과라 분류 로직 자체는 정상 — ledger 의 갱신 감지 시점 문제로 추정(⚠️추정). 2회 재현됐으므로 wiki `workflow-failures` 승격 후보.
+- 2026-09-04: 영향 범위 조사 실패 2회(범위 누락·매칭 오독) → `lesson-grep-absence-not-proof` 확장으로 적립 완료(사용자 승인).
+- 2026-09-04: **worktree 세션에서 gitignored 글로벌 상태(`MEMORY.md`) 편집이 네이티브 격리에 차단**. 규약에 예외를 적어도 하네스가 막으므로, 적립은 main 복귀 후로 미뤄야 한다 — 규약을 실측에 맞게 정정(위 Progress).

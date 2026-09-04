@@ -39,7 +39,9 @@ wt→dlc(정상)와 dlc→wt(보강)는 **worktree 위치로 구분**한다. wt 
 
 **종결 경로**: trivial·small 은 push·PR 없이 **로컬 `git merge --ff-only <slug>`** 로 default 에 반영하고 §8(a) 자동 정리로 닫는다(CLAUDE.md §8). 그러지 않으면 "커밋 도달 불가"가 "머지 도달 불가"로 옮겨갈 뿐이고 — PR 왕복 비용 탓에 머지가 미뤄지면 (a) 의 merged 조건이 안 걸려 worktree 가 누적된다([[lesson-fix-scoped-to-one-repo]] 의 68개 중 60개 미push 기록). medium 이상·CI 검증·외부 공유는 `/e merge`([[e-merge-mode]]).
 
-**예외**: worktree 사본이 없는 gitignored 글로벌 상태(`projects/…/memory/`·`settings.local.json`)와 비-git 디렉토리는 이 강제에서 제외 — main 경로 편집이 정상이고, `scripts/guard-worktree-edit.js` 도 이들을 allow 한다. 제외하지 않으면 [[feedback-memory]] 적립이 격리에 막힌다([[native-overlap-ledger]] 실측).
+**예외**: worktree 사본이 없는 gitignored 글로벌 상태(`projects/…/memory/`·`settings.local.json`)와 비-git 디렉토리는 이 강제에서 제외 — 만들어도 커밋될 것이 없다.
+
+다만 예외를 규약에 적는 것만으로는 부족하다. **이미 worktree 세션 안이면 하네스 네이티브 격리가 이들의 main 경로 편집을 거부**한다("worktree 사본을 편집하라" — 그런데 gitignored 라 사본이 없다). `scripts/guard-worktree-edit.js` 는 allow 하지만 네이티브 격리가 그 위에 있다. **2026-09-04 이 작업 중 실제로 재현**됐다 — [[lesson-grep-absence-not-proof]] 를 적립하려고 `MEMORY.md` 인덱스를 갱신하다 차단당했고, [[native-overlap-ledger]] 의 2026-08-12 실측이 현행 하네스에서도 유효함이 확인됐다. 그래서 [[feedback-memory]] 적립은 **worktree 안에서 시도하지 말고 main 복귀 후** 한다.
 
 ## 연계
 완료 게이트는 [[evidence-gate]], dlc 파이프라인은 [[dlc-development-cycle]], plan 채널은 [[plan-handoff]].

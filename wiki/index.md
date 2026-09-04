@@ -44,7 +44,7 @@
 - [[ops-doc-slimming]] — 항상주입 운영문서 압축 상한 실측 ~11%(규칙손실0 유지 시), 30%+ 는 이관=범위확대; bytes 목표는 보조·규칙손실0 이 hard gate (#73). 후속 이관 실행(#89-92): 압축률∝1/규칙밀도(e −31%~CLAUDE −1.1%)·조건부로드 skill 이 참조하는 canonical 스펙 이관 금지(방향역전)·manifest+diff-U0+합집합grep 방법론.
 - [[git-hook-network-safety]] — git 클라이언트 훅은 동기·무timeout → 네트워크 작업은 poll 워치독+PROMPT=0+SSH ConnectTimeout 으로 상한(하니스 안전망 없음); ff-merge 는 post-checkout 재발동 안 함(재귀 없음, 실측); async 훅은 hang 안전을 주는 대신 stdout 이 첫 턴 뒤에 도달 → 네트워크는 async, 사용자에게 보여야 할 판정은 동기로 분리 (#82). **미결**: dirty tree 로 SessionStart pull 이 거부되는 건의 `--autostash` 도입 여부(2026-08-06 보류).
 - [[lesson-fix-scoped-to-one-repo]] — 한 repo 에 하드코딩해 고치면 실패 모드는 안 덮인 repo 로 옮겨갈 뿐이다(2026-08-12 수정이 08-31 에 다른 repo 에서 재현). 대상 상수·라벨 상수 금지, 처방이 다르면 신호를 나눈다, 넓힐 땐 잡음을 먼저 실측한다.
-- [[lesson-grep-absence-not-proof]] — grep 무매칭을 부재로 단정 금지, 동기화 판정은 대상 파일 직접 확인
+- [[lesson-grep-absence-not-proof]] — grep 무매칭·**검색범위 누락·매칭 결과 오독**으로 "부재/영향 없음" 단정 금지, 동기화·영향 판정은 대상 파일 직접 확인
 - [[lesson-parser-precedent-partial-mirror]] — 선례 파서 미러링은 전처리(CRLF)·토큰 관용까지, fixture 는 문서화된 정본 템플릿에서 (무음 결함 2건) (§13 첫 lesson).
 - [[lesson-stale-tool-version]] — 도구발 오류는 우회 전에 `--version` 을 상류 CHANGELOG 와 대조; 실패 표의 "수정 위치"는 확인된 것만 적는다 (rtk 0.28.2 로 6회 반복, 상류는 0.35.0·0.39.0 에서 이미 수정).
 - [[lesson-parallel-duplicate-implementation]] — 비trivial 착수 전 열린 PR·원격 브랜치·다른 plan 을 먼저 확인; plan 매칭 실패는 "없다"의 근거가 아니다 (#118 과 #120 이 같은 기능을 각자 구현, 553줄 폐기).
