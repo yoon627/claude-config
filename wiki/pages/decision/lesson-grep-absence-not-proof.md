@@ -2,10 +2,11 @@
 title: lesson-grep-absence-not-proof
 category: decision
 created: 2026-06-24
-updated: 2026-06-24
+updated: 2026-09-04
 sources:
   - PR #65 (CLAUDE.md §13 실수·교훈 로그)
   - README.md Components — CLAUDE.md 절 나열
+  - plans/2026-09-04-auto-commit-rule (사례 2·3 — 범위 누락·결과 오독)
 ---
 
 # lesson-grep-absence-not-proof
@@ -14,6 +15,14 @@ sources:
 
 ## 사례 (이 lesson 의 발단)
 CLAUDE.md 에 §13 을 추가한 뒤 "README 동기화 필요한가?"를 `grep '## 1[0-3]' README.md` 로 점검 → 무매칭 → **"README 는 절 번호 미러링 안 함, 동기화 불필요"로 단정**. 실제로 README Components 의 `### CLAUDE.md` 절은 헤더(`##`)가 아니라 **본문 리스트**(`12. 피드백 메모리 …`)로 14개 절을 나열하고 있었다. 패턴이 그 형식을 못 잡았을 뿐, README 는 갱신 대상이었다. `dlc-early-stop` 의 doc-drift 경고가 포착해 바로잡음([[evidence-gate]] 보조망의 가치).
+
+## 사례 2·3 — 무매칭이 아니라 **범위 누락**과 **결과 오독** (2026-09-04)
+같은 실패가 검색이 *매칭됐을 때도* 난다. 한 세션에서 2회 재현:
+
+- **사례 2 (범위 누락)**: dlc 단계 번호를 바꾸기 전 영향 범위를 `grep -rn ... CLAUDE.md README.md docs/ skills/ scripts/` 로 조사하고 **"참조는 3곳"으로 plan 에 확정**. `wiki/` 를 검색 대상에서 빼서 실제 9줄/5파일 중 6줄을 놓쳤다(`wiki/index.md`·`wiki/pages/concept/…`·`wiki/pages/decision/…`). plan-reviewer 가 전수 재조사로 잡았다.
+- **사례 3 (결과 오독)**: 후속 작업에서 `grep -rn "trivial"` 결과에 `skills/c/SKILL.md:68` 이 **분명히 나왔는데**, "결론은 여전히 참(부분집합)"이라 판단해 유지 대상으로 분류했다. 실제로는 그 문장이 역함의(`¬비trivial → ¬wt`)를 심어 규약 구멍을 다시 여는 위치였다. code-reviewer 가 잡았다.
+
+즉 실패는 "grep 이 안 잡았다"만이 아니라 **"내가 검색 범위를 좁혔다"**, **"잡힌 걸 내가 무해하다고 판정했다"** 로도 온다. 셋 다 결론은 같다 — *영향 없음/부재를 자기 검색·자기 판단으로 확정*.
 
 ## 근본 원인 (3 Whys)
 1. **왜 오판?** grep 한 줄 무매칭만 보고 "미러링 안 함" 결론.
@@ -24,6 +33,9 @@ CLAUDE.md 에 §13 을 추가한 뒤 "README 동기화 필요한가?"를 `grep '
 - "X 없음/불필요"를 grep·검색 무매칭으로 단정하지 않는다. 무매칭은 가설을 **반증 못 한 것**이지 입증한 게 아니다.
 - 동기화·영향 판정은 대상 파일을 **Read 로 구조를 직접 확인**한 뒤 내린다(grep 은 위치 좁히기 용도, 결론 근거 아님).
 - 부재를 주장하려면 **직접 증거**를 쓴다 — 예: gitignore 여부는 grep 대신 `git check-ignore`(이 PR 에서 memory 트래킹 판정에 실제로 적용).
+- **영향 범위 조사는 `wiki/`·`docs/`·`plans/` 를 기본 포함**한다(사례 2). 규약·결정·교훈이 사는 곳이라 코드 디렉토리(`skills/`·`scripts/`)만 훑으면 반드시 빠진다.
+- 매칭된 줄을 "결론은 여전히 참이니 유지"로 넘기기 전에 **역함의**(`A면 B` ⇒ 독자는 `¬A면 ¬B` 로 읽는다)를 심는지 본다(사례 3). 근거절이 낡으면 결론이 참이어도 다음 독자를 오도한다.
+- 범위 판정을 자기 검색으로 닫지 말고 **리뷰어에게 전수 재조사를 명시 과제로 준다** — 사례 2·3 모두 리뷰어가 잡았고, 자기 점검으로는 두 번 다 통과했다.
 - CLAUDE.md §1(추측 금지·코드 보고 답)·§3 Verify(문서 동기화는 evidence gate 항목)의 구체적 실패 양상이다.
 
 ## 연계

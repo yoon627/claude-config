@@ -225,7 +225,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 5. Sub-agent — 표준 순서 (plan-reviewer → 구현 → code-reviewer → simplify 체크(메인 직접)), Workflow(ultracode) subagent 는 단계별 effort 명시
 6. 코드 규칙 — 동일 디렉토리 스타일, 타입 힌트, 임시 코드 표기, 부분 편집 우선(전체 재작성 지양)
 7. 테스트 (TDD) — 테스트 작성 순서, 예외 조건, 인접 테스트 규모에 맞춤·임시 체크의 영구 테스트화 금지
-8. Git / 보안 — destructive 명령 금지, 시크릿 출력 금지, 비trivial 은 worktree(`/wt`)에서
+8. Git / 보안 — destructive 명령 금지, 시크릿 출력 금지, 코드/파일 변경은 규모 불문 worktree(`/wt`)에서(gitignored 글로벌 상태 제외), **검증 통과분은 요청 없이 작업 브랜치 커밋**(push 는 요청 시만), trivial·small 종결은 로컬 ff-merge
 9. Claude ↔ Codex 협업 — `.claude/plans/` 핸드오프 채널, 리뷰 매트릭스
 10. `.claude/plans/` 핸드오프 규약 — slug, frontmatter, 필수 6개 + 선택 섹션(Acceptance·Review Disposition·Deferred·Workflow Findings)
 11. 영속 프로젝트 메모리 (LLM Wiki) — `wiki/` 누적 지식, `plans/` 와 경계 (일시적 vs 영속)
@@ -277,12 +277,13 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 ### skills/dlc/ — 자동 개발 사이클
 
-`/dlc` 명시 호출 또는 비자명한 코드 변경 시 적용하는 개발 사이클 오케스트레이션. 규모 (trivial / small / medium / structural) 를 판정해 단계를 gate — 오타 1줄은 즉시 통과, structural 변경은 explore → plan → 리뷰 → TDD → 구현 → 리뷰 → simplify → 검증 전체를 돈다.
+`/dlc` 명시 호출 또는 비자명한 코드 변경 시 적용하는 개발 사이클 오케스트레이션. 규모 (trivial / small / medium / structural) 를 판정해 단계를 gate — 오타 1줄은 *절차*를 즉시 통과(worktree 는 규모 불문 경유), structural 변경은 explore → plan → 리뷰 → TDD → 구현 → 리뷰 → simplify → 검증 전체를 돈다.
 - 메인이 hub, 리뷰/검토(plan-reviewer, architecture-reviewer, code-reviewer)와 **최종 검증**(격리 runner·general-purpose, 실행만 — 메인이 명령·worktree cwd 지정)은 격리 subagent. 구현·통합·검증 판단·실패 fix·최종 판단은 메인.
 - simplify 체크(13단계)는 메인이 직접 수행 — 모든 격리 spoke 는 read-only. substantive 수정 시 targeted 재검증.
 - `.claude/plans/<slug>-plan.md` 가 subagent 간 단일 공유 채널 (메인만 write).
 - codex 병행 검토 호출 규약은 `docs/codex-review.md` (phase 당 codex owner 1개 지정으로 중복 호출 방지, Windows/PowerShell fallback 포함). 정본 명령은 프롬프트를 스크래치 파일로 넘기고 `--skip-git-repo-check` 를 쓰지 않는다(사유는 §3 — worktree 격리 가드).
 - SKILL 본문엔 진입 게이트·규모 gate·16단계 표·닫힌목록·안전 규칙만 두고, 특정 분기에서만 찾는 절차 상세(요구사항 명확화 심화·조사 프로토콜 elaboration·wiki 연계 메커닉·Workflow Findings 기록형식·격리 runner 계약/simplify 체크리스트)는 `docs/dlc-details.md` 로 분리(자동 로드 안 됨 — 해당 분기 진입 시 Read).
+- **16단계 마무리에 커밋 편입**: `evidence gate → plan 업데이트 → 커밋 → Report`. 커밋 **규칙**(요청 없이 커밋·stage 범위·커밋 안 하는 경우·`--no-verify` 금지)은 CLAUDE.md §8 이 단일 소스이고 **전역**(dlc 를 안 타는 흐름·타 repo 에도 적용), SKILL 커밋 bullet 은 절차(경로 확정·메시지·실행 폴백)만 담는다. `/e` 의 `wip:` 체크포인트와 구분 — 여기는 검증 통과한 정식 커밋.
 - **evidence·라우팅 hook** (`scripts/dlc-*.js`, `settings.json` 등록, fail-open): `dlc-task-router`(UserPromptSubmit — 디버깅/render 키워드에 discipline 주입), `dlc-evidence-ledger`(PostToolUse — 변경·검증 기록 + 문서 drift dirty flag), `dlc-early-stop`(Stop — 변경 후 검증 누락 **및 문서화 표면↔README/index drift** 시 capped 1회 경고; 판정은 `dlc-doc-drift.js` 모듈). plan `# Acceptance` evidence gate 의 보조 누락방지망 — 검증 *성공* 판정은 acceptance(메인)가 단일 소스. `CLAUDE_DLC_EARLYSTOP_OFF=1`(검증)·`CLAUDE_DLC_DOCDRIFT_OFF=1`(문서) 로 각각 비활성(holdout). syntax 검사 + 단위테스트는 CI `lint.yml`.
 
 ### skills/c/ — plan 이어가기
@@ -312,7 +313,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - `EnterWorktree(path: <abs>)` 로 진입 — `name` 인자 사용 금지 (Claude Code 의 `worktree-` prefix 자동 부착 회피)
 - 정수·`rm`·기존 worktree 정확일치가 아닌 텍스트는 **요청사항**으로 간주 → 영문 kebab-case slug 파생 → **확인 없이 생성**(위험기반 승인 — CLAUDE.md §1: 로컬·가역이라 묻지 않고, base·`.env`·stale·near-miss·`/wt rm <slug>` 되돌리기를 보고) → 요청사항 원문을 `dlc` task 로 전달 (dlc 없는 빈 worktree 단순 생성은 폐지). 삭제 계열(`rm`·`--force`·`branch -D`·원격 삭제)은 비가역이라 확인 유지
 - 접두 `?` (`/wt ? <막연한 설명>`)는 **질문 모드** — AskUserQuestion 으로 요구사항을 구체화한 뒤 같은 요청사항 생성 경로로 합류 (접미 `?` 는 의문형 요청과 충돌해 미사용)
-- **신규 생성 시 ignored 설정 자동 복사**: main worktree 에서 ① basename 이 정확히 `.env` 인 파일 ② repo-relative 경로가 정확히 `.claude/settings.local.json` 인 파일을 동일 상대경로로 복사(이미 있으면 skip, 실패는 경고만·worktree 유지). ②가 필요한 이유는 worktree 가 **자기 자신이 git root** 라 Claude Code 의 `localSettings`(= `<git root>/.claude/settings.local.json`)를 상속하지 않기 때문 — 복사하지 않으면 **권한 허용목록이 0개**로 시작하는데, CLAUDE.md §8 이 비trivial 작업을 worktree 에서 하도록 강제하므로 실사용 경로가 전부 여기 해당한다. predicate 는 **앵커드 정확일치**(basename 매칭이면 `.bak` 백업이나 repo 루트의 동명 파일까지 딸려온다). 신규 생성 경로만 덮으므로 기존 worktree 는 수동 복사.
+- **신규 생성 시 ignored 설정 자동 복사**: main worktree 에서 ① basename 이 정확히 `.env` 인 파일 ② repo-relative 경로가 정확히 `.claude/settings.local.json` 인 파일을 동일 상대경로로 복사(이미 있으면 skip, 실패는 경고만·worktree 유지). ②가 필요한 이유는 worktree 가 **자기 자신이 git root** 라 Claude Code 의 `localSettings`(= `<git root>/.claude/settings.local.json`)를 상속하지 않기 때문 — 복사하지 않으면 **권한 허용목록이 0개**로 시작하는데, CLAUDE.md §8 이 코드 변경을 규모 불문 worktree 에서 하도록 강제하므로 실사용 경로가 전부 여기 해당한다. predicate 는 **앵커드 정확일치**(basename 매칭이면 `.bak` 백업이나 repo 루트의 동명 파일까지 딸려온다). 신규 생성 경로만 덮으므로 기존 worktree 는 수동 복사.
 - `references/` (자동 로드 안 됨): SKILL 본문엔 절차 스텝·안전 게이트만 두고, 상세 메커닉은 해당 분기 진입 시 Read 하는 참조 doc 으로 분리 — `env-copy.md`(자동 복사 후보/제외 — `.env` + `settings.local.json`)·`codegraph-worktree.md`(codegraph init 조건·staleness·projectPath)·`rm-recovery.md`(생성 git 시퀀스·self-heal·rm 실패 복구). `docs/codex-review.md`·`docs/worktree-lifecycle.md` 와 같은 참조 패턴.
 
 ### skills/wiki/ — LLM Wiki (영속 프로젝트 메모리)
