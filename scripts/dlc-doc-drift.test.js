@@ -228,4 +228,124 @@ ok('clean → no message', () => assert.deepStrictEqual(d.evaluate({ readmeDirty
 ok('readme dirty → 1 msg', () => assert.strictEqual(d.evaluate({ readmeDirty: true, indexDirty: false }).length, 1));
 ok('both dirty → 2 msg', () => assert.strictEqual(d.evaluate({ readmeDirty: true, indexDirty: true }).length, 2));
 
+// --- evaluate + mtimeOf: 동기화 판정을 도구 종류가 아니라 **파일 상태**로 ---
+// 배경: dirty 는 PostToolUse 의 Edit|Write 분기에서만 세워진다. README 를 Bash(`node -e`·sed·
+// heredoc)로 고치면 target 갱신이 장부에 안 잡혀 dirty 가 안 풀리고 오탐이 난다(실측).
+// mtime 비교는 어떤 도구로 고쳤는지와 무관하므로 그 비대칭을 없앤다.
+const rDirty = (pending) => ({ readmeDirty: true, indexDirty: false, readmePending: pending });
+
+ok('mtimeOf 미제공 → 종전대로 경고(하위호환)', () => {
+  assert.strictEqual(d.evaluate(rDirty(['scripts/x.js'])).length, 1);
+});
+ok('README 가 모든 pending trigger 보다 최신 → 경고 없음(Bash 로 고쳐도 인정)', () => {
+  const m = (rel) => (rel === 'README.md' ? 200 : 100);
+  assert.deepStrictEqual(d.evaluate(rDirty(['scripts/x.js']), m), []);
+});
+ok('trigger 하나라도 README 보다 나중 → 경고 유지', () => {
+  const m = (rel) => ({ 'README.md': 200, 'scripts/a.js': 100, 'scripts/b.js': 300 }[rel]);
+  assert.strictEqual(d.evaluate(rDirty(['scripts/a.js', 'scripts/b.js']), m).length, 1);
+});
+ok('동시각(같은 mtime)은 동기화로 본다', () => {
+  const m = () => 200;
+  assert.deepStrictEqual(d.evaluate(rDirty(['scripts/x.js']), m), []);
+});
+ok('README mtime 조회 실패 → 보수적으로 경고 유지', () => {
+  const m = (rel) => (rel === 'README.md' ? null : 100);
+  assert.strictEqual(d.evaluate(rDirty(['scripts/x.js']), m).length, 1);
+});
+ok('trigger mtime 조회 실패 → 보수적으로 경고 유지', () => {
+  const m = (rel) => (rel === 'README.md' ? 200 : null);
+  assert.strictEqual(d.evaluate(rDirty(['scripts/x.js']), m).length, 1);
+});
+ok('pending 이 비면 판정 근거가 없다 → 경고 유지', () => {
+  assert.strictEqual(d.evaluate(rDirty([]), () => 999).length, 1);
+});
+ok('index 축도 같은 규칙', () => {
+  const data = { readmeDirty: false, indexDirty: true, indexPending: ['wiki/pages/p.md'] };
+  const m = (rel) => (rel === 'wiki/index.md' ? 200 : 100);
+  assert.deepStrictEqual(d.evaluate(data, m), []);
+});
+ok('mtimeOf 가 throw 해도 경고 유지(fail-open, 크래시 없음)', () => {
+  const m = () => { throw new Error('stat boom'); };
+  assert.strictEqual(d.evaluate(rDirty(['scripts/x.js']), m).length, 1);
+});
+
+// --- evaluate 는 축을 함께 돌려준다 (신호를 dirty flag 로 emit 하면 억제된 축의 failure 가 남는다) ---
+ok('한 축만 억제되면 남은 축만 보고한다', () => {
+  const data = {
+    readmeDirty: true, indexDirty: true,
+    readmePending: ['scripts/x.js'], indexPending: ['wiki/pages/p.md'],
+  };
+  const m = (rel) => (rel === 'README.md' ? 200 : rel === 'wiki/index.md' ? 50 : 100);
+  const out = d.evaluate(data, m);
+  assert.strictEqual(out.length, 1);
+  assert.strictEqual(out[0].axis, 'index'); // readme 는 mtime 으로 억제됨
+});
+
+// --- NaN 은 '판정 불가'다 — typeof 로만 거르면 미탐 쪽으로 떨어진다 ---
+ok('target mtime 이 NaN → 경고 유지', () => {
+  const m = (rel) => (rel === 'README.md' ? NaN : 100);
+  assert.strictEqual(d.evaluate(rDirty(['scripts/x.js']), m).length, 1);
+});
+ok('trigger mtime 이 NaN → 경고 유지', () => {
+  const m = (rel) => (rel === 'README.md' ? 200 : NaN);
+  assert.strictEqual(d.evaluate(rDirty(['scripts/x.js']), m).length, 1);
+});
+
+// --- pending 이 상한에 잘리면 전수 비교가 성립 안 한다 ---
+ok('pending 이 상한(50)에 도달 → 판정 불가 → 경고 유지', () => {
+  const many = Array.from({ length: 50 }, (_, i) => `scripts/f${i}.js`);
+  const m = (rel) => (rel === 'README.md' ? 999 : 1);
+  assert.strictEqual(d.evaluate(rDirty(many), m).length, 1);
+});
+
+// --- settle: 확인된 동기화를 covered 로 옮겨 재편집 오탐을 막는다 ---
+ok('settle 이 전부 커버하면 dirty 해제 + covered 이동', () => {
+  const data = { readmeDirty: true, indexDirty: false, readmePending: ['scripts/x.js'], readmeCovered: [] };
+  const m = (rel) => (rel === 'README.md' ? 200 : 100);
+  assert.strictEqual(d.settle(data, m), true);
+  assert.strictEqual(data.readmeDirty, false);
+  assert.deepStrictEqual(data.readmeCovered, ['scripts/x.js']);
+  assert.deepStrictEqual(data.readmePending, []);
+});
+ok('settle 후 같은 파일을 재편집해도 dirty 가 아니다 (covered-set 효과)', () => {
+  const data = { readmeDirty: true, indexDirty: false, readmePending: ['scripts/x.js'], readmeCovered: [] };
+  d.settle(data, (rel) => (rel === 'README.md' ? 200 : 100));
+  d.applyChange(data, R + '/scripts/x.js', R, HOME);
+  assert.strictEqual(data.readmeDirty, false);
+});
+ok('settle 은 일부만 커버되면 남은 것을 유지한다', () => {
+  const data = { readmeDirty: true, indexDirty: false, readmePending: ['old.js', 'new.js'], readmeCovered: [] };
+  const m = (rel) => ({ 'README.md': 200, 'old.js': 100, 'new.js': 300 }[rel]);
+  assert.strictEqual(d.settle(data, m), true);
+  assert.strictEqual(data.readmeDirty, true);
+  assert.deepStrictEqual(data.readmePending, ['new.js']);
+  assert.deepStrictEqual(data.readmeCovered, ['old.js']);
+});
+ok('settle 은 판정 불가면 아무것도 바꾸지 않는다', () => {
+  const data = { readmeDirty: true, indexDirty: false, readmePending: ['scripts/x.js'], readmeCovered: [] };
+  assert.strictEqual(d.settle(data, undefined), false);
+  assert.strictEqual(data.readmeDirty, true);
+  assert.deepStrictEqual(data.readmePending, ['scripts/x.js']);
+});
+
+// --- driftRoot: rel 이 어느 root 기준인지 핀 고정 ---
+ok('applyChange 가 driftRoot 를 기록한다', () => {
+  const data = fresh();
+  d.applyChange(data, R + '/scripts/x.js', R, HOME);
+  assert.strictEqual(data.driftRoot, R);
+});
+ok('두 root 를 오가면 driftRoot 는 mixed(빈 문자열)', () => {
+  const data = fresh();
+  d.applyChange(data, R + '/scripts/x.js', R, HOME);
+  d.applyChange(data, WT + '/scripts/y.js', WT, HOME);
+  assert.strictEqual(data.driftRoot, '');
+});
+
+// --- classify: rel 이 stat 에 쓰이므로 `..` 는 거른다 ---
+ok('.. 세그먼트가 든 경로는 분류하지 않는다', () => {
+  assert.strictEqual(d.classify(R + '/wiki/pages/../../etc/x.md', R), null);
+  assert.strictEqual(d.classify(R + '/scripts/../secret.js', R), null);
+});
+
 console.log(`dlc-doc-drift.test.js: ${n} assertions passed`);

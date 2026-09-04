@@ -28,6 +28,7 @@ jobs:
           node --check scripts/dlc-task-router.test.js
           node --check scripts/dlc-evidence-ledger.js
           node --check scripts/dlc-early-stop.js
+          node --check scripts/dlc-early-stop.test.js
           node --check scripts/dlc-doc-drift.js
           node --check scripts/dlc-doc-drift.test.js
           node --check scripts/dlc-signal.js
@@ -54,6 +55,7 @@ jobs:
           bash scripts/bootstrap/install-codex-skill.test.sh
           bash skills/jira-worklog/test_launcher.sh
           node scripts/dlc-doc-drift.test.js
+          node scripts/dlc-early-stop.test.js
           node scripts/dlc-task-router.test.js
           node scripts/dlc-signal.test.js
           node scripts/dlc-evidence-ledger.test.js
