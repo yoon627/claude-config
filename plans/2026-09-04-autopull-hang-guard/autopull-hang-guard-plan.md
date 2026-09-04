@@ -1,6 +1,6 @@
 ---
 title: autopull-hang-guard — SessionStart 자동 pull 에 hang 방어 (동기 전환은 불가 판정)
-status: in_progress
+status: done
 started: 2026-09-04
 updated: 2026-09-04
 ---
@@ -66,14 +66,14 @@ updated: 2026-09-04
   지적을 WSL Ubuntu 로 확인했다. 거부는 사실이나 직접 kill 폴백이 받아 **테스트 19/19 통과** →
   CI red 아님. 문서의 "손자까지 거둔다"는 bash 한정으로 좁혔다.
 - 2026-09-04 최종: `session-start-pull` 9→**19**개, `session-brief` 74→**75**개, shellcheck clean,
-  Windows·Linux 양쪽 통과.
+  Windows·Linux 양쪽 통과. 커밋 `dd1956c`.
+- 2026-09-04 **PR #159** 생성·머지 → `status: done`.
 
 # Next
 
-구현·리뷰·검증·문서 동기화 완료, 커밋됨. 남은 것은 **머지**(trivial 이 아니므로 `/e merge` 로
-push→PR→CI→머지) 와 그 뒤의 배달 확인(아래).
+(없음 — PR #159 로 머지 완료.)
 
-**배달 절차 (이 변경 고유의 문제 — 잊으면 효과가 0)**: `# Deferred` 의 settings.json dirty 문제로,
+**단, 머지가 곧 배달은 아니다 (이 변경 고유의 문제 — 잊으면 효과가 0)**: `# Deferred` 의 settings.json dirty 문제로,
 **로컬 `settings.json` 이 더러운 머신은 이 커밋을 영영 못 받는다.** 즉 hang 방어가 가장 필요한
 (무음으로 밀린) 머신이 옛 인라인 체인에 남는다. 머지 후 각 머신에서 확인할 것:
 1. `git -C ~/.claude status --porcelain settings.json` — 비어야 pull 이 통과한다.
