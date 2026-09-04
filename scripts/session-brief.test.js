@@ -600,6 +600,16 @@ ok('ⓝ11 CLAUDE_AUTOPULL_OFF 로 꺼둔 상태를 구분한다', () => {
   assert.match(out, /CLAUDE_AUTOPULL_OFF/);
 });
 
+ok('ⓝ11-b .autopull-off 파일로 꺼둔 상태도 구분한다', () => {
+  // 이 파일 스위치를 모르면 마지막 폴백("원인 미확인")으로 새어, 사용자가 스스로 끈 상태를
+  // 존재하지 않는 네트워크 실패로 추적하게 된다.
+  const r = behindRepo(1);
+  fs.writeFileSync(path.join(r, '.autopull-off'), '');
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...NOFF });
+  assert.match(out, /\.autopull-off/);
+  assert.doesNotMatch(out, /원인 미확인/);
+});
+
 ok('ⓝ12 master 는 훅이 안 도는 브랜치임을 말한다(훅은 main 만)', () => {
   const r = behindRepo(1);
   git(r, ['branch', '-m', 'master']);

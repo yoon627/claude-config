@@ -32,11 +32,11 @@ OK() { echo "[ok] $*"; }
 echo "== 1. settings hooks → scripts 실존 (error if missing) =="
 for sf in settings.json settings.local.json; do
   [ -f "$sf" ] || continue
-  # command 안의 scripts/*.js 만 추출(inline darwin rtk-rewrite·SessionStart git pull 은 파일 아니라 제외).
+  # command 안의 scripts/*.{js,sh} 를 추출(inline darwin rtk-rewrite 등 파일 아닌 command 는 자연히 제외).
   while read -r s; do
     [ -n "$s" ] || continue
     if [ -f "$s" ]; then OK "$sf: $s"; else E "$sf 가 참조한 $s 없음"; fi
-  done < <(grep -oE 'scripts/[A-Za-z0-9_.-]+\.js' "$sf" 2>/dev/null | sort -u)
+  done < <(grep -oE 'scripts/[A-Za-z0-9_.-]+\.(js|sh)' "$sf" 2>/dev/null | sort -u)
 done
 
 echo "== 2. MEMORY.md 인덱스 ↔ memory 파일 (양방향; gitignored 절대경로 발견) =="

@@ -99,8 +99,8 @@
 				"hooks": [
 					{
 						"type":          "command",
-						"command":       "[ \"${CLAUDE_AUTOPULL_OFF:-}\" = 1 ] || { g=$(git -C ~/.claude rev-parse --absolute-git-dir 2>/dev/null) && [ -z \"$(ls -d \"$g\"/rebase-merge \"$g\"/rebase-apply \"$g\"/MERGE_HEAD \"$g\"/BISECT_LOG 2>/dev/null)\" ] && git -C ~/.claude rev-parse --abbrev-ref HEAD 2>/dev/null | grep -qx main && before=$(git -C ~/.claude rev-parse HEAD 2>/dev/null) && git -C ~/.claude pull --ff-only --quiet origin main >/dev/null 2>&1 && after=$(git -C ~/.claude rev-parse HEAD 2>/dev/null) && [ \"$before\" != \"$after\" ] && echo \"~/.claude updated from origin/main ($before -> $after); review pulled changes before relying on scripts/hooks this session.\"; }; true",
-						"timeout":       30,
+						"command":       "[ -r ~/.claude/scripts/session-start-pull.sh ] && sh ~/.claude/scripts/session-start-pull.sh; true",
+						"timeout":       15,
 						"statusMessage": "Checking ~/.claude for updates",
 						"async":         true
 					},

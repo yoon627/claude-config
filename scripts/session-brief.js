@@ -309,10 +309,13 @@ function autopullStalledLine(repoDir, env) {
   // 아래 분기 순서 = 훅이 pull 을 포기하는 순서. 스스로 낫지 않는 원인을 "재시도하면 되겠지"로
   // 뭉뚱그리면, 이 신호가 없애려던 "조용히 밀리는데 괜찮은 줄 안다"를 문장만 바꿔 재생산한다.
   if (env.CLAUDE_AUTOPULL_OFF === '1') return `${head} — CLAUDE_AUTOPULL_OFF=1 로 자동 pull 을 꺼 둔 상태`;
+  if (fs.existsSync(path.join(repoDir, '.autopull-off'))) {
+    return `${head} — .autopull-off 파일로 자동 pull 을 꺼 둔 상태`;
+  }
 
   const branch = git(repoDir, ['rev-parse', '--abbrev-ref', 'HEAD']).trim();
   if (branch === 'HEAD') return `${head} — detached HEAD 라 자동 pull 이 돌지 않는다`;
-  // 훅 체인은 `grep -qx main` 이라 **main 에서만** 돈다 — master 도 skip 대상이다.
+  // 훅 스크립트는 브랜치가 `main` 과 정확히 일치할 때만 돈다 — master 도 skip 대상이다.
   if (branch !== 'main') return `${head} — 브랜치가 ${branch} 라 자동 pull 이 돌지 않는다(훅은 main 에서만)`;
 
   const gitDir = git(repoDir, ['rev-parse', '--absolute-git-dir']).trim();
