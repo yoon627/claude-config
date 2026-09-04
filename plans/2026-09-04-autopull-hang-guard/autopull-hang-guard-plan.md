@@ -429,7 +429,10 @@ hang 방어 4종 + 워치독 + fetch/merge 분리라는 **실체가 생긴다** 
   `classify_cwd("/repo/\0bad", ROOT, [ROOT]).kind` 가 `UNMATCHED` 이어야 하는데 `MAIN` 을 반환.
   **입증 방법**: 이 브랜치는 `skills/jira-worklog/` 를 전혀 건드리지 않았고(`git diff --name-only
   origin/main` 에 없음), `origin/main` 을 detached 워크트리로 따로 체크아웃해 돌려도 **동일하게
-  실패**했다. 심각도 중(NUL 바이트 경로 방어 회귀로 보이나 이 브랜치 범위 밖).
+  실패**했다.
+  **범위 정정**: **Windows(Python 3.13) 한정**이다 — PR #159 의 CI(ubuntu, `python3`)는 이 테스트를
+  포함해 초록이다. 즉 repo 전체 baseline 이 아니라 플랫폼 의존 실패다. 심각도 하(NUL 바이트 경로
+  방어가 플랫폼별로 갈리는 것으로 보이나 이 브랜치 범위 밖).
 - 체인이 `grep -qx main` 이라 `master` 인 머신은 skip 되는 정책 불일치(post-checkout 은 `main|master`).
   README 에 이미 명시돼 있고 이번 스코프 밖 — 심각도 하.
 
