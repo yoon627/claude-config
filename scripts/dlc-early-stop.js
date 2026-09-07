@@ -34,6 +34,12 @@ try {
 } catch {
   /* 신호 기록만 skip — 경고 본연 동작은 유지(fail-open) */
 }
+let planMatch = null;
+try {
+  planMatch = require('./plan-match.js');
+} catch {
+  /* plan drift 축만 skip */
+}
 const CAP = 1;
 
 const VERIFY_MISSING =
@@ -103,6 +109,45 @@ process.stdin.on('end', () => {
           sig.emit(kind, { ...sigCtx, detail: trigger });
         }
       }
+    }
+  }
+
+  // (3) plan drift — 소스를 바꿨는데 매칭되는 active plan 을 한 번도 안 건드리고 종료.
+  // 발동 조건을 **좁게** 잡는다: branch 로 매칭되는 plan 파일이 실제로 있을 때만.
+  // plan 이 없는 흐름(§10 적용범위 밖·plan 없는 trivial)에서는 아예 판정하지 않는다 —
+  // 이 축의 최대 위험은 오탐이고, 못 잡는 쪽(§10 의 세션 내 active 추적)은 감수한다.
+  if (
+    planMatch &&
+    process.env.CLAUDE_DLC_PLANDRIFT_OFF !== '1' &&
+    data.changed &&
+    !data.planTouched &&
+    (data.planBlocks || 0) < CAP
+  ) {
+    let planPath = null;
+    try {
+      const root = drift ? drift.resolveRoot(input.cwd) : null;
+      if (root) {
+        const branch = require('child_process')
+          .execFileSync('git', ['-C', root, 'rev-parse', '--abbrev-ref', 'HEAD'], {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore'],
+            timeout: 3000,
+          })
+          .trim();
+        planPath = planMatch.activePlanPath(root, branch);
+      }
+    } catch {
+      planPath = null; // git 없음·detached·타임아웃 → 판정 포기(fail-open)
+    }
+    if (planPath) {
+      data.planBlocks = (data.planBlocks || 0) + 1;
+      reasons.push(
+        `소스를 변경했는데 이 브랜치의 plan(${path.basename(planPath)})을 한 번도 갱신하지 않았습니다. ` +
+          'CLAUDE.md §10 은 결정·방향·스코프 변경을 그때그때 반영하라고 요구합니다 — ' +
+          '`# Progress`/`# Next` 만이라도 실제 상태로 맞추세요. ' +
+          '갱신할 것이 정말 없으면 그대로 다시 종료하면 통과합니다.'
+      );
+      if (sig) sig.emit('early-stop-plan-drift', { ...sigCtx, detail: data.changedTrigger });
     }
   }
 

@@ -66,7 +66,7 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 - **verification grounding**: 실행되는 산출물(HTML·SVG·게임·차트·CLI·서버)은 정적 점검이 아니라 **실제 실행·출력 관찰** 증거를 넣는다("well-formed ≠ correct").
 - trivial 은 항목화 면제(검증 자체가 acceptance) — 단 검증은 한다.
 - **문서 동기화도 acceptance**(CLAUDE.md §3): README 문서화 컴포넌트·`wiki/pages/` 를 건드리면 README/`wiki/index.md` 동기화를 acceptance 항목으로 같은 브랜치 갱신(잊으면 완료 아님).
-- **이중 보조**: Stop hook(`dlc-early-stop`)이 capped 경고(fail-open) — ① 비trivial 변경에 검증 기록 없음 ② 문서화 표면 바꿨는데 README/index 동기화 없음(`dlc-doc-drift`). hook 은 보조 — 이 규약이 단일 소스.
+- **삼중 보조**: Stop hook(`dlc-early-stop`)이 capped 경고(fail-open) — ① 비trivial 변경에 검증 기록 없음 ② 문서화 표면 바꿨는데 README/index 동기화 없음(`dlc-doc-drift`) ③ 소스를 바꿨는데 이 브랜치에 매칭되는 plan 을 안 건드림(`plan-match` — plan 이 실제로 있을 때만 발동, 없으면 침묵). hook 은 보조 — 이 규약이 단일 소스.
 
 ## 조사 프로토콜 (디버깅·장애)
 버그·장애는 추측 수정 전에(CLAUDE.md §1 근본 원인·3 Whys 구체화): **재현**(재현 없이 "고쳤다" 금지) → **가설 경쟁 3+**(첫 가설 안주 금지) → **인과 사슬**(증상→직접원인→근본원인 증거 확정, 증상만 누르는 수정 금지). 가능하면 재현 테스트 먼저(TDD Red) — green 이 acceptance 증거. 각 스텝 elaboration 은 `docs/dlc-details.md` §B.

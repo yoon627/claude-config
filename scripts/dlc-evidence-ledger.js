@@ -133,6 +133,9 @@ process.stdin.on('end', () => {
       const kind = sig.detectPlanSignal(tool, ti);
       if (kind) sig.emit(kind, { session_id: input.session_id, cwd: input.cwd, detail: fp });
     }
+    // plan 을 이 세션에서 한 번이라도 편집했나(early-stop 의 plan drift 축). changed 게이트와
+    // 별개 flag 라 isPlan 제외 규칙은 그대로 둔다 — plan 편집이 검증 대상이 되면 안 된다.
+    if (fp && isPlan(fp)) data.planTouched = true;
     if (fp && !isPlan(fp) && !isIgnored(fp, input.cwd)) {
       // 문서(.md)는 test/lint 대상이 아니다 → verify 게이트(changed) 를 켜지 않는다.
       // README·CLAUDE.md·SKILL·wiki 만 고친 세션이 early-stop-verify 오탐을 내던 원인.

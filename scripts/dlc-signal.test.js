@@ -28,7 +28,8 @@ ok('KINDS: failure/activity 축이 계획대로 고정된다', () => {
   assert.strictEqual(s.KINDS['router-investigation'], 'activity');
   assert.strictEqual(s.KINDS['router-grounding'], 'activity');
   assert.strictEqual(s.KINDS['review-disposition'], 'activity');
-  assert.strictEqual(Object.keys(s.KINDS).length, 9);
+  assert.strictEqual(s.KINDS['early-stop-plan-drift'], 'failure');
+  assert.strictEqual(Object.keys(s.KINDS).length, 10);
 });
 
 // ---- 경로 해석 (env 채널) ----
