@@ -195,11 +195,11 @@ updated: YYYY-MM-DD
 1. `# Goal` — 달성 목표 (1~3줄)
 2. `# Progress` — 날짜별 진행 로그
 3. `# Next` — **다음 즉시 액션 (가장 중요)**
-4. `# Decisions` — 설계/스코프 합의 + 이유
+4. `# Decisions` — 설계/스코프 합의 + 이유. **진지하게 검토했다가 기각한 대안이 있으면 그것과 기각 사유도** (없으면 다음 세션이 같은 안을 다시 꺼낸다 — 실측 재발 축)
 5. `# Key Files` — 핵심 파일 + 한 줄 메모
 6. `# Blockers` — 막힌 것 + 풀려면 필요한 것
 
-선택 섹션 (해당 작업에서 필요할 때만): `# Intent`(착수 전 확정한 요구 — Problem·Constraints·Out of scope·Open questions, dlc 요구사항 명확화가 채운다), `# Acceptance`(test 가능한 완료 기준 — 각 항목이 증거(실행·관찰·통과)로 충족될 때만 완료, dlc evidence gate), `# Review Disposition`(dlc fix loop 의 finding 처분 — `fix`/`defer`/`false-positive`/`wontfix`), `# Deferred`(범위 밖 발견 — §3-4), `# Workflow Findings`(확인된 workflow 실패 기록 — dlc 증거기반 자기개선, 최소형). `defer`(리뷰 finding 처분값) ≠ `# Deferred`(범위 밖 발견 보존 섹션). `# Intent`(무엇을 왜·어떤 제약에서) ≠ `# Goal`(달성 목표 1~3줄).
+선택 섹션 (해당 작업에서 필요할 때만): `# Intent`(착수 전 확정한 요구 — Problem·Constraints·Out of scope·Open questions, dlc 요구사항 명확화가 채운다), `# Acceptance`(test 가능한 완료 기준 — 각 항목이 증거(실행·관찰·통과)로 충족될 때만 완료, dlc evidence gate), `# Review Disposition`(dlc fix loop 의 finding 처분 — `fix`/`defer`/`false-positive`/`wontfix`. dlc ⚠️ self-flag 는 자기 신고라 `resolved`/`accepted-risk`/`deferred` 로 구분), `# Deferred`(범위 밖 발견 — §3-4), `# Workflow Findings`(확인된 workflow 실패 기록 — dlc 증거기반 자기개선, 최소형). `defer`(리뷰 finding 처분값) ≠ `# Deferred`(범위 밖 발견 보존 섹션). `# Intent`(무엇을 왜·어떤 제약에서) ≠ `# Goal`(달성 목표 1~3줄).
 
 리뷰는 dlc 의 중간 단계(구현 직후 code-reviewer + codex 병행, §9)가 담당한다 — push 직전 별도 codex 리뷰는 두지 않는다. 로컬 다관점 점검이 따로 필요하면 빌트인 `/code-review` 를 수동 사용.
 

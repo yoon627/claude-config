@@ -282,9 +282,9 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 | 파일 | 호출 시점 | 핵심 책임 |
 |---|---|---|
-| `plan-reviewer.md` | Plan 단계 직후 (비사소한 모든 구현 계획) | 누락 케이스·잘못된 가정·영향 범위·rollback·근본 원인 비판적 발굴. public API / DB schema / migration / 보안 / 아키텍처 / 권한 변경 시 필수. |
+| `plan-reviewer.md` | Plan 단계 직후 (비사소한 모든 구현 계획) | 누락 케이스·잘못된 가정·영향 범위·rollback·근본 원인 비판적 발굴 + **가장 위험한 단계 지목**·**기각한 대안이 `# Decisions` 에 남았나**·**dlc ⚠️ self-flag 우선 검토**. public API / DB schema / migration / 보안 / 아키텍처 / 권한 변경 시 필수. |
 | `architecture-reviewer.md` | 트리거 기반 (자동 호출 대상 아님) | 설계 결정 — 의존 방향·레이어 경계·객체 생명주기·DI/IoC·인터페이스 위치·테스트 가능 구조. public API / proto / DB schema / auth 변경, 신규 service·repository·client, DI 변경, 2개 이상 레이어 변경, 150줄 이상 diff, 또는 설계 의문 명시 시. |
-| `code-reviewer.md` | 구현 직후 (코드 변경이 있었던 모든 흐름) | 버그·보안·테스트 누락·예외 처리·성능·backward compatibility·근본 원인·설계고도(altitude)·관례(conventions). Find→Verify 2-pass (report-everything 후 self-refute, verdict CONFIRMED/PLAUSIBLE/REFUTED). 통과 검토 금지, 비판적 발굴 목적. |
+| `code-reviewer.md` | 구현 직후 (코드 변경이 있었던 모든 흐름) | 버그·보안·테스트 누락·예외 처리·성능·backward compatibility·근본 원인·설계고도(altitude)·관례(conventions)·**plan 대비 컴플라이언스**(plan 경로를 받았을 때만, 기본 Minor — 어느 쪽이 낡았는지 판정은 메인). Find→Verify 2-pass (report-everything 후 self-refute, verdict CONFIRMED/PLAUSIBLE/REFUTED). 통과 검토 금지, 비판적 발굴 목적. |
 | `researcher.md` | 외부 사실 조사 필요 시 (어느 단계에서든) | 라이브러리 버전별 동작·마이그레이션·최신 API, 정확한 에러 메시지 매칭, 릴리스 노트·CVE·RFC, 지식 컷오프 이후 정보, 함수/플래그 실존 여부 불확실 시. |
 
 각 agent 의 frontmatter `tools` 필드가 권한 범위를 제한 (예: researcher 는 Edit 권한 없음, code-reviewer 는 Bash 가능). agent 별 출력 형식과 호출 조건은 각 파일 본문 참고.
@@ -293,6 +293,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 `/dlc` 명시 호출 또는 비자명한 코드 변경 시 적용하는 개발 사이클 오케스트레이션. 규모 (trivial / small / medium / structural) 를 판정해 단계를 gate — 오타 1줄은 *절차*를 즉시 통과(worktree 는 규모 불문 경유), structural 변경은 explore → plan → 리뷰 → TDD → 구현 → 리뷰 → simplify → 검증 전체를 돈다.
 - 메인이 hub, 리뷰/검토(plan-reviewer, architecture-reviewer, code-reviewer)와 **최종 검증**(격리 runner·general-purpose, 실행만 — 메인이 명령·worktree cwd 지정)은 격리 subagent. 구현·통합·검증 판단·실패 fix·최종 판단은 메인.
+- **⚠️ self-flag**(3단계, 조건부): 계획을 쓰는 메인이 우려를 직접 신고한다 — 닫힌 트리거 3종(제약 동시 미충족·동급 규약 상충·⚠️추정 의존 설계)일 때만 `# Decisions` 에 한 줄, 아니면 침묵("우려 없음"은 쓰지 않는다). 이 repo 의 우려 장치가 전부 격리 리뷰어 쪽에 있어 메인의 낮은 확신 지점이 드러나지 않던 구멍을 메운다. 7단계에서 리뷰 지적과 함께 먼저 처분(`resolved`/`accepted-risk`/`deferred`).
 - simplify 체크(13단계)는 메인이 직접 수행 — 모든 격리 spoke 는 read-only. substantive 수정 시 targeted 재검증.
 - `.claude/plans/<slug>-plan.md` 가 subagent 간 단일 공유 채널 (메인만 write).
 - codex 병행 검토 호출 규약은 `docs/codex-review.md` (phase 당 codex owner 1개 지정으로 중복 호출 방지, Windows/PowerShell fallback 포함). 정본 명령은 프롬프트를 스크래치 파일로 넘기고 `--skip-git-repo-check` 를 쓰지 않는다(사유는 §3 — worktree 격리 가드).

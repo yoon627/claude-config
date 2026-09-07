@@ -47,6 +47,18 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 - **trivial 도 예외 아님** — 절차 생략이지 요구 불명확 허용 아님. 산출물·문구 모호하면 먼저 질문.
 - 명확화 ≤2 라운드(fix loop 동형). Explore 후 규모 재판정으로 범위 커지면 게이트 재평가.
 
+## ⚠️ self-flag — 계획을 쓰는 쪽이 우려를 신고한다 (3단계, 조건부)
+
+이 repo 의 우려 장치는 전부 **리뷰어 쪽**에 있다(plan-reviewer 강한/약한 우려, code-reviewer, architecture-reviewer). 리뷰어는 격리 spoke 라 **메인이 어디서 확신이 낮았는지 알 방법이 없어**, 그 지점이 리뷰에서 우연히 안 잡히면 그대로 통과한다. 그래서 계획을 쓰는 쪽이 직접 신고한다.
+
+- **닫힌 트리거 3종** — 이때만 적고, 아니면 **침묵**(요구사항 명확화 silent 규약과 동형. "우려 없음"을 쓰지 않는다):
+  1. 두 제약을 동시에 만족시키지 못해 한쪽을 택했다
+  2. 규약끼리 상충해 우선순위를 판단했다(precedence 가 명시되지 않은 동급끼리)
+  3. ⚠️추정(정황만 있는 근거)에 의존해 설계를 정했다
+- **기록처는 `# Decisions`** — 새 섹션을 만들지 않는다. 한 줄: `⚠️ <우려> — <무엇과 상충> — <택한 쪽과 이유>`. wiki 의 `> [!conflict]` 관행(WIKI.md)을 plan 쪽으로 옮긴 것.
+- **개수·형식 상한을 두지 않는다** — 항목 수를 정하면 [[self-diagnosis-and-improvement-status]] 가 기각한 "빈 체크리스트 의례"가 된다. 해당 없으면 0줄이 정답.
+- **처분은 리뷰 지적과 같은 경로** — 6단계 plan-reviewer 호출 시 `⚠️` 줄을 "우선 검토" 로 명시 전달하고, 7단계에서 리뷰 finding 과 **함께 먼저** 처분해 `# Review Disposition` 에 남긴다. 처분값은 리뷰 finding 과 구분해 `resolved`(해소) / `accepted-risk`(감수, 이유 필수) / `deferred` 만 쓴다 — `false-positive` 는 자기 신고에 의미가 없다.
+
 ## Acceptance — 항목화 + evidence gate (비-trivial)
 요구를 **test 가능한 acceptance 항목**으로 분해, 각 항목이 **증거(실행·관찰·통과)로 충족될 때만** "완료". 증거 없는 "완료" 금지.
 - **항목화**(draft plan 시): plan `# Acceptance` 에 `무엇이 충족되나` + `어떻게 검증(명령/관찰)` + `통과 기준`. 관찰 가능하게(추상적 "잘 동작" 금지).
@@ -64,15 +76,15 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 0  Setup            git status · 규모 판정 · plan 파일
 1  Explore
 2  researcher       [조건부 · 격리]
-3  draft plan       테스트전략 · rollback · 영향범위 · 구조의도 · # Acceptance 항목화
+3  draft plan       테스트전략 · rollback · 영향범위 · 구조의도 · # Acceptance 항목화 · ⚠️ self-flag(해당 시)
 4  arch planning    [격리 · structural 만 · codex off]
 5  plan 수정
 6  plan-reviewer    [격리 · codex owner]
-7  지적 반영         구조 바뀌면 4~6 재실행
+7  지적 반영         ⚠️ self-flag 를 리뷰 지적과 함께 먼저 처분 · 구조 바뀌면 4~6 재실행
 8  TDD Red          새 테스트가 의도한 이유로 실패하는지 확인
 9  구현
 10 Green            test/build/typecheck 최소
-11 arch(정밀) + code-reviewer   [격리 · 병렬 · codex owner 1개]
+11 arch(정밀) + code-reviewer   [격리 · 병렬 · codex owner 1개 · 입력에 plan **경로**]
 12 fix loop         관련 reviewer 만 · ≤2회 · disposition
 13 simplify 체크    [메인 직접 · blocker 없을 때만]
 14 재리뷰           simplify 체크의 substantive edit 시 targeted
@@ -87,6 +99,7 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 - **메인(hub)**: Setup, Explore(얇게 — 광범위 검색만 Explore agent 위임), draft plan, TDD Red, 구현, Green(구현 직후 최소 스모크), 통합, 검증 명령 식별·결과 판단·실패 fix, Report, 최종 판단.
 - **격리 subagent (spoke, read-only)**: researcher, architecture-reviewer(planning/정밀), plan-reviewer, code-reviewer.
 - **최종 검증 runner (격리·Edit 없음·검증 산출물은 생성)**: 빌트인 general-purpose — 소스 불변, build/test 산출물·캐시는 만듦. 메인이 식별한 검증 명령을 **문자열 그대로 + worktree 절대 cwd** 로 받아 지정 명령만 실행, 해석·수정·재탐색·수리 안 함(명령 식별 책임은 메인 — 아래 '검증 명령 미식별'). ⚠️ **cwd 누락 시 silent false-pass 위험**. 반환 계약(구조화 형식·불충분 시 재실행) 세부는 `docs/dlc-details.md` §E.
+- **runner 에 `# Acceptance` 원문을 함께 넘긴다**(있을 때) — runner 는 `항목 → 관찰한 것 / 관찰하지 못한 것 / 어긋난 것` 으로만 **매핑해서** 되돌린다. 명령·cwd 는 받은 문자열 그대로이고 재탐색·자체 수리 금지는 그대로다(해석 여지를 주면 '실행만' 계약이 무너진다). 메인의 evidence gate 판정이 runner 보고와 갈리면 **멈추고 사유를 남긴다** — 지금 evidence gate 는 코드를 쓴 컨텍스트의 자기 채점뿐이라 이것이 유일한 독립 대조다.
 - **검증 실패는 12단계 fix loop 와 별개** — 객관적이라 disposition(false-positive/wontfix) 대상 아님, 통과까지 메인이 수정·재검증.
 - **메인 직접 검증(격리 아님)**: 10단계 Green·14단계 targeted 재검증·trivial 검증 — 짧고 즉시 루프라 격리 오버헤드가 손해.
 - **simplify 체크(13단계)**: 격리 아니라 **메인 직접**(모든 spoke read-only). diff 범위에서 중복·과한 추상화·불필요 옵션/죽은 분기·죽은 코드·과한 방어·표준 유틸 대체·깊은 nesting 을 점검(항목 나열은 `docs/dlc-details.md` §E). 동작 보존 · 범위 내 · 불확실하면 보류(제안만 Report). substantive 수정 시 targeted test + 14 targeted 재리뷰 필수.
