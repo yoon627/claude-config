@@ -21,7 +21,7 @@ sources:
 - 규모는 **예비값** — Explore 후·구현 diff 후 재판정해 승급하면 skip한 단계를 되살린다.
 
 ## structural 파이프라인 (요지)
-Setup → Explore → draft plan → plan-reviewer → TDD Red → 구현 → Green → code-reviewer+architecture-reviewer(병렬) → fix loop(≤2) → simplify 체크(메인 직접) → targeted 재리뷰 → 최종 검증 → **마무리(evidence gate → plan 갱신 → 커밋 → Report)**. 최종 검증은 격리 runner가 실행하고 메인이 판단. 커밋을 plan 갱신 뒤에 두는 이유는 [[comment-and-commit-policy]] 와 CLAUDE.md §8.
+Setup → Explore → draft plan → plan-reviewer → TDD Red → 구현 → Green → code-reviewer+architecture-reviewer(병렬) → fix loop(≤2) → simplify 체크(메인 직접) → targeted 재리뷰 → 최종 검증 → **마무리(evidence gate → 판정 DONE/BLOCKED/NEEDS-HUMAN → plan 갱신 → 커밋(DONE 만) → 알림 → Report)**. 최종 검증은 격리 runner가 실행하고 메인이 판단. 커밋을 plan 갱신 뒤에 두는 이유는 [[comment-and-commit-policy]] 와 CLAUDE.md §8.
 
 ## 요구사항 명확화 게이트
 규모 판정 직후, 요구의 공백(문제·제약·완료기준·범위·산출물·제외)이 acceptance를 바꾸면 `AskUserQuestion`. 공백 없으면 침묵 진행. "무엇이 빠지면 질문, 방법만 갈리면 분석 후 추천". 확정한 답은 대화로 흘리지 말고 plan `# Intent`(§10 선택 섹션 — [[plan-handoff]])에 Problem·Constraints·Out of scope·Open questions 로 남긴다. 안 남기면 다음 세션이 같은 질문을 반복하고 이미 기각된 안이 되살아난다.

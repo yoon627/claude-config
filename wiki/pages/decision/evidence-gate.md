@@ -15,7 +15,7 @@ sources:
 비trivial 작업의 완료를 **증거로 게이트**한다 — 요구를 test 가능한 항목으로 분해하고, 각 항목이 실행·관찰·통과로 충족될 때만 "완료". [[fablize-adopted-disciplines|fablize]]의 evidence gate 개념을 [[dlc-development-cycle|dlc]]에 차용한 것.
 
 ## 2층 구조
-- **1차 (모델·단일 소스)**: plan `# Acceptance` 섹션. 각 항목 = `무엇이 충족되나` + `어떻게 검증(명령/관찰)` + `통과 기준`. dlc 16단계 Report 전 전 항목을 증거로 대조, 미충족이면 완료 금지(`status: blocked`/"미검증").
+- **1차 (모델·단일 소스)**: plan `# Acceptance` 섹션. 각 항목 = `무엇이 충족되나` + `어떻게 검증(명령/관찰)` + `통과 기준`. dlc 16단계 Report 전 전 항목을 증거로 대조, 미충족이면 완료 금지. 미충족의 처분은 **판정 세 값** — BLOCKED(자원을 받아야 함, `status: blocked`) / NEEDS-HUMAN(대안을 골라야 함, `status: in_progress` + `# Next`) / 아직 고치는 중이면 판정 대상 아님. DONE 은 acceptance 충족이지 plan 종결이 아니라 `status: done` 을 박지 않는다(§10 은 머지·승인 시점).
 - **2차 (결정론적 보조)**: Stop hook `dlc-early-stop.js`. "파일 변경했는데 검증 기록 없음"을 감지해 **capped(1회)·fail-open**으로 경고. ledger(`dlc-evidence-ledger.js`가 PostToolUse로 기록)를 읽는다. hook 은 보조일 뿐 규약(SKILL)이 단일 소스.
 
 ## verification grounding

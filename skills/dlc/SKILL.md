@@ -68,6 +68,21 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 - **문서 동기화도 acceptance**(CLAUDE.md §3): README 문서화 컴포넌트·`wiki/pages/` 를 건드리면 README/`wiki/index.md` 동기화를 acceptance 항목으로 같은 브랜치 갱신(잊으면 완료 아님).
 - **삼중 보조**: Stop hook(`dlc-early-stop`)이 capped 경고(fail-open) — ① 비trivial 변경에 검증 기록 없음 ② 문서화 표면 바꿨는데 README/index 동기화 없음(`dlc-doc-drift`) ③ 소스를 바꿨는데 이 브랜치에 매칭되는 plan 을 안 건드림(`plan-match` — plan 이 실제로 있을 때만 발동, 없으면 침묵). hook 은 보조 — 이 규약이 단일 소스.
 
+## 판정 + 알림 (비-trivial)
+**작업을 끝낼 때** evidence gate 결과를 세 값 중 하나로 명시 판정한다 — "대체로 됐다" 로 끝내지 않는다. 아직 고칠 수 있고 고치는 중이면 판정 대상이 아니다(계속 진행).
+- **DONE** — `# Acceptance` 전 항목이 증거로 충족. **여기서 plan `status` 를 done 으로 만들지 않는다** — §10 대로 머지·배포·승인 시점이 done 이다(acceptance 통과 ≠ 통합 완료. 미리 done 을 박으면 `/c` 가 통합 대기 작업을 종료된 것으로 보고 건너뛴다). **정식 커밋은 이 판정에서만.**
+- **BLOCKED** — 다음에 필요한 것이 **자원·사실의 제공**(권한·자격증명·미배포 API·타인 작업). `status: blocked` + `# Blockers` 에 *풀려면 필요한 것*.
+- **NEEDS-HUMAN** — 다음에 필요한 것이 **선택·승인**(대안 선택·리스크 감수·기각안 재개). `status: in_progress` 유지 + `# Next` 에 물어야 할 것을 선택지와 함께. `blocked` 로 접지 않는 이유: blocked 전이는 `plan-blocked` **failure** telemetry 로 집계돼(`dlc-signal.js`) 정상적인 결정 대기가 workflow 실패로 남는다. status 가 그대로 둘의 구분 키가 된다.
+- 둘 다처럼 보이면(자격증명도 없고 mock 으로 갈지도 정해야 한다) **다음 한 걸음**으로 가른다 — 받아야 하면 BLOCKED, 골라야 하면 NEEDS-HUMAN.
+- **BLOCKED·NEEDS-HUMAN 은 정식 커밋하지 않는다**(CLAUDE.md §8 — 검증 실패는 커밋 금지). 미완 변경 보존이 필요하면 `/e` 의 `wip:` 체크포인트.
+
+**no-progress 정지** — 검증 실패 수리는 무한하지 않다: **1회차 실패 뒤에는 가설·전략을 바꿔야 하고, 바꾸고도 관찰 가능한 개선이 없으면 2회차에서 멈추고** 위 판정으로 간다. 세는 것은 *코드 수정 실패*뿐 — 네트워크·인프라 등 transient 실패는 카운트하지 않는다. 어느 acceptance 항목·어떤 실패·무엇을 시도했고 무엇이 안 변했나를 `# Blockers`(NEEDS-HUMAN 이면 `# Next`)에 남긴다.
+- **카운터 리셋 금지**: 실패를 다른 이름으로 재분류하거나, 테스트를 약화시키거나, acceptance 문구·통과 기준·검증 명령을 바꿔 횟수를 되돌리지 않는다. 그 셋을 정말 바꿔야 하면 **사용자 승인 + `# Decisions` 기록**이 먼저다(CLAUDE.md §7 테스트 약화 금지의 연장).
+- acceptance 항목은 plan 의 항목 번호로 식별해 세션이 바뀌어도 횟수가 이어지게 한다.
+- 훅이 대신 세지는 않는다 — 현재 ledger(`dlc-evidence-ledger`)는 tool response 를 소비하지 않고 안정적인 실패 signature·acceptance 매핑도 없다. 기계화하려면 그것부터가 별도 작업이다.
+
+**알림** — terminal 전이는 `PushNotification` 의 **필요조건이지 충분조건이 아니다**. 사용자 주의가 실제로 필요할 때만, 전이당 **최대 1회**. BLOCKED/NEEDS-HUMAN 은 물어야 할 것을 한 줄로. DONE 은 **오래 걸려 사용자가 자리를 떴을 법할 때만** — 짧은 작업은 Report 가 이미 눈앞에 있어 중복이다. 도구가 attached 라 skip 하면 정상이며 재시도하지 않는다. trivial·즉답은 면제.
+
 ## 조사 프로토콜 (디버깅·장애)
 버그·장애는 추측 수정 전에(CLAUDE.md §1 근본 원인·3 Whys 구체화): **재현**(재현 없이 "고쳤다" 금지) → **가설 경쟁 3+**(첫 가설 안주 금지) → **인과 사슬**(증상→직접원인→근본원인 증거 확정, 증상만 누르는 수정 금지). 가능하면 재현 테스트 먼저(TDD Red) — green 이 acceptance 증거. 각 스텝 elaboration 은 `docs/dlc-details.md` §B.
 
@@ -89,7 +104,7 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 13 simplify 체크    [메인 직접 · blocker 없을 때만]
 14 재리뷰           simplify 체크의 substantive edit 시 targeted
 15 최종 검증         lint / typecheck / test / build   [격리 runner · 실행만]
-16 마무리           evidence gate(# Acceptance 전 항목 대조 · 통과 후에만 완료) → plan 업데이트 → 커밋 → Report
+16 마무리           evidence gate(# Acceptance 전 항목 대조 · 통과 후에만 완료) → 판정(DONE/BLOCKED/NEEDS-HUMAN) → plan 업데이트 → 커밋(DONE 만) → 알림(필요할 때 최대 1회) → Report
 ```
 
 ## wiki 연계 (CLAUDE.md §11)
@@ -111,7 +126,7 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 
 ## fix loop / disposition
 - 최대 2회. 각 finding 을 plan `# Review Disposition` 에 `fix / defer / false-positive / wontfix` 기록(메인만 씀).
-- 2회 후 같은 class 잔존 시 `status: blocked` 또는 명시적 risk accept.
+- 2회 후 같은 class 잔존 시 `status: blocked` 또는 명시적 risk accept. (여기 2회는 **리뷰 finding 처분** 상한 — 검증 실패 수리의 상한은 판정 섹션의 no-progress 정지로 별개 축이다.)
 
 ## 자기 진단
 새 단계가 아니라 **plan write 시점**(single writer re-read 강제)에 기생하는 메타 점검 — "지금 행동이 `# Next`·규모표와 맞나". silent self-check 에 기대지 않는다(이탈 중엔 자기점검도 안 돈다). **trivial 면제**.

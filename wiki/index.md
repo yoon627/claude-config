@@ -6,7 +6,7 @@
 - [[llm-wiki-pattern]] — 이 wiki 가 따르는 LLM Wiki 패턴(Karpathy): 영속·누적 markdown 지식베이스.
 - [[project-memory]] — 이 wiki 의 목적·`plans/` 와의 경계(일시적 vs 영속).
 - [[ingest-operation]] — raw/지식을 wiki 에 반영하는 연산 절차.
-- [[dlc-development-cycle]] — 비자명 코드변경 개발사이클 오케스트레이션(규모 gate·16단계·격리·요구사항 명확화 6항→plan `# Intent`).
+- [[dlc-development-cycle]] — 비자명 코드변경 개발사이클 오케스트레이션(규모 gate·16단계·격리·요구사항 명확화 6항→plan `# Intent`·마무리 판정 3값).
 - [[plan-handoff]] — 세션·도구 간 작업 컨텍스트 단일 plan 채널(§10·single-writer·active tracking·선택 섹션 `# Intent`/`# Acceptance` 외).
 - [[hub-and-spoke-isolation]] — 메인 hub(구현·통합·판단), reviewer 는 격리 read-only spoke.
 - [[worktree-per-task]] — 작업마다 격리 worktree(wt skill·자동 bootstrap·삭제 조건).
@@ -35,7 +35,7 @@
 - [[self-diagnosis-and-improvement-status]] — 자기진단 채택(#49) / 자기개선 = 수집·분석 기계화 채택(2026-07-03, dlc-signal+/improve), 반영은 승인 게이트 유지.
 - [[comment-and-commit-policy]] — 주석 최소·변경 경위는 커밋/PR 에 (#26·#34·#25).
 - [[codex-bash-invocation]] — codex 는 Bash 도구로 호출(PowerShell stdin hang 회피, #23).
-- [[evidence-gate]] — 검증 항목화 + 증거 충족 시만 완료(plan # Acceptance + Stop hook 보조, capped·fail-open).
+- [[evidence-gate]] — 검증 항목화 + 증거 충족 시만 완료(plan # Acceptance + Stop hook 보조, capped·fail-open). 미충족 처분은 DONE/BLOCKED/NEEDS-HUMAN 판정.
 - [[e-merge-mode]] — `/e merge` 머지 모드 설계(2026-09-02): 트리거 토큰 한정·done 을 PR 에 싣고 REJECTED 만 복구·mergedAt+fetch invariant·MERGED PR 재사용 안 함·checks 는 exit code+bucket·`--delete-branch` 금지.
 - [[dlc-wt-autoflow]] — dlc 가 코드/파일을 바꾸면 규모 불문 wt worktree 자동 경유(순환 방지·생성은 무확인, 2026-08-03 확인 폐지 · 2026-09-04 trivial 포함으로 확대).
 - [[risk-based-approval]] — 승인은 가역성으로 가른다: 비가역·외부공개·파괴적만 확인, 가역·로컬은 무확인 실행 후 되돌릴 정보 보고 (2026-08-03, graph engineering HITL 원칙). **`ask` 는 `allow` 로 풀리지 않는다**(deny→ask→allow, first match wins) — 2026-09-07 정정.
