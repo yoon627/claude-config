@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Stop hook — evidence gate 보조. 두 가지 누락을 capped 1회 경고로 유도하고 그 뒤엔 통과(fail-open):
 //   (1) 검증 누락: 파일을 변경했는데 test/lint/build 기록이 없는 채로 종료(blocks).
-//   (2) 문서 drift: 문서화 표면(scripts/·agents/·skills/**/SKILL.md·settings.json·CLAUDE.md, wiki/pages)을
+//   (2) 문서 drift: 문서화 표면(scripts/·agents/·skills/**/SKILL.md·CLAUDE.md, wiki/pages)을
 //       바꿨는데 README.md / wiki/index.md 동기화가 없는 채로 종료(docBlocks · dlc-doc-drift 판정).
 // 두 판정을 한 hook 에서 하고 한 block 메시지로 합쳐 출력한다 — 별도 hook 이면 동시 block 시
 //   한쪽 reason 이 노출 안 된 채 카운터만 소모돼 다시는 안 잡히는 false negative 가 난다.

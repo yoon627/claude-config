@@ -27,8 +27,8 @@ const cases = [
   ['main plans', { file_path: REPO + '/plans/x-plan.md' }, 'allow'],
   ['main projects/MEMORY', { file_path: REPO + '/projects/p/memory/MEMORY.md' }, 'allow'],
   ['main settings.local.json', { file_path: REPO + '/settings.local.json' }, 'allow'],
+  ['main settings.json', { file_path: REPO + '/settings.json' }, 'allow'],
   // 추적 자산 → worktree 복사본 편집이 정답이므로 main 편집 deny
-  ['main settings.json', { file_path: REPO + '/settings.json' }, 'deny'],
   ['main scripts', { file_path: REPO + '/scripts/foo.js' }, 'deny'],
   ['main CLAUDE.md', { file_path: REPO + '/CLAUDE.md' }, 'deny'],
   // worktree 안 → allow

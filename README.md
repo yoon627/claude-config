@@ -4,7 +4,9 @@ Windows 에서 사용하는 `%USERPROFILE%\.claude\` 또는 macOS 에서 사용�
 
 대상: Claude Code 를 깊이 사용하는 본인. 일반 공개 가이드 아님. 본인 워크플로우와 기존 자동화에 종속된 컴포넌트가 일부 있음.
 
-`settings.json` 은 **단일 cross-platform** — Windows·macOS 모두 clone 한 그대로 동작 (OS별 복사 단계 없음). statusline·notify 는 `node ~/.claude/...` 형태로 통일했고 (`~` 는 Git Bash·sh 양쪽에서 홈으로 확장), OS 분기는 호출되는 스크립트 내부에서 처리 (`scripts/notify-hook.js` 의 `process.platform`). Windows 의 toast·flash 만 `scripts/notify.ps1` / `notify-hook.ps1` 로 위임.
+`settings.json` 은 **untracked** (2026-09-07~). Claude Code 가 이 파일에 머신별 값을 스스로 써넣어서 — Orca 훅 절대경로, gitkraken marketplace 의 `source: directory`, `/auto-mode-setup` 의 `autoMode`(머신 절대경로 + 사내 IP·도메인) — tracked 인 동안 `git pull` 이 주기적으로 막히고 public 레포로 사내 식별자가 새어나갔다. 키를 하나씩 빼는 대응은 3회 재발했다. 근거·이력은 `wiki/pages/decision/lesson-tracked-config-machine-paths.md`, 재도입 금지 사유는 `.gitignore` 주석.
+
+내용 자체는 **단일 cross-platform** — statusline·notify 는 `node ~/.claude/...` 형태로 통일했고 (`~` 는 Git Bash·sh 양쪽에서 홈으로 확장), OS 분기는 호출되는 스크립트 내부에서 처리 (`scripts/notify-hook.js` 의 `process.platform`). Windows 의 toast·flash 만 `scripts/notify.ps1` / `notify-hook.ps1` 로 위임. 따라서 머신 간에는 **파일을 그대로 복사**하면 되고 OS별 편집은 필요 없다.
 
 ---
 
@@ -38,10 +40,14 @@ cd $env:USERPROFILE\.claude
 #    과거 SessionStart 자동등록은 무서명 원격 스크립트 자동 실행 위험으로 제거됨 (아래 install-gwl.ps1 절 참조).
 .\scripts\install-gwl.ps1
 
-# 5. Claude Code 재시작
+# 5. settings.json 배치 — clone 에 포함되지 않는다 (untracked)
+#    기존 머신의 ~/.claude/settings.json 을 그대로 복사해 온다. cross-platform 이라 편집 불필요.
+#    없으면 hook·statusline 이 전혀 등록되지 않는다.
+
+# 6. Claude Code 재시작
 ```
 
-`settings.json` 은 tracked — clone 한 그대로 동작 (별도 복사 단계 없음).
+`settings.json` 은 **untracked** — clone 만으로는 오지 않으므로 위 5번을 건너뛰면 안 된다. 이유는 문서 맨 위 참조.
 
 ### B. 이미 `~/.claude/` 가 있는 머신 — 기존 데이터 보존
 
@@ -64,8 +70,7 @@ git remote add origin <this-repo-url>
 git fetch origin
 
 # 4) `-f` 없이 checkout — repo 와 동명의 untracked 파일이 있으면 git 이 멈춤.
-#    settings.json 도 이제 tracked 라 충돌하면 멈춤 — 백업한 값에서 머신별 부분은
-#    settings.local.json 으로 옮길지, settings.json 을 덮어쓸지 본인이 판단.
+#    settings.json 은 untracked 라 checkout 대상이 아님 — 기존 파일이 그대로 살아남는다.
 git checkout origin/main -b main
 
 # 5) hooks 설치
@@ -76,7 +81,9 @@ git checkout origin/main -b main
 
 ### C. 머신별 / 민감 정보 — `settings.local.json` 으로
 
-`settings.json` 은 tracked → repo 의 base 설정. 머신별 차이나 민감 정보는 `~/.claude/settings.local.json` (gitignored) 에 둠. Claude Code 가 자동으로 deep merge 하고 `.local` 이 우선.
+`settings.json` 도 `settings.local.json` 도 이제 둘 다 gitignored 라, 이 구분은 "무엇이 커밋되나"가 아니라 **스코프**다. `settings.json` 은 이 머신의 base 설정, `settings.local.json` 은 그 위에 얹는 override — Claude Code 가 자동으로 deep merge 하고 `.local` 이 우선.
+
+> ⚠️ `autoMode`(auto mode classifier 규칙)는 `settings.local.json` 에서 **읽히지 않는다**. 공식 문서: "The classifier doesn't read `autoMode` from project settings in `.claude/settings.json` or `.claude/settings.local.json`." 유효 스코프는 `~/.claude/settings.json` / managed settings / `--settings` 뿐이므로, 이 키만은 `.local` 로 옮길 수 없다 — 옮기면 에러 없이 조용히 무시된다.
 
 예시:
 
@@ -108,6 +115,8 @@ git checkout origin/main -b main
 - 금지 키(settings.json): `mcpServers`, `apiKeyHelper`, `awsCredentialExport`, `awsAuthRefresh`
 - 토큰/시크릿 패턴(settings.json·plans): Anthropic / OpenAI / GitHub / GitLab / AWS / GCP / Slack / JWT / PEM / DB URL creds / Bearer / 따옴표 시크릿 대입
 
+`settings.json` 이 untracked 가 된 뒤로 이 가드가 실제로 보는 것은 `plans/*.md` 뿐이다. settings.json 분기는 staged/tracked 목록에 그 파일이 있을 때만 도므로 지금은 조용히 건너뛴다 — 실수로 다시 추적되면 되살아나는 안전망으로 남겨 뒀다.
+
 설치 한 번:
 ```powershell
 .\scripts\install-hooks.ps1
@@ -126,18 +135,22 @@ macOS 는 PowerShell 대신 `bash` + `osascript` (알림) + `afplay` (사운드)
 ### A. 새 macOS 머신 — `~/.claude/` 가 없거나 비어있을 때
 
 ```bash
-# 1. clone — settings.json 이 cross-platform 이라 그대로 동작 (OS별 복사 불필요)
+# 1. clone
 cd ~
 git clone <this-repo-url> .claude
 
-# 2. (optional) pre-commit / pre-push 가드 설치
+# 2. settings.json 배치 — clone 에 포함되지 않는다 (untracked)
+#    기존 머신의 ~/.claude/settings.json 을 그대로 복사. cross-platform 이라 OS별 편집 불필요.
+#    없으면 hook·statusline 이 전혀 등록되지 않는다.
+
+# 3. (optional) pre-commit / pre-push 가드 설치
 cd ~/.claude
 ./scripts/install-hooks.sh
 
-# 3. (optional) `gwl` 셸 단축키 설치 — worktree list (수동 1회). 상세: 아래 gwl.zsh 절.
+# 4. (optional) `gwl` 셸 단축키 설치 — worktree list (수동 1회). 상세: 아래 gwl.zsh 절.
 ./scripts/install-gwl.zsh
 
-# 4. Claude Code 재시작
+# 5. Claude Code 재시작
 ```
 
 ### B. 이미 `~/.claude/` 가 있는 macOS 머신 — 기존 데이터 보존
@@ -155,9 +168,10 @@ git remote add origin <this-repo-url>
 git fetch origin
 
 # 3) checkout — repo 와 동명의 untracked 파일이 있으면 git 이 멈춤.
+#    settings.json 은 untracked 라 checkout 대상이 아님 — 기존 파일이 그대로 살아남는다.
 git checkout origin/main -b main
 
-# 4) hooks 설치 (settings.json 은 cross-platform 이라 OS별 적용 불필요)
+# 4) hooks 설치
 ./scripts/install-hooks.sh
 ```
 
@@ -169,7 +183,7 @@ git checkout origin/main -b main
 
 ### D. Pre-commit / Pre-push 가드 (macOS)
 
-`scripts/pre-commit-check.sh` 가 Windows `.ps1` 버전과 동일한 규칙으로 staged/HEAD `settings.json` + staged `plans/*.md`(tracked §10) 를 검사. 동일하게 금지 키 + 토큰/시크릿 패턴 차단.
+`scripts/pre-commit-check.sh` 가 Windows `.ps1` 버전과 동일한 규칙으로 staged/HEAD `settings.json` + staged `plans/*.md`(tracked §10) 를 검사. 동일하게 금지 키 + 토큰/시크릿 패턴 차단. settings.json 이 untracked 라 실효 대상이 `plans/*.md` 뿐인 것도 Windows 판과 같다.
 
 설치:
 ```bash
@@ -206,7 +220,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 `Agent` 도구로 subagent 호출 시 subagent 의 statusline 에 `running | 1.2k tok | 0m 5s` 같은 한 줄이 나와야 함.
 
 ### 5. Pre-commit guard
-`.\scripts\install-hooks.ps1` 실행 후 일반 `git commit` 은 무동작 (정상). 의도적으로 settings.json 에 `"mcpServers": {}` 박고 commit 시도 → `[BLOCKED]` 출력 + exit 1 이어야 함.
+`.\scripts\install-hooks.ps1` 실행 후 일반 `git commit` 은 무동작 (정상). 확인하려면 `plans/` 아래 임시 plan 파일에 토큰 형태 문자열(예: `sk-` 로 시작하는 더미)을 넣고 stage 후 commit 시도 → `[BLOCKED]` 출력 + exit 1 이어야 함. (settings.json 은 untracked 라 더 이상 이 경로로 검증되지 않는다.)
 
 ---
 
@@ -389,7 +403,7 @@ jq 미설치 환경이라 node 로 stdin JSON 파싱. 파싱 실패 시 exit 0 (
 dlc(`skills/dlc/`)의 evidence gate 를 보조하는 누락방지망. 모두 fail-open — plan `# Acceptance` evidence gate(메인 판정)가 단일 소스고, 이 hook 들은 capped 보조일 뿐.
 - **`dlc-task-router.js`** (UserPromptSubmit, + `.test.js`) — 디버깅/render 키워드 감지 시 조사·검증 discipline(취향·시각 산출물엔 **프로토타입-우선** 제안 포함)을 주입하고 세션 evidence 장부를 리셋. 매칭 전에 하네스가 붙인 `<system-reminder>`·`<task-notification>` 블록을 걷어내고, 남은 사용자 텍스트가 없으면 **장부 리셋도 건너뛴다** — subagent 결과 알림 턴에도 UserPromptSubmit 이 발동해 알림 본문의 "재현·failing" 이 오발동시켰고(한 세션 4회 실측), 그 턴의 리셋이 `dlc-early-stop` 의 changed/verified·doc-drift 판정을 조용히 지웠다. reminder 가 앞뒤에 붙은 정상 프롬프트는 그대로 라우팅·리셋된다.
 - **`dlc-evidence-ledger.js`** (PostToolUse `Edit|Write|NotebookEdit|Bash`) — 코드 변경·검증 명령 실행을 세션 장부에 기록 + 문서화 표면↔README/index dirty flag 갱신(`dlc-doc-drift` 판정). `readme-trigger-new` 부류의 신규 여부는 여기서 판정해 주입(`isNewInRepo` — `git ls-tree HEAD` 에 그 경로가 없으면 신규; git 실행 실패는 기존 취급 = 무경고). **검증 명령 인식은 2단 구조** — `VERIFY_TOOLS`(그 자체가 검증인 도구: pytest·jest·eslint·mypy·`shellcheck`·`stylelint`·`yamllint`·`hadolint`·`rspec`·`phpunit` 등) + `VERIFY_SUBCMD`(서브커맨드·플래그가 붙어야 검증: `docker compose … config`·`make (test|lint|check|verify|typecheck)`·`dotnet test`·`swift test`·`terraform validate`·`(prettier|black) … --check`·cargo/go/gradle/mvn/npm 계열). 나눈 이유는 `docker compose up`·`terraform apply`·`prettier --write`·`black .` 처럼 **실행·적용이지 검증이 아닌** 호출을 verified 로 치면 gate 가 헐거워지기 때문 — 음성 케이스도 테스트로 락. 이 확장은 2026-08-13 telemetry 조사에서 나왔다(`.md` 제외 fix 이후 남은 `early-stop-verify` 발동이 `compose.yaml`·`*.css`·`*.sh` 에 몰렸는데 그 표준 검증기가 전부 미인식이었다).
-- **`dlc-early-stop.js`** (Stop) — 종료 시 두 누락을 capped 1회 경고로 합쳐 출력: ① **코드**를 변경했는데 검증 기록 없음(문서 `.md` 편집은 이 게이트 밖 — test/lint 대상 아님이라 doc-only/정리 세션 오탐 방지, 문서↔README 는 아래 ②가 커버; `CLAUDE_DLC_EARLYSTOP_OFF=1`), ② 문서화 표면(`scripts/`·`agents/`·`skills/**/SKILL.md`·`settings.json`·`CLAUDE.md`, `wiki/pages/`)을 바꿨는데 `README.md`/`wiki/index.md` 동기화 없음(`CLAUDE_DLC_DOCDRIFT_OFF=1`; 판정 직전 `resolveRoot`+`fs.statSync` 로 target mtime 을 `dlc-doc-drift.evaluate` 에 주입해 **Bash 로 고친 README 도 인정**한다). 단 **테스트 파일(`*.test.js`)은 신규 추가일 때만** — README 는 테스트를 `x.js (+ .test.js)` 처럼 존재만 표기하므로 기존 테스트 편집은 README 무영향(오탐이었음). 한 hook 에서 합산 출력 — 별도 hook 이면 동시 block 시 한쪽 카운터가 미노출 소모돼 다시 안 잡히는 false negative.
+- **`dlc-early-stop.js`** (Stop) — 종료 시 두 누락을 capped 1회 경고로 합쳐 출력: ① **코드**를 변경했는데 검증 기록 없음(문서 `.md` 편집은 이 게이트 밖 — test/lint 대상 아님이라 doc-only/정리 세션 오탐 방지, 문서↔README 는 아래 ②가 커버; `CLAUDE_DLC_EARLYSTOP_OFF=1`), ② 문서화 표면(`scripts/`·`agents/`·`skills/**/SKILL.md`·`CLAUDE.md`, `wiki/pages/`)을 바꿨는데 `README.md`/`wiki/index.md` 동기화 없음(`CLAUDE_DLC_DOCDRIFT_OFF=1`; 판정 직전 `resolveRoot`+`fs.statSync` 로 target mtime 을 `dlc-doc-drift.evaluate` 에 주입해 **Bash 로 고친 README 도 인정**한다). 단 **테스트 파일(`*.test.js`)은 신규 추가일 때만** — README 는 테스트를 `x.js (+ .test.js)` 처럼 존재만 표기하므로 기존 테스트 편집은 README 무영향(오탐이었음). 한 hook 에서 합산 출력 — 별도 hook 이면 동시 block 시 한쪽 카운터가 미노출 소모돼 다시 안 잡히는 false negative.
 - **`dlc-doc-drift.js`** — 문서 drift 판정 **순수 모듈**(hook 아님). `resolveRoot`(`.claude`/worktree 한정, 타 repo no-op)·`classify`(root 기준 정확 경로 → `readme-trigger`/`readme-trigger-new`/`index-trigger`/`*-target`)·`applyChange`(dirty 전이; 5번째 인자 `isNewFile(rel, root)` 는 `readme-trigger-new` 에만 조회되는 주입 콜백 — 미제공 시 트리거 안 함)·`partitionPending`·`settle`(mutating)·`evaluate(data, mtimeOf) → [{axis, message}]`. `readme-trigger-new` 는 README 가 **존재만** 문서화하는 부류(`*.test.js`·`*.spec.js`)라 신규 추가일 때만 경고한다. **covered-set**: target(README/wiki index)을 갱신하면 그때까지 dirty 를 유발한 trigger 들을 `*Covered` 로 넘기고, **covered 에 든 파일의 재편집은 다시 dirty 로 만들지 않는다** — 문서 동기화는 편집 *순서*가 아니라 *상태*인데 순서로만 모델링하면 "동기화 후 같은 파일을 한 번 더 만졌다"가 미동기화로 뒤집혀 오탐이 난다(2026-08-12 실제 2회). **mtime 재확인**: dirty 는 PostToolUse 의 `Edit|Write|NotebookEdit` 분기에서만 세워지므로, README 를 **Bash**(`node -e`·`sed`·heredoc)로 고치면 target 갱신이 장부에 안 잡혀 dirty 가 영영 안 풀린다("고쳤는데도 경고" — 2026-09-04 한 세션에 2회 발생). 그래서 `partitionPending` 이 `mtimeOf(rel)→ms|null`(early-stop 이 `resolveRoot` + `fs.statSync` 로 주입)로 **pending trigger 를 target mtime 기준으로 가르고**, `settle` 이 target 보다 낡은 것들을 covered 로 옮긴다(옮기지 않으면 그 파일 재편집 시 위 오탐이 Bash 경로에서만 되살아난다). `evaluate` 는 남은 게 있을 때만 경고하고 **축(`readme`/`index`)을 함께 돌려준다** — 신호를 dirty flag 로 emit 하면 억제된 축의 failure telemetry 가 남는다. **판정 불가는 전부 경고 유지**(`mtimeOf` 미제공·stat 실패·비유한 mtime·pending 없음·pending 이 상한 50 에 잘림) — 보조망이라 미탐이 오탐보다 나쁘다. **root 를 ledger 에 핀 고정**(`driftRoot`; 두 root 를 오가면 `''`)하고 Stop 시점 root 와 다르면 mtime 판정을 포기한다 — pending 의 rel 은 편집 시점 root 기준이라, 세션이 main 으로 옮기면 동명의 다른 파일을 재게 되고 main 은 README 가 매 머지마다 재작성돼 게이트가 통째로 꺼진다(실측: main 기준 `scripts/*.js` 26개 중 23개가 README 보다 낡음). **미탐**: mtime 은 *내용* 변경이 아니다 — `touch README.md`·`git checkout/stash/restore`·일괄 포매터가 target 을 재작성하면 통과한다(특히 `git restore README.md` 는 동기화를 되돌리면서 mtime 을 올린다). capped 1회·fail-open 보조망이라 감수하며, 단일 소스는 CLAUDE.md §3 문서 동기화 규약이다. covered 에 없는 **새** surface 는 종전대로 잡는다(미탐 미도입). 배열은 `push` 가 아니라 `concat` 으로 새로 할당 — `ledger.DEFAULT` 가 `{...DEFAULT}` 얕은 복사로 쓰여 push 하면 전 세션이 같은 배열을 공유·오염한다. covered/pending 각 50개 상한(초과분은 종전 동작). early-stop·evidence-ledger 가 require. 단위테스트 `dlc-doc-drift.test.js`.
 - **`dlc-ledger.js`** — 위 hook 들이 공유하는 per-session 임시 장부(`%TEMP%/dlc-evidence-<sid>.json`) read/write/reset 모듈. `DEFAULT` 스키마 단일 소스(`changed/verified/blocks` + `readmeDirty/indexDirty/docBlocks` + `readmeTrigger/indexTrigger/changedTrigger` — 해당 dirty/changed 를 유발한 마지막 파일, 신호 `detail` 용 + `readmeCovered/readmePending/indexCovered/indexPending` — 재편집 오탐 차단용 covered-set, **소비자는 push 금지·concat 으로 새 배열 할당**). hook 으로 직접 등록되진 않음.
 - **`dlc-signal.js`** — 자기개선 loop 의 **신호 수집 모듈**(hook 아님, 위 dlc hook 3종 + `guard-worktree-edit.js` 가 require). hook 판정 발동(early-stop 경고·doc-drift·guard deny·guard main-edit ask·router 주입·plan `status: blocked` 전이·disposition 기록)을 `~/.claude/telemetry/dlc-signals.jsonl` 에 append-only 누적 — `/improve` 가 집계 소비. kind→axis(failure/activity) 단일 소스 `KINDS`, plan 신호는 substring 이 아니라 **상태 전이**로 판정(`detectPlanSignal` 순수 함수 — disposition 은 Review Disposition 섹션/placeholder 컨텍스트에서만). payload 는 kind·ts·session_id·cwd·`detail`(신호 유발 trigger 파일 — doc-drift 는 `readmeTrigger`/`indexTrigger`(repo-relative), early-stop 은 `changedTrigger`(basename); `/improve` 가 오탐 패턴(예 내부 dedup) 식별)만(`~` 축약, 프롬프트 원문·시크릿 없음 — 단 경로 메타데이터는 로컬 gitignored 파일에 남음, 전송·커밋 안 됨). fail-open + env 채널: `CLAUDE_DLC_SIGNAL_DIR`(redirect — 테스트 격리), `CLAUDE_DLC_SIGNAL_OFF=1`(무력화), `CLAUDE_DLC_SIGNAL_MAX_BYTES`(회전 임계, 기본 5MB `.1` 단일 회전 best-effort; summary 는 `.1` 도 함께 읽음). CLI `node scripts/dlc-signal.js summary`. 단위+통합테스트 `dlc-signal.test.js`.
@@ -403,7 +417,9 @@ dlc(`skills/dlc/`)의 evidence gate 를 보조하는 누락방지망. 모두 fai
 syntax 검사 + `dlc-doc-drift.test.js`·`dlc-task-router.test.js`·`dlc-signal.test.js`·`dlc-evidence-ledger.test.js`·`guard-worktree-edit.test.js`·`plan-lint.test.js`·`native-overlap-lint.test.js` 단위테스트는 CI `lint.yml`.
 
 #### `pre-commit-check.ps1`
-staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json` 을 검사. 금지 키 (`mcpServers`, `apiKeyHelper`, `awsCredentialExport`, `awsAuthRefresh`) 또는 토큰 패턴 (Anthropic/OpenAI/GitHub/GitLab/AWS/GCP/Slack/JWT/PEM) 검출 시 exit 1.
+staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json` 을 검사. 금지 키 (`mcpServers`, `apiKeyHelper`, `awsCredentialExport`, `awsAuthRefresh`) 또는 토큰 패턴 (Anthropic/OpenAI/GitHub/GitLab/AWS/GCP/Slack/JWT/PEM) 검출 시 exit 1. staged `plans/*.md` 는 토큰 패턴만 검사.
+
+> `settings.json` 이 untracked 가 된 뒤로 settings 분기는 **실제로는 돌지 않는다** — staged/tracked 목록에 그 파일이 있을 때만 진입하므로 조용히 건너뛴다. 실수로 다시 추적되면 되살아나도록 코드는 남겨 뒀고, 지금 실효 대상은 `plans/*.md` 다.
 
 `pre-push` 모드는 추가로 **`main`/`master` 직접 푸시를 차단**한다(`.sh`·`.ps1` 동일). 단 **repo 루트가 `~/.claude` 면 면제** — 이 repo 는 main push 허용(2026-08-05 사용자 승인, CLAUDE.md §8)이지만 이 가드는 install-hooks 를 돌린 **모든 repo 가 공유**하므로 제거 대신 repo 루트로 범위를 좁혔다. `$HOME` 과 `--show-toplevel` 중 한쪽이 심볼릭 링크일 수 있어 양쪽을 실제 경로로 해석해 비교한다. 커버리지: `pre-commit-check.test.sh`(면제 2 + 차단 2 + 무관 브랜치 1).
 
@@ -431,9 +447,11 @@ UTF-8 (no BOM) + LF endings — Git Bash 가 인식. idempotent — 재실행 �
 #### `install-gwl.zsh` (macOS / zsh)
 `~/.zshrc` 에 `source "$HOME/.claude/scripts/gwl.zsh"` 한 줄을 marker 블록으로 멱등 추가 — `install-gwl.ps1` 과 같은 규약(두 marker 다 있으면 skip, 한쪽만이면 에러, 없으면 추가; 기존 inline `gwl` 발견 시 경고; 파일 끝 개행 보장; `~/.zshrc` 없으면 생성). source 대상은 항상 `~/.claude/scripts/gwl.zsh`(문서상 clone 위치)라 `git pull` 갱신이 profile 수정 없이 반영된다. **수동 1회** 실행: `~/.claude` 에서 `./scripts/install-gwl.zsh`. `~/.zshrc` 는 인터랙티브 셸이 source 하므로 Claude Code `!`/Bash 스냅샷에도 흘러가나 **다음 세션/새 터미널부터** 유효.
 
-### settings.json — 살아있는 설정 (tracked)
+### settings.json — 살아있는 설정 (untracked)
 
-머신 간 sync 의 source of truth. 핵심 키:
+**git 이 추적하지 않는다** (2026-09-07~, 사유는 문서 맨 위·`.gitignore` 주석). 머신 간에는 파일을 직접 복사해 옮긴다. 아래 키 설명은 그 복사본이 무엇을 담고 있어야 하는지에 대한 참조 문서다 — 이 README 가 실질적인 sync 기준이므로, 키를 바꿨으면 여기도 같이 고친다.
+
+핵심 키:
 - `theme`, `preferredNotifChannel` — Claude Code UI 설정
 - `permissions.defaultMode` — `auto`(기본 권한 모드). 매 액션 프롬프트 대신 안전 분류기가 판정한다. **user scope 전용** — 프로젝트/로컬 settings 의 `"auto"` 는 repo-controllable 이라 무시되고, 반대로 프로젝트가 *다른* 모드를 지정하면 그쪽이 이긴다(cascade user < project < local). 모델이 auto 미지원이면 CLI 가 안내와 함께 `default` 로 폴백.
 - `permissions.deny` — **비어 있음**. `git push origin main/master` 직접 푸시 차단이 있었으나 이 repo(`~/.claude`) main push 허용(2026-08-05 사용자 승인)으로 제거 — deny 는 프로젝트 단위 범위 지정이 불가하고 allow 보다 우선하므로, 전역 deny 를 남기면 이 repo 도 막힌다. 다른 repo 의 main 푸시는 **git `pre-push` 훅이 계속 하드 차단**한다(`pre-commit-check` — repo 루트가 `~/.claude` 일 때만 면제). 즉 이 레이어를 지워도 보호는 훅 레이어에 남아 있고, 여기에 더해 CLAUDE.md §8 규약과 아래 `ask` 가 겹겹으로 가드한다.
@@ -447,7 +465,7 @@ UTF-8 (no BOM) + LF endings — Git Bash 가 인식. idempotent — 재실행 �
 - `hooks.PostToolUse` — `Edit|Write|NotebookEdit|Bash` 에 `dlc-evidence-ledger.js` (변경·검증 명령 기록)
 - `hooks.Stop` — `dlc-early-stop.js`(검증 누락 + 문서 drift capped 경고) + `notify-hook.js Stop`(알림) 2개
 - `hooks.Notification` — 입력 대기 시 `notify-hook.js Notification` (cross-platform 알림)
-- **orca agent-hooks** — 외부 도구 Orca 가 `~/.orca/agent-hooks/` 에 깔고 settings 에 주입하는 관측 훅. 11개 이벤트(`PreToolUse`·`PostToolUse`·`PostToolUseFailure`·`UserPromptSubmit`·`SessionStart`·`Stop`·`StopFailure`·`SubagentStart`·`SubagentStop`·`TeammateIdle`·`PermissionRequest`)에 동일 명령이 붙는다. **경로는 머신 무관** — `~/.orca/agent-hooks/claude-hook.cmd`(Windows) 를 먼저 보고 없으면 `.sh`(macOS) 를 `/bin/sh` 로, 둘 다 없으면 stdin 을 삼키고 조용히 통과한다. 예전엔 주입된 머신의 절대경로(`/Users/…` 또는 `C:/Users/…`)가 그대로 커밋돼 Mac↔Windows 가 서로를 덮어썼고, 그 충돌로 로컬 변경이 staged 에 묶여 위 자동 pull 까지 멈췄다(2026-08-12 해소). **Orca 가 재주입하면 절대경로로 되돌아갈 수 있다** — push 전 `git diff` 에서 확인할 것.
+- **orca agent-hooks** — 외부 도구 Orca 가 `~/.orca/agent-hooks/` 에 깔고 settings 에 주입하는 관측 훅. 11개 이벤트(`PreToolUse`·`PostToolUse`·`PostToolUseFailure`·`UserPromptSubmit`·`SessionStart`·`Stop`·`StopFailure`·`SubagentStart`·`SubagentStop`·`TeammateIdle`·`PermissionRequest`)에 동일 명령이 붙는다. **경로는 머신 무관** — `~/.orca/agent-hooks/claude-hook.cmd`(Windows) 를 먼저 보고 없으면 `.sh`(macOS) 를 `/bin/sh` 로, 둘 다 없으면 stdin 을 삼키고 조용히 통과한다. 예전엔 주입된 머신의 절대경로(`/Users/…` 또는 `C:/Users/…`)가 그대로 커밋돼 Mac↔Windows 가 서로를 덮어썼고, 그 충돌로 로컬 변경이 staged 에 묶여 위 자동 pull 까지 멈췄다(2026-08-12 해소). 같은 실패가 gitkraken marketplace(2026-09-04)·`autoMode`(2026-09-07)로 두 번 더 재발했고, 그래서 `settings.json` 자체를 추적 대상에서 뺐다 — 이제 Orca 가 절대경로로 재주입해도 커밋될 것이 없다. 다만 **다른 머신으로 복사할 때는 여전히 절대경로가 섞이지 않았는지 눈으로 확인**할 것.
 - `enabledPlugins`, `extraKnownMarketplaces` — Pyright LSP plugin(**`true`** — 2026-07-26 `/doctor` 점검에서 lifetime 사용 0 으로 `false` 했다가 `80dbb3c`(2026-09-03)이 Windows 로컬 토글을 반영해 되돌렸다) + `claude-md-management`(**`true` — 2026-08-05 도입**. `claude-md-improver` 스킬로 CLAUDE.md↔코드베이스 정합성을 주기 점검. 동봉된 `/revise-claude-md` 는 §12 feedback memory·§13 lesson wiki·`/e` 와 역할이 겹쳐 쓰지 않는다) + OpenAI Codex marketplace. **`gitkraken` marketplace 는 여기 두지 않는다** — `source: directory` 라 값이 머신별 절대경로가 되고, 2026-09-04 실제로 Windows 경로가 커밋돼 Mac 에서 로컬 변경을 만들어 자동 pull 을 막았다(위 orca 훅과 같은 실패 — `lesson-tracked-config-machine-paths`). **애초에 필요 없는 항목이다** — `enabledPlugins` 의 `gitkraken-hooks@gitkraken`(이름 기반이라 머신 무관) 만으로 플러그인이 로드된다(`80dbb3c` 가 같은 이유로 제외했고 `0ec47a1` 이 실측 재확인: 항목을 뺀 뒤에도 `claude plugin list` 에서 enabled). 머신별로 굳이 marketplace 를 등록해야 하면 gitignored `settings.local.json` 에 넣는다(`extraKnownMarketplaces` 는 "any file" 스코프)
 - `theme`, `skipDangerousModePermissionPrompt`, `skipWorkflowUsageWarning`, `preferredNotifChannel` — Claude Code UI / 세션 기본값
 - `model` — **키 없음(핀 해제, 2026-09-04 `3a11a92`)**. 2.1.260 자동 업데이트가 `claude-fable-5-1[1m]` 핀을 지운 것을 되돌리지 않고 수용했다 — 핀이 없으면 그 키가 아예 생기지 않아 머신 간 델타 원천 하나가 사라진다. 세션 모델은 `/model` 로 그때그때 고른다. 머신별로 기본값을 고정하고 싶으면 gitignored `settings.local.json` 에 넣어 tracked 파일을 건드리지 않는다. (`[1m]` 접미사는 1M 컨텍스트 변형, 무버전 별칭은 `opus[1m]`.)
@@ -500,14 +518,14 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ```
 
 ### Notify 알림 끄기
-`settings.json` 의 `hooks.Stop` / `hooks.Notification` 블록을 직접 제거 후 commit. (hooks 는 스코프 간 **누적 실행** 이라 `settings.local.json` 으론 끄지 못하고 추가만 됨 — override 불가.) `preferredNotifChannel` 도 `"notifications_disabled"` 로 변경 가능.
+`settings.json` 의 `hooks.Stop` / `hooks.Notification` 블록을 직접 제거 (untracked 라 커밋 대상 아님 — 머신마다 각자 적용). (hooks 는 스코프 간 **누적 실행** 이라 `settings.local.json` 으론 끄지 못하고 추가만 됨 — override 불가.) `preferredNotifChannel` 도 `"notifications_disabled"` 로 변경 가능.
 
 ### 자동 동기화(auto-pull) 끄기
 **머신별(권장)**: `export CLAUDE_AUTOPULL_OFF=1` — 파일 수정 없이 그 머신의 SessionStart pull 과 `post-checkout` main-autopull 을 함께 끈다(둘이 같은 스위치를 공유).
 
 **머신별(셸 env 를 못 거는 환경)**: `touch ~/.claude/.autopull-off` — SessionStart pull 만 끈다. GUI 로 실행해 셸 env 가 안 잡히는 경우의 즉시 레버다. 이 훅은 **자기 자신의 배포 채널**이라 코드 revert 는 "고장난 그 pull 이 돌아야" 도착한다 — 즉시 레버가 파일/env 두 개인 이유다.
 
-**전 머신**: `settings.json` 의 `hooks.SessionStart` pull 블록을 제거 후 commit. hooks 는 스코프 간 누적 실행이라 `settings.local.json` 으로 특정 머신만 끄지는 못한다(그래서 위 env 스위치를 쓴다). `disableAllHooks` 는 notify·statusline 까지 같이 꺼지므로 최후 수단.
+**전 머신**: `settings.json` 의 `hooks.SessionStart` pull 블록을 제거 (untracked 라 머신마다 각자 적용). hooks 는 스코프 간 누적 실행이라 `settings.local.json` 으로 특정 머신만 끄지는 못한다(그래서 위 env 스위치를 쓴다). `disableAllHooks` 는 notify·statusline 까지 같이 꺼지므로 최후 수단.
 
 **이미 pull 된 내용 되돌리기**: 알림에 찍힌 `before` SHA 또는 `git reflog` 로 복원한다. `git reset --hard` 는 미커밋 변경을 날리므로 rollback 절차로 쓰지 않는다.
 
@@ -515,7 +533,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 Claude Code 내장 skill `/fewer-permission-prompts` 호출 시 최근 transcript 의 read-only Bash·MCP 호출을 분석해 `permissions.allow` 에 자동 추가. 머신별 차이는 `settings.local.json` 에 두는 게 안전.
 
 ### Commit 전 식별자 leak 점검
-pre-commit guard 가 settings.json 의 토큰 패턴은 잡지만, 다른 파일의 머신 식별자 (username·내부 repo 이름·이메일 등) 는 본인이 확인. CI 가 자동 처리하지 않는 이유는 패턴 자체가 leak 표면이 될 수 있어서.
+pre-commit guard 가 staged `plans/*.md` 의 토큰 패턴은 잡지만, 다른 파일의 머신 식별자 (username·내부 repo 이름·사내 IP/도메인·이메일 등) 는 본인이 확인. CI 가 자동 처리하지 않는 이유는 패턴 자체가 leak 표면이 될 수 있어서. **이 레포는 public** 이므로 사내 식별자가 섞이지 않았는지 특히 볼 것 — `settings.json` 을 추적에서 뺀 것도 그 값들이 자동으로 밀려 들어왔기 때문이다.
 ```powershell
 git diff --staged | Select-String -Pattern '본인_username|내부_repo_이름|이메일도메인'
 ```
@@ -530,7 +548,7 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 ## Rollback / Incident Response
 
 ### Settings 변경 되돌리기
-가벼운 변경 — `git revert <commit>`. 다른 머신은 다음 pull 시 반영. 머신마다 settings.json 자동 수정 (Claude Code 가 박는 변경) 이 있으면 머지 충돌 가능 — 본인이 어느 쪽 살릴지 결정.
+가벼운 변경 — `git revert <commit>`. 다른 머신은 다음 pull 시 반영. `settings.json` 은 untracked 라 revert 대상에 들어가지 않는다 — 그 파일의 되돌림은 머신마다 직접 편집한다(예전엔 Claude Code 가 박는 자동 수정이 머지 충돌을 일으켰는데, 추적을 끊어 그 경로 자체가 없어졌다).
 
 ### Secret 실수로 commit/push 한 경우
 
@@ -571,7 +589,7 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 ├── CLAUDE.md                       # 전역 작업 규칙 (자동 로드)
 ├── README.md                       # 본 파일
 ├── .gitignore                      # whitelist 방식 + belt-and-suspenders
-├── settings.json                   # 살아있는 설정 (tracked)
+├── settings.json                   # 살아있는 설정 (untracked — 아래 참조)
 ├── settings.local.json             # 머신별 / 민감 정보 (gitignored)
 ├── statusline.js                   # 메인 statusline
 ├── subagent-statusline.js          # subagent statusline
@@ -629,7 +647,7 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   ├── session-fetch.js            # SessionStart(async) — 작업 repo remote-tracking ref 갱신 (+ .test.js)
 │   ├── hook-cwd.js                 # hook stdin 의 cwd 를 읽는 공유 모듈 (hook 미등록)
 │   ├── session-start-pull.sh       # SessionStart(async) — ~/.claude ff 동기화 + hang 방어 + 워치독
-│   ├── session-start-pull.test.js  # 위 스크립트 + settings.json command 회귀 테스트(fixture HOME)
+│   ├── session-start-pull.test.js  # 위 스크립트 + SessionStart command 회귀 테스트(fixture HOME, settings 없으면 CANONICAL)
 │   ├── usage-count.js              # improve.sh deep — transcript 사용량 카운트 (+ .test.js)
 │   ├── native-overlap-lint.js      # improve.sh ⑨ — 네이티브 중복 대장 신선도·delta 창 (+ .test.js)
 │   ├── pre-commit-check.sh / .ps1  # settings.json secret guard (pre-commit + pre-push)

@@ -27,7 +27,8 @@ ok('top-level js trigger', () => assert.strictEqual(d.classify(R + '/statusline.
 ok('agents md trigger', () => assert.strictEqual(d.classify(R + '/agents/a.md', R), 'readme-trigger'));
 ok('commands md trigger', () => assert.strictEqual(d.classify(R + '/commands/x.md', R), 'readme-trigger'));
 ok('skill trigger', () => assert.strictEqual(d.classify(R + '/skills/dlc/SKILL.md', R), 'readme-trigger'));
-ok('settings trigger', () => assert.strictEqual(d.classify(R + '/settings.json', R), 'readme-trigger'));
+// settings.json 은 untracked 머신 로컬 상태 — Claude Code 자동 수정에 README 를 요구하면 오탐
+ok('settings.json 은 trigger 아님', () => assert.strictEqual(d.classify(R + '/settings.json', R), null));
 ok('root CLAUDE trigger', () => assert.strictEqual(d.classify(R + '/CLAUDE.md', R), 'readme-trigger'));
 ok('root README target', () => assert.strictEqual(d.classify(R + '/README.md', R), 'readme-target'));
 ok('wiki page trigger', () => assert.strictEqual(d.classify(R + '/wiki/pages/concept/x.md', R), 'index-trigger'));

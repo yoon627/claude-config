@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // dlc 문서 drift 판정 — 순수 모듈(hook 아님). dlc-early-stop(Stop)·dlc-evidence-ledger(PostToolUse)가 require.
-// "문서화 표면(scripts/·agents/·skills/**/SKILL.md·settings.json·CLAUDE.md)을 바꿨는데
+// "문서화 표면(scripts/·agents/·skills/**/SKILL.md·CLAUDE.md)을 바꿨는데
 //  같은 작업에서 README.md(또는 wiki/pages↔wiki/index.md)를 안 고친" drift 를 ledger dirty flag 로 추적한다.
 // 이 규칙은 ~/.claude repo 자산 문서화 전용 → root 를 .claude(또는 그 worktree)로 한정, 그 외 cwd 는 no-op.
 'use strict';
@@ -42,7 +42,8 @@ function classify(fp, root) {
   if (/^agents\/[^/]+\.md$/.test(rel)) return 'readme-trigger';
   if (/^commands\/[^/]+\.md$/.test(rel)) return 'readme-trigger';
   if (/^skills\/[^/]+\/SKILL\.md$/.test(rel)) return 'readme-trigger';
-  if (rel === 'settings.json') return 'readme-trigger';
+  // settings.json 은 빠져 있다 — untracked 머신 로컬 상태이고(.gitignore 참조) Claude Code 가
+  // 스스로 써넣으므로, 트리거로 두면 사용자가 만들지도 않은 변경에 README 동기화를 요구한다.
   if (rel === 'CLAUDE.md') return 'readme-trigger';
   return null;
 }
@@ -167,7 +168,7 @@ function settle(data, mtimeOf) {
 
 const MESSAGE = {
   readme:
-    'README.md 가 문서화 표면(scripts/·agents/·skills/**/SKILL.md·settings.json·CLAUDE.md) 변경과 ' +
+    'README.md 가 문서화 표면(scripts/·agents/·skills/**/SKILL.md·CLAUDE.md) 변경과 ' +
     '함께 갱신되지 않았습니다 — README 동기화를 검토하세요. (불필요하면 그대로 재종료 시 통과)',
   index:
     'wiki/index.md 가 wiki/pages 변경과 함께 갱신되지 않았습니다 — index 동기화를 검토하세요. (불필요하면 재종료 시 통과)',

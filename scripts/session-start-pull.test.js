@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 // settings.json 의 SessionStart 자동 pull 훅 회귀 테스트.
 //
-// 왜 필요한가: 이 훅은 **자기 자신의 업데이트 배포 경로**다. 경로 오타 하나로도
-// `JSON.parse` 는 통과하고(CI 의 JSON validation 이 보는 전부다) 전 머신이 조용히 업데이트를
-// 멈춘다 — 이 훅이 애초에 고치려던 "132커밋 밀렸는데 아무도 몰랐다" 사고의 상위 재현이다.
-// 그래서 문자열을 눈으로 읽는 대신 fixture HOME 에 실제로 spawn 해 동작을 고정한다.
-// (셸 훅을 fixture repo 로 spawn 하는 방식은 install-hooks.test.js 선례.)
+// 왜 필요한가: 이 훅은 **자기 자신의 업데이트 배포 경로**다. 경로 오타 하나로도 전 머신이
+// 조용히 업데이트를 멈춘다 — 이 훅이 애초에 고치려던 "132커밋 밀렸는데 아무도 몰랐다" 사고의
+// 상위 재현이다. 그래서 문자열을 눈으로 읽는 대신 fixture HOME 에 실제로 spawn 해 동작을
+// 고정한다. (셸 훅을 fixture repo 로 spawn 하는 방식은 install-hooks.test.js 선례.)
 //
-// settings.json 의 command 를 **그대로** 돌린다. 스크립트를 직접 실행하면 "settings 가 엉뚱한
-// 경로를 가리킨다"는 이 테스트의 존재 이유가 검증에서 빠지므로, fixture HOME 안에 스크립트를
-// 복사해 두고 command 가 스스로 그것을 찾아가게 한다.
+// command 를 **그대로** 돌린다. 스크립트를 직접 실행하면 "설정이 엉뚱한 경로를 가리킨다"는
+// 이 테스트의 존재 이유가 검증에서 빠지므로, fixture HOME 안에 스크립트를 복사해 두고
+// command 가 스스로 그것을 찾아가게 한다.
+//
+// settings.json 은 untracked 라(머신별 값 자동 주입 — .gitignore 참조) CI checkout·새 worktree
+// 에는 없다. 있으면 실제 배선까지 검증하고, 없으면 CANONICAL 로 스크립트 동작만 고정한다.
 'use strict';
 const assert = require('assert');
 const fs = require('fs');
@@ -23,12 +25,21 @@ let n = 0;
 const ok = (name, fn) => { fn(); n++; };
 
 const REPO = path.join(__dirname, '..');
-const SETTINGS = JSON.parse(fs.readFileSync(path.join(REPO, 'settings.json'), 'utf8'));
-const GROUP = SETTINGS.hooks.SessionStart[0];
-const ENTRY = GROUP.hooks[0];
-const COMMAND = ENTRY.command;
 const SCRIPT_REL = 'scripts/session-start-pull.sh';
 const SCRIPT_ABS = path.join(REPO, SCRIPT_REL);
+
+// settings.json 이 바뀌면 이 상수도 같이 고쳐야 한다 — 아래 첫 테스트가 둘의 일치를 잠근다.
+const CANONICAL = {
+  command: '[ -r ~/.claude/scripts/session-start-pull.sh ] && sh ~/.claude/scripts/session-start-pull.sh; true',
+  timeout: 15,
+  async: true,
+};
+const SETTINGS_PATH = path.join(REPO, 'settings.json');
+const WIRED = fs.existsSync(SETTINGS_PATH);
+const ENTRY = WIRED
+  ? JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8')).hooks.SessionStart[0].hooks[0]
+  : CANONICAL;
+const COMMAND = ENTRY.command;
 
 function git(dir, args) {
   execFileSync('git', ['-C', dir, ...args], { stdio: 'ignore' });
@@ -103,9 +114,15 @@ function makeGitStub({ grandchildMarker } = {}) {
 }
 const sleepSync = (sec) => execFileSync('sh', ['-c', `sleep ${sec}`]);
 
-ok('settings.json 이 스크립트를 가리키고 그 파일이 repo 에 실존한다', () => {
+ok('command 가 스크립트를 가리키고 그 파일이 repo 에 실존한다', () => {
   assert.ok(COMMAND.includes(SCRIPT_REL), `command 가 ${SCRIPT_REL} 를 참조하지 않는다: ${COMMAND}`);
   assert.ok(fs.existsSync(SCRIPT_ABS), `${SCRIPT_REL} 가 없다`);
+  // settings.json 이 있는 머신에서는 실제 배선이 CANONICAL 과 갈라지지 않았는지까지 잠근다.
+  // 갈라지면 CI(= CANONICAL 로만 도는 쪽)가 실물과 다른 것을 검증하게 된다.
+  if (WIRED) {
+    assert.strictEqual(ENTRY.command, CANONICAL.command,
+      'settings.json 의 SessionStart command 가 바뀌었다 — CANONICAL 도 같이 갱신할 것');
+  }
 });
 
 ok('훅은 async 로 남는다 — 동기로 바꿔도 CLAUDE.md 최신화는 못 얻고 세션 시작만 늦어진다', () => {

@@ -2,7 +2,7 @@
 title: lesson-tracked-config-machine-paths
 category: decision
 created: 2026-08-12
-updated: 2026-09-04
+updated: 2026-09-07
 sources:
   - 커밋 f1cbee0 (orca 훅 경로 머신 무관화)
   - 커밋 bde82de (README 동기화 + ~ 표기 통일)
@@ -12,6 +12,8 @@ sources:
   - 커밋 80dbb3c (2026-09-03, gitkraken marketplace 절대경로를 이 페이지 근거로 제외)
   - 커밋 3a11a92 (2026-09-04, 그 제외를 "누락 보강"으로 오인해 재도입 — 재발)
   - 커밋 0ec47a1 (2026-09-04, 재도입분 제거 + plugin enable 만으로 로드됨 실측)
+  - 2026-09-07 `/auto-mode-setup` 의 autoMode 블록(사내 IP·도메인·머신 절대경로) — settings.json 추적 자체를 중단
+  - https://code.claude.com/docs/en/auto-mode-config (autoMode 는 settings.local.json 에서 안 읽힘)
 ---
 
 # lesson-tracked-config-machine-paths
@@ -60,6 +62,24 @@ Orca 가 주입하는 관측 훅 11개가 `settings.json` 에 **주입된 머신
 
 > [!warning] 제외 결정은 커밋 본문에만 두면 재도입된다
 > `80dbb3c` 는 이유까지 정확히 적었지만 **커밋 메시지는 아무도 다시 읽지 않는다.** "이 키를 여기 두지 않는다"는 결정은 그 설정을 문서화한 자리(README)와 이 페이지에 남겨야 다음 사람이 누락으로 오인하지 않는다. 부재는 흔적을 남기지 않으므로 **부재의 이유를 적는 것**이 규칙이다.
+
+## 재발 2회 — autoMode, 그리고 추적 자체를 끊다 (2026-09-07)
+
+세 번째 사례. `/auto-mode-setup` 이 `settings.json` 에 `autoMode` 블록을 썼다. 안에 머신 절대경로(`C:\Users\yoon627\Repos\knowledge_base`)뿐 아니라 **사내 IP(`192.168.62.48`)·도메인(`aigw.autocrypt.co.kr`)·조직명·Bitbucket 레포 URL**이 들어 있었다. 이 레포는 **public** 이라 유출 표면이 이전 두 사례보다 넓다. 증상은 동일 — `git pull --rebase` 가 `You have unstaged changes` 로 거부.
+
+**이번엔 표준 remedy 가 통하지 않았다.** 위 "올바른 방법"의 1번(`settings.local.json` 으로 빼기)이 `autoMode` 에는 적용 불가다:
+
+> The classifier doesn't read `autoMode` from project settings in `.claude/settings.json` or `.claude/settings.local.json`.
+> — [Configure auto mode](https://code.claude.com/docs/en/auto-mode-config), *Where the classifier reads configuration*
+
+유효 스코프는 `~/.claude/settings.json` · managed settings · `--settings` 뿐이다. 옮기면 **에러 없이 조용히 무시**되므로 "옮겼는데 auto mode 가 내부 호스트를 계속 막는다"로 나타난다. managed settings(`C:\Program Files\ClaudeCode\managed-settings.json`)는 관리자 권한이 필요해 이 머신에선 쓸 수 없었다(사용자가 Administrators 그룹 아님).
+
+**그래서 키가 아니라 파일을 뺐다** — `settings.json` 을 `.gitignore` 화이트리스트에서 제거하고 `git rm --cached`. 키 단위 대응이 3회 반복된 것이 근거다: 뺄 키를 하나 고를 때마다 Claude Code 는 다음 기능으로 또 쓴다. 추적을 끊으면 그 주입이 dirty 를 만들지 못하고, public 레포로 밀려나갈 경로도 사라진다.
+
+동반 변경(추적 전제에 의존하던 것들): CI `lint.yml` 의 JSON validation 제거, `session-start-pull.test.js` 를 "settings 있으면 실제 배선 검증 / 없으면 CANONICAL" 로 이원화, `guard-worktree-edit.js` 의 main 편집 허용목록에 `settings.json` 추가(gitignored 글로벌 상태가 됐으므로 — 안 하면 worktree 세션이 존재하지도 않는 사본을 편집하라는 막다른 길에 빠진다), `dlc-doc-drift.js` 의 `readme-trigger` 에서 제외(Claude Code 자동 수정에 README 를 요구하면 오탐).
+
+> [!warning] 왜 3회나 반복됐나 — wiki 만으로는 상기되지 않는다
+> 이 페이지는 2026-08-12 부터 있었는데도 두 번 더 재발했다. 원인은 **`MEMORY.md` 인덱스에 이 lesson 을 가리키는 줄이 없었던 것**이다(메모리 파일 자체도 없었다). CLAUDE.md §13 은 wiki(상세) + 인덱스(자동 상기)를 **짝**으로 요구하는데 짝이 성립한 적이 없다. wiki 는 자동 주입되지 않으므로, 능동으로 grep 한 세션에서만 발견된다 — 나머지 세션은 매번 처음부터 다시 판단했고 사용자가 같은 지적을 반복해야 했다. **lesson 을 적립할 때 인덱스 줄을 같이 만들지 않으면 그 lesson 은 없는 것과 같다.**
 
 ## 탐지 신호
 

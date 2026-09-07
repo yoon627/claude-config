@@ -95,6 +95,6 @@ Write-LfFile -Path (Join-Path $hookDir 'pre-push')      -Content $prePush
 Write-LfFile -Path (Join-Path $hookDir 'post-checkout') -Content $postCheckout
 
 Write-Host "Installed pre-commit, pre-push, and post-checkout hooks at $hookDir" -ForegroundColor Green
-Write-Host "Guards check settings.json; post-checkout fast-forwards main/master from origin." -ForegroundColor Gray
+Write-Host "Guards check staged plans/*.md (and settings.json if ever tracked); post-checkout fast-forwards main/master from origin." -ForegroundColor Gray
 Write-Host "Bypass guard once: git commit --no-verify / git push --no-verify" -ForegroundColor DarkGray
 Write-Host "Disable auto-pull: `$env:CLAUDE_AUTOPULL_OFF=1  |  Remove: del `"$hookDir\post-checkout`"" -ForegroundColor DarkGray

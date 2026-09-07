@@ -83,9 +83,9 @@ jobs:
           git diff --name-only "origin/$GITHUB_BASE_REF" HEAD -- 'plans/*/*-plan.md' \
             | xargs node scripts/plan-lint.js
 
-      - name: JSON validation
-        run: |
-          node -e "JSON.parse(require('fs').readFileSync('settings.json','utf8'))"
+      # settings.json 은 untracked 라 checkout 에 없다(.gitignore 참조) — CI 에서 검증 불가.
+      # JSON 유효성은 Claude Code 자신이 로드 시점에 알려주고, SessionStart 훅 배선은
+      # session-start-pull.test.js 가 그 파일이 있는 머신에서 잠근다.
 
       - name: Shell script lint (shellcheck)
         run: shellcheck scripts/*.sh scripts/bootstrap/*.sh skills/jira-worklog/*.sh skills/e/*.sh skills/improve/*.sh

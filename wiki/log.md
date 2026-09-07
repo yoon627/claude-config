@@ -187,3 +187,10 @@
 - 핵심은 경로 자체가 아니라 **제외 결정의 소실**이다. `80dbb3c`(09-03)이 이 페이지를 근거로 그 항목을 의도적으로 제외했는데, 이유가 **커밋 본문에만** 있어서 하루 뒤 `3a11a92` 가 "등록 누락분 보강"으로 오인해 재도입했다. 부재는 흔적을 남기지 않으므로 *부재의 이유*를 README·wiki 에 적는 것이 규칙 — 커밋 메시지는 아무도 다시 읽지 않는다.
 - 복원 `0ec47a1`: 항목 제거 후에도 `claude plugin list` 에서 `gitkraken-hooks@gitkraken` enabled 실측 확인(`enabledPlugins` 는 이름 기반이라 머신 무관). 머신별 등록이 정 필요하면 gitignored `settings.local.json`(`extraKnownMarketplaces` 는 "any file" 스코프).
 - 동반 README 정정 2건: 이 키를 여기 두지 않는 이유 명시 + `pyright-lsp` 서술이 `false` 로 stale 했던 것(`80dbb3c` 가 `true` 로 되돌림)을 실제 상태로 동기화.
+
+## [2026-09-07] ingest | lesson-tracked-config-machine-paths 재발 2회 → settings.json 추적 중단
+- 세 번째 사례는 `/auto-mode-setup` 이 쓴 `autoMode` 블록이다. 머신 절대경로에 더해 **사내 IP(`192.168.62.48`)·도메인(`aigw.autocrypt.co.kr`)·조직명·Bitbucket URL** 이 담겼고 이 레포는 **public** 이라 유출 표면이 앞선 두 사례보다 넓다. 증상은 동일 — `git pull --rebase` 거부.
+- **표준 remedy 가 처음으로 통하지 않았다**: `autoMode` 는 `settings.local.json` 에서 읽히지 않는다(공식 문서 *Where the classifier reads configuration*). 유효 스코프는 `~/.claude/settings.json`·managed settings·`--settings` 뿐이고, 옮기면 에러 없이 **조용히 무시**된다. managed settings 는 `C:\Program Files\ClaudeCode\` 라 관리자 권한이 필요해 이 머신에선 불가.
+- 그래서 키가 아니라 **파일을 뺐다**(`.gitignore` 화이트리스트에서 제거 + `git rm --cached`). 키 단위 대응이 3회 반복된 것이 근거 — 뺄 키를 고를 때마다 Claude Code 는 다음 기능으로 또 쓴다. 증상 억제 대신 원인 제거.
+- 추적 전제에 의존하던 것 동반 수정: CI JSON validation 제거, `session-start-pull.test.js` 이원화(settings 있으면 실제 배선까지 검증 / 없으면 CANONICAL 로 스크립트 동작 고정 — 19 tests 양쪽 통과 실측), `guard-worktree-edit.js` main 허용목록에 추가, `dlc-doc-drift.js` trigger 에서 제외.
+- **3회 반복의 진짜 원인**: 이 lesson 은 2026-08-12 부터 있었으나 `MEMORY.md` 인덱스 줄도 메모리 파일도 없었다 — CLAUDE.md §13 의 wiki+인덱스 짝이 성립한 적이 없어 자동 상기가 불가능했다. lesson 적립 시 인덱스 줄을 같이 만들지 않으면 그 lesson 은 없는 것과 같다.

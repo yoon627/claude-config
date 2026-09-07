@@ -16,7 +16,6 @@
 !/docs/
 !/plans/
 !/scripts/
-!/settings.json
 !/skills/
 !/statusline.js
 !/subagent-statusline.js
@@ -28,6 +27,14 @@ wiki/raw/
 # Claude Code plan mode 가 plans/ 루트에 남기는 랜덤 slug 산출물(다른 프로젝트 계획) — 추적하지 않는다.
 # §10 핸드오프 plan 은 plans/<YYYY-MM-DD>-<slug>/<slug>-plan.md 로 하위 디렉토리에 있어 이 패턴에 안 걸린다.
 /plans/*.md
+
+# settings.json 은 의도적으로 추적하지 않는다 (누락 아님 — 되돌리지 말 것).
+# Claude Code 가 이 파일에 머신별 값을 스스로 써넣는다: Orca 훅 절대경로(2026-08-12),
+# gitkraken marketplace 의 source:directory(2026-09-04), /auto-mode-setup 의 autoMode
+# (머신 절대경로 + 사내 IP·도메인, 2026-09-07). tracked 인 동안은 그 자동 수정이 dirty 를
+# 만들어 pull 을 막고, public 레포로 사내 식별자를 밀어낸다. 키를 하나씩 빼는 대응은
+# 3회 재발했다. 근거·이력: wiki/pages/decision/lesson-tracked-config-machine-paths.md
+/settings.json
 
 # Belt-and-suspenders: never push these even if the whitelist is changed by mistake.
 .credentials.json
