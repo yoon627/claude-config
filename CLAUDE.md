@@ -149,20 +149,20 @@ Workflow 스크립트의 `agent()` 는 `model` 을 생략하고(세션 모델 �
 
 ## 9. Claude ↔ Codex 협업
 
-사용자는 Claude 와 Codex 양쪽을 사용. 둘 다 같은 `.claude/plans/` 핸드오프 채널을 공유.
+사용자는 Claude 와 Codex 양쪽을 사용. 둘 다 같은 `plans/` 핸드오프 채널을 공유(경로 규약은 §10).
 
 - **역할**: Claude 는 plan 생성/갱신·메인 구현·통합. Codex 는 리뷰·보조 구현·검증. 최종 통합 책임은 항상 **현재 메인 에이전트**.
 - **호출**: 설치 확인 `codex --version`. **codex 는 반드시 Bash 도구로 호출한다**(PowerShell 은 stdin 미종료로 무한 hang — 재현). 호출 규약·effort·출력 처리 세부는 `docs/codex-review.md`.
 - **리뷰 매트릭스**:
   - `plan-reviewer` / `code-reviewer` = **Claude subagent 필수 + Codex 가용 시 병행**. Codex 미가용이면 생략 사유를 Report 또는 plan `# Progress` 에.
   - `researcher` / 보조 구현 = 가용성·이득 있을 때 선택. (simplify 체크는 메인 직접 — 매트릭스 대상 아님)
-- **공유 채널**: `.claude/plans/<dir>/<slug>-plan.md` 가 세션·도구 간 컨텍스트 채널(토큰 소진/세션 종료 시 이어받기용).
+- **공유 채널**: `<ROOT>/plans/<dir>/<slug>-plan.md` 가 세션·도구 간 컨텍스트 채널(토큰 소진/세션 종료 시 이어받기용).
 
 ---
 
-## 10. `.claude/plans/` 핸드오프 규약
+## 10. `plans/` 핸드오프 규약
 
-티켓 ID 명시 작업 또는 컨텍스트 명확한 단위는 `.claude/plans/<YYYY-MM-DD>-<slug>/<slug>-plan.md` 사용. 파일명에 slug 가 있어야 `@` 자동완성에서 식별 가능.
+티켓 ID 명시 작업 또는 컨텍스트 명확한 단위는 `<ROOT>/plans/<YYYY-MM-DD>-<slug>/<slug>-plan.md` 사용. `<ROOT>` = `git rev-parse --show-toplevel` — 스킬 c·e·dlc 가 쓰는 기준과 같다. **`.claude/plans/` 로 적지 않는다**: 이 repo 는 루트가 `~/.claude` 라 그 표기가 double-nest 된 빈 경로(`~/.claude/.claude/plans/`)를 가리킨다. 파일명에 slug 가 있어야 `@` 자동완성에서 식별 가능.
 
 ### slug & 매칭
 - slug: `<TICKET>-<short-desc>` 또는 `<short-desc>`. 디렉토리 prefix 는 시작일(불변, rename 금지).

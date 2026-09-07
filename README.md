@@ -240,8 +240,8 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 6. 코드 규칙 — 동일 디렉토리 스타일, 타입 힌트, 임시 코드 표기, 부분 편집 우선(전체 재작성 지양)
 7. 테스트 (TDD) — 테스트 작성 순서, 예외 조건, 인접 테스트 규모에 맞춤·임시 체크의 영구 테스트화 금지
 8. Git / 보안 — destructive 명령 금지, 시크릿 출력 금지, 코드/파일 변경은 규모 불문 worktree(`/wt`)에서(gitignored 글로벌 상태 제외), **검증 통과분은 요청 없이 작업 브랜치 커밋**(push 는 요청 시만), trivial·small 종결은 로컬 ff-merge
-9. Claude ↔ Codex 협업 — `.claude/plans/` 핸드오프 채널, 리뷰 매트릭스
-10. `.claude/plans/` 핸드오프 규약 — slug, frontmatter, 필수 6개 + 선택 섹션(Intent·Acceptance·Review Disposition·Deferred·Workflow Findings)
+9. Claude ↔ Codex 협업 — `plans/` 핸드오프 채널, 리뷰 매트릭스
+10. `plans/` 핸드오프 규약 — slug, frontmatter, 필수 6개 + 선택 섹션(Intent·Acceptance·Review Disposition·Deferred·Workflow Findings)
 11. 영속 프로젝트 메모리 (LLM Wiki) — `wiki/` 누적 지식, `plans/` 와 경계 (일시적 vs 영속)
 12. 피드백 메모리 — 작업 방식 교정을 `memory/`(type: feedback) + `MEMORY.md` 인덱스로 영속화해 다음 작업에 반영. 보편·중대 규칙은 이 `CLAUDE.md` 로 승격.
 13. 실수·교훈 로그 — 반복 실수를 wiki `decision/lesson-*`(상세) + `MEMORY.md` 인덱스(자동 상기)로 적립해 다음 구현에서 회피. 인덱스 주입은 권고이지 강제 아님.
@@ -295,7 +295,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - 메인이 hub, 리뷰/검토(plan-reviewer, architecture-reviewer, code-reviewer)와 **최종 검증**(격리 runner·general-purpose, 실행만 — 메인이 명령·worktree cwd 지정)은 격리 subagent. 구현·통합·검증 판단·실패 fix·최종 판단은 메인.
 - **⚠️ self-flag**(3단계, 조건부): 계획을 쓰는 메인이 우려를 직접 신고한다 — 닫힌 트리거 3종(제약 동시 미충족·동급 규약 상충·⚠️추정 의존 설계)일 때만 `# Decisions` 에 한 줄, 아니면 침묵("우려 없음"은 쓰지 않는다). 이 repo 의 우려 장치가 전부 격리 리뷰어 쪽에 있어 메인의 낮은 확신 지점이 드러나지 않던 구멍을 메운다. 7단계에서 리뷰 지적과 함께 먼저 처분(`resolved`/`accepted-risk`/`deferred`).
 - simplify 체크(13단계)는 메인이 직접 수행 — 모든 격리 spoke 는 read-only. substantive 수정 시 targeted 재검증.
-- `<ROOT>/plans/<YYYY-MM-DD>-<slug>/<slug>-plan.md` 가 subagent 간 단일 공유 채널 (메인만 write). 이 repo 는 루트가 `~/.claude` 라 `plans/` — CLAUDE.md §10 의 `.claude/plans/` 를 문자 그대로 쓰면 double-nest 된 빈 경로가 된다.
+- `<ROOT>/plans/<YYYY-MM-DD>-<slug>/<slug>-plan.md` 가 subagent 간 단일 공유 채널 (메인만 write). 경로 규약은 CLAUDE.md §10.
 - codex 병행 검토 호출 규약은 `docs/codex-review.md` (phase 당 codex owner 1개 지정으로 중복 호출 방지, Windows/PowerShell fallback 포함). 정본 명령은 프롬프트를 스크래치 파일로 넘기고 `--skip-git-repo-check` 를 쓰지 않는다(사유는 §3 — worktree 격리 가드).
 - SKILL 본문엔 진입 게이트·규모 gate·16단계 표·닫힌목록·안전 규칙만 두고, 특정 분기에서만 찾는 절차 상세(요구사항 명확화 심화·조사 프로토콜 elaboration·wiki 연계 메커닉·Workflow Findings 기록형식·격리 runner 계약/simplify 체크리스트)는 `docs/dlc-details.md` 로 분리(자동 로드 안 됨 — 해당 분기 진입 시 Read).
 - **16단계 마무리에 커밋 편입**: `evidence gate → plan 업데이트 → 커밋 → Report`. 커밋 **규칙**(요청 없이 커밋·stage 범위·커밋 안 하는 경우·`--no-verify` 금지)은 CLAUDE.md §8 이 단일 소스이고 **전역**(dlc 를 안 타는 흐름·타 repo 에도 적용), SKILL 커밋 bullet 은 절차(경로 확정·메시지·실행 폴백)만 담는다. `/e` 의 `wip:` 체크포인트와 구분 — 여기는 검증 통과한 정식 커밋.

@@ -5,7 +5,7 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 
 # dlc — 자동 개발 사이클
 
-메인이 hub, 리뷰/검토만 격리 subagent. plan 파일이 유일한 공유 채널(메인만 쓴다) — 경로는 `<ROOT>/plans/<YYYY-MM-DD>-<slug>/<slug>-plan.md`(§10 규약, `<ROOT>` = repo 루트. 이 repo 는 루트가 `~/.claude` 라 `plans/` 이고, `.claude/plans/` 로 적으면 double-nest 된 빈 경로를 가리킨다). CLAUDE.md §3 작업 흐름의 구체화 — 충돌 시 CLAUDE.md 우선.
+메인이 hub, 리뷰/검토만 격리 subagent. plan 파일이 유일한 공유 채널(메인만 쓴다) — 경로는 `<ROOT>/plans/<YYYY-MM-DD>-<slug>/<slug>-plan.md`(CLAUDE.md §10 규약). CLAUDE.md §3 작업 흐름의 구체화 — 충돌 시 CLAUDE.md 우선.
 
 ## 적용
 - `/dlc` 명시 호출 또는 비자명한 코드 변경 시. trivial 은 규모 gate 에서 *절차*가 즉시 통과되지만 **worktree 는 똑같이 경유**한다.
