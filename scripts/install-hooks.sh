@@ -100,6 +100,6 @@ write_hook "$hook_dir/pre-push"   pre-push
 install_hook "$hook_dir/post-checkout" "$post_checkout"
 
 echo "Installed pre-commit, pre-push, and post-checkout hooks at $hook_dir"
-echo "Guards check staged/HEAD settings.json; post-checkout fast-forwards main/master from origin."
+echo "Guards check staged plans/*.md (and settings.json if ever tracked); post-checkout fast-forwards main/master from origin."
 echo "Bypass guard once (NOT recommended): git commit --no-verify  /  git push --no-verify"
 echo "Disable auto-pull: export CLAUDE_AUTOPULL_OFF=1  |  Remove: rm $hook_dir/post-checkout"

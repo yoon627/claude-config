@@ -101,13 +101,14 @@ process.stdin.on('end', () => {
   // repo-root 자체가 ~/.claude 인 레이아웃: 글로벌 메타가 repoRoot 직하에 있다.
   // plans/ 는 방안 A 로 tracked 지만 §10 핸드오프 문서라 worktree 세션이 main 의 상위/umbrella
   // plan 을 갱신하는 것이 정상 → allow (커밋된 plan 의 main 직접편집 마찰은 mainTrackedEditBranch
-  // ask 가드가 담당). projects/memory·settings.local 은 gitignored 글로벌 상태라 worktree 복사본이
-  // 없어 역시 main 경로 편집이 정상. 그 외 추적 자산(settings.json·CLAUDE.md·wiki·scripts 등)은
+  // ask 가드가 담당). projects/memory·settings.local·settings 는 gitignored 글로벌 상태라 worktree
+  // 복사본이 없어 역시 main 경로 편집이 정상. 그 외 추적 자산(CLAUDE.md·wiki·scripts 등)은
   // worktree 복사본 편집이 정답이라 deny 유지.
   if (repoRoot.endsWith('/.claude')) {
     const rel = fp.slice(repoRoot.length + 1);
     const seg = rel.split('/')[0];
-    if (seg === 'plans' || seg === 'projects' || rel === 'settings.local.json') process.exit(0);
+    if (seg === 'plans' || seg === 'projects') process.exit(0);
+    if (rel === 'settings.local.json' || rel === 'settings.json') process.exit(0);
   }
   if (fp.startsWith(repoRoot + '/')) {
     if (sig) sig.emit('guard-worktree-deny', { session_id: input.session_id, cwd: input.cwd, detail: fp });
