@@ -54,6 +54,7 @@ jobs:
         run: |
           bash scripts/bootstrap/install-codex-skill.test.sh
           bash skills/jira-worklog/test_launcher.sh
+          bash scripts/pre-commit-check.test.sh
           node scripts/dlc-doc-drift.test.js
           node scripts/dlc-early-stop.test.js
           node scripts/dlc-task-router.test.js
@@ -71,6 +72,8 @@ jobs:
       - name: Python unit tests
         run: |
           python3 skills/jira-task/test_jira_task.py
+          python3 skills/wiki/test_check_links.py
+          python3 skills/wt/test_heal_submodules.py
           python3 skills/jira-worklog/test_session_time.py
           python3 skills/jira-worklog/test_worklog_scope.py
           python3 skills/jira-worklog/test_register_gate.py
