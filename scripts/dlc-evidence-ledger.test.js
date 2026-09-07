@@ -7,7 +7,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 const ledger = require('./dlc-ledger.js');
 const HOOK = path.join(__dirname, 'dlc-evidence-ledger.js');
 
@@ -80,6 +80,21 @@ ok('② /tmp 비-git 스크래치 파일 편집 → changed=false (exit 128)', (
   const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dlc-led-tmp-')), 'scratch.js');
   fs.writeFileSync(f, 'x');
   assert.strictEqual(edit(f, repoWt, sid()).changed, false);
+});
+ok('② 내용 없는 .git 디렉토리 아래 편집 → changed=false (git 도 repo 로 안 본다)', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dlc-led-emptygit-'));
+  fs.mkdirSync(path.join(root, '.git'));
+  const f = W(root, 'sub/scratch.js');
+  assert.strictEqual(edit(f, repoWt, sid()).changed, false);
+});
+ok('② 손상 repo(.git/HEAD 유실 → check-ignore 128)는 완화하지 않는다 → changed=true', () => {
+  const broken = initRepo();
+  const f = W(broken, 'src.js');
+  fs.rmSync(path.join(broken, '.git', 'HEAD'));
+  // 128(판정 불능) 로 fallback 분기를 타는 fixture 여야 회귀를 잡는다 — 0/1 이면 공허하게 통과한다.
+  const probe = spawnSync('git', ['check-ignore', '-q', '--', f], { cwd: broken });
+  assert.strictEqual(probe.status, 128);
+  assert.strictEqual(edit(f, broken, sid()).changed, true);
 });
 ok('③ 같은 repo 비-ignored 실소스 편집 → changed=true (비회귀)', () => {
   assert.strictEqual(edit(path.join(repoMain, 'src.js'), repoMain, sid()).changed, true);

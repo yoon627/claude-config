@@ -30,13 +30,38 @@ try {
   /* 신호 기록만 skip — ledger 기록은 유지(fail-open) */
 }
 
+// `.git` 이 있다고 repo 인 것은 아니다 — 내용 없는 `.git` 디렉토리는 git 자신도
+// "not a git repository" 로 거부한다. 정확한 repo 판정이 아니라 **빈 디렉토리 하나만
+// 예외로 두는 보수적 휴리스틱**이다: 이 함수는 git 이 이미 실패한 뒤에 불리므로 손상된
+// repo(HEAD 유실·권한 거부)를 repo 밖으로 판정하면 게이트가 조용히 꺼진다. 그래서
+// 흔적을 한 번이라도 본 뒤의 판정 불능은 전부 repo 안으로 친다.
+// 감수: 내용이 통째로 비워진 `.git` 은 빈 디렉토리와 구분할 수 없어 완화된다. git 이
+// 만들지 않는 상태라(init 은 언제나 HEAD·config·objects·refs 를 쓴다) 실측되는 빈 `.git`
+// 오탐을 없애는 쪽을 택했다.
+function hasRepoAt(d) {
+  const g = path.join(d, '.git');
+  let st;
+  try {
+    st = fs.lstatSync(g);
+  } catch (e) {
+    return e.code !== 'ENOENT';
+  }
+  if (!st.isDirectory()) return true; // gitfile·symlink — 내용을 못 보므로 보수적
+  try {
+    return fs.readdirSync(g).length > 0;
+  } catch {
+    return true; // 흔적은 이미 봤다 — 이후 판정 불능으로 완화하지 않는다
+  }
+}
+
 // dir 에서 위로 올라가며 .git(디렉토리 또는 worktree 의 .git 파일) 존재를 찾는다 — git 실행 없이
 // "이 경로가 어떤 git 작업트리 안인가"를 판정. check-ignore 의 exit 128 이 outside-repo 인지
 // git 오류(safe.directory·손상·GIT_DIR env·symlink)인지 구분하는 데 쓴다(128 단정은 게이트를 조용히 끔).
+// git 을 다시 부르지 않는 이유가 그것이다 — 같은 이유로 또 실패해 게이트가 조용히 꺼진다.
 function insideSomeRepo(dir) {
   let d = dir;
   for (;;) {
-    if (fs.existsSync(path.join(d, '.git'))) return true;
+    if (hasRepoAt(d)) return true;
     const parent = path.dirname(d);
     if (parent === d) return false;
     d = parent;
