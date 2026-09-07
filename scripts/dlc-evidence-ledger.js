@@ -72,15 +72,18 @@ function insideSomeRepo(dir) {
 // (마무리 단계의 커밋 메시지 임시파일 Write 가 false positive block 을 유발한 사례 — wiki workflow-failures.)
 // check-ignore 는 실행 cwd 의 repo 를 기준으로 판정하므로, 세션 cwd 가 아니라 dirname(fp) 에서
 // 돌려야 fp 자기 repo 기준이 된다 — worktree 세션이 다른 worktree/repo 의 gitignored 파일을
-// 편집할 때 세션 repo 기준 오판(cross-worktree changed 오탐)을 막는다.
+// 편집할 때 세션 repo 기준 오판(cross-worktree changed 오탐)을 막는다. 상대경로 fp 는 cwd 로
+// 먼저 절대화해야 그 전제가 성립한다(안 하면 비-repo cwd 에서 다른 repo 의 파일을 편집할 때
+// 그 repo 를 못 찾고 완화된다).
 //   exit 0 = ignored → changed 아님.  exit 1 = repo 안 비-ignored 실파일 → changed.
 //   그 외(128·timeout·git 미설치): dir 이 어떤 repo 안에도 없을 때만 완화(/tmp scratch·git init 전) →
 //     changed 아님. repo 안인데 실패(safe.directory·손상·env)면 보수적으로 changed 유지(게이트 안전측).
 function isIgnored(fp, cwd) {
   if (!fp) return false;
-  const dir = path.isAbsolute(fp) ? path.dirname(fp) : cwd || process.cwd();
+  const abs = path.isAbsolute(fp) ? fp : path.resolve(cwd || process.cwd(), fp);
+  const dir = path.dirname(abs);
   try {
-    execFileSync('git', ['check-ignore', '-q', '--', fp], {
+    execFileSync('git', ['check-ignore', '-q', '--', abs], {
       cwd: dir,
       stdio: 'ignore',
       timeout: 2000,
@@ -88,6 +91,9 @@ function isIgnored(fp, cwd) {
     return true;
   } catch (e) {
     if (e && e.status === 1) return false; // repo 안 확정 · 비-ignored → changed
+    // GIT_DIR/GIT_WORK_TREE 로 재배치된 작업트리는 조상 탐색으로 찾을 수 없다 — 설정돼 있는데
+    // git 이 실패했다면 repo 밖이라는 증거가 아니라 판정 불능이므로 완화하지 않는다.
+    if (process.env.GIT_DIR || process.env.GIT_WORK_TREE) return false;
     return !insideSomeRepo(dir); // repo 밖이면 not changed(완화), 안이면(broken) changed 유지
   }
 }

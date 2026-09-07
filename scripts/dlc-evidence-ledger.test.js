@@ -34,9 +34,9 @@ function W(dir, rel, body) {
   return f;
 }
 // hook 실행 후 ledger 상태. cwd 는 fp 의 repo 와 무관하게 둘 수 있다(dirname(fp) 기준 판정 검증).
-function edit(fp, cwd, s) {
+function edit(fp, cwd, s, extraEnv) {
   const input = JSON.stringify({ session_id: s, cwd, tool_name: 'Edit', tool_input: { file_path: fp } });
-  execFileSync('node', [HOOK], { input, env: { ...process.env, CLAUDE_DLC_SIGNAL_OFF: '1' } });
+  execFileSync('node', [HOOK], { input, env: { ...process.env, CLAUDE_DLC_SIGNAL_OFF: '1', ...extraEnv } });
   return ledger.read(s);
 }
 // doc-drift 판정은 root 가 `<home>/.claude` 일 때만 산다 → HOME 을 fixture 로 주입해 hook 을 돌린다.
@@ -95,6 +95,19 @@ ok('② 손상 repo(.git/HEAD 유실 → check-ignore 128)는 완화하지 않�
   const probe = spawnSync('git', ['check-ignore', '-q', '--', f], { cwd: broken });
   assert.strictEqual(probe.status, 128);
   assert.strictEqual(edit(f, broken, sid()).changed, true);
+});
+ok('② 상대경로 fp 는 cwd 기준으로 절대화해 자기 repo 로 판정한다 → changed=true', () => {
+  const rel = path.relative(nonGit, path.join(repoMain, 'src.js'));
+  assert.ok(!path.isAbsolute(rel));
+  assert.strictEqual(edit(rel, nonGit, sid()).changed, true);
+});
+ok('② GIT_DIR 이 걸린 채 git 이 실패하면 완화하지 않는다 → changed=true', () => {
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'dlc-led-gitdir-'));
+  const f = W(scratch, 'src.js');
+  const gitDir = path.join(scratch, 'no-such-git-dir');
+  const probe = spawnSync('git', ['check-ignore', '-q', '--', f], { cwd: scratch, env: { ...process.env, GIT_DIR: gitDir } });
+  assert.strictEqual(probe.status, 128);
+  assert.strictEqual(edit(f, scratch, sid(), { GIT_DIR: gitDir }).changed, true);
 });
 ok('③ 같은 repo 비-ignored 실소스 편집 → changed=true (비회귀)', () => {
   assert.strictEqual(edit(path.join(repoMain, 'src.js'), repoMain, sid()).changed, true);

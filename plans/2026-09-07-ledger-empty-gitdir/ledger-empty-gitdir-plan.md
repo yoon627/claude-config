@@ -15,6 +15,7 @@ updated: 2026-09-08
 - 2026-09-07: 3 Whys 로 원인 확정 — (1) `/tmp` 파일이 repo 안으로 판정 (2) `insideSomeRepo` 가 `fs.existsSync(<dir>/.git)` 로만 판정 (3) 이 머신에 **완전히 빈 `C:\Users\USER\.git`** 존재(2026-07-25 생성). git 본체는 `fatal: not a git repository` 로 거부하나 `existsSync` 는 구분 못 함.
 - 2026-09-07: 1차 수정(HEAD 존재로 유효성 판정) → codex 리뷰가 Critical 지적, 폐기. `.git/HEAD` 유실 손상 repo 를 repo 밖으로 판정해 게이트를 조용히 끄는 false negative 였다(실증: 직전=false, 수정=true).
 - 2026-09-08: 2차 수정(빈 디렉토리 여부로 판정) + codex 재검토 반영(ENOENT 경쟁 상태 catch 분리, fallback 진입 단언, 주석에 감수 명시). 회귀 테스트 2개 추가. `verify.sh node` ALL PASS.
+- 2026-09-08: **Deferred 2건 해소** — 상대경로 `fp` 절대화 + `GIT_DIR`/`GIT_WORK_TREE` 설정 시 완화 금지. 둘 다 "판정 불능을 repo 밖으로 접지 않는다" 는 같은 안전측 규칙의 적용이다(wiki [[lesson-gate-safe-side-first]]). TDD Red 확인 후 구현, `verify.sh node` ALL PASS.
 
 # Next
 
@@ -47,8 +48,8 @@ updated: 2026-09-08
 
 # Deferred
 
-- `insideSomeRepo` 는 `GIT_DIR`/`GIT_WORK_TREE` 로 연결된 작업트리를 조상 탐색으로 발견하지 못한다. 그 repo 가 손상돼 `check-ignore` 가 128 이면 완화된다. 중간·선행 이슈(이번 변경 이전부터 존재) — `scripts/dlc-evidence-ledger.js`.
-- `isIgnored` 는 상대경로 `fp` 에 대해 `cwd` 를 쓰므로 "`dirname(fp)` 에서 판정" 전제가 깨진다. 비-repo cwd 에서 `../repo/src.js` 를 편집하면 완화된다. 호출 계약상 hook 은 절대경로를 주지만 단언·테스트로 고정돼 있지 않다. 낮음·선행 이슈 — `scripts/dlc-evidence-ledger.js:72`.
+- ~~`insideSomeRepo` 가 `GIT_DIR`/`GIT_WORK_TREE` 재배치 작업트리를 못 찾는다~~ → **2026-09-08 해소**. 둘 중 하나가 설정된 채 git 이 실패하면 "repo 밖" 증거가 아니라 판정 불능이므로 완화하지 않는다.
+- ~~`isIgnored` 가 상대경로 `fp` 에 `cwd` 를 써서 "`dirname(fp)` 에서 판정" 전제가 깨진다~~ → **2026-09-08 해소**. `path.resolve(cwd, fp)` 로 먼저 절대화한 뒤 그 dirname 에서 판정. 회귀 테스트 2건 추가.
 - `scripts/verify.sh` 의 shellcheck 축이 이 머신에서 `[skip] shellcheck 미설치` 로 빠진다. 로컬 초록이 CI 실패를 못 잡는 구간. 낮음.
 
 # Blockers
