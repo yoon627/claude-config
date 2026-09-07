@@ -110,6 +110,7 @@ worktree 생성은 로컬·비파괴이고 `/wt rm <slug>` 한 번으로 되돌�
    - cwd 가 대상 하위면 거부 + 다른 worktree 로 switch 안내.
    - 대상에서 `git status --porcelain` 비어있지 않으면 경고.
    - unpushed 커밋 있으면 경고 (`git log origin/<branch>..<branch>` 또는 upstream 없으면 `git log <branch> --not --remotes`).
+   - **gitignored 산출물 점검 (필수)** — `git worktree remove` 는 gitignored 파일을 **경고 없이 함께 삭제**한다. 이 repo 는 whitelist `.gitignore` 라 `.env`·`.claude/settings.local.json` 이 ignored → 위 `git status --porcelain` 엔 안 잡힌다. `git -C <대상 worktree path> status --porcelain --ignored` 로 인벤토리를 수집하고(`/e` 와 달리 대상이 cwd 가 아닐 수 있어 `-C <대상>` 필수), `.env`·secret 후보·기타 미보존 산출물이 있으면 삭제될 목록을 5단계 AskUserQuestion 본문에 **명시**(기본 유지). `plans/` 는 tracked(§10)라 미커밋 plan 은 위 `git status --porcelain` 에 잡히고 remove 가 거부한다 — 커밋한 뒤 삭제한다.
    - **미머지 탐지 (옵션 3 원격 삭제 판단 근거)**: `git branch --merged origin/<default>` 에 대상 branch 가 없거나 `git log origin/<default>..<branch>` 가 비어있지 않으면 **미머지** — 원격 삭제(옵션 3)는 데이터 유실 위험이므로 이 사실을 옵션 3 경고에 명시(e 는 조건5 게이트로 차단하나 wt 는 수동이라 사용자 판단; 미탐지 시 삭제 안 함 전제). `<default>` = `git symbolic-ref --short refs/remotes/origin/HEAD` (실패 시 `origin/main`).
 5. AskUserQuestion (옵션 1: worktree 만 / 옵션 2: worktree + 로컬 브랜치 / 옵션 3: worktree + 로컬·원격 브랜치 / 옵션 4: 취소). 경고(특히 unpushed·미머지)는 question 본문에 명시 — 원격 삭제(옵션 3)는 그 경고를 본 사용자가 택할 때만.
 6. 실행: `git worktree remove <path>`. 실패 시 stderr 원인으로 분기:
