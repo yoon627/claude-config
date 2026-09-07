@@ -1,6 +1,6 @@
 ---
 title: plan-intent-section — plan 에 `# Intent` 선택 섹션을 두고 dlc 요구사항 명확화가 그것을 채우게 한다
-status: in_progress
+status: done
 started: 2026-09-07
 updated: 2026-09-07
 ---
@@ -41,11 +41,11 @@ updated: 2026-09-07
 - 2026-09-07: 동기화 지점 전수 스윕을 workflow(`intent-section-survey`, 7 agents)로 실행 — 5갈래 병렬 + 문체 규약 추출 + 누락 비평. 후보 63건 중 mustChange 11곳. 비평이 스윕의 편향("모두 같은 모달리티로 수렴")을 잡아내 `wiki/index.md`(hook 기계적 필수)·`wiki/log.md`(WIKI.md:43)·선행 wontfix·구속 결정을 추가로 발굴. 직접 grep 으로 9번째 지점(`unknowns-discovery.md:18`)을 더 찾음.
 - 2026-09-07: 편집 9파일 완료(24줄). 로컬 CI 동등 스위트 OVERALL PASS.
 - 2026-09-07: diff 적대적 리뷰 workflow(`intent-section-review`, 69 agents) 실행 — 6렌즈 × 반박 3인. 21건 중 confirmed 1건이나, **여러 렌즈가 독립 지목한 항목**은 개별 반박과 무관하게 실물 대조 후 4건 반영. 반박자 3명이 API safeguard 오류로 실패해(`style`·`precedent`·`doc-drift` 각 1) 그 렌즈는 2표로 판정 — `kept >= 2` 기준상 기각 편향이 있었다.
-- 2026-09-07: 리뷰 반영 후 재검증 OVERALL PASS + `check_links.py` clean.
+- 2026-09-07: 리뷰 반영 후 재검증 OVERALL PASS + `check_links.py` clean. 커밋 `d2ec8df`, PR #162.
 
 # Next
 
-1. 커밋 → `/e merge`
+(없음 — PR #162 머지로 종료)
 
 # Decisions
 
