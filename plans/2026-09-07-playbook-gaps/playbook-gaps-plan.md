@@ -1,6 +1,6 @@
 ---
 title: playbook-gaps — AI-Native SDLC Playbook 격차 분석 결과를 A/B/C 그룹으로 반영
-status: in_progress
+status: done
 started: 2026-09-07
 updated: 2026-09-07
 ---
@@ -36,12 +36,12 @@ skill 트리거 eval 코퍼스(structural) · managed settings 등가물 · `cla
 - 2026-09-07: 격차 분석 workflow(22 agents). 11개 플레이가 **전부 `partial`** 로 균일해 status 축은 변별력 없다고 보고 폐기, 검증 통과 제안만 채택(28건 중 17건 검증 기각).
 - 2026-09-07: A그룹 커밋 `9433787` — CI 누락 테스트 3개 등재 + `ask`/`allow` 사실 정정 + wiki 적립.
 - 2026-09-07: B그룹 커밋 `3d04050` — ⚠️ self-flag · plan-reviewer 관점 3개 · code-reviewer plan 대비 축 · runner acceptance 대조.
-- 2026-09-07: C그룹 커밋 — `verify.sh` · `improve.sh --ci` · plan drift 축 · `plan-match.js` 신규.
+- 2026-09-07: C그룹 커밋 `5ec21fb` — `verify.sh` · `improve.sh --ci` · plan drift 축 · `plan-match.js` 신규.
+- 2026-09-07: PR #163, CI 통과. 로그로 5개 축 전부 실행 + 누락됐던 테스트 2개 실제 실행 + `improve --ci` 가 러너 미보유 점검 3개 보고를 확인.
 
 # Next
 
-1. push → PR → CI → 머지
-2. **main 복귀 후**: `lesson-parallel-duplicate-implementation` 의 `MEMORY.md` 인덱스 줄 적립(§13 짝 누락 — gitignored 라 worktree 에서 못 쓴다)
+1. **main 복귀 후**: `lesson-parallel-duplicate-implementation` 의 `MEMORY.md` 인덱스 줄 적립(§13 짝 누락 — gitignored 라 worktree 에서 못 쓴다)
 
 # Decisions
 
