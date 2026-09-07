@@ -2,7 +2,7 @@
 title: unknowns-discovery
 category: concept
 created: 2026-07-16
-updated: 2026-07-16
+updated: 2026-09-07
 sources:
   - [[fable-field-guide-unknowns]]
   - plans/2026-07-07-unknowns-pass (dlc 반영 설계)
@@ -15,7 +15,7 @@ sources:
 ## 기법 → dlc 현행 대응
 | 기법(원문 명명) | dlc 반영 위치 | 상태 |
 |---|---|---|
-| Interviews | 요구사항 명확화 게이트(체크리스트 4항·≤2라운드) + "질문 우선순위"(설계·acceptance 바꾸는 것 먼저·1개씩) | 기존(+이번 우선순위) |
+| Interviews | 요구사항 명확화 게이트(체크리스트 6항·≤2라운드) + "질문 우선순위"(설계·acceptance 바꾸는 것 먼저·1개씩) + 결과를 plan `# Intent` 에 기록 | 기존(+우선순위·2026-09-07 Intent) |
 | References | Explore(기존 파일·같은 레이어 스타일 참조) + 사용자 제공 예시 | 기존 |
 | Blind spot scans | 명확화 절 "blind-spot pass"(낯선 영역 브리핑 후 질문 재구성) | 신규(이번) |
 | Mockups (프로토타입-우선) | 명확화 절 프로토타입-우선 + router `[dlc:grounding]` 주입(취향·시각은 구현 전 변형 2~4종) | 신규(이번) |

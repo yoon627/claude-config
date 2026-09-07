@@ -194,3 +194,11 @@
 - 그래서 키가 아니라 **파일을 뺐다**(`.gitignore` 화이트리스트에서 제거 + `git rm --cached`). 키 단위 대응이 3회 반복된 것이 근거 — 뺄 키를 고를 때마다 Claude Code 는 다음 기능으로 또 쓴다. 증상 억제 대신 원인 제거.
 - 추적 전제에 의존하던 것 동반 수정: CI JSON validation 제거, `session-start-pull.test.js` 이원화(settings 있으면 실제 배선까지 검증 / 없으면 CANONICAL 로 스크립트 동작 고정 — 19 tests 양쪽 통과 실측), `guard-worktree-edit.js` main 허용목록에 추가, `dlc-doc-drift.js` trigger 에서 제외.
 - **3회 반복의 진짜 원인**: 이 lesson 은 2026-08-12 부터 있었으나 `MEMORY.md` 인덱스 줄도 메모리 파일도 없었다 — CLAUDE.md §13 의 wiki+인덱스 짝이 성립한 적이 없어 자동 상기가 불가능했다. lesson 적립 시 인덱스 줄을 같이 만들지 않으면 그 lesson 은 없는 것과 같다.
+
+## [2026-09-07] ingest | plan `# Intent` 선택 섹션 도입 (AI-Native SDLC Playbook Stage 1)
+- 출처: Claude Academy *The AI-Native SDLC Playbook* — "Capture as intent.md"(Stage 1). 발의자가 Claude 와 브레인스토밍해 proto-spec(`intent.md`: Problem / Proposed outcome / Affected users and systems / Constraints / Open questions)을 그 자리에 커밋하고, 증거는 git history(author·timestamp·개정 이력)가 된다.
+- **채택**: 산출물 *형태*만. `# Intent`(Problem·Constraints·Out of scope·Open questions)를 §10 **선택** 섹션으로 두고, dlc 요구사항 명확화 체크리스트를 4항 → 6항(문제·제약 추가)으로 늘려 그 결과를 이 섹션에 기록하게 했다.
+- **미채택**: 별도 `intent/` 홈·product owner 승인 게이트·survival rate 지표·Git 없는 기여자용 VCS 커넥터. 1인 워크플로우에 해당 없고, 산출물을 plan 과 이원화하면 §10 "plan = 단일 진실 소스"가 깨진다.
+- **배치 근거**: 정의는 `CLAUDE.md` §10(항상 주입), 절차는 `skills/dlc`(조건부 로드). [[ops-doc-slimming]] 의 "조건부-로드 skill 로 canonical 스펙을 이관하면 방향 역전 = 로드 등급 하락 = 손실" 이 dlc 단독 배치를 금지한다.
+- **선행 wontfix supersede**: 2026-07-07 `unknowns-pass` 가 "plan 에서 바뀔 결정 앞세우기"를 기각했으나(6섹션 충돌·`# Decisions` 중복·이득 대비 큰 변경), Intent 는 선택 섹션이라 필수 6이 불변이고 담는 것이 결정이 아니라 문제·제약이라 겹치지 않는다. 계기는 제약 미기록으로 같은 안이 3회 왕복한 2026-09-07 실측.
+- 동기화: [[plan-handoff]]·[[dlc-development-cycle]]·[[unknowns-discovery]] + index. 코드 변경 없음(`plan-lint` 는 선택 섹션을 검증하지 않아 불변 — 실측 확인).
