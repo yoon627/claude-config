@@ -9,7 +9,12 @@
 #   + ⑨ 가 delta 창(마지막 점검 버전 → 설치 버전)까지 출력.
 set -u
 
-case "${1:-}" in deep | --deep) DEEP=1 ;; *) DEEP=0 ;; esac
+case "${1:-}" in
+  deep | --deep) DEEP=1 CI=0 ;;
+  # --ci: 종료코드로 error 를 알린다(read-only 불변식은 그대로 — 여기서 바뀌는 건 exit 뿐).
+  ci | --ci) DEEP=0 CI=1 ;;
+  *) DEEP=0 CI=0 ;;
+esac
 
 # repo root 로 self-cd — 어디서 호출해도 cwd 의존 거짓통과(점검 다수가 빈 결과로 error=0) 차단.
 # skills/improve/improve.sh 구조 가정 → ../.. = repo root. git 비의존(가드로 검증).
@@ -177,4 +182,17 @@ if [ "$DEEP" = 1 ]; then
 fi
 
 echo "== 요약: error=$err warn=$warn (info 는 수동 확인 권고; deep=$DEEP) =="
+
+if [ "$CI" = 1 ]; then
+  # CI 러너에는 머신 로컬 자산이 없어 일부 점검이 조용히 skip 된다. 그걸 안 적으면
+  # "CI green = 전 점검 통과" 로 오독된다 — 무엇이 안 돌았는지 명시한다.
+  ci_skips=""
+  [ -f settings.json ] || ci_skips="$ci_skips 1(settings.json untracked)"
+  [ -n "${MEMDIR:-}" ] || ci_skips="$ci_skips 2(MEMORY 디렉토리 없음)"
+  [ -f "${SIGDIR:-}/dlc-signals.jsonl" ] || ci_skips="$ci_skips 7(telemetry 없음)"
+  [ -n "$ci_skips" ] && echo "== ci: 이 환경에서 안 돈 점검 —$ci_skips =="
+  echo "== ci: exit $((err > 0 ? 1 : 0)) (warn 은 게이트하지 않는다) =="
+  [ "$err" -eq 0 ]
+  exit
+fi
 exit 0

@@ -180,4 +180,82 @@ ok('stop_hook_active=true 면 즉시 통과(무한 루프 방지)', () => {
   assert.strictEqual(r.stdout, '');
 });
 
+// --- (3) plan drift 축 ---
+// 이 축의 최대 위험은 오탐이다. "plan 이 매칭될 때만 발동"을 양방향으로 잠근다.
+
+function initRepo(root, branch) {
+  const g = (args) => spawnSync('git', ['-C', root, ...args], { stdio: 'ignore' });
+  g(['init', '-q', '-b', branch]);
+  g(['config', 'user.email', 't@t']);
+  g(['config', 'user.name', 't']);
+  g(['config', 'commit.gpgsign', 'false']);
+  g(['add', '-A']);
+  g(['commit', '-m', 'init']);
+}
+
+ok('plan drift: 소스 변경 + 매칭 plan 있는데 미편집 → 경고 + 신호', () => {
+  const F = makeHome();
+  initRepo(F.root, 'my-task');
+  fs.mkdirSync(path.join(F.root, 'plans', '2026-09-07-my-task'), { recursive: true });
+  fs.writeFileSync(path.join(F.root, 'plans', '2026-09-07-my-task', 'my-task-plan.md'), '#');
+  writeLedger(F.tmp, { changed: true, verified: true, planTouched: false, changedTrigger: 'scripts/x.js' });
+  const { out, signals } = run(F, F.root);
+  assert.ok(blocked(out), 'plan 미갱신이면 경고해야 한다');
+  assert.ok(out.includes('my-task-plan.md'), '어느 plan 인지 알려줘야 한다');
+  assert.ok(signals.includes('early-stop-plan-drift'), `신호 누락: ${signals}`);
+});
+
+ok('plan drift: plan 을 편집했으면 경고 없음', () => {
+  const F = makeHome();
+  initRepo(F.root, 'my-task');
+  fs.mkdirSync(path.join(F.root, 'plans', '2026-09-07-my-task'), { recursive: true });
+  fs.writeFileSync(path.join(F.root, 'plans', '2026-09-07-my-task', 'my-task-plan.md'), '#');
+  writeLedger(F.tmp, { changed: true, verified: true, planTouched: true });
+  assert.ok(!blocked(run(F, F.root).out));
+});
+
+ok('plan drift: 매칭 plan 이 없으면 발동하지 않는다 (오탐 방지의 핵심)', () => {
+  const F = makeHome();
+  initRepo(F.root, 'my-task');
+  fs.mkdirSync(path.join(F.root, 'plans', '2026-09-07-other'), { recursive: true });
+  fs.writeFileSync(path.join(F.root, 'plans', '2026-09-07-other', 'other-plan.md'), '#');
+  writeLedger(F.tmp, { changed: true, verified: true, planTouched: false });
+  assert.ok(!blocked(run(F, F.root).out), 'plan 없는 흐름에 경고가 뜨면 안 된다');
+});
+
+ok('plan drift: git repo 가 아니면 판정 포기 (fail-open)', () => {
+  const F = makeHome(); // initRepo 안 함
+  fs.mkdirSync(path.join(F.root, 'plans', '2026-09-07-my-task'), { recursive: true });
+  fs.writeFileSync(path.join(F.root, 'plans', '2026-09-07-my-task', 'my-task-plan.md'), '#');
+  writeLedger(F.tmp, { changed: true, verified: true, planTouched: false });
+  assert.ok(!blocked(run(F, F.root).out));
+});
+
+ok('plan drift: CAP=1 — 재종료 시 통과', () => {
+  const F = makeHome();
+  initRepo(F.root, 'my-task');
+  fs.mkdirSync(path.join(F.root, 'plans', '2026-09-07-my-task'), { recursive: true });
+  fs.writeFileSync(path.join(F.root, 'plans', '2026-09-07-my-task', 'my-task-plan.md'), '#');
+  writeLedger(F.tmp, { changed: true, verified: true, planTouched: false });
+  assert.ok(blocked(run(F, F.root).out));
+  assert.strictEqual(readLedger(F.tmp).planBlocks, 1);
+  assert.ok(!blocked(run(F, F.root).out), '두 번째 종료는 통과해야 한다');
+});
+
+ok('plan drift: OFF 스위치', () => {
+  const F = makeHome();
+  initRepo(F.root, 'my-task');
+  fs.mkdirSync(path.join(F.root, 'plans', '2026-09-07-my-task'), { recursive: true });
+  fs.writeFileSync(path.join(F.root, 'plans', '2026-09-07-my-task', 'my-task-plan.md'), '#');
+  writeLedger(F.tmp, { changed: true, verified: true, planTouched: false });
+  const r = spawnSync('node', [HOOK], {
+    input: JSON.stringify({ session_id: SID, cwd: F.root, stop_hook_active: false }),
+    env: { ...process.env, HOME: F.home, USERPROFILE: F.home, TMPDIR: F.tmp, TEMP: F.tmp, TMP: F.tmp,
+      CLAUDE_DLC_PLANDRIFT_OFF: '1' },
+    encoding: 'utf8', timeout: 20000,
+  });
+  assert.strictEqual(r.status, 0);
+  assert.ok(!blocked(r.stdout || ''));
+});
+
 console.log(`dlc-early-stop.test.js: ${n} tests passed`);

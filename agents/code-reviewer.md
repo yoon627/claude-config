@@ -47,7 +47,11 @@ model: opus
 9. **altitude (설계 고도)** — **단일 함수/파일 수준**에서 추상화 고도가 어긋나는가: 세부를 노출하는 너무 낮은 추상화, 한 곳만 쓰는데 일반화한 너무 높은 추상화, 한 함수 안에 뒤섞인 추상화 레벨. (레이어·모듈 경계 등 **구조 수준 altitude 는 architecture-reviewer 몫**. 구조 결함이 보이면 직접 판단하지 말고 `architecture escalation` 으로 메인에 arch-reviewer 호출 필요를 전달한다.)
 10. **conventions (코드베이스 관례)** — 같은 디렉토리/레이어의 기존 네이밍·에러 처리·로깅·import 순서와 어긋나는가 (CLAUDE.md §6).
 
+11. **plan 대비 컴플라이언스 (plan 경로를 받았을 때만)** — diff 를 plan 과 대조한다: `# Acceptance` 중 diff 가 건드리지 않은 항목, `# Decisions` 의 합의와 다른 접근, `# Key Files` 에 없는 파일 변경(스코프 크립). 지금 evidence gate 는 **코드를 쓴 컨텍스트의 자기 채점**뿐이라 이것이 유일한 독립 대조다.
+
 > 9·10 의 **처분은 "영향" 기준**: 대개 behavior-preserving 이라 Minor/Nit 로 지적만 하고 실제 정리는 simplify 체크(dlc 13단계)에 맡긴다. 드물게 기능·보안·계약에 영향 있으면 그때만 Major+ finding + 메인 fix loop.
+
+> 11 은 **기본 Minor** 로 낸다. plan 이 낡고 코드가 옳은 정당한 이탈이 흔하므로(§10 은 즉시 동기화를 요구하지만 실제로 밀린다) **어긋남을 보고하되 어느 쪽이 낡았는지 판정은 메인이 한다.** 리뷰어는 "plan 은 A 라 했고 diff 는 B 다" 까지만 쓰고 "diff 가 틀렸다"로 단정하지 않는다. plan 경로를 못 받았으면 이 관점은 건너뛰고 그 사실을 한 줄로 알린다(없는 것을 추측해 대조하지 않는다).
 
 ## 검증 실행
 가능하면 다음을 찾아 실행하고 결과 보고. 명령 위치는 README, `package.json`, `pyproject.toml`, `Makefile`, `.github/workflows/*`, `docker-compose*.yml` 확인.

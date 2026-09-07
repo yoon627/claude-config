@@ -18,7 +18,7 @@
 - **추측 금지.** 모르면 "모른다"고 명시. 중요한 판단·원인 분석엔 확신도 표시: ✅확실(파일·실행결과·공식문서) / ⚠️추정(정황만) / ❌모름.
 - **코드베이스 답변은 코드를 보고.** 답하기 전 관련 파일 read, 기억으로 답하지 않는다. 못 찾으면 명시. 답변엔 확인한 주요 파일을 짧게 적는다.
 - **근본 원인을 고친다.** 증상 억제 금지(에러 무시·테스트 약화·`except: pass`·무의미한 retry). 버그·장애엔 최소 3 Whys. 오타·포맷은 생략 가능.
-- **검증 후 "완료" 선언.** lint/typecheck/test/build 실행·통과 확인. 명령 없으면 README/CI 에서 찾고(`~/.claude` repo 의 검증 명령은 `.github/workflows/lint.yml` — `package.json` 없어 `npm test` 부재), 검증 불가면 이유+수동 절차 명시. 미검증이면 "완료" 금지. 통과해도 **목표 대비 충족 확인** — 통과 ≠ 완료.
+- **검증 후 "완료" 선언.** lint/typecheck/test/build 실행·통과 확인. 명령 없으면 README/CI 에서 찾고(`~/.claude` repo 의 검증은 **`bash scripts/verify.sh`** — `package.json` 없어 `npm test` 부재. 정상 종료 마지막 줄은 `ALL PASS` 또는 `ALL PASS (skip: …)` 이고, **skip 이 붙은 줄을 통과로 읽지 말 것**. CI 도 같은 스크립트를 축별로 호출한다), 검증 불가면 이유+수동 절차 명시. 미검증이면 "완료" 금지. 통과해도 **목표 대비 충족 확인** — 통과 ≠ 완료.
 - **사용자가 틀리면 정중히 반박.** 아부 금지. 가정이 코드/로그/문서와 충돌하면 근거로 설명.
 - **사용자 변경사항 보호.** 작업 전 `git status --short`. 덮어쓰지 않는다. 변경 파일이 예상보다 많으면 즉시 멈추고 원인 확인.
 - **승인은 위험기반.** 확인(`AskUserQuestion`)은 **비가역·외부공개·파괴적**(push·머지·원격/강제 삭제·배포·DB write·외부 전송·비용 발생)에만 건다. 로컬에서 **한 명령으로 되돌릴 수 있고 기존 데이터를 지우지 않는** 액션(worktree/브랜치 생성, 파일 편집, 로컬 실행)은 **묻지 말고 실행한 뒤, 되돌리는 데 필요한 정보**(무엇을·어디에·되돌리는 명령·경고)를 보고에 담는다 — 무해한 단계마다 거는 승인은 안전을 늘리지 않고 마찰만 늘린다. 애매하면 확인(fail-safe). **방향 합의는 별개** — §3-3 plan 승인·요구 명확화는 위험도와 무관하게 그대로 한다. 상세는 wiki [[risk-based-approval]].
@@ -131,7 +131,7 @@ Workflow 스크립트의 `agent()` 는 `model` 을 생략하고(세션 모델 �
 ## 8. Git / 보안
 
 - `git reset --hard`·`git clean -fd`·강제 checkout·force push 는 명시 요청 없으면 금지.
-- **작업은 main/master 직접 말고 별도 브랜치/worktree 에서** (main/master push 는 전역 `ask` — 매번 확인이 뜨며, repo 별 `settings.local.json` allow 로만 자동 실행된다. 2026-08-06 전역 `deny` 제거: deny 는 프로젝트 단위 범위 지정이 불가하고 allow 보다 우선해서, 전역 deny 를 두면 이 repo(`~/.claude`)도 막히기 때문). **다른 repo 의 main 푸시는 git `pre-push` 훅이 계속 하드 차단**한다(`pre-commit-check` 가 repo 루트 `~/.claude` 만 면제) — 이 규약과 `permissions.ask` 의 `git push` 확인이 그 위에 겹친다. **코드/파일을 바꾸는 작업은 — 규모·무관 여부와 별개로 — 시작 시 별도 worktree(`/wt <요청사항>`)에서 한다**(2026-09-04 trivial 포함으로 확대: main 커밋 금지와 맞물려 소소한 수정이 영영 커밋되지 못하는 사각을 없앤다. 단 gitignored 글로벌 상태·비-git 디렉토리는 제외 — §3-1). 진행 중인 worktree 에 새 작업을 얹지 않는다(base·체크아웃 충돌, 변경 혼입, 동시 편집 위험). 무관한 변경을 한 브랜치에 섞지 않는다. push 는 요청 시만.
+- **작업은 main/master 직접 말고 별도 브랜치/worktree 에서** (main/master push 는 전역 `ask` — 매번 확인이 뜬다. **`allow` 로는 풀리지 않는다**: 규칙은 deny → ask → allow 순으로 평가되고 *"The first match in that order determines the outcome"* 이라, `ask` 가 먼저 매칭되면 어느 스코프의 `allow` 도 조회되지 않는다. 풀려면 `ask` 규칙 자체를 지워야 한다. 2026-08-06 전역 `deny` 제거: deny 는 프로젝트 단위 범위 지정이 불가하고 allow 보다 우선해서, 전역 deny 를 두면 이 repo(`~/.claude`)도 막히기 때문). **다른 repo 의 main 푸시는 git `pre-push` 훅이 계속 하드 차단**한다(`pre-commit-check` 가 repo 루트 `~/.claude` 만 면제) — 이 규약과 `permissions.ask` 의 `git push` 확인이 그 위에 겹친다. **코드/파일을 바꾸는 작업은 — 규모·무관 여부와 별개로 — 시작 시 별도 worktree(`/wt <요청사항>`)에서 한다**(2026-09-04 trivial 포함으로 확대: main 커밋 금지와 맞물려 소소한 수정이 영영 커밋되지 못하는 사각을 없앤다. 단 gitignored 글로벌 상태·비-git 디렉토리는 제외 — §3-1). 진행 중인 worktree 에 새 작업을 얹지 않는다(base·체크아웃 충돌, 변경 혼입, 동시 편집 위험). 무관한 변경을 한 브랜치에 섞지 않는다. push 는 요청 시만.
 - **검증 통과한 작업 단위는 요청 없이 커밋한다** — 하네스 기본값(`Commit or push only when the user asks.`)을 이 규약이 대체한다. 작업 브랜치에서 evidence gate·plan 업데이트를 마친 뒤 **마지막에 1회**(중간 커밋을 막지는 않는다). **stage 는 이번 작업이 건드린 경로만** — 자동 커밋에서 `git add -A` 금지(무관한 사용자 변경·산출물이 섞이고, `pre-commit-check` 시크릿 스캔은 `settings.json`·`plans/*.md` 만 본다). `/e` WIP 체크포인트는 전량 보존이 목적이라 이 금지의 예외. 커밋 직전 `git diff --cached --name-only` 로 index 를 확인해 **작업 밖 항목이 이미 staged 면 보류·보고**. **커밋하지 않는 경우**: 현재 브랜치가 main/master 또는 detached HEAD — 커밋 생략하고, **이미 main 에서 편집했으면 `/wt` 로 옮겨 재적용한 뒤 그 절차를 보고**한다(게이트가 auto 모드·untracked·fail-open 으로 안 걸렸을 때 도달 가능한 상태다. 변경을 main 에 uncommitted 로 방치하지 않는다) · 검증 실패(§3-5 로 입증된 baseline failure 는 제외) · stage 할 변경 없음(빈 커밋 금지). 커밋이 훅에 차단되면 **우회(`--no-verify`) 금지** — 원인을 없애거나 보고 후 중단. 검증 명령을 식별하지 못했으면 커밋하되 보고에 "검증 미식별"을 명시. **push 는 여전히 요청 시만** — 자동인 것은 커밋까지다. 절차 세부(메시지 형식·경로 확정·실행 폴백)는 `skills/dlc/SKILL.md` 16단계 커밋 규칙.
 - **worktree 작업의 worklog 는 그 worktree 를 지우기 전에 남긴다**: 세션이 여러 worktree 를 오가도 AI 작업시간은 **줄 단위 `cwd` 로 정확히 갈린다**(`jira-worklog` — 세션 파일이 cwd 를 따라 이동해도 무관). 따라서 main 복귀 후에 돌려도 되고 이름을 인자로 줘도 된다. 다만 **worktree 를 삭제하면 `--all` 순회 대상에서 빠져 등록이 불가능**해지므로(표시만 된다) `/e` step6 을 7단계 삭제보다 먼저 돌린다. (한 세션 = 한 worktree 규율 자체는 아래 bullet 의 base·혼입·동시편집 이유로 유지 — worklog 정확성은 더 이상 그 근거가 아니다.)
 - **worktree 삭제 주의**: `git worktree remove` 는 gitignored 파일(`.env` 등 — whitelist `.gitignore` 라 `git status` 에 안 보임)을 **무경고 동반 삭제**한다. `plans/` 는 tracked(§10)라 미커밋 plan 은 `git status` 에 보이고 remove 가 거부하지만, **미커밋 plan 변경은 삭제 전 커밋·push 로 보존**한다. 삭제 전 `git status --porcelain --ignored` 점검(상세 `skills/e/SKILL.md`).
@@ -195,11 +195,11 @@ updated: YYYY-MM-DD
 1. `# Goal` — 달성 목표 (1~3줄)
 2. `# Progress` — 날짜별 진행 로그
 3. `# Next` — **다음 즉시 액션 (가장 중요)**
-4. `# Decisions` — 설계/스코프 합의 + 이유
+4. `# Decisions` — 설계/스코프 합의 + 이유. **진지하게 검토했다가 기각한 대안이 있으면 그것과 기각 사유도** (없으면 다음 세션이 같은 안을 다시 꺼낸다 — 실측 재발 축)
 5. `# Key Files` — 핵심 파일 + 한 줄 메모
 6. `# Blockers` — 막힌 것 + 풀려면 필요한 것
 
-선택 섹션 (해당 작업에서 필요할 때만): `# Intent`(착수 전 확정한 요구 — Problem·Constraints·Out of scope·Open questions, dlc 요구사항 명확화가 채운다), `# Acceptance`(test 가능한 완료 기준 — 각 항목이 증거(실행·관찰·통과)로 충족될 때만 완료, dlc evidence gate), `# Review Disposition`(dlc fix loop 의 finding 처분 — `fix`/`defer`/`false-positive`/`wontfix`), `# Deferred`(범위 밖 발견 — §3-4), `# Workflow Findings`(확인된 workflow 실패 기록 — dlc 증거기반 자기개선, 최소형). `defer`(리뷰 finding 처분값) ≠ `# Deferred`(범위 밖 발견 보존 섹션). `# Intent`(무엇을 왜·어떤 제약에서) ≠ `# Goal`(달성 목표 1~3줄).
+선택 섹션 (해당 작업에서 필요할 때만): `# Intent`(착수 전 확정한 요구 — Problem·Constraints·Out of scope·Open questions, dlc 요구사항 명확화가 채운다), `# Acceptance`(test 가능한 완료 기준 — 각 항목이 증거(실행·관찰·통과)로 충족될 때만 완료, dlc evidence gate), `# Review Disposition`(dlc fix loop 의 finding 처분 — `fix`/`defer`/`false-positive`/`wontfix`. dlc ⚠️ self-flag 는 자기 신고라 `resolved`/`accepted-risk`/`deferred` 로 구분), `# Deferred`(범위 밖 발견 — §3-4), `# Workflow Findings`(확인된 workflow 실패 기록 — dlc 증거기반 자기개선, 최소형). `defer`(리뷰 finding 처분값) ≠ `# Deferred`(범위 밖 발견 보존 섹션). `# Intent`(무엇을 왜·어떤 제약에서) ≠ `# Goal`(달성 목표 1~3줄).
 
 리뷰는 dlc 의 중간 단계(구현 직후 code-reviewer + codex 병행, §9)가 담당한다 — push 직전 별도 codex 리뷰는 두지 않는다. 로컬 다관점 점검이 따로 필요하면 빌트인 `/code-review` 를 수동 사용.
 

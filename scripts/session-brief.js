@@ -191,10 +191,9 @@ function daysSinceLocal(dateStr, now) {
 
 // slug ↔ 브랜치 앵커 매칭. free substring 은 쓰지 않는다 — 항상 존재하는 `main` 이
 // slug 에 main 이 든 plan(main-autopull 등)을 영구 억제하고, 무관 브랜치가 우연 매칭된다.
-function anchorMatches(branch, slug) {
-  if (!slug) return false;
-  return branch === slug || branch === `worktree-${slug}` || branch.endsWith(`-${slug}`);
-}
+// 매칭 규칙의 코드 쪽 단일 소스는 plan-match.js — dlc-early-stop 의 plan drift 축과 같은
+// 판정을 써야 한다(한쪽만 고쳐져 어긋나는 것이 이 repo 의 반복 실패 유형).
+const { anchorMatches } = require('./plan-match.js');
 
 // M: in_progress 인데 작업이 끝난 것으로 보이는 plan 목록 라인(없으면 null).
 // "끝난 것으로 보임" = 매칭 브랜치가 없음 OR 있어도 origin/main 대비 ahead 0(이미 머지됨).

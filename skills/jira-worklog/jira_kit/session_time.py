@@ -142,6 +142,11 @@ class WorktreeIndex:
         return bucket
 
     def _classify(self, cwd: str) -> Bucket:
+        # NUL 은 명시적으로 거른다. POSIX 는 `Path.resolve()` 가 ValueError 를 내지만
+        # Windows 는 NUL 을 품은 경로를 그대로 돌려줘(2026-09-07 실측) 아래 except 가
+        # 안 걸리고, 잘못된 줄이 UNMATCHED 가 아니라 main 으로 흡수된다.
+        if "\0" in str(cwd):
+            return _UNMATCHED
         try:
             resolved = _resolved(cwd)
         except (OSError, ValueError):

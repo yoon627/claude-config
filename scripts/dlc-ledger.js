@@ -15,7 +15,7 @@ const path = require('path');
 // driftRoot: *Pending/*Covered 의 rel 이 어느 root 기준인가. Stop 시점 root 와 다르면 그 rel 로
 //   파일을 stat 할 수 없다(다른 worktree·main 의 동명 파일을 재게 된다) → mtime 판정을 포기한다.
 //   한 세션이 두 root 를 오가면 '' (mixed) 로 두어 어떤 root 와도 일치하지 않게 한다.
-const DEFAULT = { changed: false, verified: false, blocks: 0, readmeDirty: false, indexDirty: false, docBlocks: 0, readmeTrigger: null, indexTrigger: null, changedTrigger: null, readmeCovered: [], readmePending: [], indexCovered: [], indexPending: [], driftRoot: null };
+const DEFAULT = { changed: false, verified: false, blocks: 0, readmeDirty: false, indexDirty: false, docBlocks: 0, readmeTrigger: null, indexTrigger: null, changedTrigger: null, readmeCovered: [], readmePending: [], indexCovered: [], indexPending: [], driftRoot: null, planTouched: false, planBlocks: 0 };
 
 function ledgerPath(sessionId) {
   const id = String(sessionId || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');

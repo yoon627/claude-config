@@ -202,3 +202,9 @@
 - **배치 근거**: 정의는 `CLAUDE.md` §10(항상 주입), 절차는 `skills/dlc`(조건부 로드). [[ops-doc-slimming]] 의 "조건부-로드 skill 로 canonical 스펙을 이관하면 방향 역전 = 로드 등급 하락 = 손실" 이 dlc 단독 배치를 금지한다.
 - **선행 wontfix supersede**: 2026-07-07 `unknowns-pass` 가 "plan 에서 바뀔 결정 앞세우기"를 기각했으나(6섹션 충돌·`# Decisions` 중복·이득 대비 큰 변경), Intent 는 선택 섹션이라 필수 6이 불변이고 담는 것이 결정이 아니라 문제·제약이라 겹치지 않는다. 계기는 제약 미기록으로 같은 안이 3회 왕복한 2026-09-07 실측.
 - 동기화: [[plan-handoff]]·[[dlc-development-cycle]]·[[unknowns-discovery]] + index. 코드 변경 없음(`plan-lint` 는 선택 섹션을 검증하지 않아 불변 — 실측 확인).
+
+## [2026-09-07] ingest | AI-Native SDLC Playbook 격차 분석 — A그룹(확인된 결함) 정정
+- 플레이북 11개 플레이를 현재 설정과 대조하는 workflow(22 agents)를 돌렸다. 판정이 11건 전부 `partial` 로 균일해 status 축은 변별력 없다고 보고 폐기했고, 검증 통과 제안만 값·규모로 추렸다(28건 중 17건 검증 기각).
+- **`ask` 는 `allow` 로 풀리지 않는다** — [[risk-based-approval]] 에 절 추가. 규칙 평가 순서가 deny → ask → allow 이고 first match 가 결과를 정하므로, `ask` 가 매칭되면 어느 스코프의 `allow` 도 조회되지 않는다(공식 문서 축어 확인). `CLAUDE.md` §8 과 README 가 "repo 별 settings.local.json allow 로 푼다"고 적고 있었고 그건 **동작하지 않는 우회법**이었다 — 항상 주입되는 파일이라 매 세션이 참으로 읽었다.
+- **CI 에 실존 테스트 3개 누락** 발견·등재: `scripts/pre-commit-check.test.sh`(시크릿 유출 가드) · `skills/wiki/test_check_links.py` · `skills/wt/test_heal_submodules.py`. 셋 다 로컬 통과 확인 후 `lint.yml` 에 추가.
+- 함의: 이 repo 의 기계 검사는 "테스트 파일이 있다"와 "CI 가 그것을 돈다"가 별개다. 수기 목록이라 새 테스트가 조용히 CI 밖에 남는다.
