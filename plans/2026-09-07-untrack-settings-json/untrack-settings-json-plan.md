@@ -1,6 +1,6 @@
 ---
 title: untrack-settings-json — settings.json 을 git 추적에서 제외해 머신별 값 재발 루프를 끊는다
-status: in_progress
+status: done
 started: 2026-09-07
 updated: 2026-09-07
 ---
@@ -16,12 +16,14 @@ updated: 2026-09-07
 - 2026-09-07: managed settings 경로(`C:\Program Files\ClaudeCode\`)는 사용자가 Administrators 그룹이 아니라 쓰기 불가 → 탈락.
 - 2026-09-07: Explore 로 영향 범위 확정 — CI 2곳·가드 1곳이 "settings.json 이 tracked" 전제에 의존.
 - 2026-09-07: 사용자 지적으로 재발 이력 확인 — 동일 실패 3회차(Orca 훅 → gitkraken → autoMode). `MEMORY.md` 인덱스에 lesson 링크가 없어 자동 상기가 성립한 적 없음이 재발의 구조적 원인.
-- 2026-09-07: 구현 완료 — `.gitignore`·`git rm --cached`·CI·가드·doc-drift·README·wiki 13파일. 로컬 CI 동등 스위트 전부 통과(node --check 30, 단위테스트 13종, bash 3종, shellcheck, plan-lint).
+- 2026-09-07: 구현 완료 — `.gitignore`·`git rm --cached`·CI·가드·doc-drift·README·wiki 16파일(커밋 `9ef4717`). 로컬 CI 동등 스위트 전부 통과(node --check 30, 단위테스트 13종, bash 3종, shellcheck, plan-lint).
+- 2026-09-07: main 복귀 후 §13 짝 적립 완료 — `feedback-no-machine-values-in-tracked-config.md` + `MEMORY.md` 인덱스 줄(gitignored 라 이 브랜치에는 포함되지 않는다). 3회 재발의 근본 원인이 이 짝의 부재였다.
+- 2026-09-07: main 작업트리의 `settings.json` 을 HEAD 로 되돌려 머지 경로를 확보(백업 스크래치패드 `settings.json.automode-backup`, 원본과 동일함 diff 확인). 머지 후 그 백업을 제자리에 복원해야 autoMode 가 살아난다.
+- 2026-09-07: PR #161 (push → PR → checks → merge).
 
 # Next
 
-1. **main 복귀 후**: `MEMORY.md` 인덱스 줄 + feedback memory 파일 적립 (§3-1 — worktree 안에서는 네이티브 격리로 쓸 수 없다). 이번 재발의 근본 원인이 이 짝의 부재이므로 이 단계가 빠지면 작업이 미완이다.
-2. 머지 시 주의 — main 작업트리의 `settings.json` 이 `autoMode` 를 담은 채 modified 상태다. 이 브랜치는 그 파일을 index 에서 삭제하므로, ff-merge 전에 백업 → `git checkout -- settings.json` 으로 HEAD 와 일치시킨 뒤 머지하고, 머지 후 백업본을 제자리에 복원해야 한다(백업: 스크래치패드 `settings.json.automode-backup`).
+(없음 — PR #161 머지로 종료. 머지 후 main 의 `settings.json` 을 백업본으로 복원하는 것만 남는다.)
 
 # Decisions
 
