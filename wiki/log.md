@@ -208,3 +208,9 @@
 - **`ask` 는 `allow` 로 풀리지 않는다** — [[risk-based-approval]] 에 절 추가. 규칙 평가 순서가 deny → ask → allow 이고 first match 가 결과를 정하므로, `ask` 가 매칭되면 어느 스코프의 `allow` 도 조회되지 않는다(공식 문서 축어 확인). `CLAUDE.md` §8 과 README 가 "repo 별 settings.local.json allow 로 푼다"고 적고 있었고 그건 **동작하지 않는 우회법**이었다 — 항상 주입되는 파일이라 매 세션이 참으로 읽었다.
 - **CI 에 실존 테스트 3개 누락** 발견·등재: `scripts/pre-commit-check.test.sh`(시크릿 유출 가드) · `skills/wiki/test_check_links.py` · `skills/wt/test_heal_submodules.py`. 셋 다 로컬 통과 확인 후 `lint.yml` 에 추가.
 - 함의: 이 repo 의 기계 검사는 "테스트 파일이 있다"와 "CI 가 그것을 돈다"가 별개다. 수기 목록이라 새 테스트가 조용히 CI 밖에 남는다.
+
+## [2026-09-08] ingest | lesson 2건 — 게이트 안전측 · 오래된 브랜치 전제
+
+- [[lesson-gate-safe-side-first]]: `insideSomeRepo` 가 빈 `.git` 디렉토리를 repo 로 오판하던 것을 고치면서, `HEAD` 존재를 유효성 기준으로 삼은 1차안이 **손상 repo(HEAD 유실)를 repo 밖으로 판정**해 게이트를 조용히 끄는 미탐을 넣었다. codex 가 Critical 로 반려. 판정 대상을 "정상 repo 인가" → "repo 였던 흔적이 있는가" 로 바꿔 해결(커밋 47b7064).
+- [[lesson-stale-branch-premise]]: `dlc-loop-redesign` P0(2026-06-16, 미머지)을 머지하려 했으나 base 이후 main 이 371커밋 나가며 전제("plan 은 gitignored 라 worktree 삭제 시 소실")가 무효였다. `plans/` 가 tracked 로 전환됐고 `skills/c/SKILL.md` 는 이미 다른 결론에 도달해 있었다. 브랜치를 폐기하고 실제로 남은 결함 2건만 현재 기준으로 재적용(커밋 e787287).
+- 함의: 둘 다 **텍스트 충돌이 나지 않는 오류**다. git 도 테스트도 경고하지 않고, 자기 검토로는 두 번 다 통과했다 — 잡은 것은 병행 리뷰였다([[dual-review-plan-and-code]]).

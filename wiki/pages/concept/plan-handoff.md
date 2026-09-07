@@ -32,4 +32,4 @@ sources:
 - `/e`(plan-end): Progress/Next/status 기록 + uncommitted를 WIP 커밋 보존 + worktree 정리 제안 + main 복귀.
 
 ## 경계
-plans/는 gitignored이고 [[worktree-per-task]]별로 독립 — 충돌·진행중 작업 판단의 실시간 소스. [[dlc-development-cycle]]이 이 채널로 작업을 추적한다.
+plans/는 **tracked** 이고([[worktree-per-task]]별로 브랜치마다 내용이 다르다) 작업 브랜치와 함께 commit·push 되어 머신 경계를 넘는다 — 충돌·진행중 작업 판단의 실시간 소스. [[dlc-development-cycle]]이 이 채널로 작업을 추적한다. 이 tracked 전환이 옛 결정의 전제를 무효화한 사례는 [[lesson-stale-branch-premise]].
