@@ -241,7 +241,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 7. 테스트 (TDD) — 테스트 작성 순서, 예외 조건, 인접 테스트 규모에 맞춤·임시 체크의 영구 테스트화 금지
 8. Git / 보안 — destructive 명령 금지, 시크릿 출력 금지, 코드/파일 변경은 규모 불문 worktree(`/wt`)에서(gitignored 글로벌 상태 제외), **검증 통과분은 요청 없이 작업 브랜치 커밋**(push 는 요청 시만), trivial·small 종결은 로컬 ff-merge
 9. Claude ↔ Codex 협업 — `plans/` 핸드오프 채널, 리뷰 매트릭스
-10. `plans/` 핸드오프 규약 — slug, frontmatter, 필수 6개 + 선택 섹션(Intent·Acceptance·Review Disposition·Deferred·Workflow Findings)
+10. `plans/` 핸드오프 규약 — slug, frontmatter, 필수 6개 + 선택 섹션(Intent·Acceptance·Review Disposition·Deferred·Workflow Findings — Intent 는 medium 이상 항상)
 11. 영속 프로젝트 메모리 (LLM Wiki) — `wiki/` 누적 지식, `plans/` 와 경계 (일시적 vs 영속)
 12. 피드백 메모리 — 작업 방식 교정을 `memory/`(type: feedback) + `MEMORY.md` 인덱스로 영속화해 다음 작업에 반영. 보편·중대 규칙은 이 `CLAUDE.md` 로 승격.
 13. 실수·교훈 로그 — 반복 실수를 wiki `decision/lesson-*`(상세) + `MEMORY.md` 인덱스(자동 상기)로 적립해 다음 구현에서 회피. 인덱스 주입은 권고이지 강제 아님.
@@ -282,7 +282,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 | 파일 | 호출 시점 | 핵심 책임 |
 |---|---|---|
-| `plan-reviewer.md` | Plan 단계 직후 (비사소한 모든 구현 계획) | 누락 케이스·잘못된 가정·영향 범위·rollback·근본 원인 비판적 발굴 + **가장 위험한 단계 지목**·**기각한 대안이 `# Decisions` 에 남았나**·**dlc ⚠️ self-flag 우선 검토**. public API / DB schema / migration / 보안 / 아키텍처 / 권한 변경 시 필수. |
+| `plan-reviewer.md` | Plan 단계 직후 (비사소한 모든 구현 계획) | 누락 케이스·잘못된 가정·영향 범위·rollback·근본 원인 비판적 발굴 + **가장 위험한 단계 지목**·**기각한 대안이 `# Decisions` 에 남았나**·**dlc ⚠️ self-flag 우선 검토**·**medium 이상 plan 의 `# Intent` 반박**. public API / DB schema / migration / 보안 / 아키텍처 / 권한 변경 시 필수. |
 | `architecture-reviewer.md` | 트리거 기반 (자동 호출 대상 아님) | 설계 결정 — 의존 방향·레이어 경계·객체 생명주기·DI/IoC·인터페이스 위치·테스트 가능 구조. public API / proto / DB schema / auth 변경, 신규 service·repository·client, DI 변경, 2개 이상 레이어 변경, 150줄 이상 diff, 또는 설계 의문 명시 시. |
 | `code-reviewer.md` | 구현 직후 (코드 변경이 있었던 모든 흐름) | 버그·보안·테스트 누락·예외 처리·성능·backward compatibility·근본 원인·설계고도(altitude)·관례(conventions)·**plan 대비 컴플라이언스**(plan 경로를 받았을 때만, 기본 Minor — 어느 쪽이 낡았는지 판정은 메인). Find→Verify 2-pass (report-everything 후 self-refute, verdict CONFIRMED/PLAUSIBLE/REFUTED). 통과 검토 금지, 비판적 발굴 목적. |
 | `researcher.md` | 외부 사실 조사 필요 시 (어느 단계에서든) | 라이브러리 버전별 동작·마이그레이션·최신 API, 정확한 에러 메시지 매칭, 릴리스 노트·CVE·RFC, 지식 컷오프 이후 정보, 함수/플래그 실존 여부 불확실 시. |
