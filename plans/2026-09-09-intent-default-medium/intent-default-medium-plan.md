@@ -1,6 +1,6 @@
 ---
 title: intent-default-medium — medium 이상 작업은 plan `# Intent` 를 항상 채운다
-status: in_progress
+status: done
 started: 2026-09-09
 updated: 2026-09-09
 ---
@@ -53,10 +53,11 @@ updated: 2026-09-09
 - 2026-09-09: draft plan → plan-reviewer(Claude, CONDITIONAL 5건) + codex(medium, Critical 1·Major 6·Minor 3) 병행. 합의: "plan 존재" 재해석 철회 → 사용자 어휘 "medium 이상" / done plan 소급 수정 제거 / `없음` 은 근거 필수 / 45·54행 동시 정합 / README·plan-handoff:21 추가 / 검증셋 보강. 사용자 2차 AskUserQuestion → `agents/plan-reviewer.md` 포함 승인. 처분은 `# Review Disposition`.
 - 2026-09-09: 구현 8파일(+19/−16) → 메인 grep 스모크(acceptance 1~8 문구 존재/부재 통과) → code-reviewer(Claude, Major 3·Minor 8) + codex(low, Major 3·Minor 3) 병행 → fix loop 1회차 반영(README:285·항목 14 재작성·`# Deferred` 신설·wiki 압축·44행 3분할·§10 머리말 교체 등 — `# Review Disposition` 2절). Stop hook README 경고는 편집 순서(agents 가 README 보다 나중) 탓이었고 285행 편집으로 해소.
 - 2026-09-09: simplify(plan-handoff 페이지 내 조건 3회→2회) → code-reviewer targeted 재리뷰: Major 3 전부 해소, 신규 모순은 plan 내부 stale 행번호·Acceptance 7/8 문구만 → 정정. 항목 14 트리거를 "메인이 전달한 규모 기준(미전달이면 생략)"으로 fail-safe 화. `wiki/log.md` append, `wiki/index.md` mtime 갱신. 격리 runner: `verify.sh` → `ALL PASS (skip: shellcheck)`(`.sh` 변경 0건), `plan-lint` exit 0, `check_links.py` → `clean`, `improve.sh --ci` → `error=0 warn=0`. **evidence gate 11항 전부 충족 → 판정 DONE**(status 는 머지 시점까지 in_progress). 참고: dlc 요구사항 명확화 절 총량 696→815자(+119) — 3분할로 스캔성은 개선, 절 자체는 커짐.
+- 2026-09-09: 커밋 `a5520a4` → `/e merge`: push, PR #164 생성(MERGEABLE). plan done 은 이 커밋에 실어 보낸다. 후속(별도 작업)은 `# Deferred`.
 
 # Next
 
-`/e merge` — medium 이라 push → PR → 머지 → 정리 경로. 머지 시 `status: done`. 후속(별도 작업, `# Deferred`): 다른 agent 3파일의 `.claude/plans/` 표기 정정 · 소급 예외 문구 제거 시점 판단.
+(없음 — PR #164 머지로 종료)
 
 # Decisions
 
