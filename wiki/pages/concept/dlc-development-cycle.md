@@ -2,10 +2,11 @@
 title: dlc-development-cycle
 category: concept
 created: 2026-06-19
-updated: 2026-09-07
+updated: 2026-09-09
 sources:
   - skills/dlc/SKILL.md
   - CLAUDE.md (§3 작업 흐름, §5 Sub-agent, §8 커밋 규약)
+  - plans/2026-09-09-intent-default-medium (`# Intent` medium 이상 항상)
 ---
 
 # dlc-development-cycle
@@ -24,7 +25,7 @@ sources:
 Setup → Explore → draft plan → plan-reviewer → TDD Red → 구현 → Green → code-reviewer+architecture-reviewer(병렬) → fix loop(≤2) → simplify 체크(메인 직접) → targeted 재리뷰 → 최종 검증 → **마무리(evidence gate → 판정 DONE/BLOCKED/NEEDS-HUMAN → plan 갱신 → 커밋(DONE 만) → 알림 → Report)**. 최종 검증은 격리 runner가 실행하고 메인이 판단. 커밋을 plan 갱신 뒤에 두는 이유는 [[comment-and-commit-policy]] 와 CLAUDE.md §8.
 
 ## 요구사항 명확화 게이트
-규모 판정 직후, 요구의 공백(문제·제약·완료기준·범위·산출물·제외)이 acceptance를 바꾸면 `AskUserQuestion`. 공백 없으면 침묵 진행. "무엇이 빠지면 질문, 방법만 갈리면 분석 후 추천". 확정한 답은 대화로 흘리지 말고 plan `# Intent`(§10 선택 섹션 — [[plan-handoff]])에 Problem·Constraints·Out of scope·Open questions 로 남긴다. 안 남기면 다음 세션이 같은 질문을 반복하고 이미 기각된 안이 되살아난다.
+규모 판정 직후, 요구의 공백(문제·제약·완료기준·범위·산출물·제외)이 acceptance를 바꾸면 `AskUserQuestion`. 공백 없으면 침묵 진행. "무엇이 빠지면 질문, 방법만 갈리면 분석 후 추천". 확정한 답은 대화로 흘리지 말고 plan `# Intent`(§10 선택 섹션 — [[plan-handoff]])에 Problem·Constraints·Out of scope·Open questions 로 남긴다. **medium 이상은 공백 유무와 무관하게 항상 채운다**(2026-09-09 — 공백을 발견했을 때만 적는 규칙은 제약이 적히지 않은 실패를 막지 못했다. 형식·`없음` 처리·small/소급 예외는 `skills/dlc/SKILL.md` 요구사항 명확화가 정본). 안 남기면 다음 세션이 같은 질문을 반복하고 이미 기각된 안이 되살아난다.
 
 ## 자기 진단 vs 자기 개선
 dlc에는 작업 단위 가드인 **자기 진단(self-diagnosis)**이 있다(이번 작업이 `# Next`·규모표를 이탈하나). 규약 자체를 고치는 **자기 개선**은 수집(hook 신호 자동 누적)·분석(`/improve` 랭킹 제안)까지 기계화됐고, 반영은 사용자 승인 게이트다(2026-07-03) — [[self-diagnosis-and-improvement-status]].

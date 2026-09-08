@@ -6,7 +6,7 @@
 - [[llm-wiki-pattern]] — 이 wiki 가 따르는 LLM Wiki 패턴(Karpathy): 영속·누적 markdown 지식베이스.
 - [[project-memory]] — 이 wiki 의 목적·`plans/` 와의 경계(일시적 vs 영속).
 - [[ingest-operation]] — raw/지식을 wiki 에 반영하는 연산 절차.
-- [[dlc-development-cycle]] — 비자명 코드변경 개발사이클 오케스트레이션(규모 gate·16단계·격리·요구사항 명확화 6항→plan `# Intent`·마무리 판정 3값).
+- [[dlc-development-cycle]] — 비자명 코드변경 개발사이클 오케스트레이션(규모 gate·16단계·격리·요구사항 명확화 6항→plan `# Intent`(medium 이상 항상)·마무리 판정 3값).
 - [[plan-handoff]] — 세션·도구 간 작업 컨텍스트 단일 plan 채널(§10·single-writer·active tracking·선택 섹션 `# Intent`/`# Acceptance` 외).
 - [[hub-and-spoke-isolation]] — 메인 hub(구현·통합·판단), reviewer 는 격리 read-only spoke.
 - [[worktree-per-task]] — 작업마다 격리 worktree(wt skill·자동 bootstrap·삭제 조건).

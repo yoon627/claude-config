@@ -214,3 +214,9 @@
 - [[lesson-gate-safe-side-first]]: `insideSomeRepo` 가 빈 `.git` 디렉토리를 repo 로 오판하던 것을 고치면서, `HEAD` 존재를 유효성 기준으로 삼은 1차안이 **손상 repo(HEAD 유실)를 repo 밖으로 판정**해 게이트를 조용히 끄는 미탐을 넣었다. codex 가 Critical 로 반려. 판정 대상을 "정상 repo 인가" → "repo 였던 흔적이 있는가" 로 바꿔 해결(커밋 47b7064).
 - [[lesson-stale-branch-premise]]: `dlc-loop-redesign` P0(2026-06-16, 미머지)을 머지하려 했으나 base 이후 main 이 371커밋 나가며 전제("plan 은 gitignored 라 worktree 삭제 시 소실")가 무효였다. `plans/` 가 tracked 로 전환됐고 `skills/c/SKILL.md` 는 이미 다른 결론에 도달해 있었다. 브랜치를 폐기하고 실제로 남은 결함 2건만 현재 기준으로 재적용(커밋 e787287).
 - 함의: 둘 다 **텍스트 충돌이 나지 않는 오류**다. git 도 테스트도 경고하지 않고, 자기 검토로는 두 번 다 통과했다 — 잡은 것은 병행 리뷰였다([[dual-review-plan-and-code]]).
+
+## [2026-09-09] ingest | intent-default-medium (`# Intent` 조건부 → medium 이상 항상)
+
+- [[plan-handoff]]·[[dlc-development-cycle]] 갱신: 2026-09-07 도입 시 "요구사항 명확화에서 공백을 발견했을 때만" 채우던 `# Intent` 를 **dlc 규모 medium 이상은 항상** 채우도록 변경. 형식(`없음 — <근거>` 필수·Open questions 조건부·모델 추론분 ⚠️)과 예외(small 은 plan 있고 공백 시만·trivial 제외·기존 plan 소급 안 함)는 `skills/dlc/SKILL.md` 요구사항 명확화 절이 정본. `agents/plan-reviewer.md` 에 Intent 반박 항목 14 추가.
+- 근거: 도입 계기(2026-09-07 `settings.json` 건)의 실패는 공백을 못 본 것이 아니라 제약이 어디에도 적히지 않은 것이어서, 공백-트리거로는 재발을 막지 못한다. 병행 리뷰(plan-reviewer + codex)가 초안의 "plan 존재" 재해석(사용자 선택 "medium 이상"을 다른 축으로 치환)과 done plan 소급 수정을 잡아 되돌렸다.
+- 출처 plan: plans/2026-09-09-intent-default-medium.
