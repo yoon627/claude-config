@@ -373,6 +373,25 @@ uv run --no-project python "skills/jira-task/jira_task.py" `
 
 preview 결과를 확인하고 `/e`에서 사용자 승인 후 동일 명령에 `--post`를 추가한다. 시간은 `jira-worklog`, 작업내용은 `jira-task`가 각각 Jira에 남긴다.
 
+### skills/pr-review/ — Bitbucket Cloud PR 리뷰 → 인라인 댓글 초안 승인 → 게시
+
+PR URL 을 받아 `bb_pr.py fetch` 가 REST 로 PR 메타·diff·기존 인라인 댓글을 **repo 밖 임시 디렉토리**에 저장하고(`pr.diff` 는 사내 소스 전문 — git work tree 안 경로는 거부), 에이전트가 `agents/code-reviewer.md` 관점으로 리뷰해 `review-draft.json` 에 인라인 댓글 초안을 쓴다. `post` 는 기본 미리보기로 초안을 검증하고(`line` 은 diff 새 파일 기준 앵커 가능 줄이어야 함, `source_sha`·schema 일치), 사용자가 전문을 보고 승인한 뒤 `--post` 로 게시한다. Claude·Codex 가 같은 SKILL.md 를 읽는다(Codex 는 `$HOME/.agents/skills/pr-review` 심링크, 아래).
+
+```text
+uv run --no-project python "skills/pr-review/bb_pr.py" fetch "https://bitbucket.org/<ws>/<repo>/pull-requests/<id>"
+uv run --no-project python "skills/pr-review/bb_pr.py" post --dir "<작업 디렉토리>"            # 미리보기
+uv run --no-project python "skills/pr-review/bb_pr.py" post --dir "<작업 디렉토리>" --post     # 게시 (사용자 명의)
+uv run --no-project python "skills/pr-review/bb_pr.py" undo --dir "<작업 디렉토리>" --post     # 이 초안이 단 댓글만 삭제
+```
+
+- **인라인 댓글만**(요약·일반 댓글 없음, 삭제 줄 앵커 없음). 라인을 못 잡는 지적은 초안 `notes` 에 남고 게시되지 않는다.
+- **게시 직전 재조회 게이트**: PR 상태 `OPEN` 아님 또는 source 커밋 변경이면 한 건도 게시하지 않는다. 항목별 `posted_id` 되쓰기로 재실행 시 중복 없음, 응답 유실은 `state: unknown` 으로 남겨 자동 재게시하지 않는다. 게시 로그 `~/.claude/logs/pr-review-<날짜>.jsonl`.
+- `--approve`/`--request-changes` 는 `--post` 와 함께 줄 때만, 댓글 전부 성공 후 실행(별도 승인). `undo` 는 이 초안의 댓글 삭제 + 상태 제거까지(이전 approve 상태 복원은 안 함), 초안 PR 식별자가 `pr.json` 과 다르면 거부.
+- diff 파서는 hunk header 의 count 로 경계를 잡는다 — 본문 줄이 `+++ `/`--- ` 로 시작해도 헤더로 읽지 않고, `\n` 만 줄 경계로 본다(`splitlines()` 는 form feed·U+2028 에서도 갈라 앵커가 밀린다). 산출물은 POSIX 에서 0700/0600.
+- 인증 헤더는 `api.bitbucket.org` 에만 보낸다 — CPython 의 기본 redirect handler 는 Authorization 을 호스트 검사 없이 복사하므로 전용 handler 로 다른 호스트 리다이렉트·`next` 를 거부한다. 오류 메시지에서 토큰·이메일은 redact.
+- 인증은 `~/.jira-kit/.env` 의 `BITBUCKET_EMAIL`(없으면 `JIRA_EMAIL`)·`BITBUCKET_API_TOKEN`(폴백 없음). scope 는 `read:repository:bitbucket`·`read:pullrequest:bitbucket`·`write:pullrequest:bitbucket`. app password 는 2026-07-28 종료.
+- **Codex 심링크는 수동**(bootstrap 은 jira-worklog 만 연결한다): 머지 후 main 체크아웃 경로로 건다 — POSIX `ln -s "$HOME/.claude/skills/pr-review" "$HOME/.agents/skills/pr-review"`, Windows 는 개발자 모드(또는 junction: `New-Item -ItemType Junction`) 전제. worktree 경로로 걸면 정리 후 dangling 이 된다.
+
 ### scripts/
 
 settings.json 에 등록돼 후크가 호출하는 진입점은 notify(`notify-hook.js`), 세션 브리프(`session-brief.js`), worktree 가드(`guard-worktree-edit.js`), dlc evidence 3종(`dlc-task-router.js` / `dlc-evidence-ledger.js` / `dlc-early-stop.js`). 모두 fail-open (실패해도 throw 안 함). 나머지(`bootstrap/`, `*.ps1`, `install-*`, `prompt-gwl.py`)는 위 진입점이 위임하거나 수동/프로젝트별로 쓰는 보조 스크립트.
@@ -631,10 +650,14 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │       ├── test_worklog_scope.py   # worktree 단위 upsert 격리 테스트 (CI)
 │       ├── test_session_time.py    # cwd → bucket 귀속·구간 발행 테스트 (CI)
 │       └── test_register_gate.py   # 등록 diff·게이트 판정 테스트 (CI)
-│   └── jira-task/
-│       ├── SKILL.md                # Claude·Codex 작업내용 → Jira task description (dry-run 기본)
-│       ├── jira_task.py            # description preview/post/upsert CLI (stdlib only)
-│       └── test_jira_task.py       # Jira description·marker·preview 단위 테스트
+│   ├── jira-task/
+│   │   ├── SKILL.md                # Claude·Codex 작업내용 → Jira task description (dry-run 기본)
+│   │   ├── jira_task.py            # description preview/post/upsert CLI (stdlib only)
+│   │   └── test_jira_task.py       # Jira description·marker·preview 단위 테스트
+│   └── pr-review/
+│       ├── SKILL.md                # Bitbucket Cloud PR 리뷰 → 인라인 댓글 초안 승인 → 게시 (dry-run 기본)
+│       ├── bb_pr.py                # fetch / post / undo CLI (stdlib only, api.bitbucket.org 한정 인증)
+│       └── test_bb_pr.py           # URL·설정·diff 파서·초안 검증·게시·undo·redirect 안전 단위 테스트
 ├── scripts/
 │   ├── notify-hook.js              # notify 진입점 (cross-platform; mac 인라인, win→.ps1 위임)
 │   ├── notify.ps1                  # (Windows) Toast + 사운드 + flash
