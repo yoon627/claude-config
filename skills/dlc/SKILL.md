@@ -125,6 +125,7 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 ## codex phase owner
 - 규약 `docs/codex-review.md`. 한 phase 에 reviewer 여럿이면 codex owner 1개만 지정, 나머지 `CLAUDE_REVIEW_CODEX_MODE=external`.
 - 계획 단계: `plan-reviewer`(arch planning 은 codex off). 구현 후: 버그/보안 위주면 `code-reviewer`, 구조 위주면 `architecture-reviewer`.
+- **한도 캐시**: reviewer 를 띄우기 전에 `<scratch>/codex-unavailable`(규약 §1)이 있으면 owner 에게도 §7 의 "Codex is unavailable in this session" 문구를 넣어 시도 자체를 건너뛴다. reviewer 보고의 `Codex 미가용: … out of credits` 를 봤는데 마커가 없으면 메인이 만든다(subagent 가 못 썼을 수 있다).
 
 ## fix loop / disposition
 - 최대 2회. 각 finding 을 plan `# Review Disposition` 에 `fix / defer / false-positive / wontfix` 기록(메인만 씀).

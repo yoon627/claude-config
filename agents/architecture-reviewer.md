@@ -99,7 +99,7 @@ model: opus
 **호출 조건** (모두 만족 시만):
 - 다중 모듈 / 다중 레이어 영향이 있는 큰 구조 변경 (단순 신규 service 추가 정도는 호출 안 함)
 - 호출 측이 외부에서 codex 를 이미 호출 중이 아님 (env `CLAUDE_REVIEW_CODEX_MODE=external` 이면 호출 생략)
-- `codex --version` 가용성 확인 성공
+- `docs/codex-review.md` §1 preflight 통과(세션 마커 `<scratch>/codex-unavailable` 없음 + `codex --version` 성공)
 
 **호출 명령**은 `~/.claude/docs/codex-review.md` §3 정본 그대로(구조 검토는 effort `high`, 출력은 스크래치 파일로 리다이렉트 후 §5 대로 결론부만) — 여기엔 프롬프트 본문만 둔다. 프롬프트 파일을 Bash 로 만들 때 본문에 `git` 토큰을 넣지 않는다(§3):
 ```text

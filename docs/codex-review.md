@@ -6,7 +6,19 @@ reviewer subagent(plan-reviewer / code-reviewer / architecture-reviewer)와 dlc 
 
 ## 1. preflight
 
-- `codex --version` 성공 시에만 호출. 실패·실행 오류(미설치 / PATH 없음 / 사용량 한도 / 환경 이슈: stdin·git-repo·sandbox)면 codex 병행을 **생략**하고 단독 진행, 출력에 `Codex 미가용: <사유>` 1줄. **agent 자체 검토는 계속**(non-blocking — codex 실패가 리뷰를 막지 않는다).
+순서대로 본다. 어느 단계에서든 생략이 결정되면 codex 병행을 **생략**하고 단독 진행, 출력에 `Codex 미가용: <사유>` 1줄. **agent 자체 검토는 계속**(non-blocking — codex 실패가 리뷰를 막지 않는다).
+
+1. **세션 마커** `<scratch>/codex-unavailable` 이 있으면 **호출하지 않는다** — 사유는 파일 내용 그대로(`Codex 미가용: <내용> (세션 캐시)`). `<scratch>` 는 §3 의 세션 스크래치패드 절대경로다(메인·subagent 가 같은 경로를 받는다).
+2. `codex --version` 실패(미설치 / PATH 없음)면 생략.
+3. 호출 뒤 출력이 **한도·과금 오류**면 마커를 쓰고 생략한다 — 이 오류는 한 세션 안에서 저절로 풀리지 않으므로 다음 reviewer 가 같은 호출을 반복해 기다릴 이유가 없다(2026-09-10 실측: plan-reviewer 가 `out of credits` 를 보고한 뒤 같은 세션의 code-reviewer 가 다시 시도했다). 마커 작성:
+
+   ```bash
+   printf '%s %s\n' "$(date -u +%FT%TZ)" "workspace out of credits" > "<scratch>/codex-unavailable"
+   ```
+
+   한도 오류로 보는 출력(대소문자 무시, 하나라도 포함): `out of credits` · `insufficient_quota` · `usage limit` · `rate limit` · `429`. 환경 이슈(stdin hang·git-repo·sandbox)는 마커를 **쓰지 않는다** — 다음 reviewer 는 다른 cwd·방식으로 성공할 수 있다.
+
+마커는 스크래치패드와 함께 세션이 끝나면 사라진다(다음 세션은 다시 시도). 사용자가 크레딧을 채웠으면 파일을 지우면 그 세션 안에서도 재시도한다. 호출 측(dlc)이 마커를 보면 reviewer 에게 §7 의 외부 codex 모드 문구를 주어 시도 자체를 건너뛴다.
 
 ## 2. phase owner (중복 호출 방지)
 
@@ -75,3 +87,4 @@ codex exec --sandbox read-only --ephemeral -c 'model_reasoning_effort="medium"' 
 ## 7. 외부 codex 모드
 
 - 호출 측이 `CLAUDE_REVIEW_CODEX_MODE=external` 설정 또는 프롬프트에 "Codex review is already running externally. Do not invoke Codex." 포함 시 자체 codex 호출 생략.
+- 호출 측이 §1 의 세션 마커를 이미 봤으면 프롬프트에 "Codex is unavailable in this session (<사유>). Do not invoke Codex." 를 넣는다 — reviewer 는 preflight 없이 생략하고 출력엔 `Codex 미가용: <사유> (세션 캐시)`.
