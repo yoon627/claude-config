@@ -1,6 +1,6 @@
 ---
 title: worklog-gap-24h — 기본 간격 상한 24시간 및 집계 개선 조사
-status: in_progress
+status: done
 started: 2026-09-11
 updated: 2026-09-11
 ---
@@ -13,7 +13,7 @@ jira-worklog 기본 max-gap을 24시간으로 변경하고 worktree 시간 계�
 - 2026-09-11: 변경 후 108개 통과, 설정 기본값 1440/명시 override 480 보존 확인. CSTP1-3000 dry-run은 24h와 8h 모두 세션 6개/항목 8개/5h 4m(이전 대화 이후 세션 추가). Codex 독립 리뷰 APPROVE. simplify 점검상 추가 추상화/정리 불필요.
 
 # Next
-검증된 변경을 로컬 main에 fast-forward 병합하고 개선 조사 결과를 사용자에게 제시한다.
+기본값 변경은 로컬 main에 반영됨. 파서 개선은 Deferred의 우선순위대로 별도 계획 합의 후 진행한다.
 
 # Decisions
 - 사용자 요청에 따라 기본값만 1440분으로 변경한다. 명시적인 CLI/환경변수/TOML 설정은 보존한다.
