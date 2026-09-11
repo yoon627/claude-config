@@ -9,10 +9,14 @@ Claude·Codex 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex
 실제 작업한 시간(사용자 응답 대기·긴 공백 제외)을 날짜별로 추정해 Jira worklog 에 등록한다.
 기본은 미리보기(dry-run) — 시간이 합리적인지 확인한 뒤 등록한다.
 
-**대기는 role 단계에서 걸러낸다.** 사용자 응답 대기는 두 모습으로 온다 — 진짜 사용자 입력 직전
+**대기는 role 단계에서 걸러낸다.** Claude 에서 사용자 응답 대기는 두 모습으로 온다 — 진짜 사용자 입력 직전
 gap(앞이 무엇이든), 그리고 `AskUserQuestion`·`ExitPlanMode` 의 tool_use→tool_result 구간이다.
 후자는 tool_result 가 `type=user` 로 기록되는 탓에 도구 실행처럼 보여 놓치기 쉽다(실측 최대 908분).
-`--max-gap`(기본 24시간, 1,440분)은 이 둘을 거른 뒤 남는 이벤트 간격의 상한이다.
+**Codex 는 turn lifecycle 로 판정한다** — `task_started` 직전과 `task_complete`/`turn_aborted` 직후 gap,
+그리고 `request_user_input` 호출부터 같은 call_id 의 output 까지가 대기다. Codex 의 `user_message`
+이벤트는 2026-08 을 지나며 사라져(8월 97/450 → 9월 0/47) 사용자 입력이 시스템 컨텍스트와 같은 role=user 로만 남고,
+이벤트로 판별하면 turn 사이 대기가 통째로 작업이 된다(실측: rollout 1004개 합계 1029.5h → 469.9h).
+`--max-gap`(기본 24시간, 1,440분)은 이 대기들을 거른 뒤 남는 이벤트 간격의 상한이다.
 24시간 이하는 포함될 수 있고 초과하면 구간 전체를 제외한다. 식별하지 못한 유휴 구간도 포함될 수 있다.
 다만 **권한 승인 대기는 걸러내지 못한다** — tool_result 에 승인 여부를 가릴 필드가
 없어 정상 결과와 구분되지 않는다(실측 규모는 작다: Bash 5분 초과 16/8177건, 최대 17분).
@@ -70,7 +74,9 @@ JIRA_API_TOKEN=<Atlassian API token>
 
 - 대상 티켓은 **worktree 디렉토리 이름(prefix)** 에서 우선 추출(anchored), 없으면 브랜치명으로 fallback 한다(기본 `[A-Z][A-Z0-9]+-\d+`). detached HEAD 처럼 브랜치가 없어도 worktree 이름의 티켓으로 잡힌다. 어느 쪽에도 매치가 없으면 등록을 skip 한다(안전).
 - `--all` 모든 worktree 미리보기 · `--max-gap` idle gap 백스톱(분, 기본 1440 — **`0` 은 무효화가 아니라 모든 구간 차단이라 시간이 0 이 된다**) · `--ticket-pattern` 패턴 · `--timezone` IANA 타임존 · `--comment` worklog 코멘트.
-- 실제 등록(`--register`)은 외부 반영이니 **먼저 미리보기로 확인**할 것.
+- 실제 등록(`--register`)은 외부 반영이니 **먼저 미리보기로 확인**할 것. Codex 대기 규칙 변경(2026-09-11) 이전에
+  등록한 Codex 항목은 원천 값이 절반 가까이 줄어 재등록 시 **대부분 아래 게이트에 걸린다** — 그 `--allow-large-change` 는
+  이상 징후가 아니라 정정이다. 직전 값은 `~/.claude/logs/jira-worklog-<날짜>.jsonl` 에 남는다.
 - **등록 게이트**: 등록 전에 전 날짜의 `old → new` diff 를 출력하고, 아래에 걸리면 **한 건도 쓰지 않고** 중단한다. Jira 쓰기는 코드 revert 로 되돌릴 수 없어 부분 등록이 남으면 수습이 어렵다. (범위 주의: all-or-nothing 은 **게이트까지**다 — 게이트를 통과한 뒤 개별 요청이 HTTP 오류로 실패하면 앞 날짜는 이미 반영된다. Jira 에 트랜잭션이 없어 mutation 원자성은 달성할 수 없다.)
   - 기존값 대비 **30분 이상 & 50% 초과** 변동 — **증가·감소 양쪽 다**. 매핑 버그의 대표 증상이 과다 흡수라 방향만으로는 안전을 판단할 수 없고, billable 에선 과다 등록이 더 위험하다.
   - 같은 (티켓, 날짜)에 **내 다른 worktree 항목**이 있는데 이 worktree 마커는 없는 경우 — worktree rename 이면 새로 만들 때 이중계상된다.
