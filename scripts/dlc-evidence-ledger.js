@@ -168,6 +168,8 @@ process.stdin.on('end', () => {
     // 별개 flag 라 isPlan 제외 규칙은 그대로 둔다 — plan 편집이 검증 대상이 되면 안 된다.
     if (fp && isPlan(fp)) data.planTouched = true;
     if (fp && !isPlan(fp) && !isIgnored(fp, input.cwd)) {
+      data.edited = true; // 결론 블록 축 — .md 포함(보고 형식 게이트), 새 편집은 경고 자격 회복
+      data.conclusionBlocks = 0;
       // 문서(.md)는 test/lint 대상이 아니다 → verify 게이트(changed) 를 켜지 않는다.
       // README·CLAUDE.md·SKILL·wiki 만 고친 세션이 early-stop-verify 오탐을 내던 원인.
       // 문서의 README/index 동기화는 아래 doc-drift 가 계속 추적한다(verify 와 별개 축).

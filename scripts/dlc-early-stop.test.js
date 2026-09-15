@@ -47,15 +47,16 @@ const writeLedger = (tmp, patch) =>
   fs.writeFileSync(ledgerFile(tmp), JSON.stringify({ ...LEDGER_BASE, ...patch }));
 const readLedger = (tmp) => JSON.parse(fs.readFileSync(ledgerFile(tmp), 'utf8'));
 
-function run({ home, tmp }, cwd) {
+function run({ home, tmp }, cwd, { input: extra = {}, env: extraEnv = {} } = {}) {
   const sigDir = fs.mkdtempSync(path.join(tmp, 'sig-'));
   const r = spawnSync('node', [HOOK], {
-    input: JSON.stringify({ session_id: SID, cwd, stop_hook_active: false }),
+    input: JSON.stringify({ session_id: SID, cwd, stop_hook_active: false, ...extra }),
     env: {
       ...process.env,
       HOME: home, USERPROFILE: home,      // os.homedir()
       TMPDIR: tmp, TEMP: tmp, TMP: tmp,   // os.tmpdir() → ledger
       CLAUDE_DLC_SIGNAL_DIR: sigDir,
+      ...extraEnv,
     },
     encoding: 'utf8',
     timeout: 20000,
@@ -70,7 +71,7 @@ function run({ home, tmp }, cwd) {
       .map((l) => { try { return JSON.parse(l); } catch { return null; } })
       .filter(Boolean);
   } catch { /* 신호 파일 없음 = 방출 없음 */ }
-  return { out: r.stdout || '', signals: signals.map((s) => s.kind) };
+  return { out: r.stdout || '', signals: signals.map((s) => s.kind), rows: signals };
 }
 const blocked = (out) => out.includes('"decision":"block"');
 
@@ -256,6 +257,103 @@ ok('plan drift: OFF 스위치', () => {
   });
   assert.strictEqual(r.status, 0);
   assert.ok(!blocked(r.stdout || ''));
+});
+
+// ---- 결론 블록 축 (④) — 편집한 턴의 마지막 답변이 `## 결론` 으로 끝나야 한다 ----
+const WITH_CONCLUSION = '상세 설명…\n\n## 원인\n- x\n\n## 결론\n- 문제: a\n- 원인: b\n- 조치: c\n- 검증: d\n- 남은 것: 없음\n';
+const NO_CONCLUSION = '고쳤습니다. 테스트도 통과합니다.';
+
+ok('결론 축: 편집 + 결론 블록으로 끝남 → 통과, edited 소비', () => {
+  const F = makeHome();
+  writeLedger(F.tmp, { edited: true, conclusionBlocks: 0 });
+  const r = run(F, F.root, { input: { last_assistant_message: WITH_CONCLUSION } });
+  assert.ok(!blocked(r.out));
+  assert.strictEqual(readLedger(F.tmp).edited, false, '통과한 결론은 edited 를 소비해야 한다(후속 짧은 답변 오탐 방지)');
+});
+
+ok('결론 축: 편집 + 결론 없음 → 1회 block + 카운터 + 신호(detail 없음)', () => {
+  const F = makeHome();
+  writeLedger(F.tmp, { edited: true, conclusionBlocks: 0 });
+  const r = run(F, F.root, { input: { last_assistant_message: NO_CONCLUSION } });
+  assert.ok(blocked(r.out));
+  assert.ok(r.out.includes('## 결론'), 'reason 에 요구 형식이 있어야 한다');
+  const led = readLedger(F.tmp);
+  assert.strictEqual(led.conclusionBlocks, 1);
+  assert.strictEqual(led.edited, true, 'block 은 edited 를 소비하지 않는다');
+  assert.deepStrictEqual(r.signals, ['early-stop-conclusion']);
+  assert.strictEqual(r.rows[0].detail, null, '답변 본문·경로를 telemetry 에 넣지 않는다');
+  assert.ok(!blocked(run(F, F.root, { input: { last_assistant_message: NO_CONCLUSION } }).out), 'CAP=1 — 재종료 통과');
+});
+
+ok('결론 축: `## 결론` 이 마지막 heading 이 아니면 block (위치 검사)', () => {
+  const F = makeHome();
+  writeLedger(F.tmp, { edited: true, conclusionBlocks: 0 });
+  const mid = '## 결론\n- 문제: a\n\n## 상세\n- 긴 설명';
+  assert.ok(blocked(run(F, F.root, { input: { last_assistant_message: mid } }).out));
+});
+
+ok('결론 축: 코드펜스 안의 `## ` 는 heading 이 아니다 (양방향)', () => {
+  const F = makeHome();
+  writeLedger(F.tmp, { edited: true, conclusionBlocks: 0 });
+  const fenceAfter = WITH_CONCLUSION + '- 조치 예시:\n```md\n## 예시\n```\n';
+  assert.ok(!blocked(run(F, F.root, { input: { last_assistant_message: fenceAfter } }).out), '결론 뒤 펜스 안 heading 은 무시');
+  writeLedger(F.tmp, { edited: true, conclusionBlocks: 0 });
+  const fenceOnly = '설명\n```\n## 결론\n- 문제: x\n```\n';
+  assert.ok(blocked(run(F, F.root, { input: { last_assistant_message: fenceOnly } }).out), '펜스 안 결론만 있으면 없는 것');
+});
+
+ok('결론 축: stop_hook_active 재종료도 결론이면 edited 를 소비한다(경고는 없음)', () => {
+  const F = makeHome();
+  writeLedger(F.tmp, { edited: true, conclusionBlocks: 0, changed: true, verified: false, blocks: 0 });
+  const r = run(F, F.root, { input: { stop_hook_active: true, last_assistant_message: WITH_CONCLUSION } });
+  assert.ok(!blocked(r.out));
+  const led = readLedger(F.tmp);
+  assert.strictEqual(led.edited, false);
+  assert.strictEqual(led.blocks, 0, '재종료 경로는 다른 축을 판정하지 않는다');
+});
+
+ok('결론 축: edited=false 면 침묵', () => {
+  const F = makeHome();
+  writeLedger(F.tmp, { edited: false, conclusionBlocks: 0 });
+  const r = run(F, F.root, { input: { last_assistant_message: NO_CONCLUSION } });
+  assert.ok(!blocked(r.out));
+  assert.deepStrictEqual(r.signals, []);
+});
+
+ok('결론 축: last_assistant_message 부재 → 판정 포기(fail-open), edited 유지', () => {
+  const F = makeHome();
+  writeLedger(F.tmp, { edited: true, conclusionBlocks: 0 });
+  const r = run(F, F.root);
+  assert.ok(!blocked(r.out));
+  assert.strictEqual(readLedger(F.tmp).edited, true);
+  assert.strictEqual(readLedger(F.tmp).conclusionBlocks, 0);
+});
+
+ok('결론 축: OFF 스위치', () => {
+  const F = makeHome();
+  writeLedger(F.tmp, { edited: true, conclusionBlocks: 0 });
+  const r = run(F, F.root, { input: { last_assistant_message: NO_CONCLUSION }, env: { CLAUDE_DLC_CONCLUSION_OFF: '1' } });
+  assert.ok(!blocked(r.out));
+  assert.deepStrictEqual(r.signals, []);
+});
+
+ok('결론 축: 검증 축과 동시 block — reason 합산·카운터 각각', () => {
+  const F = makeHome();
+  writeLedger(F.tmp, { changed: true, verified: false, blocks: 0, edited: true, conclusionBlocks: 0 });
+  const r = run(F, F.root, { input: { last_assistant_message: NO_CONCLUSION } });
+  assert.ok(blocked(r.out));
+  assert.ok(r.out.includes('검증(test/lint') && r.out.includes('## 결론'), '두 축의 reason 이 함께 나와야 한다');
+  const led = readLedger(F.tmp);
+  assert.strictEqual(led.blocks, 1);
+  assert.strictEqual(led.conclusionBlocks, 1);
+  assert.deepStrictEqual(r.signals.sort(), ['early-stop-conclusion', 'early-stop-verify']);
+});
+
+ok('결론 축: 구 장부(신규 필드 없음) → DEFAULT 병합으로 침묵', () => {
+  const F = makeHome();
+  writeLedger(F.tmp, {}); // edited/conclusionBlocks 키 자체가 없음
+  const r = run(F, F.root, { input: { last_assistant_message: NO_CONCLUSION } });
+  assert.ok(!blocked(r.out));
 });
 
 console.log(`dlc-early-stop.test.js: ${n} tests passed`);
