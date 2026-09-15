@@ -220,3 +220,10 @@
 - [[plan-handoff]]·[[dlc-development-cycle]] 갱신: 2026-09-07 도입 시 "요구사항 명확화에서 공백을 발견했을 때만" 채우던 `# Intent` 를 **dlc 규모 medium 이상은 항상** 채우도록 변경. 형식(`없음 — <근거>` 필수·Open questions 조건부·모델 추론분 ⚠️)과 예외(small 은 plan 있고 공백 시만·trivial 제외·기존 plan 소급 안 함)는 `skills/dlc/SKILL.md` 요구사항 명확화 절이 정본. `agents/plan-reviewer.md` 에 Intent 반박 항목 14 추가.
 - 근거: 도입 계기(2026-09-07 `settings.json` 건)의 실패는 공백을 못 본 것이 아니라 제약이 어디에도 적히지 않은 것이어서, 공백-트리거로는 재발을 막지 못한다. 병행 리뷰(plan-reviewer + codex)가 초안의 "plan 존재" 재해석(사용자 선택 "medium 이상"을 다른 축으로 치환)과 done plan 소급 수정을 잡아 되돌렸다.
 - 출처 plan: plans/2026-09-09-intent-default-medium.
+
+## [2026-09-15] ingest | 묶음 intent.md (한 요구 → plan 여럿)
+- 계기: knowledge_base 2026-09-14 실측 — 한 요구가 하루에 plan 3~4개로 갈라지고(`proxy-peer-address` → `home-banner-*` 2개 + `login-session-400d`; `worker-default-options-dkms` → `security-workflow-redesign` → `wifi-bt-protocols`) Problem 재작성·계보 산문·공통 제약 복제가 반복됐다. 2026-09-07 "plan `# Intent` 만" 의 전제(요구:plan = 1:1)가 깨진 것.
+- 채택: `plans/<YYYY-MM-DD>-<intent-slug>/intent.md` 하나 + 각 plan frontmatter `intent:` 링크. plan 은 자기 dir 유지(코드 변경 0 — `plan-match`·`session-brief`·`plan-lint` 는 `*-plan.md` 만 본다). 생성 트리거 3(닫힌 목록)·`# Plans` status 복제 금지·closed = 모든 plan done + Open questions 처분(Out of scope 제외)·소유권·미머지 브랜치 한계. 정본 CLAUDE.md §10, 절차 dlc(발견·생성)·c(read)·e(closed 판정)·plan-reviewer(위임 1줄).
+- 미채택 유지: 별도 `intent/` 홈·조직 장치·`Affected` 항목. intent.md 스키마 lint·`intent:` 참조 무결성 검사는 첫 사용례 뒤 판단(Open question).
+- 첫 사용례: `plans/2026-09-15-intent-bundles/intent.md`(dogfood). plan-reviewer+codex 가 초안의 closed 판정 불능(Out of scope 를 조건에 넣음)·status 복제·발견 경로 부재를 잡아 구현 전에 고쳤다.
+- 동기화: [[plan-handoff]]·[[ai-native-sdlc-playbook-intent]]·[[dlc-development-cycle]] + index.

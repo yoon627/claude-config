@@ -2,10 +2,11 @@
 title: ai-native-sdlc-playbook-intent
 category: source
 created: 2026-09-07
-updated: 2026-09-07
+updated: 2026-09-15
 sources:
   - https://academy.claude.com/ko/courses/ai-native-sdlc-playbook/capture-intent (Claude Academy, "The AI-Native SDLC Playbook" Stage 1 "Capture as intent.md" — 원문)
   - plans/2026-09-07-plan-intent-section (반영 설계 — 일시 채널)
+  - plans/2026-09-15-intent-md-bundle (묶음 intent.md 부분 채택)
 ---
 
 # ai-native-sdlc-playbook-intent
@@ -39,6 +40,8 @@ Claude Academy *The AI-Native SDLC Playbook* 의 **Stage 1 "Capture as intent.md
 **산출물 형태만 채택**했다 — [[plan-handoff]] 의 `# Intent` 선택 섹션(Problem·Constraints·Out of scope·Open questions)으로 들어가고, [[dlc-development-cycle]] 의 요구사항 명확화 체크리스트가 4항에서 6항(문제·제약 추가)으로 늘어 그 결과를 이 섹션에 적는다.
 
 **미채택 — 조직 장치**: 별도 `intent/` 홈(§10 "plan = 단일 진실 소스"와 충돌, 산출물 이원화는 drift 원인), product owner 승인 게이트, survival rate 지표, Git 없는 기여자용 VCS 커넥터. 1인 워크플로우엔 해당 없다. 원문의 `## Proposed outcome`·`## Affected users and systems` 도 빼는데, 전자는 `# Goal` 이 이미 담고 후자는 이 repo 규모에서 상시 자명하기 때문이다.
+
+**2026-09-15 부분 정정 — 파일 형태도 채택**: 위 "산출물 형태만" 은 plan 과 요구가 1:1 이라는 전제였는데, knowledge_base 실측(2026-09-14, 한 요구 → plan 3~4개)에서 깨졌다. 그래서 여러 plan 으로 갈라지는 요구는 `plans/<date>-<intent-slug>/intent.md` 파일로 두고 plan 이 `intent:` 로 가리킨다([[plan-handoff]] 묶음 intent). 여전히 미채택: 별도 `intent/` 홈(`plans/` 아래에 둔다), 조직 장치 전부, `Affected users and systems` 항목. 단발 작업은 plan `# Intent` 그대로다. 2026-09-15 재확인(WebSearch): 공식 페이지에 "Claude Code 가 intent.md 를 자동으로 읽는다" 는 서술은 없다 — 조직 템플릿으로 Claude 에게 받아쓰게 하는 대화 지침이며, 서드파티 글의 "plan 전에 읽는 파일" 표현은 해석이다.
 
 채택 계기는 이론이 아니라 실측이다 — 제약을 안 적어 같은 안이 3회 제시·기각된 2026-09-07 건([[lesson-tracked-config-machine-paths]]). 같은 이유로 2026-07-07 [[unknowns-discovery]] 세션이 기각했던 "plan 에서 바뀔 결정 앞세우기" wontfix 를 부분 supersede 한다.
 

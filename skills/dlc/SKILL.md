@@ -44,6 +44,7 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 - **결과는 plan `# Intent` 에 남긴다**(plan 이 있으면 그때, 없으면 3단계 draft plan 시) — 대화로만 끝내면 증발해 다음 세션이 같은 것을 다시 묻고 **이미 기각된 선택지가 되살아난다**(2026-09-07 실측: 제약을 안 적어 같은 안이 3회 제시·기각). 섹션 정의는 CLAUDE.md §10 이 단일 소스 — 여기는 채우는 조건과 절차만.
 - **medium 이상은 공백 유무와 무관하게 항상 적는다**(2026-09-09) — 위 실측의 실패는 공백을 못 본 것이 아니라 제약이 어디에도 적히지 않은 것이라, 공백을 발견했을 때만 적는 규칙으로는 막지 못한다. small 은 plan 이 있고 공백을 발견했을 때만, trivial 은 `# Intent` 기록 대상이 아니다. 이 규칙 이전에 만들어진 plan·이어받는 plan 에는 소급하지 않는다.
 - **무엇을 적나** — Problem 은 내용으로. Constraints·Out of scope 는 내용 또는 `없음 — <근거 한 구절>`(맨 `없음` 금지 — "고려했으나 없다"와 "잊었다"를 구분하고 리뷰어가 반박할 수 있게. self-flag 의 "해당 없으면 0줄"과 다른 이유: Intent 는 고정 항목이라 `없음` 이 상태 기록이지 발명이 아니다). Open questions 는 못 좁힌 질문이 있을 때만(다음 세션이 이어받는다). 사용자가 확인한 것과 모델이 추론한 것을 구분한다 — 추론분은 ⚠️ 표기 또는 Open questions 로(§10 정의는 "확정한 요구"라, 추론이 확정으로 박히면 다음 세션이 잘못된 근거로 선택지를 기각한다).
+- **묶음 intent(§10 `intent.md`)** — 체크리스트 전에 `git worktree list --porcelain` 의 **모든 worktree** `plans/*/intent.md` 중 `status: open` 을 훑는다(미머지 선행 브랜치의 묶음은 그 worktree 에만 있다 — 여기서 놓치면 같은 묶음을 중복 생성한다). 이 요구가 그 묶음의 후속이면 새로 만들지 않고 연결하고, 파일이 이 worktree 에 없으면 §10 한계대로 가져온다. 없는데 §10 생성 트리거에 걸리면 intent.md 를 먼저 만든다. 연결된 plan 의 `# Intent` 는 링크 1줄 + 델타만(트리거·형식·수명·소유권은 §10 이 단일 소스 — 여기서 재서술하지 않는다).
 - **silent** — 공백 없으면 **질문 없이** 진행(명확한 요구엔 마찰 0). 질문 축에만 걸린다 — `# Intent` 기록은 위 규칙대로.
 - **질문 구성·우선순위 심화** — 질문 vs 추천 경계(무엇이 빠졌으면 질문·방법만 갈리면 추천) · 답이 설계·acceptance 를 바꾸는 것부터(부담 보이면 인터뷰식 1개씩) · 낯선 영역이면 함정·기준·과거결정 **blind-spot 브리핑** 후 질문 재구성 · 취향·시각 산출물이면 **프로토타입-우선**(mockup 2~4종 먼저). 세부는 `docs/dlc-details.md` §A. (render 요청엔 `dlc-task-router` 가 프로토타입 축을 turn-start 조기 주입.)
 - **trivial 도 예외 아님** — 절차 생략이지 요구 불명확 허용 아님. 산출물·문구 모호하면 먼저 질문.
@@ -93,7 +94,7 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 0  Setup            git status · 규모 판정 · plan 파일
 1  Explore
 2  researcher       [조건부 · 격리]
-3  draft plan       테스트전략 · rollback · 영향범위 · 구조의도 · # Acceptance 항목화 · ⚠️ self-flag(해당 시)
+3  draft plan       테스트전략 · rollback · 영향범위 · 구조의도 · # Acceptance 항목화 · ⚠️ self-flag(해당 시) · `intent:` 링크(묶음이면)
 4  arch planning    [격리 · structural 만 · codex off]
 5  plan 수정
 6  plan-reviewer    [격리 · codex owner]
