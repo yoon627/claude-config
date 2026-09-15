@@ -1,6 +1,6 @@
 ---
 title: remove-codegraph-mcp — 성공 호출 0회인 codegraph MCP 와 그 자동화·문서 참조를 걷어낸다
-status: in_progress
+status: done
 started: 2026-09-15
 updated: 2026-09-15
 ---
@@ -27,9 +27,11 @@ updated: 2026-09-15
 - 2026-09-15: Acceptance 2 재확인 통과(0건). simplify 체크(diff 전체): `docs/worktree-lifecycle.md` §C 의 "idle 자동종료(~5분)"는 codegraph daemon 고유 성질이라 일반화된 점유 주체와 어긋나 "소유자 종료 안내"로 수정, rm-recovery §C 제목 "상세"→포인터 본문에 맞게 수정. §C 통째 삭제는 기각(파일 머리말·README 가 rm 실패 복구를 이 파일 내용으로 서술). 그 외 삭제 전용 diff 라 중복·죽은 코드 없음.
 - 2026-09-15: code-reviewer(NEEDS DISCUSSION, blocker 0) 지적 전부 fix(1회차). 격리 runner 최종 검증 — Acceptance 1(잔존 hit = codegraph.md·index:24·headroom:17,43)·2(0건)·3(양쪽 exit 0, diff = codegraph 7줄 삭제)·4(`ALL PASS`, skip 없음)·5(check_links clean) 모두 관찰로 충족, 메인 판정과 불일치 없음. targeted 재리뷰(2회차) 진행 중.
 - 2026-09-15: 2회차 APPROVE → Minor 1 fix(lifecycle §C "/e 한정·wt rm 제외" 구절), Nit 1 defer. 레포 변경분 evidence gate(Acceptance 1~5) 충족 → 커밋. Acceptance 6(전역)은 머지 후라 plan 은 in_progress 유지.
+- 2026-09-15: 사용자 "/e merge 후 전역 해제" 선택. 커밋 `a140540`. /e merge 진입(M1 통과 — gh `yoon627/claude-config`, default main, merge commit 허용).
+- 2026-09-15: PR #166 생성(MERGEABLE). plan done 을 머지 PR 에 싣는다. 머지 후 전역 단계(Acceptance 6 [post-merge])는 main 에서 수행하고 결과는 세션 Report 에 남긴다.
 
 # Next
-머지 경로 결정(사용자) → 머지 → 전역 단계(`<scratch>/global-backup.sh` → CLI 해제 → settings.json → memory → npm uninstall → `<scratch>/global-check.sh`).
+
 
 # Decisions
 - 2026-08-03 결정("이 repo `.codegraph/` 만 삭제, 전역 MCP 는 coin-trading-bot 실사용 70% 때문에 유지")을 **뒤집는다** (이유: 그 실사용처 coin-trading-bot 포함 어느 repo 에도 현재 `.codegraph/` 가 없고, 보존 로그상 호출은 전부 실패). 기각한 대안: (a) coin-trading-bot 프로젝트 scope 로만 MCP 유지 — 인덱스가 없어 여전히 실패하고 재인덱싱 의지도 기록에 없음 (b) 인덱스만 재생성하고 유지 — 코드 repo 에서 값을 한다는 증거가 0이라 비용만 되살림.
@@ -40,7 +42,8 @@ updated: 2026-09-15
 - bootstrap 단계 번호는 재정렬하지 않는다 — 기각: 재정렬(diff 만 커짐). 번호를 참조하는 곳이 README·wiki 에 없어(grep 0건) 공백이 기능에 영향 없다.
 - npm 전역 바이너리 `@colbymchenry/codegraph` 도 **전역 단계 마지막에 uninstall** 한다 (이유: 사용자 선택이 "제거"이고 `npm install -g` 한 줄로 복구 가능 — 처음 ⚠️추론으로 범위 밖에 둔 것은 의도를 좁게 해석한 것이라 변경). 이미 떠 있는 `serve --mcp` 프로세스는 세션 재시작 전까지 남는다.
 - Acceptance 3 검증 방식을 실제 HOME dry-run → 임시 HOME 비교로 변경 (이유: 이 머신 baseline 이 exit=1 — `~/.agents/skills/jira-worklog` 가 링크가 아닌 실제 디렉터리라 3b 에서 조기 종료해 codegraph 단계(4·6·7)까지 도달하지 않는다. codegraph 무관한 기존 상태이며 고치지 않는다).
-- 전역 단계 순서: 레포 머지 → 백업 → CLI 해제(Claude·Codex) → settings.json 허용목록 제거 → memory 근거 이관 확인 후 삭제·인덱스 줄 제거 → npm uninstall → Acceptance 6 → `status: done`.
+- 전역 단계 순서: 레포 머지 → 백업 → CLI 해제(Claude·Codex) → settings.json 허용목록 제거 → memory 근거 이관 확인 후 삭제·인덱스 줄 제거 → npm uninstall → Acceptance 6.
+- `status: done` 시점을 "Acceptance 6 이후" → "`/e merge` M4(머지 PR 에 실음)"로 변경 (이유: 전역 단계는 머지 후 main 에서 수행하는데 main 직접 커밋이 금지라 그 뒤 plan 을 갱신할 커밋 경로가 없다. §10 도 done = 머지 시점. Acceptance 6 은 `[post-merge]` 로 표시하고 결과는 Report 에 남기며, 실패하면 새 worktree 로 재개한다).
 
 # Acceptance
 1. **현재형 참조 0**: `git grep -n -i codegraph -- . ':!plans' ':!wiki/log.md' ':!wiki/pages/decision/ops-doc-slimming.md' ':!scripts/session-brief.test.js'` 의 hit 이 다음만 남는다 — `wiki/pages/entity/codegraph.md`(retired 본문 전체), `wiki/index.md` 의 codegraph 요약 1줄(retired 표기), `wiki/pages/entity/headroom.md` 의 `[[codegraph]]` historical 링크(과거형 문장). 그 외 hit 0.
@@ -48,7 +51,7 @@ updated: 2026-09-15
 3. **bootstrap 동작**: `<scratch>/compare-setup.sh` — origin/main 판과 수정판 `setup.sh --dry-run` 을 같은 임시 HOME 에서 실행해 exit code 가 같고, 출력 diff 가 codegraph 3단계 줄 삭제뿐이며, 수정판 출력(`repo:` 줄 제외)에 `codegraph` 0건. `setup.ps1` 은 Windows 실행 불가 → 정적 대조만(미검증 명시).
 4. **repo 검증**: `bash scripts/verify.sh` 마지막 줄 `ALL PASS`(skip 있으면 그 축 명시).
 5. **wiki 동기화·무결**: `entity/codegraph.md` 상단 `> [!note] Retired (2026-09-15)` + 근거 수치 + memory 실측 근거 이관, `wiki/index.md` 요약 retired, `wiki/log.md` 항목 추가, `uv run --no-project python skills/wiki/check_links.py wiki` 가 baseline 과 같이 clean.
-6. **전역 해제(main 복귀 후)**: 백업 4종 존재, `claude mcp list` 에 codegraph 없음, `codex mcp list` 에 codegraph 없음, `~/.claude/settings.json` 에 `mcp__codegraph__` 0건 + `jq . ` 파싱 성공, memory 파일 부재 + `MEMORY.md` 에 codegraph 줄 0건, `command -v codegraph` 없음. 절감은 다음 세션부터(실행 중 세션엔 지침이 계속 주입).
+6. [post-merge] **전역 해제(main 복귀 후)** — 스크립트 `<scratch>/global-backup.sh`·`<scratch>/global-check.sh`: 백업 4종 존재, `claude mcp list` 에 codegraph 없음, `codex mcp list` 에 codegraph 없음, `~/.claude/settings.json` 에 `mcp__codegraph__` 0건 + `jq . ` 파싱 성공, memory 파일 부재 + `MEMORY.md` 에 codegraph 줄 0건, `command -v codegraph` 없음. 절감은 다음 세션부터(실행 중 세션엔 지침이 계속 주입).
 
 # Key Files
 - `skills/wt/SKILL.md` — 76행 §3.6 셋업 단계, 118행 rm §6 점유 분기
