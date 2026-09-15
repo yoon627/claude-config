@@ -1,6 +1,6 @@
 ---
 title: intent-md-bundle — 묶음 단위 intent.md 규약 도입(§10·dlc·c·e·README·wiki)
-status: in_progress
+status: done
 started: 2026-09-15
 updated: 2026-09-15
 intent: plans/2026-09-15-intent-bundles/intent.md
@@ -22,12 +22,13 @@ CLAUDE.md §10 에 묶음 intent.md 규약(위치·생성 트리거·템플릿·
 
 - 2026-09-15: 조사 — `plan-match.js`·`session-brief.js` 는 `*-plan.md` 만 스캔, `pre-commit-check` 는 `plans/*.md` 전부 스캔, `guard-worktree-edit` 는 plans/ allow, `dlc-evidence-ledger` 는 plans/ 제외 → intent dir 을 `plans/` 아래 두면 코드 변경 0. 공식 출처 재확인(Claude Academy capture-intent). knowledge_base 12 plan 실측(묶음 2개, 제약 복제). worktree `intent-md-bundle` 생성, intent.md + 이 plan 작성.
 - 2026-09-15: 구현(§10 새 절·dlc·c·e·plan-reviewer·README·wiki 5) → 검증 전부 통과 → code-reviewer(단독 — codex 한도 소진, 세션 마커 기록) REQUEST CHANGES: Major 2(`/e` closed 판정 시점이 M4 done 커밋과 어긋남·intent.md 커밋 단계 부재 / 발견 스캔이 미머지 형제 worktree 를 못 봄), Minor 6. fix loop 1회차로 전부 반영(아래 Review Disposition).
+- 2026-09-15: 커밋 4be841a → push → PR #165(MERGEABLE/CLEAN). 묶음 intent 판정: `# Plans` 1건 done, Open questions 2건 `(열림)` → open 유지.
 - 2026-09-15: fix loop 반영 후 재검증 — `verify.sh` ALL PASS(skip 없음) · `improve.sh --ci` error=0 warn=0 · `check_links.py` clean · plan-lint exit 0 · `CLAUDE_BRIEF_REPO=$PWD session-brief.js` exit 0 · grep 관찰(CLAUDE.md `intent.md` 7건, dlc/c/e 각 2, plan-reviewer/README 각 1). simplify: 추가 수정 없음. evidence gate Acceptance 1~5 충족 → DONE(status 는 머지 시 done).
 - 2026-09-15: plan-reviewer + codex(medium) 병행 → CONDITIONAL GO, 강한 우려 6(C1 closed 판정 불능·C2 후속 plan 의 intent 발견 경로 없음+미머지 가시성·C3 `# Plans` status 복제·C4 동시편집 소유권·C5 Acceptance 경로 오기/vacuous·C6 소급 경계 모순). 전부 `# Review Disposition` 대로 반영. baseline 실측(리뷰어): `verify.sh` ALL PASS(skip 없음), `skills/wiki/check_links.py` clean, `improve.sh --ci` error=0 warn=0.
 
 # Next
 
-1. `/e merge`(medium — push·PR·머지). 머지 시 이 plan done + 묶음 판정(Open questions 2건 `(열림)` → intent 는 open 유지).
+(없음 — PR #165 로 종료. 묶음 `intent-bundles` 는 Open questions 2건이 열려 있어 open 유지)
 
 # Decisions
 
