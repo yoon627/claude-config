@@ -227,3 +227,10 @@
 - 미채택 유지: 별도 `intent/` 홈·조직 장치·`Affected` 항목. intent.md 스키마 lint·`intent:` 참조 무결성 검사는 첫 사용례 뒤 판단(Open question).
 - 첫 사용례: `plans/2026-09-15-intent-bundles/intent.md`(dogfood). plan-reviewer+codex 가 초안의 closed 판정 불능(Out of scope 를 조건에 넣음)·status 복제·발견 경로 부재를 잡아 구현 전에 고쳤다.
 - 동기화: [[plan-handoff]]·[[ai-native-sdlc-playbook-intent]]·[[dlc-development-cycle]] + index.
+
+## [2026-09-15] update | codegraph retire (전역 MCP 해제)
+- [[codegraph]] 를 retired 로 전환하고 "Retire (2026-09-15)" 절 추가. 2026-08-03 의 "전역 MCP 유지"(coin-trading-bot 실사용 보호)를 뒤집었다 — 보존 로그상 실제 호출이 Claude 7회 전부 `not initialized` 에러, Codex 38회 중 결과 21건 전부 `user cancelled`(17건 미기록)로 **성공 0회**이고, 보호 대상이던 coin-trading-bot 을 포함해 홈 depth 5 이내 탐색에서 `.codegraph/` 가 하나도 없었다.
+- 한계 명시: "성공 0회"는 보존 기간(Claude 2026-08-06~, Codex 2026-06~07) 한정 — 08-03 감사 기간 원본은 사라져 재집계 불가. 토큰 절감량은 codegraph 에 통계 기능이 없어 측정 불가.
+- 조치: wt 자동 init(`skills/wt/references/codegraph-worktree.md` 삭제)·bootstrap 설치/MCP/init 단계 제거, wt rm 파일점유 분기는 codegraph daemon 전제를 빼고 일반 점유로 재서술하되 "자동 종료 안 함·안내"는 유지(사용자가 직접 부르는 경로라 점유 프로세스 소유를 알 수 없음 — 경로 필터만으로 회수하면 사용자 서버를 죽일 수 있다는 code-reviewer 지적). memory `codegraph-projectpath-explicit` 의 실측 수치는 retired 본문으로 이관(삭제와 전역 MCP 해제는 머지 후 전역 단계).
+- [[headroom]] 의 `[[codegraph]]` 링크는 historical 문장으로 유지 — 유일한 inbound 라 지우면 orphan([[headroom]] retire 때와 같은 처리).
+- 출처 plan: plans/2026-09-15-remove-codegraph-mcp.

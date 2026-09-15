@@ -21,7 +21,7 @@
 - [[claude-code-subagent-config]] — subagent frontmatter model/effort·env 우선순위·Haiku effort.
 - [[claude-code-model-selection]] — alias(opusplan, fableplan 없음)·advisor tool 공식 수치·/model 저장·subagent model 함정(inherit×Fable)·pin 시 확정사실(`[1m]` 금지·자동 1M·폴백 없음).
 - [[claude-code-oss-frameworks]] — OSS 하네스 생태계 스냅샷(2026-08): 커버리지 부분적·프레임워크 후퇴·내부 확장이 정책 안전.
-- [[codegraph]] — 코드 심볼 그래프 MCP(npm @colbymchenry/codegraph)·worktree-local 인덱스(init 스냅샷·watcher 없어 stale→조회 전 재-sync).
+- [[codegraph]] — retired(2026-09-15) 코드 심볼 그래프 MCP 의 historical 기록 — 보존 로그상 성공 호출 0회로 전역 해제, wt 자동 init·bootstrap 에서 제거.
 - [[headroom]] — retired 컨텍스트 최적화 proxy/MCP의 historical 기록(현재 bootstrap·runtime 미사용).
 
 ## decision

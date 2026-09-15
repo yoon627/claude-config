@@ -8,7 +8,7 @@
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-# codegraph 인덱스·memory 복원 대상은 Claude Code 가 실제 읽는 ~/.claude 로 고정 —
+# memory 복원·Codex skill source 는 Claude Code 가 실제 읽는 ~/.claude 로 고정 —
 # 스크립트를 worktree/다른 경로에서 실행해도 엉뚱한 곳에 안 만들도록 REPO_ROOT 와 분리.
 CLAUDE_DIR="$HOME/.claude"
 LOCAL_BIN="$HOME/.local/bin"
@@ -55,7 +55,7 @@ have git || { warn "git 미설치"; prereq_ok=0; }
 mkdir -p "$LOCAL_BIN"
 case ":$PATH:" in *":$LOCAL_BIN:"*) : ;; *) export PATH="$LOCAL_BIN:$PATH" ;; esac
 
-# --- 2. brew: node (codegraph npm 전 선행) ---
+# --- 2. brew: node (hook 진입점 scripts/*.js 실행) ---
 if have node; then skip "node 있음 ($(node --version 2>/dev/null))"; else
   run "brew install node"; do_cmd brew install node && ok "node 설치"; fi
 
@@ -85,10 +85,6 @@ else
 fi
 ok "Codex jira-worklog skill 연결"
 
-# --- 4. codegraph (npm -g) ---
-if have codegraph; then skip "codegraph 있음"; else
-  run "npm install -g @colbymchenry/codegraph"; do_cmd npm install -g @colbymchenry/codegraph && ok "codegraph 설치"; fi
-
 # --- 5. rtk (standalone 설치본 선택) ---
 if have rtk; then
   if [ "$DRY_RUN" = 1 ]; then skip "rtk hook 검증/서명(dry-run)"
@@ -100,15 +96,6 @@ if have rtk; then
 else
   skip "rtk 미설치(선택)"
 fi
-
-# --- 6. MCP 등록 (홈 ~/.claude.json) ---
-mcp_list="$(claude mcp list 2>/dev/null || true)"
-if printf '%s\n' "$mcp_list" | grep -qi '^codegraph'; then skip "codegraph MCP 등록됨"; else
-  run "codegraph install -y"; do_cmd codegraph install -y && ok "codegraph MCP 등록"; fi
-
-# --- 7. codegraph init (~/.claude 인덱스) ---
-if [ -d "$CLAUDE_DIR/.codegraph" ]; then skip "codegraph 인덱스 있음"; else
-  run "codegraph init $CLAUDE_DIR"; do_cmd codegraph init "$CLAUDE_DIR" && ok "codegraph init"; fi
 
 # --- 8. zshrc env (marker 블록 멱등 교체) ---
 ZSHRC="$HOME/.zshrc"; M_START="# >>> claude-bootstrap env >>>"; M_END="# <<< claude-bootstrap env <<<"

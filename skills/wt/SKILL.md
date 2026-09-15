@@ -73,7 +73,7 @@ worktree 생성은 로컬·비파괴이고 `/wt rm <slug>` 한 번으로 되돌�
 3. `git worktree add --no-track -b <slug> .claude/worktrees/<slug> origin/<default>`. (`--no-track` 이유·첫 push autoSetupRemote 는 `references/rm-recovery.md` §A.)
 4. **ignored 설정 자동 복사** (옵트아웃 없음): **main worktree** 에서 ① basename 이 정확히 `.env` 인 파일과 ② repo-relative 경로가 정확히 `.claude/settings.local.json` 인 파일을 **동일 상대경로**로 `.claude/worktrees/<slug>/` 안에 복사. **이미 있으면 skip(덮어쓰지 않음)**, 복사 실패(권한 등)는 경고만·worktree 유지. ②를 복사하는 이유: worktree 는 자기 자신이 git root 라 `localSettings` 를 상속하지 않아, 안 하면 **권한 허용목록이 0개**로 시작한다(§8 이 worktree 작업을 강제하므로 실사용 경로가 전부 해당). 후보 선정 predicate·제외 규칙·앵커드 일치가 필요한 이유는 `references/env-copy.md`.
 5. `EnterWorktree(path: <repo-root>/.claude/worktrees/<slug>)`.
-6. 새 cwd 에서 환경 셋업 (순서대로): **submodule self-heal**(`heal_submodules.py`) → **bootstrap**(`tools/bootstrap/bootstrap.py` 있으면, 없으면 skip) → **codegraph init**(조건부·백그라운드). heal 을 **bootstrap 보다 먼저**(중단 corrupt submodule 이 이후 단계를 죽이는 것 방지). 무엇이 실패해도 **worktree 유지·에러 그대로 보고**(사용자가 수동 재실행 결정). self-heal/bootstrap 상세는 `references/rm-recovery.md` §B, codegraph init 조건(PATH + **main** `.codegraph/`)·백그라운드·staleness·`projectPath` 지침은 `references/codegraph-worktree.md`.
+6. 새 cwd 에서 환경 셋업 (순서대로): **submodule self-heal**(`heal_submodules.py`) → **bootstrap**(`tools/bootstrap/bootstrap.py` 있으면, 없으면 skip). heal 을 **bootstrap 보다 먼저**(중단 corrupt submodule 이 이후 단계를 죽이는 것 방지). 무엇이 실패해도 **worktree 유지·에러 그대로 보고**(사용자가 수동 재실행 결정). self-heal/bootstrap 상세는 `references/rm-recovery.md` §B.
 
 ### 4. 보고 + dlc 작업
 - 생성·진입 완료 후, 새 worktree(현재 cwd)에서 **`dlc` Skill 을 요청사항 원문을 인자로 invoke** (Skill 도구, `skill: dlc`, `args: <요청사항 원문>`). 이후는 dlc 가 규모 gate 부터 파이프라인까지 진행한다.
@@ -115,7 +115,7 @@ worktree 생성은 로컬·비파괴이고 `/wt rm <slug>` 한 번으로 되돌�
 5. AskUserQuestion (옵션 1: worktree 만 / 옵션 2: worktree + 로컬 브랜치 / 옵션 3: worktree + 로컬·원격 브랜치 / 옵션 4: 취소). 경고(특히 unpushed·미머지)는 question 본문에 명시 — 원격 삭제(옵션 3)는 그 경고를 본 사용자가 택할 때만.
 6. 실행: `git worktree remove <path>`. 실패 시 stderr 원인으로 분기:
    - **"modified or untracked files"/"use --force" 류**(변경·untracked 잔존): `--force` 적용 여부는 **별도 AskUserQuestion 후에만**(절대 묻지 않고 강제 실행 금지).
-   - **파일 점유 류**(OS 삭제 실패 — "Access is denied"·"being used"·"Directory not empty"): codegraph daemon 이 그 worktree `.codegraph/` 를 잡았을 수 있음. **자동 종료하지 않고 안내** 후 재시도(`--force` 는 OS 점유엔 무효). 상세·조건은 `references/rm-recovery.md` §C.
+   - **파일 점유 류**(OS 삭제 실패 — "Access is denied"·"being used"·"Directory not empty"·Windows "Invalid argument"): 살아있는 프로세스가 그 worktree 파일(`.venv` 등)을 잡고 있다. `wt rm` 은 사용자가 직접 부르는 경로라 점유 프로세스가 이 세션 것인지 알 수 없으므로 **자동 종료하지 않고** 점유 프로세스를 알려 소유자 종료 후 재시도하도록 안내(`--force` 는 OS 점유엔 무효). 부분 성공(등록만 해제·디렉토리 잔존) 확인·`prune` 은 `docs/worktree-lifecycle.md` §C.
    - 옵션 2·3(로컬 브랜치 삭제): **remove 성공 후에만** `git branch -D <branch>` (remove 실패·거부 시 브랜치 보존).
    - 옵션 3(원격도 삭제): 로컬 삭제 후 `git push origin --delete <branch>` (원격 ref 부재면 no-op·경고만).
 7. 한 줄 보고.

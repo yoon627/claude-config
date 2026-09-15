@@ -329,7 +329,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - 정수·`rm`·기존 worktree 정확일치가 아닌 텍스트는 **요청사항**으로 간주 → 영문 kebab-case slug 파생 → **확인 없이 생성**(위험기반 승인 — CLAUDE.md §1: 로컬·가역이라 묻지 않고, base·`.env`·stale·near-miss·`/wt rm <slug>` 되돌리기를 보고) → 요청사항 원문을 `dlc` task 로 전달 (dlc 없는 빈 worktree 단순 생성은 폐지). 삭제 계열(`rm`·`--force`·`branch -D`·원격 삭제)은 비가역이라 확인 유지
 - 접두 `?` (`/wt ? <막연한 설명>`)는 **질문 모드** — AskUserQuestion 으로 요구사항을 구체화한 뒤 같은 요청사항 생성 경로로 합류 (접미 `?` 는 의문형 요청과 충돌해 미사용)
 - **신규 생성 시 ignored 설정 자동 복사**: main worktree 에서 ① basename 이 정확히 `.env` 인 파일 ② repo-relative 경로가 정확히 `.claude/settings.local.json` 인 파일을 동일 상대경로로 복사(이미 있으면 skip, 실패는 경고만·worktree 유지). ②가 필요한 이유는 worktree 가 **자기 자신이 git root** 라 Claude Code 의 `localSettings`(= `<git root>/.claude/settings.local.json`)를 상속하지 않기 때문 — 복사하지 않으면 **권한 허용목록이 0개**로 시작하는데, CLAUDE.md §8 이 코드 변경을 규모 불문 worktree 에서 하도록 강제하므로 실사용 경로가 전부 여기 해당한다. predicate 는 **앵커드 정확일치**(basename 매칭이면 `.bak` 백업이나 repo 루트의 동명 파일까지 딸려온다). 신규 생성 경로만 덮으므로 기존 worktree 는 수동 복사.
-- `references/` (자동 로드 안 됨): SKILL 본문엔 절차 스텝·안전 게이트만 두고, 상세 메커닉은 해당 분기 진입 시 Read 하는 참조 doc 으로 분리 — `env-copy.md`(자동 복사 후보/제외 — `.env` + `settings.local.json`)·`codegraph-worktree.md`(codegraph init 조건·staleness·projectPath)·`rm-recovery.md`(생성 git 시퀀스·self-heal·rm 실패 복구). `docs/codex-review.md`·`docs/worktree-lifecycle.md` 와 같은 참조 패턴.
+- `references/` (자동 로드 안 됨): SKILL 본문엔 절차 스텝·안전 게이트만 두고, 상세 메커닉은 해당 분기 진입 시 Read 하는 참조 doc 으로 분리 — `env-copy.md`(자동 복사 후보/제외 — `.env` + `settings.local.json`)·`rm-recovery.md`(생성 git 시퀀스·self-heal·rm 실패 복구). `docs/codex-review.md`·`docs/worktree-lifecycle.md` 와 같은 참조 패턴.
 
 ### skills/wiki/ — LLM Wiki (영속 프로젝트 메모리)
 
@@ -378,7 +378,7 @@ preview 결과를 확인하고 `/e`에서 사용자 승인 후 동일 명령에 
 settings.json 에 등록돼 후크가 호출하는 진입점은 notify(`notify-hook.js`), 세션 브리프(`session-brief.js`), worktree 가드(`guard-worktree-edit.js`), dlc evidence 3종(`dlc-task-router.js` / `dlc-evidence-ledger.js` / `dlc-early-stop.js`). 모두 fail-open (실패해도 throw 안 함). 나머지(`bootstrap/`, `*.ps1`, `install-*`, `prompt-gwl.py`)는 위 진입점이 위임하거나 수동/프로젝트별로 쓰는 보조 스크립트.
 
 #### `bootstrap/` (setup.sh · setup.ps1 · README.md)
-새 머신에서 한 번 실행해 이 환경(도구 + 설정 + 선택적 memory)을 재현하는 **idempotent** 부트스트랩. macOS `setup.sh`(zsh/비-conda), Windows `setup.ps1`(레지스트리 — ⚠️ 전체 실행 미검증). 도구(node/uv/codegraph/선택적 standalone rtk)·codegraph MCP·codegraph init·셸 env 를 각 단계 guard 로 `[SKIP]`. Codex용 `jira-worklog`는 `$HOME/.agents/skills/jira-worklog`에 안정적인 source를 가리키는 symlink/junction으로 설치한다. effort 환경변수는 해제해 `/effort`가 동작하게 한다. `--dry-run`/`--memory-from` 지원. 상세·전제·한계는 `scripts/bootstrap/README.md`.
+새 머신에서 한 번 실행해 이 환경(도구 + 설정 + 선택적 memory)을 재현하는 **idempotent** 부트스트랩. macOS `setup.sh`(zsh/비-conda), Windows `setup.ps1`(레지스트리 — ⚠️ 전체 실행 미검증). 도구(node/uv/선택적 standalone rtk)·셸 env 를 각 단계 guard 로 `[SKIP]`. Codex용 `jira-worklog`는 `$HOME/.agents/skills/jira-worklog`에 안정적인 source를 가리키는 symlink/junction으로 설치한다. effort 환경변수는 해제해 `/effort`가 동작하게 한다. `--dry-run`/`--memory-from` 지원. 상세·전제·한계는 `scripts/bootstrap/README.md`.
 
 #### `notify-hook.js`
 Cross-platform notify 진입점 (Node). stdin 의 Claude Code JSON 에서 `message` · `cwd` 추출 (title = cwd basename). **macOS**: `afplay` 시스템 사운드 + `osascript` 배너 (인라인). **Windows**: 원본 stdin 을 그대로 넘기며 `powershell.exe -File notify-hook.ps1` spawn. **Linux**: best-effort `notify-send`. 모든 동작 best-effort — 실패해도 throw 안 하고 stdin 1초 타임아웃으로 세션 안 멈춤. 사운드 기본값은 이벤트별 (Stop→Glass/Asterisk, Notification→Ping/Exclamation); command 3번째 인자로 override.
@@ -617,7 +617,7 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   │   └── collect-state.sh        # 마무리 읽기전용 git 신호 1회 수집(read-only)
 │   ├── wt/
 │   │   ├── SKILL.md                # /wt — git worktree 관리
-│   │   └── references/             # 생성 시퀀스·codegraph·.env 복사·rm 복구 메커닉 (자동 로드 안 됨)
+│   │   └── references/             # 생성 시퀀스·.env 복사·rm 복구 메커닉 (자동 로드 안 됨)
 │   ├── wiki/
 │   │   └── SKILL.md                # /wiki — LLM Wiki 운영 (ingest/query/lint)
 │   ├── improve/
