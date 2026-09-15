@@ -1,6 +1,6 @@
 ---
 title: conclusion-block — 답변 끝 `## 결론` 고정 블록 규칙 + Stop hook 존재 검사
-status: in_progress
+status: done
 started: 2026-09-15
 updated: 2026-09-15
 ---
@@ -27,11 +27,12 @@ updated: 2026-09-15
 
 - 2026-09-15 (cont.): code-reviewer+codex(high) NEEDS DISCUSSION → Major(AskUserQuestion 뒤 마감 오탐)는 probe 로 `last_assistant_message` = 마지막 텍스트 블록만임을 실증 후 §3-6 규칙으로 처분, Minor 3 fix(펜스 무시·producer 테스트·재종료 경로 소비)·1 defer, Nit 2 fix. simplify: 4축 조건 중복 제거. 테스트 25·71 통과.
 
-- 2026-09-15 (final): 격리 runner 최종 검증 — `verify.sh` ALL PASS(skip 없음), early-stop 25·evidence-ledger 71·signal 20 통과, 옛 문구 0건. evidence gate 전 항목 충족 → DONE. 커밋.
+- 2026-09-15 (final): 격리 runner 최종 검증 — `verify.sh` ALL PASS(skip 없음), early-stop 25·evidence-ledger 71·signal 20 통과, 옛 문구 0건. evidence gate 전 항목 충족 → DONE. 커밋 `28765d8`.
+- 2026-09-15 (merge): `/e merge` — push, PR #167, plan done.
 
 # Next
 
-1. `/e merge`(medium — push→PR→머지→정리). 머지 후 실 세션에서 결론 축 1회 관찰(선택).
+(없음 — 머지 후 실 세션에서 결론 축 1회 관찰은 선택)
 
 # Decisions
 
