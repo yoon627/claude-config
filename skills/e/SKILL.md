@@ -109,7 +109,7 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 7단계에서 worktree 를 삭제할 때만. **cwd 가 삭제 대상 안이라 순서 중요.**
 - **이동 전 값 캡처**: `target_path`·`target_branch`·`main_path`(`git worktree list --porcelain` 첫 worktree)를 **세션 옮기기 전에** 고정(이동 후 재계산하면 엉뚱한 대상·main 가리킴).
 - **worktree 밖으로**: `ExitWorktree(action: keep)` 로 원래 디렉토리(보통 main) 복귀 — 대상 안에선 자기 remove 불가. **`ExitWorktree` no-op**(harness 가 worktree 에서 시작)이면 폴백은 `docs/worktree-lifecycle.md` §C(다른 linked worktree 경유 or remove 생략+보고) — **강제 진행 금지**. 이동 실패로 cwd 가 대상 안이면 **중단+보고**(remove 금지).
-- **제거**: cwd 가 대상 밖 확인 후 `git worktree remove <target_path>`. 실패 시 stderr 분기(untracked→`--force`·codegraph daemon 파일점유·부분성공 prune) 세부는 `docs/worktree-lifecycle.md` §C.
+- **제거**: cwd 가 대상 밖 확인 후 `git worktree remove <target_path>`. 실패 시 stderr 분기(untracked→`--force`·파일점유·부분성공 prune) 세부는 `docs/worktree-lifecycle.md` §C.
 - **안전 게이트(§8) — 무확인 금지**: `--force`·`git branch -D`(미머지)·원격 `git push origin --delete` 는 **별도 AskUserQuestion 확인 후에만**.
 - **로컬 브랜치(옵션 ②·③)**: `git branch -d <target_branch>`(미머지 `-d` 거부 시 `-D` 는 확인 후). **원격(옵션 ③만)**: worktree·로컬 삭제 성공 후 `git push origin --delete <target_branch>`(원격 ref 부재 no-op). 조건5 확정 아님 → 사용자가 경고 보고 택한 경우만(orphan 방지). 그 외 push 안 함.
 - 한 줄 보고: 제거한 worktree·브랜치(또는 유지 사유).
