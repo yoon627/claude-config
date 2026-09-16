@@ -1,6 +1,6 @@
 ---
 title: intent-split-check — dlc 요구사항 명확화에 "분할 판정" 추가(묶음 intent 트리거 2 를 능동 판정으로)
-status: in_progress
+status: done
 started: 2026-09-16
 updated: 2026-09-16
 intent: plans/2026-09-15-intent-bundles/intent.md
@@ -36,11 +36,11 @@ dlc 요구사항 명확화(medium 이상)에 분할 판정 1항을 넣어, 독�
 
 - 2026-09-16: 사용자 질문 검토(09-07 섹션 → 09-15 묶음 파일 이미 존재) → 3안 제시 → "분할 판정 1항 추가" 선택. wt `intent-split-check` 생성. Explore 로 편집 대상 확정. draft plan → plan-reviewer(+codex medium 병행) CONDITIONAL 5건 + 약한 우려 6건 → 전부 처분(아래) 후 Key Files 10파일로 확정. 규모 medium(다중 파일 규약 변경 — 줄수는 small 범위, 시나리오 d 의 공백이 이 판정에 실제로 걸렸다 → Deferred). 구현 → code-reviewer(codex 미가용 — out of credits, 세션 마커 기록) Major 3·Minor 8·시나리오 막힘 3 → fix loop 1회차 반영(아래 Disposition) + simplify 축약(고정비·소급·면제 중복 3구절 제거).
 
-- 2026-09-16: targeted 재리뷰 2회차 12건 반영(Major 1·Minor 5·Nit 6). 격리 runner: verify `ALL PASS`(skip 없음)·improve `error=0 warn=0`·check_links clean·plan-lint 0, Acceptance 1~6·8 관찰 충족. 2회차 수정 후 메인 targeted 재검증.
+- 2026-09-16: targeted 재리뷰 2회차 12건 반영(Major 1·Minor 5·Nit 6). 격리 runner: verify `ALL PASS`(skip 없음)·improve `error=0 warn=0`·check_links clean·plan-lint 0, Acceptance 1~6·8 관찰 충족. 2회차 수정 후 메인 targeted 재검증. 커밋 `c155d08` → `/e merge` → PR #168. 묶음 `intent-bundles` 는 Open questions 4건 열림이라 open 유지.
 
 # Next
 
-- 커밋 후 `/e merge`(medium — PR 경로) 또는 로컬 ff-merge 는 사용자 선택.
+없음.
 
 # Deferred
 
