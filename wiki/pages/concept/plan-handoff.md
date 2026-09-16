@@ -11,6 +11,7 @@ sources:
   - plans/2026-09-07-plan-intent-section
   - plans/2026-09-09-intent-default-medium (`# Intent` medium 이상 항상)
   - plans/2026-09-15-intent-md-bundle (묶음 intent.md)
+  - plans/2026-09-16-intent-split-check (트리거 2 능동 판정·`분할:` 필드·plan-reviewer 묶음 모드)
 ---
 
 # plan-handoff
@@ -26,6 +27,8 @@ sources:
 
 ## 묶음 intent (`intent.md`, 2026-09-15)
 `# Intent` 는 plan 과 1:1 을 전제했는데 실제 작업은 한 요구가 하루에 plan 3~4개로 갈라졌다(knowledge_base 2026-09-14 체인 2개 — Problem 재작성·계보 산문·공통 제약 복제). 그래서 요구 하나를 `plans/<YYYY-MM-DD>-<intent-slug>/intent.md` 에 두고 각 plan 이 frontmatter `intent:` 로 가리킨다(형식·트리거·수명·소유권·한계는 CLAUDE.md §10 "묶음 intent" 가 정본 — 여기 재서술하지 않는다). 설계상 비자명한 점 둘: plan 은 자기 dir 에 그대로 두고 intent dir 엔 `*-plan.md` 가 없어 매칭·`plan-match.js`·`session-brief.js`·`plan-lint` 가 불변(코드 변경 0)이라는 것, 그리고 `closed` 조건에서 Out of scope 를 뺀 것(영구 경계라 넣으면 영영 안 닫힌다 — plan-reviewer 가 초안에서 잡음). 기각안: intent dir 에 plan 여럿(매칭 의미 변경), plan 간 `follows:` 링크만(공통 제약 단일 위치 없음), 첫 plan `# Intent` 를 정본으로(plan 은 종료 시 닫히는데 정본이 그 안에 남음). 2026-09-07 의 "별도 `intent/` 홈 미채택" 은 유지 — `plans/` 아래라 다른 트리가 아니다.
+
+2026-09-16 보강 — 트리거 2 는 "plan 이 2개 이상 예상됨"(수동)이었는데, 사용자가 "intent 하위 여러 plan 이 생겨야 plan 단위가 작아진다"고 제기해 medium 이상은 dlc 요구사항 명확화의 **분할 판정**이 능동으로 보게 했다([[dlc-development-cycle]]). 정의 측 변경은 둘: 트리거 2 의 의미를 "독립 검증·머지 가능한 복수 plan 으로 나뉠 때"로 두고 절차만 dlc 로 연결(CLAUDE.md 는 항상 주입, dlc 는 진입 시만 로드라 정의를 옮기면 미진입 세션이 조건을 잃는다), `# Intent` 정의에 분할 판정 결과(`분할: 없음 — <근거>`)를 넣었다(dlc 에만 두면 plan-reviewer 14항·`/c` 가 §10 항목 기준으로 읽어 그 줄을 모른다). 기각안: intent.md 상시화(사용례 1건에서 굳히지 않는다 — 5회 사용 후 재판단, intent.md Open question) · "각 plan ≤ medium" 목표(20줄 public API 도 structural 이라 규모를 규범값으로 바꾸고 우회 유인이 생긴다 → "작게 나누되 규모는 gate 로 독립 판정") · 묶음 단위 architecture-reviewer 1회(`architecture-reviewer.md` 적용 범위와 충돌, 사용자 미확인 → deferred). 미착수 형제가 잊히지 않도록 `/e` 보고가 `(미착수)` 후보를 `/wt` 착수 경로와 함께 열거한다(`/c` 는 plan 을 새로 만들지 않는다).
 
 ## 핵심 원칙
 - **single-writer**: 메인 에이전트만 plan을 쓴다. subagent는 읽기만, 결과는 "plan 반영용 요약"으로 반환. 쓰기 직전 re-read로 외부 변경 merge. (이유: Claude↔Codex 동시 쓰기 충돌 방지 — [[claude-codex-collaboration]])

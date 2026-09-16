@@ -72,7 +72,7 @@
 
 상세 정의는 `.claude/agents/`(프로젝트 우선, 없으면 `~/.claude/agents/`). 정의 없으면 임의 생성 말고 같은 관점으로 직접 점검. plan-reviewer/code-reviewer 의 Codex 검토는 §9.
 
-- **plan-reviewer** — Plan 직후(비사소한 계획).
+- **plan-reviewer** — Plan 직후(비사소한 계획). dlc 분할 판정으로 묶음이 생기면 그 경계도 묶음 모드로 1회.
 - **researcher** — §4 검색 신호 해당 시, 어느 단계에서든.
 - **code-reviewer** — 구현 후(코드 변경 있는 모든 흐름).
 - **simplify 체크** (subagent 아님 — 메인 직접) — code-reviewer 통과·**blocker 해소 후**(미해결 blocker 있으면 미룸, dlc 13단계). 중복·과한 추상화·불필요한 복잡도·죽은 코드 제거. 동작 보존, 불확실하면 보류(제안만). 코드 변경했으면 검증 재실행.
@@ -199,14 +199,14 @@ updated: YYYY-MM-DD
 5. `# Key Files` — 핵심 파일 + 한 줄 메모
 6. `# Blockers` — 막힌 것 + 풀려면 필요한 것
 
-선택 섹션 (절차가 요구할 때만): `# Intent`(착수 전 확정한 요구 — Problem·Constraints·Out of scope·Open questions, dlc 요구사항 명확화가 채운다 — 규모 medium 이상은 항상), `# Acceptance`(test 가능한 완료 기준 — 각 항목이 증거(실행·관찰·통과)로 충족될 때만 완료, dlc evidence gate), `# Review Disposition`(dlc fix loop 의 finding 처분 — `fix`/`defer`/`false-positive`/`wontfix`. dlc ⚠️ self-flag 는 자기 신고라 `resolved`/`accepted-risk`/`deferred` 로 구분), `# Deferred`(범위 밖 발견 — §3-4), `# Workflow Findings`(확인된 workflow 실패 기록 — dlc 증거기반 자기개선, 최소형). `defer`(리뷰 finding 처분값) ≠ `# Deferred`(범위 밖 발견 보존 섹션). `# Intent`(무엇을 왜·어떤 제약에서) ≠ `# Goal`(달성 목표 1~3줄).
+선택 섹션 (절차가 요구할 때만): `# Intent`(착수 전 확정한 요구 — Problem·Constraints·Out of scope·Open questions + medium 이상은 분할 판정 결과 `분할: 없음 — <근거>` 또는 `분할: 묶음 → <intent.md 경로>`, dlc 요구사항 명확화가 채운다 — 규모 medium 이상은 항상), `# Acceptance`(test 가능한 완료 기준 — 각 항목이 증거(실행·관찰·통과)로 충족될 때만 완료, dlc evidence gate), `# Review Disposition`(dlc fix loop 의 finding 처분 — `fix`/`defer`/`false-positive`/`wontfix`. 묶음 분할 리뷰의 처분은 첫 plan 에 `[묶음]` 접두로. dlc ⚠️ self-flag 는 자기 신고라 `resolved`/`accepted-risk`/`deferred` 로 구분), `# Deferred`(범위 밖 발견 — §3-4), `# Workflow Findings`(확인된 workflow 실패 기록 — dlc 증거기반 자기개선, 최소형). `defer`(리뷰 finding 처분값) ≠ `# Deferred`(범위 밖 발견 보존 섹션). `# Intent`(무엇을 왜·어떤 제약에서) ≠ `# Goal`(달성 목표 1~3줄).
 
 리뷰는 dlc 의 중간 단계(구현 직후 code-reviewer + codex 병행, §9)가 담당한다 — push 직전 별도 codex 리뷰는 두지 않는다. 로컬 다관점 점검이 따로 필요하면 빌트인 `/code-review` 를 수동 사용.
 
 ### 묶음 intent (`intent.md`, 선택 — 2026-09-15)
 한 요구가 plan 여러 개(후속·분할)로 갈라지면 그 요구를 `<ROOT>/plans/<YYYY-MM-DD>-<intent-slug>/intent.md` 한 파일에 두고, 각 plan 이 frontmatter 선택 키 `intent: plans/<dir>/intent.md`(스칼라 1개 — 한 plan 이 두 묶음에 걸치지 않는다)로 가리킨다. plan 은 자기 dir 에 그대로 두고 intent dir 에는 `*-plan.md` 를 두지 않는다 — 위 매칭 규칙·`plan-match.js`·`session-brief.js`·`plan-lint` 가 그대로 동작한다(**intent.md 는 plan 이 아니라 `plan-lint` 대상이 아니다**). 출처는 Claude Academy *AI-Native SDLC Playbook* Stage 1 의 `intent.md` — 조직 장치(별도 `intent/` 홈·승인 게이트)는 채택하지 않는다.
-- **만드는 때(닫힌 목록)**: 1) 사용자 지시 2) 요구사항 명확화 시점에 plan 이 2개 이상 예상됨(후속·병렬 분할) 3) 기존 plan 의 Out of scope·`# Deferred`·"별도 작업" 에서 새 plan 을 시작 → 소급 생성하되 **선행 plan 에는 `intent:` 1줄만 추가**하고 본문은 손대지 않는다. 그 외 단발 작업은 plan `# Intent` 만. 착수 전 `plans/*/intent.md` 중 `status: open` 을 훑어 기존 묶음이면 새로 만들지 않고 연결한다(dlc 요구사항 명확화).
-- **형식**: frontmatter `title` · `status: open|closed`(값 라인에 인라인 주석 금지 — 파서가 값으로 오인한 선례) · `started` · `updated`. 본문 H1 6개: `# Problem` · `# Proposed outcome` · `# Constraints`(묶음 공통 제약) · `# Out of scope`(하지 **않을** 경계만 — 이어서 할 후속은 여기가 아니라 `# Plans` 에 `(미착수)`) · `# Open questions`(미처분 `(열림)`, 처분은 `(해소)`/`(이월 → <새 묶음>)`) · `# Plans`(plan 경로 + 한 줄 메모 — **status 복제 금지**, 정본은 각 plan frontmatter. 폐기한 plan 은 메모에 `폐기`).
+- **만드는 때(닫힌 목록)**: 1) 사용자 지시 2) 요구가 독립 검증·머지 가능한(각 단위가 순서대로 혼자 default 에 머지돼도 빌드·규약 무모순) 복수 plan 으로 나뉠 때 — medium 이상은 dlc 요구사항 명확화의 **분할 판정**이 능동으로 보고, small 은 예상될 때(후속·병렬) 3) 기존 plan 의 Out of scope·`# Deferred`·"별도 작업" 에서 새 plan 을 시작 → 소급 생성하되 **선행 plan 에는 `intent:` 1줄만 추가**하고 본문은 손대지 않는다. 그 외 단발 작업은 plan `# Intent` 만. 착수 전 `plans/*/intent.md` 중 `status: open` 을 훑어 기존 묶음이면 새로 만들지 않고 연결한다(dlc 요구사항 명확화).
+- **형식**: frontmatter `title` · `status: open|closed`(값 라인에 인라인 주석 금지 — 파서가 값으로 오인한 선례) · `started` · `updated`. 본문 H1 6개: `# Problem` · `# Proposed outcome` · `# Constraints`(묶음 공통 제약) · `# Out of scope`(하지 **않을** 경계만 — 이어서 할 후속은 여기가 아니라 `# Plans` 에 `(미착수)`) · `# Open questions`(미처분 `(열림)`, 처분은 `(해소)`/`(이월 → <새 묶음>)`) · `# Plans`(plan 경로 + 한 줄 메모 — **status 복제 금지**, 정본은 각 plan frontmatter. 폐기한 plan 은 메모에 `폐기`. 아직 착수 안 한 단위는 `<slug 후보> (미착수) — 메모`, 착수하는 dlc 가 실제 경로로 치환).
 - **plan `# Intent` 는 링크 1줄 + 이 plan 에만 더해지는 델타**(제약·범위). 공통 제약을 plan 에 복제하지 않는다. 델타가 없으면 `델타 없음 — <근거>`. 공통 제약이 바뀌면 plan `# Decisions` 에 남기고 intent.md 를 갱신한다.
 - **소유권**: 각 세션은 intent.md 에서 자기 plan 의 `# Plans` 줄과 자기가 연 Open question 만 고친다. 공통 Constraints 를 바꾸면 진행 중인 다른 plan 의 `# Decisions` 에 영향 통지를 남긴다.
 - **수명**: plan `done` ≠ intent `closed`. `closed` = `# Plans` 의 모든 plan 이 `done`(또는 `폐기`) **그리고** Open questions 전부 처분. Out of scope 는 조건이 아니다(영구 경계). `/e` 가 plan done 을 **쓰는 그 지점**(체크포인트 확인 done / 머지 모드 M4 커밋)에서 판정해 같은 커밋에 담고, 조건 충족이면 확인 없이 닫는다(M4 복구 시 함께 되돌린다).

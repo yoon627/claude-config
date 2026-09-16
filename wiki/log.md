@@ -228,6 +228,12 @@
 - 첫 사용례: `plans/2026-09-15-intent-bundles/intent.md`(dogfood). plan-reviewer+codex 가 초안의 closed 판정 불능(Out of scope 를 조건에 넣음)·status 복제·발견 경로 부재를 잡아 구현 전에 고쳤다.
 - 동기화: [[plan-handoff]]·[[ai-native-sdlc-playbook-intent]]·[[dlc-development-cycle]] + index.
 
+## [2026-09-16] update | 분할 판정 (묶음 intent 트리거 2 를 능동 판정으로)
+- 계기: 사용자 "intent 하위 여러 plan 이 생겨야 plan 단위가 작아져 일을 더 잘하지 않을까" — 현행 트리거 2 는 "2개 이상 예상됨"이라 수동이고, 분할이 작업 중간에 사후적으로 일어난다(⚠️ 사전 판정 부재가 원인이라는 것은 가설 — intent.md Problem 의 체인이 직접 입증하지 않는다).
+- 채택: dlc 요구사항 명확화(medium 이상)에 분할 판정 bullet — 기준 "각 단위가 순서대로 혼자 default 에 머지돼도 빌드·규약 무모순"(크기 아님 — plan 마다 worktree·파이프라인·머지 고정비), 나뉘면 intent.md + `# Plans` + plan-reviewer 묶음 모드(15항) 1회, 안 나뉘면 `# Intent` 에 `분할: 없음 — <어떤 결합 때문에>`. 예비 판정 → Explore 후 확정. 분할은 규모 판정을 면제하지 않는다. `/e` 보고가 `(미착수)` 형제를 `/wt` 착수 경로와 함께 열거.
+- 기각: intent.md 상시화(사용례 1건 — 5회 후 재판단) · "각 plan ≤ medium"(규모를 규범값으로 바꿈) · 묶음 arch 1회(architecture-reviewer 적용 범위 충돌·미확인 → deferred). plan-reviewer+codex 가 초안의 이 셋과 형제 재개 경로 부재·`분할:` 필드 §10 미정의를 잡아 구현 전에 고쳤다.
+- 동기화: [[plan-handoff]]·[[dlc-development-cycle]] + index. 출처 plan: plans/2026-09-16-intent-split-check.
+
 ## [2026-09-15] update | codegraph retire (전역 MCP 해제)
 - [[codegraph]] 를 retired 로 전환하고 "Retire (2026-09-15)" 절 추가. 2026-08-03 의 "전역 MCP 유지"(coin-trading-bot 실사용 보호)를 뒤집었다 — 보존 로그상 실제 호출이 Claude 7회 전부 `not initialized` 에러, Codex 38회 중 결과 21건 전부 `user cancelled`(17건 미기록)로 **성공 0회**이고, 보호 대상이던 coin-trading-bot 을 포함해 홈 depth 5 이내 탐색에서 `.codegraph/` 가 하나도 없었다.
 - 한계 명시: "성공 0회"는 보존 기간(Claude 2026-08-06~, Codex 2026-06~07) 한정 — 08-03 감사 기간 원본은 사라져 재집계 불가. 토큰 절감량은 codegraph 에 통계 기능이 없어 측정 불가.
