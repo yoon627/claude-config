@@ -44,7 +44,7 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
   - **묶음 intent 판정**(plan 에 `intent:` 가 있을 때, **done 을 쓰는 바로 그 지점에서** — 체크포인트 모드는 여기 4단계의 사용자 확인 done, 머지 모드는 M4 의 done 커밋): 그 `intent.md` 의 `# Plans` 에 적힌 plan 들의 frontmatter `status` 를 읽어(메모 `폐기` 는 done 취급, **읽을 수 없는 항목·`(미착수)` 는 done 아님** — fail-safe) 전부 done 이고 `# Open questions` 가 전부 처분(`(해소)`/`(이월 → …)`)됐으면 `status: closed` + `updated` — 객관 판정이라 확인 없이, 그리고 **plan done 과 같은 커밋에 담는다**. 하나라도 남으면 open 유지하고 보고에 남은 항목을 적는다. `# Out of scope` 는 조건이 아니다(§10).
   - 막힘 → `blocked` + `# Blockers`.
   - 그 외 → `in_progress` 유지(체크포인트).
-- **보고**: plan 위치·title·status / 임시 커밋 sha(또는 "변경 없음") / 동기화한 항목 / 남은 작업(`# Next`·`# Blockers`) / "다음 세션은 `/c` 로 이어받기".
+- **보고**: plan 위치·title·status / 임시 커밋 sha(또는 "변경 없음") / 동기화한 항목 / 남은 작업(`# Next`·`# Blockers`) / "다음 세션은 `/c` 로 이어받기". plan 이 `intent:` 묶음이고 그 `# Plans` 에 `(미착수)` 줄이 있으면 **그 줄들(`<slug 후보> (미착수) — 메모`)을 열거하고 "착수는 `/wt <slug 후보> — <메모>`"** 를 덧붙인다(맨 slug 만 넘기면 dlc 가 요구를 다시 묻는다) — `/c` 는 plan 을 새로 만들지 않아 이 안내가 없으면 첫 plan 만 머지된 채 형제가 잊히고 intent 가 영영 open 으로 남는다.
 - **recap 형식(CLAUDE.md §3-6)**: 위 보고는 **맨 끝을 `## 결론` 블록(§3-6 5항목)으로 닫는다**. **`/e` 호출 자체가 "마무리" 지시**이므로 §3-6 예외(사용자가 이미 다음 지시를 준 흐름 → 선택지 생략)에 따라 작업 선택지용 새 AskUserQuestion은 만들지 않는다. 단, 아래 5단계의 Jira task 본문 반영 승인은 외부 쓰기라 별도로 반드시 받는다. 마무리 액션은 아래 7단계 worktree 정리(조건 충족 시)과 8단계 "다음 세션 `/c`" 안내가 담당한다. **머지 모드에선 done 확인 질문을 생략한다** — `/e merge` 가 그 확인이다(§3-6 1회 원칙).
 
 ### 머지 모드 M1~M6 (`/e merge` 일 때만, 4단계 뒤 · 5단계 앞)

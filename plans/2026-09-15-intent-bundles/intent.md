@@ -2,7 +2,7 @@
 title: intent-bundles — 한 요구가 여러 plan 으로 갈라질 때 요구를 한 파일에 둔다
 status: open
 started: 2026-09-15
-updated: 2026-09-15
+updated: 2026-09-16
 ---
 
 # Problem
@@ -30,7 +30,10 @@ plan `# Intent`(2026-09-07)는 plan 과 1:1 을 전제했는데, 실제 작업�
 
 - (열림) knowledge_base 의 `plans/` gitignore 를 풀 것인가 — public 여부·비밀 스캔 범위 확인 뒤 판단(사용자 "왜 tracked 로 바꾼다는거야?" 2026-09-15). 풀지 않으면 그 repo 의 intent.md 는 로컬에만 남는다.
 - (열림) `intent:` 참조 무결성 검사를 `plan-lint` CLI 에 둘 것인가 — 첫 사용례 뒤 판단.
+- (열림) 분할 판정(2026-09-16)이 plan 을 실제로 작게 만드는가 — medium 이상 5회 사용 뒤 분할 발생 횟수와 `분할: 없음` 정형문화 여부를 관찰. 분할 0회·정형문이면 bullet 회수.
+- (열림) 묶음 단위 architecture-reviewer 를 "plan 사이에 걸친 구조 의사결정이 있을 때만" 조건부로 둘 것인가 — 사용자 확인 필요(`agents/architecture-reviewer.md` 적용 범위 수정 동반).
 
 # Plans
 
 - `plans/2026-09-15-intent-md-bundle/intent-md-bundle-plan.md` — 규약 도입(§10·dlc·c·e·plan-reviewer·README·wiki)
+- `plans/2026-09-16-intent-split-check/intent-split-check-plan.md` — 트리거 2 를 능동 분할 판정으로(dlc bullet·§10 `분할:` 필드·plan-reviewer 묶음 모드·`/e` 미착수 안내)
