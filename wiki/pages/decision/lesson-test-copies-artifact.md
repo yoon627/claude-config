@@ -47,4 +47,4 @@ HOOK='c="~/.orca/agent-hooks/claude-hook.cmd"; …'   # 큰따옴표 안의 ~
 
 이건 [[lesson-grep-absence-not-proof]] 와 같은 계열이다: **부정적 관측(매칭 없음 · 에러 없음)을 근거로 쓰면 안 된다.** grep 무매칭이 부재의 증거가 아니듯, exit 0 은 검증의 증거가 아니다. 둘 다 "무엇을 확인했는지"를 긍정형으로 말할 수 있어야 한다.
 
-[[evidence-gate]] 의 "실행·관찰로 검증" 에서 *관찰* 이 exit code 를 뜻하지 않는다는 구체화이기도 하다. 발단이 된 변경은 [[lesson-tracked-config-machine-paths]].
+[[evidence-gate]] 의 "실행·관찰로 검증" 에서 *관찰* 이 exit code 를 뜻하지 않는다는 구체화이기도 하다. 발단이 된 변경은 [[lesson-tracked-config-machine-paths]]. 같은 계열의 다른 사례는 [[lesson-zip-reproducibility-os]] — 한 환경에서 두 번 빌드해 해시가 같다는 "통과" 가 OS 축의 비결정성을 못 본다.

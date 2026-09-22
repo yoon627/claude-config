@@ -240,3 +240,6 @@
 - 조치: wt 자동 init(`skills/wt/references/codegraph-worktree.md` 삭제)·bootstrap 설치/MCP/init 단계 제거, wt rm 파일점유 분기는 codegraph daemon 전제를 빼고 일반 점유로 재서술하되 "자동 종료 안 함·안내"는 유지(사용자가 직접 부르는 경로라 점유 프로세스 소유를 알 수 없음 — 경로 필터만으로 회수하면 사용자 서버를 죽일 수 있다는 code-reviewer 지적). memory `codegraph-projectpath-explicit` 의 실측 수치는 retired 본문으로 이관(삭제와 전역 MCP 해제는 머지 후 전역 단계).
 - [[headroom]] 의 `[[codegraph]]` 링크는 historical 문장으로 유지 — 유일한 inbound 라 지우면 orphan([[headroom]] retire 때와 같은 처리).
 - 출처 plan: plans/2026-09-15-remove-codegraph-mcp.
+
+## [2026-09-22] ingest | lesson-zip-reproducibility-os (신규)
+- cstp_compliance AI skill 패키지 빌더 리뷰에서 실측된 zip 비결정성(`create_system` OS 기본값·`sorted(Path)` case-fold)을 decision lesson 으로 적립. index 등재. 출처 커밋 a66bb98cf(CSTP1-3043-ai-agent-worker).
