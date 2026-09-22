@@ -55,6 +55,7 @@
 - [[lesson-test-copies-artifact]] — 검증 스크립트에 배포물을 복붙하면 갈라진 뒤 "통과"한다; 테스트는 배포물에서 직접 읽고 exit code 아닌 분기 마커를 assert (거짓 통과 1회 실측).
 - [[lesson-agent-hook-if-best-effort]] — hook `if` 는 best-effort 라 게이트가 아니다: agent/prompt hook 프롬프트 0단계에서 `tool_input` 으로 범위를 자체 판정하고, 게이트 hook 은 플랫폼마다 막혀야 할 케이스를 실제로 넣어 fail-open 을 확인(`shell: powershell` 은 macOS 에서 실패 후 통과했다).
 - [[native-overlap-ledger]] — 자작 부품 ↔ 네이티브 흡수 대조 대장(keep/watch/retire). 45일 주기·delta 창(`checked_version`)으로 changelog 를 전수 아닌 증분만 조회, `/improve` §6 이 읽고 갱신은 승인 후 ingest(판정 분포는 대장에만).
+- [[lesson-zip-reproducibility-os]] — Python zip 재현성은 timestamp 고정만으론 안 된다: `ZipInfo.create_system`(win32=0/그 외 3)과 `sorted(Path)` 의 Windows case-fold 로 OS 마다 sha 가 갈린다. `create_system=3` 명시 + posix 문자열 정렬, 테스트는 엔트리 순서·create_system 을 직접 assert (2026-09-22 리뷰 실측).
 
 ## source
 - [[ai-native-sdlc-playbook-intent]] — Claude Academy "AI-Native SDLC Playbook" Stage 1 "Capture as intent.md" 요약: 발의자가 Claude 와 proto-spec 을 그 자리에 쓰고 커밋(Problem·Proposed outcome·Affected·Constraints·Open questions), 증거는 커밋 이력, 후행지표는 survival rate. 이 repo 는 plan `# Intent`(단발) + 묶음 `plans/<date>-<slug>/intent.md`(여러 plan, 2026-09-15) 채택, 조직 장치·별도 `intent/` 홈 미채택.
