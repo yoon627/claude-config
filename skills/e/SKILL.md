@@ -61,7 +61,7 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 
 `jira-task` skill이 있으면 현재 작업에서 **무엇이 추가·수정됐는지만** `작업 내용:` 한 줄, 최대 1~3문장으로 요약해 Jira task description 추가 preview를 만든다. 변경 파일 목록·검증 명령·작업시간은 task 본문에 넣지 않는다. WIP commit을 이미 만들었다면 그 commit의 diff와 plan의 `# Progress`를 근거로 삼는다. 티켓이 없거나 실제 작업 변경이 없으면 이 단계를 skip한다.
 
-- **preview**: `jira-task` skill의 CLI를 `--summary "작업 내용: ..."` 한 번으로 실행한다. 기본 preview는 외부 변경이 없다.
+- **preview**: `jira-task` skill의 CLI를 요약 파일 인자(`--summary-file`) 한 번으로 실행한다(절차는 `skills/jira-task/SKILL.md`). 기본 preview는 외부 변경이 없다.
 - **승인**: preview의 티켓·marker·description에 추가될 내용을 보고한 뒤 `AskUserQuestion`으로 "이 작업 내용을 Jira task 본문에 반영할까요?"를 묻는다. **사용자 승인 전에는 `--post`를 실행하지 않는다.** 반영하지 않으면 preview만 남기고 다음 단계로 진행한다.
 - **반영**: 승인받았을 때만 같은 인자에 `--post`를 붙여 한 번 실행한다. 기존 task description은 보존되고 같은 marker 항목만 갱신된다. Jira 오류는 credential을 노출하지 않고 한 줄 보고한 뒤 마무리를 계속한다.
 - `~/.agents/skills/jira-task/` 또는 저장소 `skills/jira-task/`가 없으면 이 단계는 skip하고 "jira-task skill 없음"을 보고한다.

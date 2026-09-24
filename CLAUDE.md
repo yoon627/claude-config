@@ -7,13 +7,13 @@
 ## 0. 응답 언어·표기
 
 - 한국어로 답한다. 코드 식별자·파일명·함수명·라이브러리명·에러 메시지는 원문 유지.
-- 의례적 preamble 금지 ("좋은 질문입니다", "물론이죠", "알겠습니다"). 단 **착수 전 '무엇을 할지' 한 줄·진행 중 짧은 업데이트·마무리 결론 요약은 preamble 이 아니라 내용** — 억제하지 않는다(모델 세대가 올라갈수록 서술을 덜 하므로 금지 범위를 넓게 읽지 말 것).
+- 답은 내용부터 시작한다("좋은 질문입니다"·"물론이죠" 같은 인사말 없이). 사용자는 도구 출력 원문을 따라 읽지 않으므로 사용자에게 보이는 텍스트를 이렇게 쓴다: 첫 도구 호출 전에 무엇을 할지 한 문장, 작업 중에는 중요한 것을 찾았거나 방향을 바꿀 때, 그리고 도구 호출이 길게 이어질 때 짧은 업데이트, 끝나면 결론 요약.
 - **비유·수사 대신 직설.** 문자 그대로의 표현이 있으면 그것을 쓴다 — "돌려볼 만한 다이얼" ❌ → "바꿔볼 만한 파라미터" ✅. 수사는 독자를 더 일하게 하고 뜻을 흐린다.
 - **항목 번호에 원문자(①②③) 금지** — 터미널에서 본문보다 작게 렌더돼 눈에 안 들어온다. 나열은 마크다운 `1.` 목록, 눈에 띄어야 하는 단계·선택지는 `## 1) 제목` heading, 문장 중 참조는 `1)`·`(1)`. 단 아직 원문자로 적힌 기존 문서(`skills/`·`docs/`·`plans/`)를 **인용**할 때는 대조 가능하도록 원문 그대로 둔다.
 
 ---
 
-## 1. 핵심 규칙 (YOU MUST)
+## 1. 핵심 규칙
 
 - **추측 금지.** 모르면 "모른다"고 명시. 중요한 판단·원인 분석엔 확신도 표시: ✅확실(파일·실행결과·공식문서) / ⚠️추정(정황만) / ❌모름.
 - **코드베이스 답변은 코드를 보고.** 답하기 전 관련 파일 read, 기억으로 답하지 않는다. 못 찾으면 명시. 답변엔 확인한 주요 파일을 짧게 적는다.
@@ -36,18 +36,18 @@
 - `/clear` 제안은 **맥락을 버려도 되는** 경우만: (a) 무관한 작업 전환, (b) 같은 이슈 2회+ 교정 실패 시 학습 요약 후 재시작. **직전에 사용자가 clear/compact 했으면 재권유 금지.**
 - 코드베이스 조사·리서치는 **subagent 가용+이득 클 때** 위임(Agent 도구). 미지원·단순 조회면 직접 수행하되 읽는 파일 수 제한.
 - 잘못된 방향 감지 시 즉시 중단, `Esc`/`/rewind` 제안.
-- **긴/복잡 명령은 tool 파라미터에 직접 넣지 않는다.** 여러 줄·명령치환·체인·파이프가 많으면 tool_use 가 텍스트로 새어나와 실행 안 되고 컨텍스트를 오염시켜 반복 끊긴다 → `Write` 로 스크립트에 적고 한 줄로 실행, 치환·체인·리다이렉트를 한 줄에 몰지 않는다. 이미 반복 끊기면 **같은 형식 재시도 말고** 컨텍스트를 끊는다(`/compact`, 또는 plan 보존 후 `/clear`).
+- 여러 줄·명령치환·체인이 많은 셸 명령은 `Write` 로 스크립트 파일에 적고 한 줄로 실행한다(인용 오류와 권한 프롬프트가 줄고 재실행이 쉽다).
 
 ---
 
 ## 3. 작업 흐름
 
-1. **Setup** (코드 변경/리뷰/레포 작업 시작 시) — `git status --short`. 프로젝트 컨텍스트는 per-repo `CLAUDE.md`(또는 `<repo>/.claude/CLAUDE.md`)에 명시, 없으면 비어있다고 판단. `.env`/key/token/cert 원문 출력 금지. **코드/파일 변경은 규모 불문(trivial 포함) worktree 밖이면 예외 없이 `wt` 를 먼저 경유해 그 안에서 dlc — main 직접 진행 금지**(`scripts/guard-worktree-edit.js` PreToolUse 가 main 추적파일 편집에 `ask` 를 건다 — **단 auto 모드에서는 `ask` 가 생략되므로 그때는 하드 게이트가 아니라 이 규약만 남는다. 게이트가 안 걸렸다고 worktree 를 건너뛰지 말 것**). 이미 작업 worktree 안이면 dlc self-check(skill 미진입으로 plan·검증 건너뛰기 방지). trivial 은 *절차*(리뷰·plan·TDD)만 즉시통과일 뿐 **worktree 는 똑같이 필요**하다. **예외 — worktree 사본이 없는 글로벌 상태**(`projects/…/memory/`·`MEMORY.md`·`settings.local.json`)**와 비-git 디렉토리는 worktree 를 만들지 않는다**(gitignored 라 만들어도 커밋될 것이 없다). 단 **이미 worktree 세션 안이면 하네스 네이티브 격리가 이들의 main 경로 편집도 거부**한다 — "worktree 사본을 편집하라"고 하지만 **그 사본은 존재하지 않는다**(2026-09-04 실측 재현). `scripts/guard-worktree-edit.js` 는 allow 하나 네이티브 격리가 그 위에 있다. 따라서 **§12/§13 memory 적립은 worktree 안에서 시도하지 말고 main 복귀 후**(`/e` 8단계) 수행한다. 상세는 skills/dlc/SKILL.md.
+1. **Setup** (코드 변경/리뷰/레포 작업 시작 시) — `git status --short`. 프로젝트 컨텍스트는 per-repo `CLAUDE.md`(또는 `<repo>/.claude/CLAUDE.md`)에 명시, 없으면 비어있다고 판단. `.env`/key/token/cert 원문 출력 금지. **코드/파일 변경은 규모 불문(trivial 포함) worktree 밖이면 예외 없이 `wt` 를 먼저 경유해 그 안에서 dlc — main 직접 진행 금지**(`scripts/guard-worktree-edit.js` PreToolUse 가 main 추적파일 편집에 `ask` 를 건다 — **단 auto 모드에서는 `ask` 가 생략되므로 그때는 하드 게이트가 아니라 이 규약만 남는다. 게이트가 안 걸렸다고 worktree 를 건너뛰지 말 것**). 이미 작업 worktree 안이면 dlc self-check(skill 미진입으로 plan·검증 건너뛰기 방지). trivial 은 *절차*(리뷰·plan·TDD)만 즉시통과일 뿐 **worktree 는 똑같이 필요**하다. **예외 — worktree 사본이 없는 글로벌 상태**(`projects/…/memory/`·`MEMORY.md`·`settings.local.json`)**와 비-git 디렉토리는 worktree 를 만들지 않는다**(gitignored 라 만들어도 커밋될 것이 없다). 단 **이미 worktree 세션 안이면 하네스 네이티브 격리가 이들의 main 경로 편집도 거부**한다 — "worktree 사본을 편집하라"고 하지만 **그 사본은 존재하지 않는다**. `scripts/guard-worktree-edit.js` 는 allow 하나 네이티브 격리가 그 위에 있다. 따라서 **§12/§13 memory 적립은 worktree 안에서 시도하지 말고 main 복귀 후**(`/e` 8단계) 수행한다. 상세는 skills/dlc/SKILL.md.
 2. **Explore** — 모호하면 질문 먼저. 관련 파일 + 호출부 read. 동일 디렉토리·같은 레이어 기존 파일 스타일 확인.
 3. **Plan** — 큰 변경(50줄 초과, 다중 파일, public API, DB schema, migration, 아키텍처/보안 영향)은 계획 먼저 제시·승인 후 진행. 작은 변경(오타, 로그 한 줄)은 즉시.
 4. **Implement** — 작은 단계로. 요청 범위 밖 "지나가는 김에" 수정 금지. 단, 빌드/테스트를 깨는 직접 원인이면 수정하고 이유 명시. **범위 밖 발견은 유실도 금지** — 고치지 말고(§1 자가수정·스코프 경계 → 별도 작업) active plan `# Deferred`(§10, plan 없으면 Report)에 한 줄(내용·심각도·파일) 기록 후 진행.
 5. **Verify** — lint/typecheck/test 실행. 변경 함수/클래스 호출부를 `rg`(없으면 `grep -R`)로 확인. 미실행은 "미검증" 명시. **이번 변경이 깨뜨린 것만 수정** — 작업 전부터 깨진 baseline failure 는 pre-change 실행·base 재현으로 **입증된 것만** `# Deferred` 기록, 입증 안 되거나 완료를 막는 실패는 Deferred 금지 → 수정하거나 `status: blocked`/"미검증"(§1 에러 무시 금지). **주석·docstring·commit message 가 변경된 코드의 현재 동작과 어긋나지 않는지 항상 확인**(옛 설명·식별자·동작 서술 잔존 금지 — 특히 리팩토링·rename·fixup 흡수 후). **비trivial 은 plan `# Acceptance`(§10) 항목을 증거(실행·관찰·통과)로 대조한 뒤에만 완료** — 미충족·미검증이면 완료 금지. 실행 산출물(render/CLI/서버)은 정적 점검이 아니라 실제 실행·관찰로 검증.
-6. **Report** — 변경 요약 / 수정 파일 / 검증 결과 / 영향 범위 / 남은 리스크. **작업·세션 마무리 답변은 맨 끝을 `## 결론` 블록으로 닫는다** — 상세는 위, 결론은 아래(사용자는 마지막 블록만 보고 판단하고 더 알고 싶으면 위를 본다. §0 preamble 금지와 무관 — 결론은 내용이지 의례가 아니다). 형식 고정: `## 결론` 아래 `- 문제:` `- 원인:` `- 조치:` `- 검증:`(명령·결과 / 미검증) `- 남은 것:` 5줄, 해당 없으면 `해당 없음`. **마지막 `## ` heading 이 `## 결론`** 이어야 한다 — 파일을 편집한 턴은 Stop hook(`dlc-early-stop` ④ 축, `CLAUDE_DLC_CONCLUSION_OFF=1` 로 해제)이 capped 1회 경고하고, 파일 변경 없는 비trivial 답변(질문·조사)도 같은 블록으로 닫는다(hook 은 안 걸린다). **hook 은 턴의 마지막 텍스트 블록만 본다**(실측 2.1.272) — 아래 선택지 응답 뒤 곧바로 턴을 끝낼 땐 "종료합니다" 류 한 줄이 아니라 그 마감 텍스트 자체를 `## 결론` 블록으로 쓴다. 이어서 **선택지를 AskUserQuestion 으로**: 작업 확인 / 마무리·정리(코드작업이면 push·PR·머지 — **`/e merge`**, 체크포인트만이면 `/e`)는 **`/e` 스킬로 수행**(plan 동기화·worklog 기록·worktree 정리를 수동 대체하지 말 것) / 다른 작업 이어가기(현재 worktree 에 얹지 말고 `/wt` 신규 — §8) / 종료 — 큰·낯선 변경이면 "변경 이해 리포트+퀴즈" 옵션 추가. 단 **최신 사용자 메시지에 지금 실행할 명시적 다음 액션이 있으면** 선택지 생략(중복 질문 금지). **Stop hook 경고·오탐 대응은 결론 1줄**("오탐 — <무엇>, 조치 불필요")로 제한(이 턴은 `## 결론` 블록 면제 — 재종료는 hook 이 통과시킨다), 판단 과정 서술 금지 — 근거는 채팅이 아니라 plan `# Workflow Findings`(누적 시 wiki `workflow-failures.md`)에.
+6. **Report** — 변경 요약 / 수정 파일 / 검증 결과 / 영향 범위 / 남은 리스크. **작업·세션 마무리 답변은 맨 끝을 `## 결론` 블록으로 닫는다** — 상세는 위, 결론은 아래(사용자는 마지막 블록만 보고 판단하고 더 알고 싶으면 위를 본다. §0 인사말 금지와 무관 — 결론은 내용이지 의례가 아니다). 형식 고정: `## 결론` 아래 `- 문제:` `- 원인:` `- 조치:` `- 검증:`(명령·결과 / 미검증) `- 남은 것:` 5줄, 해당 없으면 `해당 없음`. **마지막 `## ` heading 이 `## 결론`** 이어야 한다 — 파일을 편집한 턴은 Stop hook(`dlc-early-stop` ④ 축, `CLAUDE_DLC_CONCLUSION_OFF=1` 로 해제)이 capped 1회 경고하고, 파일 변경 없는 비trivial 답변(질문·조사)도 같은 블록으로 닫는다(hook 은 안 걸린다). **hook 은 턴의 마지막 텍스트 블록만 본다**(실측 2.1.272) — 아래 선택지 응답 뒤 곧바로 턴을 끝낼 땐 "종료합니다" 류 한 줄이 아니라 그 마감 텍스트 자체를 `## 결론` 블록으로 쓴다. 이어서 **선택지를 AskUserQuestion 으로**: 작업 확인 / 마무리·정리(코드작업이면 push·PR·머지 — **`/e merge`**, 체크포인트만이면 `/e`)는 **`/e` 스킬로 수행**(plan 동기화·worklog 기록·worktree 정리를 수동 대체하지 말 것) / 다른 작업 이어가기(현재 worktree 에 얹지 말고 `/wt` 신규 — §8) / 종료 — 큰·낯선 변경이면 "변경 이해 리포트+퀴즈" 옵션 추가. 단 **최신 사용자 메시지에 지금 실행할 명시적 다음 액션이 있으면** 선택지 생략(중복 질문 금지). **Stop hook 경고·오탐 대응은 결론 1줄**("오탐 — <무엇>, 조치 불필요")로 제한(이 턴은 `## 결론` 블록 면제 — 재종료는 hook 이 통과시킨다), 판단 과정 서술 금지 — 근거는 채팅이 아니라 plan `# Workflow Findings`(누적 시 wiki `workflow-failures.md`)에.
 
 > **문서 동기화** (evidence gate 항목): 변경이 README 문서화 컴포넌트(스크립트·설정·skill·agent·CLAUDE.md 섹션)에 영향 주면 README 도 **같은 브랜치에서 갱신**(비trivial 의 acceptance 항목, 검증과 동급). `wiki/pages/` 변경은 `wiki/index.md` 동기화 동반. 잊으면 `dlc-early-stop`(Stop hook)이 drift 를 capped 경고(보조망 — 단일 소스는 이 규약). plan 은 §10 동기화 규약.
 
@@ -82,7 +82,7 @@
 
 **simplify 점검은 모든 코드 변경에 필수** — 메인 직접(전용 subagent 없음), 생략 사유는 Report 에. 상세는 `skills/dlc/SKILL.md` 13단계.
 
-### Workflow(ultracode) subagent 의 effort 는 단계별로 명시한다 (사용자 지시 2026-09-03)
+### Workflow(ultracode) subagent 의 effort 는 단계별로 명시한다
 
 Workflow 스크립트의 `agent()` 는 `model` 을 생략하고(세션 모델 상속) `effort` 를 **항상 명시**한다 — 생략하면 세션 effort(ultracode = xhigh)를 상속해 탐색 agent 까지 xhigh 로 돈다.
 
@@ -131,15 +131,15 @@ Workflow 스크립트의 `agent()` 는 `model` 을 생략하고(세션 모델 �
 ## 8. Git / 보안
 
 - `git reset --hard`·`git clean -fd`·강제 checkout·force push 는 명시 요청 없으면 금지.
-- **작업은 main/master 직접 말고 별도 브랜치/worktree 에서** (main/master push 는 전역 `ask` — 매번 확인이 뜬다. **`allow` 로는 풀리지 않는다**: 규칙은 deny → ask → allow 순으로 평가되고 *"The first match in that order determines the outcome"* 이라, `ask` 가 먼저 매칭되면 어느 스코프의 `allow` 도 조회되지 않는다. 풀려면 `ask` 규칙 자체를 지워야 한다. 2026-08-06 전역 `deny` 제거: deny 는 프로젝트 단위 범위 지정이 불가하고 allow 보다 우선해서, 전역 deny 를 두면 이 repo(`~/.claude`)도 막히기 때문). **다른 repo 의 main 푸시는 git `pre-push` 훅이 계속 하드 차단**한다(`pre-commit-check` 가 repo 루트 `~/.claude` 만 면제) — 이 규약과 `permissions.ask` 의 `git push` 확인이 그 위에 겹친다. **코드/파일을 바꾸는 작업은 — 규모·무관 여부와 별개로 — 시작 시 별도 worktree(`/wt <요청사항>`)에서 한다**(2026-09-04 trivial 포함으로 확대: main 커밋 금지와 맞물려 소소한 수정이 영영 커밋되지 못하는 사각을 없앤다. 단 gitignored 글로벌 상태·비-git 디렉토리는 제외 — §3-1). 진행 중인 worktree 에 새 작업을 얹지 않는다(base·체크아웃 충돌, 변경 혼입, 동시 편집 위험). 무관한 변경을 한 브랜치에 섞지 않는다. push 는 요청 시만.
+- **작업은 main/master 직접 말고 별도 브랜치/worktree 에서** (main/master push 는 전역 `ask` — 매번 확인이 뜬다. **`allow` 로는 풀리지 않는다**: 규칙은 deny → ask → allow 순으로 평가되고 *"The first match in that order determines the outcome"* 이라, `ask` 가 먼저 매칭되면 어느 스코프의 `allow` 도 조회되지 않는다. 풀려면 `ask` 규칙 자체를 지워야 한다. 전역 `deny` 는 두지 않는다: deny 는 프로젝트 단위 범위 지정이 불가하고 allow 보다 우선해서 이 repo(`~/.claude`)도 막는다). **다른 repo 의 main 푸시는 git `pre-push` 훅이 계속 하드 차단**한다(`pre-commit-check` 가 repo 루트 `~/.claude` 만 면제) — 이 규약과 `permissions.ask` 의 `git push` 확인이 그 위에 겹친다. **코드/파일을 바꾸는 작업은 — 규모·무관 여부와 별개로 — 시작 시 별도 worktree(`/wt <요청사항>`)에서 한다**(trivial 포함 — main 에서는 커밋하지 않으므로 main 에서 고친 소소한 수정은 커밋될 길이 없다. 단 gitignored 글로벌 상태·비-git 디렉토리는 제외 — §3-1). 진행 중인 worktree 에 새 작업을 얹지 않는다(base·체크아웃 충돌, 변경 혼입, 동시 편집 위험). 무관한 변경을 한 브랜치에 섞지 않는다. push 는 요청 시만.
 - **검증 통과한 작업 단위는 요청 없이 커밋한다** — 하네스 기본값(`Commit or push only when the user asks.`)을 이 규약이 대체한다. 작업 브랜치에서 evidence gate·plan 업데이트를 마친 뒤 **마지막에 1회**(중간 커밋을 막지는 않는다). **stage 는 이번 작업이 건드린 경로만** — 자동 커밋에서 `git add -A` 금지(무관한 사용자 변경·산출물이 섞이고, `pre-commit-check` 시크릿 스캔은 `settings.json`·`plans/*.md` 만 본다). `/e` WIP 체크포인트는 전량 보존이 목적이라 이 금지의 예외. 커밋 직전 `git diff --cached --name-only` 로 index 를 확인해 **작업 밖 항목이 이미 staged 면 보류·보고**. **커밋하지 않는 경우**: 현재 브랜치가 main/master 또는 detached HEAD — 커밋 생략하고, **이미 main 에서 편집했으면 `/wt` 로 옮겨 재적용한 뒤 그 절차를 보고**한다(게이트가 auto 모드·untracked·fail-open 으로 안 걸렸을 때 도달 가능한 상태다. 변경을 main 에 uncommitted 로 방치하지 않는다) · 검증 실패(§3-5 로 입증된 baseline failure 는 제외) · stage 할 변경 없음(빈 커밋 금지). 커밋이 훅에 차단되면 **우회(`--no-verify`) 금지** — 원인을 없애거나 보고 후 중단. 검증 명령을 식별하지 못했으면 커밋하되 보고에 "검증 미식별"을 명시. **push 는 여전히 요청 시만** — 자동인 것은 커밋까지다. 절차 세부(메시지 형식·경로 확정·실행 폴백)는 `skills/dlc/SKILL.md` 16단계 커밋 규칙.
-- **worktree 작업의 worklog 는 그 worktree 를 지우기 전에 남긴다**: 세션이 여러 worktree 를 오가도 AI 작업시간은 **줄 단위 `cwd` 로 정확히 갈린다**(`jira-worklog` — 세션 파일이 cwd 를 따라 이동해도 무관). 따라서 main 복귀 후에 돌려도 되고 이름을 인자로 줘도 된다. 다만 **worktree 를 삭제하면 `--all` 순회 대상에서 빠져 등록이 불가능**해지므로(표시만 된다) `/e` step6 을 7단계 삭제보다 먼저 돌린다. (한 세션 = 한 worktree 규율 자체는 아래 bullet 의 base·혼입·동시편집 이유로 유지 — worklog 정확성은 더 이상 그 근거가 아니다.)
+- **worktree 작업의 worklog 는 그 worktree 를 지우기 전에 남긴다**: 세션이 여러 worktree 를 오가도 AI 작업시간은 **줄 단위 `cwd` 로 정확히 갈린다**(`jira-worklog` — 세션 파일이 cwd 를 따라 이동해도 무관). 따라서 main 복귀 후에 돌려도 되고 이름을 인자로 줘도 된다. 다만 **worktree 를 삭제하면 `--all` 순회 대상에서 빠져 등록이 불가능**해지므로(표시만 된다) `/e` step6 을 7단계 삭제보다 먼저 돌린다.
 - **worktree 삭제 주의**: `git worktree remove` 는 gitignored 파일(`.env` 등 — whitelist `.gitignore` 라 `git status` 에 안 보임)을 **무경고 동반 삭제**한다. `plans/` 는 tracked(§10)라 미커밋 plan 은 `git status` 에 보이고 remove 가 거부하지만, **미커밋 plan 변경은 삭제 전 커밋·push 로 보존**한다. 삭제 전 `git status --porcelain --ignored` 점검(상세 `skills/e/SKILL.md`).
-- **trivial·small 의 종결은 로컬 ff-merge** (2026-09-04): push·PR 없이 작업 브랜치를 default 브랜치에 `git merge --ff-only <slug>` 로 반영한 뒤 아래 (a) 자동 정리로 닫는다 — 오타 1줄에 PR 왕복을 붙이면 실제로는 머지하지 않고 worktree 만 쌓인다(그러면 (a) 의 merged 조건이 영영 안 걸린다). **ff 불가**(그 사이 default 가 진행)거나 medium 이상·CI 검증·외부 공유가 필요하면 `/e merge`(push→PR→머지). 어느 경로든 **push 는 요청 시만**이라 로컬 default 가 origin 보다 앞설 수 있다 — 다음 push 때 반영된다.
-- **머지/완료 후 정리 — merged 면 묻지 말고 정리**(사용자 지시 2026-07-27): 작업 브랜치가 merged·정리해도 안전하면 worktree 정리를 방치·"선택사항" 언급만 하지 않고, **선택지로 올리지도 않는다**. **분기**:
+- **trivial·small 의 종결은 로컬 ff-merge**: push·PR 없이 작업 브랜치를 default 브랜치에 `git merge --ff-only <slug>` 로 반영한 뒤 아래 (a) 자동 정리로 닫는다 — 오타 1줄에 PR 왕복을 붙이면 실제로는 머지하지 않고 worktree 만 쌓인다(그러면 (a) 의 merged 조건이 영영 안 걸린다). **ff 불가**(그 사이 default 가 진행)거나 medium 이상·CI 검증·외부 공유가 필요하면 `/e merge`(push→PR→머지). 어느 경로든 **push 는 요청 시만**이라 로컬 default 가 origin 보다 앞설 수 있다 — 다음 push 때 반영된다.
+- **머지/완료 후 정리 — merged 면 묻지 말고 정리**: 작업 브랜치가 merged·정리해도 안전하면 worktree 정리를 방치·"선택사항" 언급만 하지 않고, **선택지로 올리지도 않는다**. **분기**:
   - **(a) merged + 안전조건 충족 → 확인 없이 worktree + 로컬 브랜치 자동 정리**. 조건 — ①대상 ≠ `main`/`master`/`origin/HEAD` ②**default 브랜치에 merged**(`git branch --merged <default>` 에 있음 — **로컬 main 머지도 포함**한다. push 하지 않는 워크플로우가 있어 `origin/<default>` 기준만 보면 영영 미머지로 오판한다. squash-merge 는 미감지 → (b)) ③working tree clean(untracked 포함) ④미보존 `.env`/ignored/미커밋 plan 없음. **누가 머지했는지는 묻지 않는다**(내 merge 든 우연히 merged 든 동일). 실행은 worktree → `git branch -d` 순, 삭제한 브랜치 tip sha 를 보고(merged 라 `git branch <name> <sha>` 로 복구 가능).
   - **(b) 확인 필요(AskUserQuestion)** — **원격 브랜치 삭제**(`git push origin --delete`)는 (a) 에 **포함되지 않는다: 항상 확인**. 그 외 안전조건 하나라도 미충족/불확실(dirty·squash-merge·미보존 산출물), `/wt rm <이름>` 직접 호출(오타로 엉뚱한 대상을 지울 수 있다) 도 확인. 이 경로에서 원격 삭제·`git branch -D` 는 명시 확인 없이 금지(데이터 유실 방지).
-  - 조건·실행 세부는 `/e` step7·worktree 정리 규칙. `gh pr merge --delete-branch` 는 **명령으로 쓰지 않는다**(로컬·원격 삭제를 묶어 §8(b) 분리 승인을 우회하고, worktree 가 main 을 점유한 환경에선 로컬 삭제가 실패/스킵되어 정리만 조용히 누락 — 실측 2026-08-05, wiki `workflow-failures`). 사용자가 그 플래그로 머지를 지시했다면 원격 삭제 승인으로 간주하고, 실행은 `/e merge` 경로(`--merge` 후 정리)로 하되 7단계 뒤 원격 삭제 재확인은 그 승인으로 갈음한다. **main/master worktree 는 자동 정리 대상 아님.**
+  - 조건·실행 세부는 `/e` step7·worktree 정리 규칙. `gh pr merge --delete-branch` 는 **명령으로 쓰지 않는다**(로컬·원격 삭제를 묶어 §8(b) 분리 승인을 우회하고, worktree 가 main 을 점유한 환경에선 로컬 삭제가 실패/스킵되어 정리만 조용히 누락 — 사례는 wiki `workflow-failures`). 사용자가 그 플래그로 머지를 지시했다면 원격 삭제 승인으로 간주하고, 실행은 `/e merge` 경로(`--merge` 후 정리)로 하되 7단계 뒤 원격 삭제 재확인은 그 승인으로 갈음한다. **main/master worktree 는 자동 정리 대상 아님.**
 - generated/lock file 변경은 필요할 때만 포함, 이유 설명.
 - `.env`/private key/token/password/인증서 원문을 답변·로그·테스트 fixture·snapshot 에 출력 금지.
 - 인증/인가/암호화 코드는 기존 보안 패턴 먼저 확인. 임시 우회·hardcoded credential·TLS 검증 비활성화 금지.
@@ -203,7 +203,7 @@ updated: YYYY-MM-DD
 
 리뷰는 dlc 의 중간 단계(구현 직후 code-reviewer + codex 병행, §9)가 담당한다 — push 직전 별도 codex 리뷰는 두지 않는다. 로컬 다관점 점검이 따로 필요하면 빌트인 `/code-review` 를 수동 사용.
 
-### 묶음 intent (`intent.md`, 선택 — 2026-09-15)
+### 묶음 intent (`intent.md`, 선택)
 한 요구가 plan 여러 개(후속·분할)로 갈라지면 그 요구를 `<ROOT>/plans/<YYYY-MM-DD>-<intent-slug>/intent.md` 한 파일에 두고, 각 plan 이 frontmatter 선택 키 `intent: plans/<dir>/intent.md`(스칼라 1개 — 한 plan 이 두 묶음에 걸치지 않는다)로 가리킨다. plan 은 자기 dir 에 그대로 두고 intent dir 에는 `*-plan.md` 를 두지 않는다 — 위 매칭 규칙·`plan-match.js`·`session-brief.js`·`plan-lint` 가 그대로 동작한다(**intent.md 는 plan 이 아니라 `plan-lint` 대상이 아니다**). 출처는 Claude Academy *AI-Native SDLC Playbook* Stage 1 의 `intent.md` — 조직 장치(별도 `intent/` 홈·승인 게이트)는 채택하지 않는다.
 - **만드는 때(닫힌 목록)**: 1) 사용자 지시 2) 요구가 독립 검증·머지 가능한(각 단위가 순서대로 혼자 default 에 머지돼도 빌드·규약 무모순) 복수 plan 으로 나뉠 때 — medium 이상은 dlc 요구사항 명확화의 **분할 판정**이 능동으로 보고, small 은 예상될 때(후속·병렬) 3) 기존 plan 의 Out of scope·`# Deferred`·"별도 작업" 에서 새 plan 을 시작 → 소급 생성하되 **선행 plan 에는 `intent:` 1줄만 추가**하고 본문은 손대지 않는다. 그 외 단발 작업은 plan `# Intent` 만. 착수 전 `plans/*/intent.md` 중 `status: open` 을 훑어 기존 묶음이면 새로 만들지 않고 연결한다(dlc 요구사항 명확화).
 - **형식**: frontmatter `title` · `status: open|closed`(값 라인에 인라인 주석 금지 — 파서가 값으로 오인한 선례) · `started` · `updated`. 본문 H1 6개: `# Problem` · `# Proposed outcome` · `# Constraints`(묶음 공통 제약) · `# Out of scope`(하지 **않을** 경계만 — 이어서 할 후속은 여기가 아니라 `# Plans` 에 `(미착수)`) · `# Open questions`(미처분 `(열림)`, 처분은 `(해소)`/`(이월 → <새 묶음>)`) · `# Plans`(plan 경로 + 한 줄 메모 — **status 복제 금지**, 정본은 각 plan frontmatter. 폐기한 plan 은 메모에 `폐기`. 아직 착수 안 한 단위는 `<slug 후보> (미착수) — 메모`, 착수하는 dlc 가 실제 경로로 치환).
@@ -242,7 +242,7 @@ updated: YYYY-MM-DD
 ## 13. 실수·교훈 로그 (반복 방지)
 
 작업 중 저지른 실수(내 오판·누락) 또는 사용자가 지적한 실패는, 같은 실수를 다음 작업에서 반복하지 않도록 적립 **대상으로 판정**한다. 목표는 기록이 아니라 **다음 구현에서의 회피**. wiki(상세)와 memory(자동 상기)를 **결합**한다 — wiki 만으로는 능동 조회라 자동으로 안 떠오르고, 인덱스 한 줄만으로는 원인·교훈이 묻힌다.
-- **무승인 자동 적립 금지 (§1·2026-06-19 결정 유지).** 실수 발견은 자동 저장/수정이 아니라 **제안** — Report 또는 plan `# Workflow Findings`/`# Deferred`에 올리고, 승인·판정 후 적립한다([[self-diagnosis-and-improvement-status]]의 "자발적 무승인 기록 트리거 미채택"·§11 wiki ingest "제안 아님"과 동일 게이트). §13 은 *적립할 때의 형식*을 정하지, 무인 자동화를 도입하지 않는다.
+- **무승인 자동 적립 금지 (§1).** 실수 발견은 자동 저장/수정이 아니라 **제안** — Report 또는 plan `# Workflow Findings`/`# Deferred`에 올리고, 승인·판정 후 적립한다([[self-diagnosis-and-improvement-status]]의 "자발적 무승인 기록 트리거 미채택"·§11 wiki ingest "제안 아님"과 동일 게이트). §13 은 *적립할 때의 형식*을 정하지, 무인 자동화를 도입하지 않는다.
 
 - **상세 = wiki `pages/decision/lesson-<주제>.md`.** 원인(최소 3 Whys)·재현 조건·잘못된 방법·올바른 방법. 기존 [[workflow-failures]] 와 같은 ADR-lite 형식(§11). `index.md`·`log.md` 동기화 동반.
 - **자동 상기 = `MEMORY.md` feedback 인덱스 한 줄(명령형 + lesson 링크).** wiki 는 자동 주입 안 되고, 매 세션 주입되는 유일한 경로는 이 인덱스 줄이다. *정보 요약이 아니라 회피 행동 지시*로 쓴다(§12): `마이그레이션 down 스크립트 먼저 작성 (롤백 불가 실수 → lesson-migration)`.
