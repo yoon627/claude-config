@@ -210,6 +210,36 @@ def _branch_upstreams(git: Git, branch: str) -> list[tuple[str, str | None]]:
     return out
 
 
+_AUTOSQUASH_PREFIX = re.compile(r"^(fixup|squash|amend)! ")
+
+
+def _fixup_of(subject: str, earlier: list[dict]) -> str | None:
+    """`fixup!`·`squash!`·`amend!` 커밋의 대상(범위 안 앞 커밋)을 git `rebase --autosquash` 에 가깝게 찾는다.
+
+    첫 접두는 공백 한 칸까지 리터럴, 이후 공백·반복 접두는 건너뛴다 → 제목 정확일치 → 4자+ 16진이면 sha 접두
+    (범위 안에서 유일할 때만) → 제목 접두. 각 단계 가장 앞 커밋이고 fixup 류 커밋도 후보다(git 2.54 todo 실측).
+    근사인 부분: ref 이름·`HEAD~n` 같은 커밋 이름은 해석하지 않고, sha 모호성은 범위 안에서만 본다.
+    """
+    if not _AUTOSQUASH_PREFIX.match(subject):
+        return None
+    target = subject
+    while _AUTOSQUASH_PREFIX.match(target):
+        target = _AUTOSQUASH_PREFIX.sub("", target, count=1).lstrip(" \t\n\r\v\f")
+    if not target:
+        return None
+    for c in earlier:
+        if c["subject"] == target:
+            return c["sha"]
+    if re.fullmatch(r"[0-9a-fA-F]{4,64}", target):
+        hits = [c for c in earlier if c["sha"].startswith(target.lower())]
+        if len(hits) == 1:
+            return hits[0]["sha"]
+    for c in earlier:
+        if c["subject"].startswith(target):
+            return c["sha"]
+    return None
+
+
 def collect(git: Git, rng: dict | None = None) -> dict:
     rng = rng or resolve_range(git)
     commits = []
@@ -218,7 +248,7 @@ def collect(git: Git, rng: dict | None = None) -> dict:
         files = commit_files(git, sha)
         added, deleted = _changes(git, sha)
         commits.append({"sha": sha, **meta, "files": files, "added": added, "deleted": deleted,
-                        "flags": _flags(meta["subject"], files)})
+                        "flags": _flags(meta["subject"], files), "fixup_of": _fixup_of(meta["subject"], commits)})
     overlaps = []
     for i, later in enumerate(commits):
         mine = {p for p in _paths(later["files"]) if not p.startswith("plans/")}

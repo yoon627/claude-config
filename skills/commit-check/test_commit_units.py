@@ -622,6 +622,53 @@ class CollectTest(Base):
         self.assertIn("plan-only", flags[3])
         self.assertIn("empty", flags[4])
 
+    def test_fixup_of_matches_subject_sha_and_nested(self) -> None:
+        a = self.r.commit("feat: api", {"k": "1\n"})
+        b = self.r.commit("feat: ui", {"m": "1\n"})
+        c = self.r.commit("fixup! feat: api", {"k": "2\n"})
+        d = self.r.commit(f"fixup! {b[:10]}", {"m": "2\n"})
+        e = self.r.commit("fixup! fixup! feat: api", {"k": "3\n"})
+        f = self.r.commit("squash! feat: u", {"m": "3\n"})
+        by_sha = {x["sha"]: x.get("fixup_of") for x in self.collect()["commits"]}
+        self.assertEqual({a: None, b: None, c: a, d: b, e: a, f: b}, by_sha)
+
+    def test_fixup_of_follows_git_autosquash_precedence(self) -> None:
+        # 기대값은 git 2.54 `rebase -i --autosquash` todo 실측(scratch)과 같다.
+        d1 = self.r.commit("feat: dup", {"a": "1\n"})
+        self.r.commit("feat: dup", {"b": "1\n"})
+        p1 = self.r.commit("feat: u1", {"c": "1\n"})
+        self.r.commit("feat: u2", {"d": "1\n"})
+        titled_like_sha = self.r.commit(p1[:10], {"e": "1\n"})
+        x_dup = self.r.commit("fixup! feat: dup", {"a": "2\n"})
+        x_prefix = self.r.commit("fixup! feat: u", {"c": "2\n"})
+        x_spaces = self.r.commit("fixup!  feat: u1", {"c": "3\n"})
+        x_title_vs_sha = self.r.commit(f"fixup! {p1[:10]}", {"e": "2\n"})
+        got = {c["sha"]: c["fixup_of"] for c in self.collect()["commits"]}
+        self.assertEqual(d1, got[x_dup])
+        self.assertEqual(p1, got[x_prefix])
+        self.assertEqual(p1, got[x_spaces])
+        self.assertEqual(titled_like_sha, got[x_title_vs_sha])
+
+    def test_fixup_of_matches_git_for_fixup_targets_and_tab(self) -> None:
+        # git 2.54 todo 실측: 접두·sha 단계는 fixup 커밋도 대상 후보, 첫 접두 뒤가 탭이면 fixup 아님.
+        orphan = self.r.commit("fixup! orphan", {"a": "1\n"})
+        self.r.commit("feature", {"b": "1\n"})
+        x_prefix = self.r.commit("fixup! f", {"a": "2\n"})
+        x_sha = self.r.commit(f"fixup! {orphan[:10]}", {"a": "3\n"})
+        x_tab = self.r.commit("fixup!\tfeature", {"b": "2\n"})
+        got = {c["sha"]: c["fixup_of"] for c in self.collect()["commits"]}
+        self.assertIsNone(got[orphan])
+        self.assertEqual(orphan, got[x_prefix])
+        self.assertEqual(orphan, got[x_sha])
+        self.assertIsNone(got[x_tab])
+
+    def test_fixup_of_target_outside_range_is_none(self) -> None:
+        self.r.git("checkout", "-q", "main")
+        self.r.commit("feat: shipped", {"s": "1\n"})
+        self.r.git("checkout", "-q", "-B", "feat")
+        x = self.r.commit("fixup! feat: shipped", {"s": "2\n"})
+        self.assertEqual({x: None}, {c["sha"]: c.get("fixup_of") for c in self.collect()["commits"]})
+
     def test_overlap_ignores_plans(self) -> None:
         self.r.commit("feat: a", {"k": "1\n", "plans/p/p-plan.md": "1\n"})
         self.r.commit("feat: b", {"m": "1\n", "plans/p/p-plan.md": "2\n"})

@@ -42,5 +42,6 @@ sources:
 ## 관련
 
 - 장치를 없애거나 바꾸기 전에 도입 목적부터 확인한다는 교훈: [[lesson-verify-scaffold-purpose-before-removal]].
+- `fixup!` 커밋의 합칠 대상(`fixup_of`)은 git autosquash 의 실측 규칙을 근사한다: [[git-autosquash-target-selection]].
 - 이 세션처럼 worktree 격리 가드가 있으면 raw git 을 모델이 치기 어렵다 — 판정에 필요한 정보(`collect`·`show`)를 스크립트가 주는 이유: [[worktree-isolation-bash-guard]].
 - 미게시 로컬 이력 재작성은 되돌릴 수 있어 [[risk-based-approval]] 기준으로는 확인 대상이 아니지만, 재구성 전 승인은 사용자가 명시적으로 정했다(2026-09-24).
