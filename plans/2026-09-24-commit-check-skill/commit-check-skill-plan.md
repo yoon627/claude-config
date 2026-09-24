@@ -1,6 +1,6 @@
 ---
 title: commit-check-skill — 브랜치 커밋 단위 점검·승인 후 재구성 스킬 + dlc 마무리 연결
-status: in_progress
+status: done
 started: 2026-09-24
 updated: 2026-09-24
 ---
@@ -37,8 +37,10 @@ updated: 2026-09-24
 
 - 2026-09-24: 격리 runner 최종 검증(fix loop 2 전 코드) verify ALL PASS·57 OK·improve error=0·plan-lint·wiki clean. code-reviewer 재검토 → 새 Major(원격 ref 전체 verify 가 symref `origin/HEAD` 와 충돌해 clone repo 에서 apply 항상 실패) → fix loop 2: 재현 테스트(Red: exit 128 multiple updates via symref) 후 verify 대상을 각 remote 의 `refs/remotes/<remote>/<branch>` 로 한정(없으면 zero oid), `_nested_conflict` 선형화, SKILL hook 조건 문구. 58 OK, verify ALL PASS 재실행, 실제 history clone(origin/HEAD 있음) apply 재관찰 tree 동일. 판정 DONE.
 
+- 2026-09-24: 커밋 0244549(스킬·연결)·eabdd7d(wiki `commit-restructure-plumbing-cas`). 자기 적용 결과 이상 없음. `/e merge` → PR #171.
+
 # Next
-커밋 → commit-check 자기 적용(dogfooding) → Report → 머지 경로(structural 이라 `/e merge`).
+(없음 — PR #171 머지로 종료)
 
 # Decisions
 - 판단(모델)과 실행(스크립트)을 나눈다 — 수집·검증·재조립·ref 이동은 결정적이라 `commit_units.py` 서브커맨드(`collect`/`show`/`apply`)로, 어떤 커밋을 합치고 나눌지는 SKILL.md 기준으로 모델이 판정해 JSON 계획으로 넘긴다. 계획 스키마의 정본은 스크립트의 검증 함수 하나(SKILL.md 는 예시만). 기각: 모델이 git 명령을 직접 조합(안전 조건을 매번 재현해야 하고 테스트 불가).
