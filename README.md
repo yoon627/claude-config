@@ -239,7 +239,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 5. Sub-agent — 표준 순서 (plan-reviewer → 구현 → code-reviewer → simplify 체크(메인 직접)), Workflow(ultracode) subagent 는 단계별 effort 명시
 6. 코드 규칙 — 동일 디렉토리 스타일, 타입 힌트, 임시 코드 표기, 부분 편집 우선(전체 재작성 지양)
 7. 테스트 (TDD) — 테스트 작성 순서, 예외 조건, 인접 테스트 규모에 맞춤·임시 체크의 영구 테스트화 금지
-8. Git / 보안 — destructive 명령 금지, 시크릿 출력 금지, 코드/파일 변경은 규모 불문 worktree(`/wt`)에서(gitignored 글로벌 상태 제외), **검증 통과분은 요청 없이 작업 브랜치 커밋**(push 는 요청 시만), trivial·small 종결은 로컬 ff-merge
+8. Git / 보안 — destructive 명령 금지, 시크릿 출력 금지, 코드/파일 변경은 규모 불문 worktree(`/wt`)에서(gitignored 글로벌 상태 제외), **검증 통과분은 요청 없이 작업 브랜치 커밋**(push 는 요청 시만), 커밋은 하나의 목적 단위(`commit-check` 로 점검), trivial·small 종결은 로컬 ff-merge
 9. Claude ↔ Codex 협업 — `plans/` 핸드오프 채널, 리뷰 매트릭스
 10. `plans/` 핸드오프 규약 — slug, frontmatter, 필수 6개 + 선택 섹션(Intent·Acceptance·Review Disposition·Deferred·Workflow Findings — Intent 는 medium 이상 항상), 묶음 intent(`plans/<date>-<intent-slug>/intent.md` 하나에 plan 여럿이 `intent:` 로 링크 — 단발 작업은 plan `# Intent` 만. medium 이상은 dlc 분할 판정이 "독립 머지 가능한 복수 plan 으로 나뉘는가"를 능동으로 보고 안 나뉘면 `분할: 없음 — <근거>`)
 11. 영속 프로젝트 메모리 (LLM Wiki) — `wiki/` 누적 지식, `plans/` 와 경계 (일시적 vs 영속)
@@ -298,7 +298,7 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - `<ROOT>/plans/<YYYY-MM-DD>-<slug>/<slug>-plan.md` 가 subagent 간 단일 공유 채널 (메인만 write). 경로 규약은 CLAUDE.md §10.
 - codex 병행 검토 호출 규약은 `docs/codex-review.md` (phase 당 codex owner 1개 지정으로 중복 호출 방지, Windows/PowerShell fallback 포함), 한도 오류는 세션 스크래치 마커 `codex-unavailable` 로 캐시해 같은 세션의 다음 reviewer 가 재시도하지 않음). 정본 명령은 프롬프트를 스크래치 파일로 넘기고 `--skip-git-repo-check` 를 쓰지 않는다(사유는 §3 — worktree 격리 가드).
 - SKILL 본문엔 진입 게이트·규모 gate·16단계 표·닫힌목록·안전 규칙만 두고, 특정 분기에서만 찾는 절차 상세(요구사항 명확화 심화·조사 프로토콜 elaboration·wiki 연계 메커닉·Workflow Findings 기록형식·격리 runner 계약/simplify 체크리스트)는 `docs/dlc-details.md` 로 분리(자동 로드 안 됨 — 해당 분기 진입 시 Read).
-- **16단계 마무리에 커밋 편입**: `evidence gate → 판정(DONE/BLOCKED/NEEDS-HUMAN) → plan 업데이트 → 커밋(DONE 만) → 알림(필요할 때 최대 1회) → Report`. **판정은 작업을 끝낼 때만** — 고치는 중이면 판정 대상이 아니다. DONE 은 acceptance 충족이지 plan 종결이 아니라 `status: done` 을 박지 않는다(§10 대로 머지·승인 시점. 미리 박으면 `/c` 가 통합 대기 작업을 건너뛴다). BLOCKED(자원·사실을 **받아야** 함)는 `status: blocked`, NEEDS-HUMAN(대안을 **골라야** 함)은 `status: in_progress` + `# Next` — 후자를 blocked 로 접으면 정상적인 결정 대기가 `plan-blocked` failure telemetry 로 집계된다. 둘 다 정식 커밋 금지(§8), 보존이 필요하면 `/e` WIP. no-progress 정지는 "1회차 뒤 전략 변경, 그러고도 개선 없으면 2회차에서 정지" + 테스트·acceptance 를 바꿔 카운터를 되돌리는 것 금지. 커밋 **규칙**(요청 없이 커밋·stage 범위·커밋 안 하는 경우·`--no-verify` 금지)은 CLAUDE.md §8 이 단일 소스이고 **전역**(dlc 를 안 타는 흐름·타 repo 에도 적용), SKILL 커밋 bullet 은 절차(경로 확정·메시지·실행 폴백)만 담는다. `/e` 의 `wip:` 체크포인트와 구분 — 여기는 검증 통과한 정식 커밋.
+- **16단계 마무리에 커밋 편입**: `evidence gate → 판정(DONE/BLOCKED/NEEDS-HUMAN) → plan 업데이트 → 커밋(DONE 만) → commit-check → 알림(필요할 때 최대 1회) → Report`. **판정은 작업을 끝낼 때만** — 고치는 중이면 판정 대상이 아니다. DONE 은 acceptance 충족이지 plan 종결이 아니라 `status: done` 을 박지 않는다(§10 대로 머지·승인 시점. 미리 박으면 `/c` 가 통합 대기 작업을 건너뛴다). BLOCKED(자원·사실을 **받아야** 함)는 `status: blocked`, NEEDS-HUMAN(대안을 **골라야** 함)은 `status: in_progress` + `# Next` — 후자를 blocked 로 접으면 정상적인 결정 대기가 `plan-blocked` failure telemetry 로 집계된다. 둘 다 정식 커밋 금지(§8), 보존이 필요하면 `/e` WIP. no-progress 정지는 "1회차 뒤 전략 변경, 그러고도 개선 없으면 2회차에서 정지" + 테스트·acceptance 를 바꿔 카운터를 되돌리는 것 금지. 커밋 **규칙**(요청 없이 커밋·stage 범위·커밋 안 하는 경우·`--no-verify` 금지)은 CLAUDE.md §8 이 단일 소스이고 **전역**(dlc 를 안 타는 흐름·타 repo 에도 적용), SKILL 커밋 bullet 은 절차(경로 확정·메시지·실행 폴백)만 담는다. `/e` 의 `wip:` 체크포인트와 구분 — 여기는 검증 통과한 정식 커밋.
 - **evidence·라우팅 hook** (`scripts/dlc-*.js`, `settings.json` 등록, fail-open): `dlc-task-router`(UserPromptSubmit — 디버깅/render 키워드에 discipline 주입), `dlc-evidence-ledger`(PostToolUse — 변경·검증 기록 + 문서 drift dirty flag), `dlc-early-stop`(Stop — 변경 후 검증 누락 · **문서화 표면↔README/index drift**(판정은 `dlc-doc-drift.js`) · plan drift · 결론 블록 누락 시 capped 1회 경고). plan `# Acceptance` evidence gate 의 보조 누락방지망 — 검증 *성공* 판정은 acceptance(메인)가 단일 소스. `CLAUDE_DLC_EARLYSTOP_OFF=1`(검증)·`CLAUDE_DLC_DOCDRIFT_OFF=1`(문서)·`CLAUDE_DLC_PLANDRIFT_OFF=1`(plan)·`CLAUDE_DLC_CONCLUSION_OFF=1`(결론 블록) 로 각각 비활성(holdout — `settings.json` `env` 또는 셸 프로필에 세팅). syntax 검사 + 단위테스트는 CI `lint.yml`.
 
 ### skills/c/ — plan 이어가기
@@ -343,6 +343,14 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - **네이티브 중복 점검**(SKILL §6, deep 전용·주기): Claude Code 네이티브가 흡수한 기능과 겹치는 자작 부품을 `keep`/`watch`/`retire` 로 재판정해 wiki 대장 `wiki/pages/decision/native-overlap-ledger.md` 에 누적. 1~5 가 "자산이 서로 어긋났나"라면 이 축은 "자산이 **아직 필요한가**" — 유일하게 밖(네이티브)을 기준으로 삼는다. 대장 `checked_version` 이후 changelog 만 읽는 **delta 창** 방식이라 전수 조회를 피한다. 주기 임계 45일(`CLAUDE_IMPROVE_NATIVE_MAX_AGE_DAYS`, 근거: 실측 6주 36릴리스), 대장 경로 override `CLAUDE_IMPROVE_LEDGER`. **`/improve` 는 대장을 쓰지 않는다** — 판정은 초안, write 는 승인 후 `/wiki ingest`(§1·§11·§13 승인 게이트).
 - 의미 점검(LLM): 문서 간 모순 · 중복 trigger · 죽은 규칙 + wiki `workflow-failures` 표·MEMORY 인덱스·plan `# Workflow Findings` 대조.
 - **역할 경계**: README↔surface drift 는 `dlc-doc-drift` hook, wiki 내부 무결성·**대장 write** 는 `/wiki lint`·`/wiki ingest` 영역 — improve 는 재판정하지 않고 신호의 **사후 집계**만(중복 회피).
+
+### skills/commit-check/ — 커밋 단위 점검·재구성
+
+브랜치의 **미게시** 커밋이 "리뷰 가능한 하나의 목적 단위"인지 점검한다. 합치기(fixup)·파일 단위 나누기·순서·메시지 수정 제안 표를 만들고, 사용자가 승인하면 코드 내용은 그대로 둔 채 커밋 경계만 재구성한다. dlc 16단계(커밋 뒤)에서 호출하고 `/commit-check` 로도 부른다.
+- `commit_units.py` 가 수집(`collect`)·패치 조회(`show`)·재구성(`apply`)을 맡고, 판단은 모델이 SKILL.md 기준으로 해 JSON 계획으로 넘긴다.
+- 재구성은 plumbing(`merge-tree --write-tree` + `commit-tree`)으로 사용자 index·작업트리 밖에서 만든다. author·트레일러는 원본에서 옮겨 적고, 최종 tree 동일과 커밋별 파일이 계획 범위 안인지를 검증한 뒤에만 백업 ref(`refs/commit-check/<branch>/<UTC>`, 최근 5개) 생성·오래된 백업 삭제·브랜치 이동을 `update-ref --stdin` 트랜잭션 하나로 수행한다. 실패하면 ref·index·작업트리는 호출 전 그대로다(repo commit-msg hook 의 자체 부작용은 예외).
+- 범위: 다른 로컬 브랜치·원격·태그에서 도달 불가한 커밋만(게시 커밋 불변 → force-push 없음). 기본 브랜치·서명 커밋·merge 커밋이면 거부. git 2.40+ 필요.
+- 테스트: `test_commit_units.py`(임시 repo fixture, 전역 git 설정 격리).
 
 ### skills/jira-worklog/ — worktree 작업시간 → Jira worklog
 
