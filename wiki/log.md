@@ -252,3 +252,6 @@
 
 ## [2026-09-24] ingest | commit-restructure-plumbing-cas (신규)
 - commit-check 스킬의 재구성 방식 결정(plumbing + 트랜잭션 CAS)과 리뷰어 실측 근거·함정 4건을 decision 으로 적립. dlc-development-cycle 에 inbound 링크, index 등재. 출처 plan `commit-check-skill`.
+
+## [2026-09-24] update | dlc-development-cycle
+- dlc 목적 단위 중간 커밋·fixup·commit-check 합치기 규칙 반영(plan `dlc-unit-commits`).
