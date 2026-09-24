@@ -1,6 +1,6 @@
 ---
 title: dlc-unit-commits — dlc 에 목적 단위 중간 커밋 + fixup + commit-check 합치기 도입
-status: in_progress
+status: done
 started: 2026-09-24
 updated: 2026-09-24
 ---
@@ -36,8 +36,10 @@ medium 이상에서 목적이 2개 이상인 dlc 작업은 목적 단위로 중�
 
 - 2026-09-24: commit-check 합치기 승인·적용 — 5커밋 → U1 `3bd75bb`·U2 `60e7794`, tree 동일(백업 `refs/commit-check/dlc-unit-commits/20260924T143705273780Z`). 사용자 선택으로 wiki `git-autosquash-target-selection` 을 U3 로 추가.
 
+- 2026-09-24: 커밋 3bd75bb(U1)·60e7794(U2)·2d283c6(U3 wiki). commit-check 재확인 이상 없음(wiki/log.md 는 append-only 로그라 후속 수정 아님). `/e merge` → PR #172.
+
 # Next
-`/e merge`.
+(없음 — PR #172 머지로 종료)
 
 # Decisions
 - 커밋 단위: 1) `feat(commit-check): fixup! 커밋의 합칠 대상(fixup_of)을 git autosquash 규칙으로 표시` — `skills/commit-check/*` 2) `docs(dlc): medium 이상 목적 단위 중간 커밋·fixup 규칙` — `skills/dlc/SKILL.md`·`CLAUDE.md`·`README.md`·`wiki/**`. plan 파일은 어느 단위에도 넣지 않고 16단계 마지막 커밋(마지막 단위의 fixup)에만 싣는다. 3) `docs(wiki): git-autosquash-target-selection ingest` — `wiki/**`(사용자 선택으로 머지 전 추가, 마지막 단위라 plan 갱신을 함께 싣는다).
