@@ -246,3 +246,6 @@
 
 ## [2026-09-24] update | fablize-adopted-disciplines
 - investigation protocol 에서 후보 개수 지정(세 개 이상)을 빼고 "원인이 불확실하면 다른 원인 후보 반증" 원칙으로 갱신. 근거: prompt-audit(Opus 5.5 기준) M7, plan `prompt-audit-apply`.
+
+## [2026-09-24] ingest | lesson-verify-scaffold-purpose-before-removal (신규)
+- prompt-audit 가 도입 목적 확인 없이 제거를 제안한 3건(검증 runner·적용 범위 날짜·가설 규율)과 전후 비교 방법(transcript 전수 스캔·headless A/B)을 decision lesson 으로 적립. index 등재. 출처 plan `prompt-audit-apply`.

@@ -17,7 +17,7 @@ fablize(Opus 를 Fable 처럼 "끝까지·증거로" 일하게 하는 플러그�
 ## 차용한 것 (procedure — 전이 가능)
 - **verification grounding** — 실행 산출물은 실제 실행·관찰. → [[evidence-gate]].
 - **multi-story evidence gate** — 분해 + 증거 없는 "done" 거부. → [[evidence-gate]].
-- **investigation protocol** — 재현 → 인과사슬(원인이 불확실하면 다른 원인 후보를 반증한 근거 포함). dlc 조사 프로토콜 + `dlc-task-router.js` 가 디버깅 키워드에 주입. 2026-09-24 후보 개수 지정(세 개 이상)은 뺐다 — 대안 배제 원칙은 유지하되, 판단 작업의 방법을 숫자로 지정하는 지시는 현 모델에서 과잉 명세라는 prompt-audit 판정(plan `prompt-audit-apply`).
+- **investigation protocol** — 재현 → 인과사슬(원인이 불확실하면 다른 원인 후보를 반증한 근거 포함). dlc 조사 프로토콜 + `dlc-task-router.js` 가 디버깅 키워드에 주입. 2026-09-24 후보 개수 지정(세 개 이상)은 뺐다 — 대안 배제 원칙은 유지하되, 판단 작업의 방법을 숫자로 지정하는 지시는 현 모델에서 과잉 명세라는 prompt-audit 판정(plan `prompt-audit-apply`). 원칙까지 지우자던 첫 제안이 뒤집힌 경위는 [[lesson-verify-scaffold-purpose-before-removal]].
 - **early-stop hook** — "할게요" 하고 안 하기 방지(capped·fail-open). `dlc-early-stop.js`.
 - **per-task router** — 작업 유형별 규율 주입(UserPromptSubmit hook).
 
