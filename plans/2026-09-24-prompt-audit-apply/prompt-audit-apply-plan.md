@@ -1,6 +1,6 @@
 ---
 title: prompt-audit-apply — Opus 5.5 기준 prompt audit 결과를 운영 자산에 반영
-status: in_progress
+status: done
 started: 2026-09-24
 updated: 2026-09-24
 ---
@@ -31,9 +31,10 @@ main 복귀 후:
 - 2026-09-24: audit 완료(보고서 scratchpad/audit/REPORT.md, 패치 16개, 사본 적용·verify ALL PASS). 전후 비교 — M2: transcript 전수에서 tool-call 마크업 누출 0건(Bash 17~31% 가 긴/여러 줄 명령인데도) → 적용. M4: small 리뷰 10건 중 1건이 실제 Major(CLAUDE.md sed→hook 우회)를 잡음 → 보류. M5: 실제 발동 1건은 중대 신호(설계 전제 변경)로 걸린 것 → 적용(리뷰 후 plan write 점검 1곳 유지로 수정). M12: A/B(fix 과제 2×2) medium·high 모두 숨은 테스트 9/9, fix 과제에서 medium 이 비용 약 29%·시간 약 35% 적음(review 과제 비용은 약 12% 적음, 품질 미채점) → 적용. main AGENTS.md 에 패치 01 적용(되돌리기: `git apply -R plans/2026-09-24-prompt-audit-apply/agents-md-h1.patch` 를 main 에서).
 - 2026-09-24: plan-reviewer(+codex) CONDITIONAL — 강한 우려 4건 처분(아래 Review Disposition). 패치 12개 적용 + 리뷰 반영 편집 + wiki fablize 갱신.
 - 2026-09-24: 격리 runner 검증 — verify ALL PASS·link clean·plan-lint 통과, Acceptance 3 어긋남(wiki 이력 문장이 "가설 3개+" 를 인용) → 이력 문장 표현 수정 후 0건. code-reviewer(+codex high) REQUEST CHANGES — Major 1·Minor 4·Nit 4 처분, 재검증 verify ALL PASS·router 12 passed·link clean.
+- 2026-09-24: 커밋 35b3285(반영)·959527c(wiki lesson `lesson-verify-scaffold-purpose-before-removal`). main 에 AGENTS.md 최종본(Acceptance 7 ✅)·settings.json opus-5-5 effort medium(Acceptance 8 ✅, 다른 키 무변경) 적용. `/e merge` → PR #170.
 
 # Next
-커밋 → main 복귀 → main AGENTS.md 를 agents-md-h1.patch 최종본으로 맞추고(Acceptance 7) settings.json(패치 16) 적용(Acceptance 8) → 머지 경로 결정(medium 이라 `/e merge`).
+(없음 — PR #170 머지로 종료)
 
 # Decisions
 - M4(small 변경의 code-reviewer 생략) 보류 — transcript 에서 small 리뷰 10건 중 1건이 저자가 놓친 교차 파일 결함(PreToolUse matcher 가 Bash 를 안 봐 sed 가 worktree 가드를 우회)을 잡았다. 표본은 작지만 제거 근거가 없어 현행 유지(fail-safe).
@@ -81,6 +82,7 @@ main 복귀 후:
 - `docs/dlc-details.md`, `scripts/dlc-task-router.js` — M7 동반 수정
 - `skills/e/SKILL.md`, `README.md` — jira-task `--summary-file` 정렬, README §0 요약
 - `wiki/pages/decision/fablize-adopted-disciplines.md`, `wiki/log.md` — M7 결정 기록 동기화
+- `wiki/pages/decision/lesson-verify-scaffold-purpose-before-removal.md`, `wiki/index.md` — 이번 작업의 교훈(사용자 선택으로 ingest)
 - `plans/2026-09-24-prompt-audit-apply/agents-md-h1.patch` — main AGENTS.md 에 적용한 패치 01(되돌리기용)
 - (gitignored, main) `AGENTS.md` — H1, `settings.json` — M12
 
