@@ -249,3 +249,6 @@
 
 ## [2026-09-24] ingest | lesson-verify-scaffold-purpose-before-removal (신규)
 - prompt-audit 가 도입 목적 확인 없이 제거를 제안한 3건(검증 runner·적용 범위 날짜·가설 규율)과 전후 비교 방법(transcript 전수 스캔·headless A/B)을 decision lesson 으로 적립. index 등재. 출처 plan `prompt-audit-apply`.
+
+## [2026-09-24] ingest | commit-restructure-plumbing-cas (신규)
+- commit-check 스킬의 재구성 방식 결정(plumbing + 트랜잭션 CAS)과 리뷰어 실측 근거·함정 4건을 decision 으로 적립. dlc-development-cycle 에 inbound 링크, index 등재. 출처 plan `commit-check-skill`.
