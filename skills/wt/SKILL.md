@@ -126,4 +126,4 @@ worktree 생성은 로컬·비파괴이고 `/wt rm <slug>` 한 번으로 되돌�
 - 정확일치하지 않는 텍스트는 요청사항으로 간주해 worktree 를 새로 만든다. **생성 전 확인은 묻지 않는다**(위험기반 승인 — CLAUDE.md §1): 이름 오타로 인한 오생성은 승인이 아니라 §4 의 near-miss 보고 + `/wt rm <slug>` 로 되돌린다. 반면 삭제 계열(아래 첫 bullet)은 비가역이라 확인을 유지한다 — **이 스킬 안에서 생성은 무확인·삭제는 확인**이 위험기반 기준의 적용 결과다.
 - 요청사항 path 는 생성 후 `dlc` 를 자동 실행한다. worktree 를 만들 필요가 없는 단순 질문·탐색·읽기 전용 작업이면 `/wt` 대신 현재 worktree 에서 직접 처리.
 - EnterWorktree 후 후속 명령은 새 cwd 기준.
-- **자동 복사는 신규 생성 경로만** 덮는다. 이 변경 이전에 만든 worktree나 `wt` 를 안 거치고 만든 worktree 는 `.claude/settings.local.json` 이 없어 권한 허용목록이 비어 있다 — 필요하면 main 에서 한 번 복사한다: `cp ~/.claude/.claude/settings.local.json <worktree>/.claude/settings.local.json`. 일괄 소급 복사는 두지 않는다(사용자가 의도적으로 지운 파일을 되살릴 수 있고, `wt` 는 생성·이동·삭제 스킬이지 동기화 도구가 아니다).
+- **자동 복사는 신규 생성 경로만** 덮는다. 이 변경 이전에 만든 worktree나 `wt` 를 안 거치고 만든 worktree 는 `.claude/settings.local.json` 이 없어 권한 허용목록이 비어 있다 — 필요하면 main 에서 한 번 복사한다: `cp <main worktree>/.claude/settings.local.json <worktree>/.claude/settings.local.json`(`<main worktree>` = `git worktree list` 첫 줄 경로). 일괄 소급 복사는 두지 않는다(사용자가 의도적으로 지운 파일을 되살릴 수 있고, `wt` 는 생성·이동·삭제 스킬이지 동기화 도구가 아니다).

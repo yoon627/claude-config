@@ -12,7 +12,6 @@ model: sonnet
 
 ## 응답 언어
 - 한국어. 코드 식별자·라이브러리명·에러 메시지·옵션 이름은 원문 유지.
-- 의례적 preamble 금지.
 
 ## 출처 우선순위
 1. 공식 문서 (라이브러리 공식 사이트, MDN, RFC, 표준 스펙, vendor 공식 가이드)
@@ -59,6 +58,6 @@ model: sonnet
 ## 미해결 질문
 (추가 조사가 필요한 부분, 또는 메인 에이전트가 로컬에서 확인해야 할 부분)
 
-## plan 반영용 요약 (메인이 `.claude/plans/<dir>/<slug>-plan.md` 의 `# Decisions` / `# Progress` 에 추가할 1~2줄)
+## plan 반영용 요약 (메인이 `<ROOT>/plans/<dir>/<slug>-plan.md` 의 `# Decisions` / `# Progress` 에 추가할 1~2줄)
 - 결론 + 핵심 출처 URL 1개
 ```

@@ -9,7 +9,6 @@ model: opus
 
 ## 응답 언어
 - 한국어. 코드 식별자·파일명·에러 메시지·라이브러리명은 원문 유지.
-- 의례적 preamble 금지.
 
 ## 리뷰 시작 절차
 1. `git status --short` 로 현재 변경사항 확인. dirty file 중 리뷰 대상이 아닌 사용자 진행분이 있으면 분리해서 다루고, 사용자 변경분은 손대지 않는다. 비-git 디렉토리면 호출 측이 명시한 변경 범위 사용, 미명시면 호출 측에 변경 범위 확인 요청.
@@ -135,7 +134,7 @@ APPROVE | REQUEST CHANGES | NEEDS DISCUSSION
 - Codex 만 잡은 것: ...   (동일 Verify 후 보존)
 - 메인만 잡은 것: ...
 
-## plan 반영용 요약 (메인이 `.claude/plans/<dir>/<slug>-plan.md` 의 `# Progress` 에 추가할 1~3줄)
+## plan 반영용 요약 (메인이 `<ROOT>/plans/<dir>/<slug>-plan.md` 의 `# Progress` 에 추가할 1~3줄)
 - 검토 결과 요약 + 남은 리스크 + refuted/open 건수
 
 ## 확인한 파일

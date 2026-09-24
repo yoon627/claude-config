@@ -243,3 +243,6 @@
 
 ## [2026-09-22] ingest | lesson-zip-reproducibility-os (신규)
 - cstp_compliance AI skill 패키지 빌더 리뷰에서 실측된 zip 비결정성(`create_system` OS 기본값·`sorted(Path)` case-fold)을 decision lesson 으로 적립. index 등재. 출처 커밋 a66bb98cf(CSTP1-3043-ai-agent-worker).
+
+## [2026-09-24] update | fablize-adopted-disciplines
+- investigation protocol 에서 후보 개수 지정(세 개 이상)을 빼고 "원인이 불확실하면 다른 원인 후보 반증" 원칙으로 갱신. 근거: prompt-audit(Opus 5.5 기준) M7, plan `prompt-audit-apply`.

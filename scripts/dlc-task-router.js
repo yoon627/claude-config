@@ -45,7 +45,7 @@ process.stdin.on('end', () => {
   if (DBG.test(prompt)) {
     if (sig) sig.emit('router-investigation', ctx);
     out.push(
-      "[dlc:investigation] 디버깅/장애로 보입니다. 추측 수정 전: ① 실패 재현 ② 가설 3개+ 경쟁 ③ 증상→직접원인→근본원인 인과사슬을 증거로 확정. 재현 없이 '고쳤다' 금지. (skills/dlc/SKILL.md 조사 프로토콜)"
+      "[dlc:investigation] 디버깅/장애로 보입니다. 고치기 전에 실패를 재현하고 증상→직접원인→근본원인을 증거로 확정하세요. 원인이 불확실하면 다른 원인 후보를 반증한 근거도 남기세요. 재현이 사라진 것을 확인한 뒤에만 '고쳤다'고 보고하세요. (skills/dlc/SKILL.md 조사 프로토콜)"
     );
   }
   if (RENDER.test(prompt)) {

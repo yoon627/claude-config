@@ -231,7 +231,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 모든 프로젝트에 자동 로드되는 사용자 지시문. Claude Code 가 `~/.claude/CLAUDE.md` 를 모든 세션에서 읽음.
 
 14개 섹션 (0~13):
-0. 응답 언어 — 한국어, 의례적 preamble 금지(착수 한 줄·진행 업데이트·결론 요약은 preamble 아님), 수사 대신 직설
+0. 응답 언어 — 한국어, 인사말 없이 내용부터(착수 한 문장·진행 업데이트·결론 요약은 쓴다), 수사 대신 직설
 1. 핵심 규칙 — 추측 금지, 코드 read 기반 답변, 근본 원인, 검증 후 "완료", 사용자 변경사항 보호, 승인은 위험기반(가역·로컬은 무확인 실행+보고 / 비가역·외부공개는 확인), 운영 자산 자가 수정 금지
 2. 컨텍스트 관리 — `/clear`, `/rewind`, subagent 위임 기준
 3. 작업 흐름 — Setup → Explore → Plan → Implement → Verify → Report
@@ -365,11 +365,11 @@ AI 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex/sessions`)
 
 현재 worktree에서 추가·수정한 내용을 `작업 내용:` 한 줄, 최대 1~3문장으로 기존 Jira task description에 반영한다. 기본은 미리보기이며, `/e`에서 사용자 확인 후 `--post`를 붙여 기존 본문에 추가하거나 같은 marker 항목을 갱신한다. 별도 Jira comment는 생성하지 않는다. 인증 경로는 `jira-worklog`와 같은 `~/.jira-kit/.env`를 사용한다.
 
-```powershell
-uv run --no-project python "skills/jira-task/jira_task.py" `
-  --ticket CSTP1-1234 `
-  --summary "작업 내용: ..."
+```text
+uv run --no-project python "skills/jira-task/jira_task.py" --ticket CSTP1-1234 --summary-file "<요약 파일>"
 ```
+
+요약(`작업 내용: ...`)은 파일로 넘긴다 — 명령 인자로 넣으면 backtick·`$` 가 셸에서 해석된다.
 
 preview 결과를 확인하고 `/e`에서 사용자 승인 후 동일 명령에 `--post`를 추가한다. 시간은 `jira-worklog`, 작업내용은 `jira-task`가 각각 Jira에 남긴다.
 
