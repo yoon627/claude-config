@@ -18,6 +18,7 @@
 - [[anthropic-claude-models]] — Claude 5 세대 가격·Fable 주간 50% 캡·벤치 구도(닫힌 코딩 Opus5≥Fable)·effort 지원 (2026-08).
 - [[claude-code-hook-notification-turns]] — UserPromptSubmit 은 subagent 완료 `<task-notification>` 턴에도 발동(2.1.258 실측) — hook 의 prompt 를 사용자 발화로 가정하지 말 것; dlc-task-router 오발동·장부 리셋 원인(PR #149).
 - [[worktree-isolation-bash-guard]] — worktree 격리 세션의 네이티브 Bash 거부는 경로가 아니라 명령 텍스트의 git 언급이 트리거(플래그명·heredoc 본문 포함)·비결정적; 우회는 payload 파일 분리 + git 토큰 제거. "Agent hook condition was not met" 는 이 가드가 아니라 repo agent hook.
+- [[git-autosquash-target-selection]] — git 2.54 `rebase --autosquash` 대상 선택 실측: 첫 접두는 `fixup! ` 리터럴(탭이면 fixup 아님), 제목 정확 → 커밋 이름 → 제목 접두 순·각 단계 가장 앞 커밋, 제목이 sha 보다 우선, fixup 커밋도 후보 (2026-09-24).
 - [[claude-code-subagent-config]] — subagent frontmatter model/effort·env 우선순위·Haiku effort.
 - [[claude-code-model-selection]] — alias(opusplan, fableplan 없음)·advisor tool 공식 수치·/model 저장·subagent model 함정(inherit×Fable)·pin 시 확정사실(`[1m]` 금지·자동 1M·폴백 없음).
 - [[claude-code-oss-frameworks]] — OSS 하네스 생태계 스냅샷(2026-08): 커버리지 부분적·프레임워크 후퇴·내부 확장이 정책 안전.

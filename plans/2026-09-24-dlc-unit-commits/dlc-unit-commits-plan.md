@@ -34,11 +34,13 @@ medium 이상에서 목적이 2개 이상인 dlc 작업은 목적 단위로 중�
 
 - 2026-09-24: 격리 runner 최종 검증 — verify ALL PASS·62 OK·improve error=0·plan-lint·wiki clean·옛 문구 0건, collect 의 fixup_of 가 두 fixup 을 각 단위로 가리킴. 판정 DONE. plan 은 U2 fixup 으로 커밋.
 
+- 2026-09-24: commit-check 합치기 승인·적용 — 5커밋 → U1 `3bd75bb`·U2 `60e7794`, tree 동일(백업 `refs/commit-check/dlc-unit-commits/20260924T143705273780Z`). 사용자 선택으로 wiki `git-autosquash-target-selection` 을 U3 로 추가.
+
 # Next
-commit-check 합치기 제안·승인 → Report → 머지 경로(medium 이라 `/e merge`).
+`/e merge`.
 
 # Decisions
-- 커밋 단위: 1) `feat(commit-check): fixup! 커밋의 합칠 대상(fixup_of)을 git autosquash 규칙으로 표시` — `skills/commit-check/*` 2) `docs(dlc): medium 이상 목적 단위 중간 커밋·fixup 규칙` — `skills/dlc/SKILL.md`·`CLAUDE.md`·`README.md`·`wiki/**`. plan 파일은 어느 단위에도 넣지 않고 16단계 마지막 커밋(마지막 단위의 fixup)에만 싣는다.
+- 커밋 단위: 1) `feat(commit-check): fixup! 커밋의 합칠 대상(fixup_of)을 git autosquash 규칙으로 표시` — `skills/commit-check/*` 2) `docs(dlc): medium 이상 목적 단위 중간 커밋·fixup 규칙` — `skills/dlc/SKILL.md`·`CLAUDE.md`·`README.md`·`wiki/**`. plan 파일은 어느 단위에도 넣지 않고 16단계 마지막 커밋(마지막 단위의 fixup)에만 싣는다. 3) `docs(wiki): git-autosquash-target-selection ingest` — `wiki/**`(사용자 선택으로 머지 전 추가, 마지막 단위라 plan 갱신을 함께 싣는다).
 - **plan 파일은 단위 커밋에 넣지 않는다** — 매 단계 갱신되는 파일이라 앞 단위 fixup 에 들어가면 뒤 단위와 3-way 충돌한다(리허설 실측). 마지막 단위의 fixup 으로 보내면 충돌 없이 합쳐진다. 기각: 단위마다 그 시점 plan 을 싣기(리뷰어·리허설로 충돌 확인).
 - **두 단위가 함께 고치는 파일은 뒤 단위에 속한다** — 후속 수정도 뒤 단위의 fixup 으로. 앞 단위 fixup 에 넣으면 같은 충돌이 난다.
 - 단위 선언 위치는 plan `# Decisions` 의 "커밋 단위:" 한 줄(각 단위의 **고유 커밋 제목** 포함) — compaction 뒤에도 `git log --format='%h %s' <base>..HEAD` 로 단위 sha 를 다시 찾을 수 있고, `--fixup=<sha>` 가 만드는 `fixup! <제목>` 매칭이 모호하지 않다. 목적이 1개면 `커밋 단위: 1개 — <근거>`. 기각: 새 `# Commits` 섹션(§10·plan-lint 수정 필요, plan-reviewer 확인상 기존 파서는 Decisions 본문을 읽지 않아 한 줄이면 충분).

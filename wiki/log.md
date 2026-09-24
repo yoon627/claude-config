@@ -255,3 +255,6 @@
 
 ## [2026-09-24] update | dlc-development-cycle
 - dlc 목적 단위 중간 커밋·fixup·commit-check 합치기 규칙 반영(plan `dlc-unit-commits`).
+
+## [2026-09-24] ingest | git-autosquash-target-selection (신규)
+- git 2.54 autosquash 대상 선택 규칙을 todo 실측 2회·sequencer.c 대조로 entity 적립. commit-restructure-plumbing-cas 에서 inbound 링크, index 등재. 출처 plan `dlc-unit-commits`.
