@@ -31,7 +31,7 @@ description: 진행 중이던 §10 plan 을 실제 git/코드 상태로 동기�
 ### 3. plan 동기화 기록 (메인이 single writer; §10)
 plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신:
 - `# Progress`: 오늘 진행 한 줄 + 임시 커밋 sha7.
-- `# Next`: 다음 세션 즉시 액션으로 교체(실효된 것 정리). WIP 커밋 있으면 "WIP `<sha7>` 이어서/squash" 명시 → c 가 인지.
+- `# Next`: 다음 세션 즉시 액션으로 교체(실효된 것 정리). WIP 커밋 있으면 "WIP `<sha7>` 이어서 — 정리는 commit-check(`/e merge` 가 push 전에 제안)" 명시 → c 가 인지.
 - `# Decisions`: 세션 중 결정·스코프 변경 보강(기존은 지우지 말고 §10 방식 "~로 변경 (이유: …)" 덮어쓰기/추가).
 - `# Key Files`: 추가/이동 동기화.
 - `# Blockers`: 막힌 것 + 풀 조건.
@@ -51,6 +51,12 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
 gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-lifecycle.md` §E(진입 시 Read). 여기엔 게이트·순서·닫힌 목록만.
 - **M1 진입 게이트(hard-stop, 닫힌 목록)** — 하나라도 걸리면 머지 모드 거부 + 사유 보고(체크포인트로 조용히 폴백하지 않는다): (1) 브랜치가 main/master 또는 detached (2) plan 없음 (3) `# Acceptance` 에 미체크 항목 — 섹션 자체가 없으면 통과·보고 1줄, `- [ ] [post-merge] …` 접두어 항목만 제외(의미 판정으로 제외하지 않는다) (4) `gh repo view` 실패(미인증·GitHub 아님·권한 없음). `<default>` = `git symbolic-ref --short refs/remotes/origin/HEAD` 에서 `origin/` 을 뗀 이름 → 실패 시 `gh repo view` 의 `defaultBranchRef.name` → 그것도 없으면 거부. `origin/main` 같은 remote-tracking ref 를 브랜치 이름 자리에 쓰지 않는다.
 - **M2 PR 조회 + 사전 점검(외부 쓰기 없음)**: 먼저 `git fetch origin <default>`(stale ref 로 오판 방지) 후 `gh pr list --head <branch> --base <default> --state all` — 후보 2개+ → 중단·보고. OPEN → 재사용(draft 면 중단·보고). **MERGED 또는 CLOSED → 재사용하지 않는다**(skip 경로로 두면 plan done 커밋을 실을 PR 이 없어 7단계 조건 2·3·5 를 넘지 못한다). **지름길**: `origin/<default>..HEAD` 커밋이 0개이고 plan 이 이미 `done` 이면 3단계가 쓴 plan 편집을 `git restore` 로 되돌리고(머지된 plan 이 단일 진실 — 브랜치를 base 보다 ahead 로 만들면 `git branch -d` 가 거부된다) M3~M5 없이 **M6 의 확인·fetch 로**.
+- **M3 선행 — 정리 안 된 커밋 검사**(push·"M4 먼저" 분기보다 앞. M2 지름길이면 건너뛴다): PR 에 `wip`·`fixup!` 류 커밋이 실리지 않게 한다 — 한 번 push 되면 commit-check 범위(미게시) 밖이라 고칠 수 없다.
+  1. `git fetch origin "+refs/heads/<branch>:refs/remotes/origin/<branch>"`(refspec 명시 — clone 설정의 fetch refspec 이 main 만 매핑하면 브랜치 이름만 준 fetch 는 추적 ref 를 갱신하지 않는다). 원격에 그 브랜치가 없다는 오류(`couldn't find remote ref`)면 남아 있는 `refs/remotes/origin/<branch>` 를 `git update-ref -d` 로 지우고(PR 정리로 원격이 사라진 뒤의 옛 추적 ref 가 미게시 커밋을 `published` 로 보이게 한다 — 로컬 ref 라 원격 영향 없음) 지운 sha 를 보고에 남긴 뒤(복구 `git update-ref refs/remotes/origin/<branch> <sha>`) 넘어간다. 그 밖의 fetch 실패는 중단. fetch 했으면 `git merge-base --is-ancestor origin/<branch> HEAD` — exit 1(갈라짐: ff push 가 안 되고, 원격에만 있는 커밋을 재작성 대상으로 오인할 수 있다)·그 밖의 비0(오류)이면 중단.
+  2. `uv run --no-project python "$HOME/.claude/skills/commit-check/commit_units.py" pending origin/<default>`(경로 고정 — 이 SKILL 은 main checkout 에서 로드된다). 명령 실패는 0건이 아니라 중단. `unfolded` 가 비면 M3 로.
+  3. `status: rewritable` 이 있으면 Skill 도구로 `commit-check` 를 "`/e merge` — `wip`·`fixup` flag 커밋 정리만" 인자로 부른다(합치기 또는 정식 제목 reword, 합치기가 충돌하면 reword 로 재시도 — 규칙은 그 SKILL 의 `/e merge` 절). 적용 뒤 `pending` 을 다시 돌려 `rewritable` 이 0 일 때만 계속. 보류·적용 실패·잔존·질문할 수 없는 흐름(무인) → 중단. apply 가 성공한 뒤 중단하면 재구성은 유지하고 `backup_ref`·`rollback` 을 보고한다.
+  4. `published`(원격 도달)·`held`(다른 로컬 브랜치·태그가 붙잡음)·`blocked`(범위 재구성 불가, `range_error`) 는 고치지 않는다(§8 force-push 금지) — 제목·상태·`refs` 를 보여 주고(`held` 는 "그 ref 를 치운 뒤 재실행하면 다시 분류된다" — 그 ref 가 가리던 merge·서명 커밋이 드러나 `blocked` 가 될 수도 있다) `AskUserQuestion`(그대로 진행 / 중단), 질문할 수 없는 흐름(무인)이면 중단. repo 가 merge 커밋을 불허하면(M6 이 squash 해 이 커밋들이 default 이력에 남지 않는다) 묻지 않고 보고만 한다.
+  - **중단 규칙**: done 을 새로 쓰지 않는다. 3단계의 미커밋 plan 편집은 그대로 두고 `# Next` 에 사유와 "정리 후 `/e merge` 재실행" 을 더한다(커밋·push 안 함). plan 이 이미 done 이면(UNKNOWN·QUEUED·head 불일치 뒤 재실행) status 는 건드리지 않는다.
 - **M3 push + PR 확보**: 직전 PR 이 MERGED/CLOSED 라 새 PR 이 필요하면 **M4(plan done 커밋)를 먼저 수행한 뒤** push·생성한다(커밋 0 상태의 `gh pr create` 는 실패). `git push -u origin HEAD`(권한 프롬프트 거절·실패 → 중단, plan 무변경 — M4 를 선행한 경로면 로컬 done 커밋이 남으므로 복구 규칙으로 `in_progress` 로 되돌리고 보고). PR 이 없으면 `gh pr create --base <default>`(title = plan title 또는 첫 커밋 subject, body 는 스크래치 파일 — §E 템플릿). PR 의 `mergeable`/`mergeStateStatus` 를 **done 을 쓰기 전에** 확인: CONFLICTING·DIRTY → 중단·사유 보고(plan 무변경), UNKNOWN → 짧게 재조회. BEHIND·BLOCKED 는 required check 전엔 정상 상태라 여기서 막지 않고 M6 직전에 재평가한다.
 - **M4 plan done 커밋**: `status: done` · `# Progress` "PR #N" · `# Next` 비움 → plan-lint(실패 → 중단, 커밋 안 함) → 커밋·push. plan 에 `intent:` 가 있으면 4단계의 묶음 intent 판정을 여기서 수행해 `intent.md` 변경을 **같은 커밋**에 넣고, 아래 복구 시 `closed` 로 바꿨던 것도 `open` 으로 함께 되돌린다. §10 "머지 시점에 done" 을 PR 단위로 앞당긴 것이며 아래 복구 규칙이 그 간극을 메운다. **복구 규칙(hard-stop)**: M5·M6 에서 **REJECTED 로 확정된 경우에만** 즉시 `status: in_progress` 복구 + `# Blockers`(timeout 은 `# Next` "PR #N checks 대기, `/e merge` 재실행") → 커밋·push 후 중단. 복구 push 가 거부되면 로컬 커밋만 남기고 보고. **REJECTED 로 확정되면 done 을 남기지 않는다**; 결과 불명(UNKNOWN)·대기(QUEUED)·head 불일치는 done 을 유지하고 `# Next` 재실행 안내로 닫는다(아래).
 - **M5 checks(exit code 기준 닫힌 목록)**: `gh pr view` 의 `headRefOid` 가 로컬 HEAD 와 같은지 대조(다르면 M3 의 push 만 재실행, 그래도 다르면 중단·plan 무변경) → `gh pr checks <N> --watch`(도구 timeout 10분). exit 0 → **별도 호출** `gh pr checks <N> --json name,bucket` 로 재조회, 모든 bucket ∈ {pass, skipping} 일 때만 M6, `fail`/`cancel` 이 하나라도 있으면 REJECTED(--watch 는 cancel 을 exit 에 반영하지 않는다) / exit 8(pending 잔존)·도구 timeout → REJECTED(timeout) / exit 1 이고 stderr 에 `no checks reported`(소문자 부분일치) → 15초 간격 3회 재조회, 그래도 없을 때만 required 없음으로 M6(이유: done push 직후 check run 미등록 레이스로 CI 를 건너뛸 수 있다) / 그 외 exit 1 → REJECTED.
@@ -101,7 +107,7 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 
 - **브랜치 보호(§8)**: 현재 브랜치가 `main`/`master`(또는 `origin/HEAD` default)면 직접 커밋 금지. 멈추고 AskUserQuestion — ① 작업 브랜치 새로 만들어 거기 커밋 / ② 커밋 생략하고 plan 기록만 / ③ 취소. 자동 브랜치 생성·강제 커밋 안 함.
 - **위험 파일 점검(§8)**: `git status` 에 `.env`·`*.key`·`*.pem`·`id_rsa`·인증서·대용량(빌드 산출물 등) 의심 항목 있으면 커밋 보류 + 사용자 확인(secret 유출 방지).
-- **커밋**: 안전하면 `git add -A` 후 `git commit`. 메시지 `wip: <작업 한 줄 요약> (e checkpoint)` + 규약 트레일러(Co-Authored-By). 본문에 "다음 세션 squash/amend 대상" 한 줄.
+- **커밋**: 안전하면 `git add -A` 후 `git commit`. 메시지 `wip: <작업 한 줄 요약> (e checkpoint)` + 규약 트레일러(Co-Authored-By). 본문에 "다음 세션에 이어서 — commit-check 로 합칠 대상" 한 줄.
 - **push 안 함** — §8, 사용자 요청 시만.
 - uncommitted 없으면 커밋 skip.
 

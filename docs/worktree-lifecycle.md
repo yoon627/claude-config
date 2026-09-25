@@ -57,6 +57,7 @@ SKILL 의 게이트·순서·닫힌 목록이 단일 소스. 여기는 명령·�
 
 - **M1 조회**: 브랜치 `git rev-parse --abbrev-ref HEAD`(`HEAD` 면 detached). `gh repo view --json defaultBranchRef,mergeCommitAllowed,squashMergeAllowed` 한 번으로 인증·GitHub 여부·`<default>` 폴백·머지 방식을 같이 얻는다(실패 = M1 거부). `<default>` 는 `git symbolic-ref --short refs/remotes/origin/HEAD` 에서 `origin/` 을 뗀 이름 → 실패 시 위 `defaultBranchRef.name`.
 - **M2 PR 조회**: `git fetch origin <default>` → `gh pr list --head <branch> --base <default> --state all --json number,state,isDraft,url`. `state` ∈ {OPEN, MERGED, CLOSED}. 후보 2개+ → 중단. 지름길 판정은 `git rev-list --count origin/<default>..HEAD` = 0 + plan `status: done`; 진입 시 `git restore plans/<dir>/<slug>-plan.md`. OPEN 이면 `gh pr view <N> --json mergeable,mergeStateStatus,headRefOid` 로 사전 점검.
+- **M3 선행 검사**: `git fetch origin "+refs/heads/<branch>:refs/remotes/origin/<branch>"`(원격에 브랜치가 없으면 `couldn't find remote ref` 로 실패 — 그 경우만 `git update-ref -d refs/remotes/origin/<branch>` 후 건너뜀) → `git merge-base --is-ancestor origin/<branch> HEAD`(0 조상 / 1 갈라짐 / 그 밖 오류). 분류는 `commit_units.py pending origin/<default>` 의 JSON — `unfolded[]` 의 `sha`(전체)·`subject`·`flags`(`wip`·`fixup` 만)·`status`(`rewritable`/`published`/`held`/`blocked`)·`refs`(published 는 원격 추적 ref, held 는 로컬 브랜치·태그), 최상위 `range_error`(merge 커밋이 있는 범위·서명 커밋·기본 브랜치·git 2.40 미만 — 있으면 원격에 없는 것은 모두 `blocked` 이고, 붙잡은 로컬 ref 는 `refs` 에 남는다).
 - **PR 생성(M3)**: `gh pr create --base <default> --head <branch> --title "<title>" --body-file <scratchpad>/pr-body.md`. body 는 `## Summary`(plan `# Goal`·주요 변경 bullet) · `## Review`(리뷰어·처분 요약) · `## Verification`(실행한 검증 명령·결과) · 트레일러(`🤖 Generated with [Claude Code](https://claude.com/claude-code)` + 세션 URL, 하네스 지시 그대로). 파일로 쓰는 이유는 CLAUDE.md §2(긴 payload 를 tool 파라미터에 넣지 않는다).
 - **사전 점검 값**: `mergeable` ∈ {MERGEABLE, CONFLICTING, UNKNOWN}, `mergeStateStatus` ∈ {CLEAN, UNSTABLE, HAS_HOOKS, UNKNOWN, DIRTY, BEHIND, BLOCKED, DRAFT}. CONFLICTING/DIRTY/DRAFT → 중단·사유 보고(plan 무변경). UNKNOWN 은 10초 후 최대 3회 재조회. BEHIND/BLOCKED 는 required check 전엔 정상이라 M3 에선 통과, M6 직전 재평가에서 남아 있으면 REJECTED.
 - **M5 checks**: `gh pr view <N> --json headRefOid` = `git rev-parse HEAD` 대조 → `gh pr checks <N> --watch`(Bash timeout 600000). exit 0 → `gh pr checks <N> --json name,bucket`(`--watch` 와 `--json` 은 병용 불가라 별도 호출) 로 bucket ∈ {pass, fail, pending, skipping, cancel} 확인. exit 8 = pending 잔존. exit 1 + stderr `no checks reported on the '<branch>' branch`(소문자 부분일치 `no checks reported`) = checks 없음 → `sleep 15` 후 `gh pr view <N> --json statusCheckRollup` 3회, 배열이 계속 비어 있을 때만 required 없음.
@@ -69,6 +70,11 @@ SKILL 의 게이트·순서·닫힌 목록이 단일 소스. 여기는 명령·�
 | 새 PR, checks pass, MERGED | push·PR·merge | done | 없음 | M2: base 에 없는 커밋 0·done → M6 확인·fetch → 5~8 |
 | 기존 open PR | push(변경 있을 때) | done | 없음 | 동일 PR 재사용 |
 | 기존 merged/closed PR + 새 커밋(plan done 등) | push·새 PR·merge | done | 없음 | 새 PR 재사용 |
+| 미게시 정리 안 된 커밋(`rewritable`) — commit-check 적용 | 로컬 재구성 → push·PR·merge | done | 없음 | 정리된 커밋은 이미 게시돼 다시 걸리지 않는다 |
+| 미게시 정리 안 된 커밋 — 보류·적용 실패·잔존·무인 | 없음(M3 전 중단) | 불변(done 전, 3단계 편집은 미커밋 보존) | 사유 + "정리 후 `/e merge` 재실행" | M3 선행 검사부터 |
+| 정리 안 된 커밋이 `published`·`held`·`blocked` | 진행 선택 시 push·PR·merge | done(진행) / 불변(중단·무인) | 중단이면 사유 + "정리 후 `/e merge` 재실행" | `held` 는 그 ref 를 치운 뒤 재실행하면 다시 분류(대개 `rewritable`), 같은 게시분은 재실행마다 다시 묻는다 |
+| 위와 같은데 repo 가 merge 커밋 불허(M6 squash) | push·PR·merge(squash) | done | 없음 | 묻지 않고 보고만 |
+| 원격 작업 브랜치가 HEAD 의 조상 아님 | 없음(M3 전 중단) | 불변 | "원격 브랜치 반영 후 재실행" | M3 선행 검사부터 |
 | draft PR | 없음(M2 에서 중단) | 불변 | 불변 | draft 해제 후 재실행 |
 | 사전 점검 CONFLICTING/DIRTY | push·PR(생성된 경우) | 불변(done 전 중단) | 불변 | 해소 후 재실행 → M2 재사용 |
 | M6 직전 BEHIND/BLOCKED 잔존 (REJECTED) | push·PR | in_progress(복구) | protection 충족 후 재실행 | M2 재사용 → M5 |

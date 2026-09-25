@@ -26,9 +26,9 @@ push 하기 전에 정리 안 된 커밋(`fixup!`·`squash!`·`amend!`·`wip:`)�
 
 # Open questions
 
-- (열림) 발견 시 기본 동작을 commit-check 자동 제안으로 할지, 중단·보고만 할지 — 착수하는 dlc 가 사용자에게 확인한다.
+- (해소) 발견 시 기본 동작을 commit-check 자동 제안으로 할지, 중단·보고만 할지 — 2026-09-25 사용자 결정: commit-check 제안 → 승인(보류하면 중단). 게시분·로컬 ref 가 붙잡은 것은 진행 여부를 묻는다(`e-merge-unfolded-commits` plan).
 
 # Plans
 
 - `plans/2026-09-24-dlc-unit-commits/dlc-unit-commits-plan.md` — 목적 단위 중간 커밋·fixup·commit-check 합치기 도입(이 묶음의 출발점, Deferred 에서 후속이 나왔다)
-- `plans/2026-09-25-e-merge-unfolded-commits/e-merge-unfolded-commits-plan.md` — `/e merge` push 전 정리 안 된 커밋 검사 + e SKILL 문구
+- `plans/2026-09-25-e-merge-unfolded-commits/e-merge-unfolded-commits-plan.md` — `/e merge` push 전 정리 안 된 커밋 검사(`commit_units.py pending` + commit-check 제안) + e SKILL 문구
