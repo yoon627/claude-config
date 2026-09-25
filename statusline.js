@@ -26,6 +26,7 @@ process.stdin.on('data', d => chunks.push(d));
 process.stdin.on('end', () => {
   let input = {};
   try { input = JSON.parse(Buffer.concat(chunks).toString()); } catch (_) {}
+  if (!input || typeof input !== 'object') input = {};
 
   const parts = [];
 
@@ -150,39 +151,6 @@ process.stdin.on('end', () => {
       }
     } catch (_) { /* not a git repo — omit */ }
   }
-
-  // 5. Background task indicator — scan Claude Code's tasks output dir.
-  //    Heuristic: a .output file whose mtime was touched within the last 30s
-  //    is considered an active background job. Elapsed time is taken from
-  //    the oldest active file's ctime.
-  try {
-    const sessionId = input.session_id;
-    if (cwd && sessionId) {
-      const slug = cwd.replace(/[:\\\/]/g, '-');
-      const tasksDir = path.join(os.tmpdir(), 'claude', slug, sessionId, 'tasks');
-      if (fs.existsSync(tasksDir)) {
-        const now = Date.now();
-        const ACTIVE_WINDOW_MS = 30 * 1000;
-        const files = fs.readdirSync(tasksDir).filter(f => f.endsWith('.output'));
-        const active = [];
-        for (const f of files) {
-          let stat;
-          try { stat = fs.statSync(path.join(tasksDir, f)); } catch (_) { continue; }
-          if (now - stat.mtimeMs <= ACTIVE_WINDOW_MS) {
-            active.push({ ctimeMs: stat.ctimeMs });
-          }
-        }
-        if (active.length > 0) {
-          active.sort((a, b) => a.ctimeMs - b.ctimeMs);
-          const elapsedSec = Math.max(0, Math.floor((now - active[0].ctimeMs) / 1000));
-          const mins = Math.floor(elapsedSec / 60);
-          const secs = elapsedSec % 60;
-          const elapsedStr = mins > 0 ? mins + 'm' + secs + 's' : secs + 's';
-          parts.push('✻ ' + active.length + ' bg ' + elapsedStr);
-        }
-      }
-    }
-  } catch (_) { /* swallow — never break the statusline */ }
 
   process.stdout.write(parts.join(' | '));
 });

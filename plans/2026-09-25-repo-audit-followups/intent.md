@@ -30,7 +30,7 @@ updated: 2026-09-25
 # Plans
 
 - `plans/2026-09-25-repo-audit-remaining/repo-audit-remaining-plan.md` — G1 heal 경로 탈출·G2 pre-push 범위 비밀 스캔. 아래 단위들의 상세 체크리스트 원본은 이 plan 의 `# Deferred`.
-- repo-audit-g3-g4-live-bugs (미착수) — G3 statusline(bg slug·ctime·null stdin·subagent 스키마)·G4 codex-quota-refresh(stdin error·code 0·tmp 고아)
+- `plans/2026-09-25-repo-audit-g3-g4-live-bugs/repo-audit-g3-g4-live-bugs-plan.md` — G3 statusline(null 입력·bg 표시 제거·subagent 행 현행 스키마로 재작성)·G4 codex-quota-refresh(종료 경로 통합·응답 없는 종료 즉시 처리·캐시 쓰기 실패 시 잔류·임시 파일)
 - repo-audit-g5-g7-install (미착수) — G5 install-hooks(Trim·`--git-path hooks`·`.bak`, 래퍼가 원격 이름을 넘기도록)·G6 gwl 이중 마커·G7 `.editorconfig` ps1 BOM
 - repo-audit-g8-g9-docs-ci (미착수) — G8 README 유출 대응 절·`CLAUDE_REVIEW_CODEX_MODE` 존폐, G9 CI 비밀 스캔 백스톱·statusline 스모크
 - `plans/2026-09-25-config-docs-sync/config-docs-sync-plan.md` — CLAUDE.md §8 pre-push·§3-1 문구, 저장소 밖 적용분(autoMode.environment repo 별 분리·GitHub ruleset `main-guard`·Codex 쪽 재정렬)의 README·wiki 문서화
