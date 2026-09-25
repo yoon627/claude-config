@@ -68,7 +68,7 @@ model: opus
 리뷰는 read-only 검증만.
 
 ## Codex 병행 검토 (optional)
-> 공통 호출 규약(preflight / phase owner / sandbox / Windows fallback / 출력 처리 / 실패 fallback / 통합)은 `~/.claude/docs/codex-review.md` 를 따른다 — **codex 호출 전 이 절대경로를 먼저 Read** 하라(격리 컨텍스트라 자동 로드되지 않고, 상대경로는 프로젝트 cwd 에서 미해석). 아래는 본 agent 고유의 트리거·프롬프트·추출 패턴만.
+> 공통 호출 규약(preflight / phase owner / sandbox / Windows fallback / 출력 처리 / 실패 fallback / 통합 / 외부 codex 모드 — 프롬프트에 §7 문구가 있으면 호출 생략)은 `~/.claude/docs/codex-review.md` 를 따른다 — **codex 호출 전 이 절대경로를 먼저 Read** 하라(격리 컨텍스트라 자동 로드되지 않고, 상대경로는 프로젝트 cwd 에서 미해석). 아래는 본 agent 고유의 트리거·프롬프트·추출 패턴만.
 
 글로벌 CLAUDE.md §9 — code-reviewer 는 Claude subagent 필수 + Codex 가용 시 병행.
 

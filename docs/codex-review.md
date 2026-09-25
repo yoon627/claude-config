@@ -23,7 +23,7 @@ reviewer subagent(plan-reviewer / code-reviewer / architecture-reviewer)와 dlc 
 ## 2. phase owner (중복 호출 방지)
 
 - 한 phase 에 reviewer 가 여럿이면(예: 구현 후 `architecture-reviewer` + `code-reviewer` 병렬) 호출 측(dlc)이 **codex owner 1개만** 지정한다.
-- owner 가 아닌 reviewer 는 환경변수 `CLAUDE_REVIEW_CODEX_MODE=external` 를 받아 자기 codex 호출을 생략하고, 출력에 "외부 codex owner 지정 — 병행 생략" 명시.
+- owner 가 아닌 reviewer 에게는 호출 측이 프롬프트에 §7 문구("Codex review is already running externally. Do not invoke Codex.")를 넣는다 — reviewer 는 자기 codex 호출을 생략하고 출력에 "외부 codex owner 지정 — 병행 생략" 명시.
 - owner 기본 선택: 변경이 버그/보안 위주면 `code-reviewer`, 구조 위주면 `architecture-reviewer`, 계획 단계는 `plan-reviewer`. **arch 의 planning 모드는 항상 codex off.**
 
 ## 3. 호출 명령 (Bash 도구 — 1차 경로)
@@ -86,5 +86,5 @@ codex exec --sandbox read-only --ephemeral -c 'model_reasoning_effort="medium"' 
 
 ## 7. 외부 codex 모드
 
-- 호출 측이 `CLAUDE_REVIEW_CODEX_MODE=external` 설정 또는 프롬프트에 "Codex review is already running externally. Do not invoke Codex." 포함 시 자체 codex 호출 생략.
+- 호출 측이 프롬프트에 "Codex review is already running externally. Do not invoke Codex." 를 넣으면 자체 codex 호출을 생략한다. 이 문구가 유일한 방식이다 — 환경변수 경로(`CLAUDE_REVIEW_CODEX_MODE=external`)는 2026-09-26 폐기했다: Agent 도구는 subagent 에 환경변수를 넘기지 못하고 그 변수를 읽는 코드도 없었다.
 - 호출 측이 §1 의 세션 마커를 이미 봤으면 프롬프트에 "Codex is unavailable in this session (<사유>). Do not invoke Codex." 를 넣는다 — reviewer 는 preflight 없이 생략하고 출력엔 `Codex 미가용: <사유> (세션 캐시)`.

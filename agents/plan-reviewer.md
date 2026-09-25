@@ -36,7 +36,7 @@ model: opus
 본 agent 는 외부 검색을 직접 수행하지 않는다. 라이브러리 동작·CVE·표준 등 외부 사실이 계획의 핵심 근거면 메인 에이전트에 "researcher 호출 필요" 로 표기하고 그 부분은 NEEDS DISCUSSION 으로 둔다.
 
 ## Codex 병행 검토 (optional)
-> 공통 호출 규약(preflight / phase owner / sandbox / Windows fallback / 출력 처리 / 실패 fallback / 통합)은 `~/.claude/docs/codex-review.md` 를 따른다 — **codex 호출 전 이 절대경로를 먼저 Read** 하라(격리 컨텍스트라 자동 로드되지 않고, 상대경로는 프로젝트 cwd 에서 미해석). 아래는 본 agent 고유의 트리거·프롬프트·추출 패턴만.
+> 공통 호출 규약(preflight / phase owner / sandbox / Windows fallback / 출력 처리 / 실패 fallback / 통합 / 외부 codex 모드 — 프롬프트에 §7 문구가 있으면 호출 생략)은 `~/.claude/docs/codex-review.md` 를 따른다 — **codex 호출 전 이 절대경로를 먼저 Read** 하라(격리 컨텍스트라 자동 로드되지 않고, 상대경로는 프로젝트 cwd 에서 미해석). 아래는 본 agent 고유의 트리거·프롬프트·추출 패턴만.
 
 글로벌 CLAUDE.md §9 — plan-reviewer 는 Claude subagent 필수 + Codex 가용 시 병행.
 

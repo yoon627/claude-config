@@ -133,7 +133,7 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 - subagent 끼리 context 미공유. 입력은 메인이 번들 전달, 결과는 각 agent 의 "plan 반영용 요약"으로 수신.
 
 ## codex phase owner
-- 규약 `docs/codex-review.md`. 한 phase 에 reviewer 여럿이면 codex owner 1개만 지정, 나머지 `CLAUDE_REVIEW_CODEX_MODE=external`.
+- 규약 `docs/codex-review.md`. 한 phase 에 reviewer 여럿이면 codex owner 1개만 지정, 나머지에는 프롬프트에 §7 문구("Codex review is already running externally. Do not invoke Codex.").
 - 계획 단계: `plan-reviewer`(arch planning 은 codex off). 요구사항 명확화의 묶음 분할 리뷰(plan-reviewer 묶음 모드)는 **codex off** — 한 phase 에 owner 는 6단계 하나이고, codex 프롬프트는 구현 계획용이라 경계 검토에 맞지 않는다. 구현 후: 버그/보안 위주면 `code-reviewer`, 구조 위주면 `architecture-reviewer`.
 - **한도 캐시**: reviewer 를 띄우기 전에 `<scratch>/codex-unavailable`(규약 §1)이 있으면 owner 에게도 §7 의 "Codex is unavailable in this session" 문구를 넣어 시도 자체를 건너뛴다. reviewer 보고의 `Codex 미가용: … out of credits` 를 봤는데 마커가 없으면 메인이 만든다(subagent 가 못 썼을 수 있다).
 
