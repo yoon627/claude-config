@@ -7,10 +7,28 @@ set -e
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [ -z "$repo_root" ]; then
   echo "Not inside a git repo." >&2
+  # git's own reason (e.g. safe.directory "dubious ownership")
+  git rev-parse --show-toplevel 2>&1 >/dev/null | head -n 1 >&2 || true
   exit 1
 fi
 
-hook_dir="$repo_root/.git/hooks"
+# The hooks git actually runs: shared by linked worktrees, redirected by core.hooksPath (any
+# config scope). When it is not the repo's own hooks dir, another tool (husky, lefthook, ...)
+# owns it — writing there would replace that tool's hooks, and .git/hooks would never run.
+hook_dir="$(git rev-parse --path-format=absolute --git-path hooks)"
+case "$hook_dir" in
+  # git < 2.31 echoes the unknown option back on stdout instead of failing.
+  --*) echo "git 2.31 or newer is required (git rev-parse --path-format)." >&2; exit 1 ;;
+esac
+default_dir="$(git rev-parse --path-format=absolute --git-common-dir)/hooks"
+# Only core.hooksPath moves the hooks elsewhere; a symlinked .git/hooks or a hooksPath that names
+# the default dir under another spelling (case-insensitive FS) is still the repo's own hooks dir.
+if [ -n "$(git config --get core.hooksPath || true)" ] &&
+  ! [ "$hook_dir" -ef "$default_dir" ] && [ "$hook_dir" != "$default_dir" ]; then
+  echo "core.hooksPath points git at $hook_dir, so hooks in $default_dir would never run." >&2
+  echo "Not installing. Call $HOME/.claude/scripts/pre-commit-check.sh from the tool that manages that directory." >&2
+  exit 1
+fi
 mkdir -p "$hook_dir"
 
 guard="$HOME/.claude/scripts/pre-commit-check.sh"
@@ -19,18 +37,31 @@ if [ ! -x "$guard" ]; then
   exit 1
 fi
 
+# First free "<hook>.bak.<UTC time>[.<n>]" — every reinstall keeps the previous backups.
+backup_path() {
+  local base candidate n=1
+  base="$1.bak.$(date -u +%Y%m%dT%H%M%SZ)"
+  candidate="$base"
+  while [ -e "$candidate" ]; do
+    candidate="$base.$n"
+    n=$((n + 1))
+  done
+  printf '%s' "$candidate"
+}
+
 # Idempotent writer: no-op if identical, back up a differing existing hook, then write.
 install_hook() {
   local path="$1"
   local content="$2"
   if [ -f "$path" ]; then
-    local existing
+    local existing backup
     existing="$(cat "$path")"
     if [ "$existing" = "$content" ]; then
       return 0
     fi
-    mv "$path" "$path.bak"
-    echo "Existing hook backed up: $path.bak"
+    backup="$(backup_path "$path")"
+    mv "$path" "$backup"
+    echo "Existing hook backed up: $backup"
   fi
   printf '%s\n' "$content" >"$path"
   chmod +x "$path"

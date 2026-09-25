@@ -1,33 +1,88 @@
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = (& git rev-parse --show-toplevel).Trim()
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Not inside a git repo."
+# git runs through a Process, as in pre-commit-check.ps1: Windows PowerShell 5.1 turns redirected
+# native stderr into a terminating error under EAP=Stop and decodes native stdout with the console
+# code page. Resolved from PATH up front so a git.exe in the current directory is never picked.
+$gitExe = (Get-Command git -CommandType Application -ErrorAction Stop |
+    Where-Object { $_.Extension -eq '.exe' -or $_.Extension -eq '' } | Select-Object -First 1).Path
+if (-not $gitExe) { throw 'git executable not found on PATH' }
+function Invoke-Git([string[]]$GitArgs) {
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $script:gitExe
+    $psi.Arguments = ($GitArgs -join ' ')
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.StandardOutputEncoding = New-Object System.Text.UTF8Encoding($false)
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    $err = $proc.StandardError.ReadToEndAsync()  # read both pipes at once so neither can fill and block git
+    $out = $proc.StandardOutput.ReadToEnd()
+    $proc.WaitForExit()
+    return @{ Code = $proc.ExitCode; Out = $out.Trim(); Err = (($err.Result -split "`n")[0]).Trim() }
+}
+function Stop-Install([string]$Message) {
+    Write-Host $Message -ForegroundColor Red
     exit 1
 }
+$norm = { param($p) ($p -replace '\\', '/').TrimEnd('/') }
 
-$hookDir = Join-Path $repoRoot '.git\hooks'
-if (-not (Test-Path $hookDir)) {
+# git's own reason (e.g. safe.directory "dubious ownership") goes with the message.
+$top = Invoke-Git @('rev-parse', '--show-toplevel')
+if ($top.Code -ne 0 -or -not $top.Out) { Stop-Install "Not inside a git repo. $($top.Err)" }
+function Get-GitPath([string[]]$GitArgs) {
+    $r = Invoke-Git $GitArgs
+    if ($r.Code -ne 0) { Stop-Install "git $($GitArgs -join ' ') failed: $($r.Err)" }
+    $r.Out
+}
+
+# The hooks git actually runs: shared by linked worktrees, redirected by core.hooksPath (any
+# config scope). When core.hooksPath moves them away from the repo's own hooks dir, another tool
+# (husky, lefthook, ...) owns that directory -- writing there would replace that tool's hooks, and
+# .git/hooks would never run.
+$hookDir = & $norm (Get-GitPath @('rev-parse', '--path-format=absolute', '--git-path', 'hooks'))
+# git < 2.31 echoes the unknown option back on stdout instead of failing.
+if ($hookDir.StartsWith('--')) { Stop-Install 'git 2.31 or newer is required (git rev-parse --path-format).' }
+$defaultDir = (& $norm (Get-GitPath @('rev-parse', '--path-format=absolute', '--git-common-dir'))) + '/hooks'
+$hooksPath = (Invoke-Git @('config', '--get', 'core.hooksPath')).Out
+# Case-insensitive on purpose: Windows paths, and a hooksPath that spells the default dir differently.
+if ($hooksPath -and -not $hookDir.Equals($defaultDir, [System.StringComparison]::OrdinalIgnoreCase)) {
+    Stop-Install ("core.hooksPath points git at $hookDir, so hooks in $defaultDir would never run. " +
+        "Not installing. Call ~/.claude/scripts/pre-commit-check.ps1 from the tool that manages that directory.")
+}
+if (-not (Test-Path -LiteralPath $hookDir)) {
     New-Item -ItemType Directory -Path $hookDir -Force | Out-Null
 }
 
 # Guard lives in ~/.claude (guards settings.json), regardless of which repo the
 # hooks are installed into — mirrors install-hooks.sh.
 $guard = Join-Path $HOME '.claude\scripts\pre-commit-check.ps1'
-if (-not (Test-Path $guard)) {
+if (-not (Test-Path -LiteralPath $guard)) {
     Write-Error "Guard script not found: $guard"
     exit 1
 }
 $guardForHook = ($guard -replace '\\', '/')
 
+# First free "<hook>.bak.<UTC time>[.<n>]" -- every reinstall keeps the previous backups.
+function Get-BackupPath {
+    param([string]$Path)
+    $base = "$Path.bak." + [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ', [Globalization.CultureInfo]::InvariantCulture)
+    $candidate = $base
+    $n = 1
+    while (Test-Path -LiteralPath $candidate) {
+        $candidate = "$base.$n"
+        $n++
+    }
+    $candidate
+}
+
 function Write-LfFile {
     param([string]$Path, [string]$Content)
     $normalized = $Content -replace "`r`n", "`n"
-    if (Test-Path $Path) {
+    if (Test-Path -LiteralPath $Path) {
         $existing = [System.IO.File]::ReadAllText($Path)
         if ($existing -eq $normalized) { return }
-        $backup = "$Path.bak"
-        Move-Item -Path $Path -Destination $backup -Force
+        $backup = Get-BackupPath $Path
+        Move-Item -LiteralPath $Path -Destination $backup
         Write-Host "Existing hook backed up: $backup" -ForegroundColor Yellow
     }
     $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($normalized)
