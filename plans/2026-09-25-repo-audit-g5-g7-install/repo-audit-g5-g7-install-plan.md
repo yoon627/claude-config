@@ -1,8 +1,8 @@
 ---
 title: repo-audit-g5-g7-install — install-hooks 설치 위치·백업, gwl 이중 마커, ps1 BOM
-status: in_progress
+status: done
 started: 2026-09-25
-updated: 2026-09-25
+updated: 2026-09-26
 intent: plans/2026-09-25-repo-audit-followups/intent.md
 ---
 
@@ -39,10 +39,12 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 - 2026-09-25: plan-reviewer(+codex) CONDITIONAL — 강한 우려 7(모두 원격 범위) → 사용자 결정으로 `push-remote-scope` 분리. 약한 우려 반영: hooksPath 유효 경로 비교·쓰기 전 거부, 백업 형식·no-clobber, gwl `--show-toplevel`, G7 근거 정정, README 범위. TDD: 설치 테스트 8건 중 7건 Red(sh 의 git 밖만 기존에도 통과) → 구현 → sh·ps1 ALL PASS(`ps1: ran`).
 - 2026-09-26: 단위 커밋 3개(install-hooks·gwl·editorconfig) → code-reviewer(+codex high) REQUEST CHANGES — Major 1(ps1 `2>$null`+EAP=Stop 이 PS 5.1 에서 종료 오류), Minor 7, Nit 8. fix loop 1: ps1 `Invoke-Git`, hooksPath 판정을 "설정됐고 다른 디렉토리일 때만"(symlink·대소문자 거짓 거부 해소), git 2.31 확인, 테스트 격리·케이스(전역 hooksPath·기본 디렉토리·symlink·옛 git shim·`main()` symlink), `Test-Path -LiteralPath`, InvariantCulture, gwl ReferenceEquals, README rollback 경로. 설치 테스트 sh·ps1 ALL PASS(`ps1: ran`), gwl OK.
 - 2026-09-26: 재확인 APPROVE(원 finding 14 해결·1 wontfix·1 deferred), 신규 Nit 6 → fix loop 2: ps1 stderr 비동기 읽기·git 실패 사유 표시(sh 도)·나머지 git 호출 종료코드 확인, prompt-gwl 의 Windows git 부재 메시지, 테스트 fixture(hooks 디렉토리 없음·shim 경로 따옴표·Windows symlink skip). sh/ps1 symlink 판정 비대칭은 wontfix.
+- 2026-09-26: commit-check 제안(fixup 6개를 세 단위에 합치고 단위 1 메시지를 최종 동작으로) 사용자 승인·적용 — 최종 tree 동일. 사용자 선택 `/e merge`.
+- 2026-09-26: PR #176 (`/e merge`) — done.
 
 # Next
 
-verify → fixup 커밋 → commit-check → `/e merge`.
+(없음 — PR #176 머지로 종료)
 
 # Decisions
 
