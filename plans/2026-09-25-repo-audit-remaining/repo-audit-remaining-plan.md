@@ -88,7 +88,7 @@ updated: 2026-09-25
 
 2026-09-25 전체 감사(workflow `wf_3746ca79-3e4`, 결과는 세션 스크래치라 여기 요약만 남긴다)에서 사용자가 이번에 고르지 않은 항목. 착수할 때 현재 상태를 다시 확인한다.
 - (high) Codex 쪽이 2026-08-01 Codex 앱 import 스냅샷에 멈춤 — `~/.codex/AGENTS.md`(원격 브랜치 무확인 삭제·`.Codex/plans/`), `~/.agents/skills/*` 사본(41커밋 미반영, jira-worklog 는 Windows 경로라 Mac 에서 실행 불가·bootstrap 3b exit 1), `~/.codex/agents/*.toml`, `~/.claude/.codex/config.toml`(제거 결정한 serena MCP 를 고정 안 된 git+https 로 기동). Codex `hooks.json` 에 dlc-early-stop·worktree 게이트 없음.
-- (medium) `~/.claude/AGENTS.md` 가 main checkout 의 Claude 세션에 주입됨(v2.1.277+, `~/.claude/CLAUDE.md` 는 CLAUDE.md 로 치지 않음) — §3-6 결론 위치 등 모순. 대응 후보 `claudeMdExcludes`.
+- (해소 2026-09-25) `~/.claude/AGENTS.md` 가 main checkout 의 Claude 세션에 주입됨 — user `settings.json` 에 `claudeMdExcludes` 로 그 경로만 제외(headless 전후 확인). README·wiki `claude-code-agents-md-loading` 에 기록. AGENTS.md 파일 자체(Codex 용)는 위 Codex 쪽 항목에서 다룬다.
 - (medium) `scripts/verify.sh:37` `find_repo` 가 ignored 디렉토리(shell-snapshots·plugins/marketplaces·backups)까지 스캔 → main checkout 에서 항상 `FAILED: 1`, python 축은 plugin pytest 파일을 0건 실행으로 ok. `git ls-files` 기반으로.
 - (medium) `/improve` 권장의 `last-improve` 마커를 쓰는 코드 없음(`scripts/session-brief.js:124`) — "마커 이후 N세션"이 07-03 이후 전체 누적.
 - (medium) `skills/synced/`(claude.ai 동기화 skill, 라이선스 파일 포함)가 `.gitignore` 에 없음 — PUBLIC repo, `/e` WIP `git add -A` 로 커밋될 수 있다.

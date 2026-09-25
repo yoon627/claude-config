@@ -2,11 +2,12 @@
 title: lesson-parallel-duplicate-implementation
 category: decision
 created: 2026-08-05
-updated: 2026-08-05
+updated: 2026-09-25
 sources:
   - PR #118 (worklog-cwd-attribution, 2026-08-04 머지)
   - PR #120 (jira-worklog-cwd-attribution, 2026-08-05 생성 → 미머지 close)
   - CLAUDE.md §9 (Claude ↔ Codex 협업) · §10 (plans/ 핸드오프)
+  - origin/commit-split (2026-09-22 push, 2026-09-25 close — 로컬 태그 archive/commit-split 51d55d9) · PR #171·#172 (2026-09-24 머지)
 ---
 
 # lesson-parallel-duplicate-implementation
@@ -41,6 +42,22 @@ sources:
 - ✅ **비trivial 착수 전에 같은 주제가 이미 진행 중인지 본다** — `gh pr list --state open`, `git branch -r`, `plans/` 의 `status: in_progress` 목록. 하나라도 걸리면 새로 만들기 전에 사용자에게 확인한다.
 - ✅ plan 이 branch 매칭에 실패해도 **"없다"의 근거로 쓰지 않는다**. 매칭 실패는 "내 브랜치 이름과 안 겹친다"는 뜻일 뿐이다.
 - ✅ 병행 도구를 쓰는 중이면 착수 사실을 plan `# Progress` 에 먼저 적고 push 해, 다른 도구가 볼 수 있게 한다(채널이 작동하려면 *먼저 쓰는* 쪽이 있어야 한다).
+
+## 두 번째 사례 — commit-split vs #171·#172 (2026-09, ✅확실)
+
+규칙이 memory 인덱스(`check-inflight-work-before-starting`)에 있었는데도 재발했다. 이번에는 **같은 도구(Claude) 안에서**, 앞선 세션의 미머지 원격 브랜치를 뒤 세션이 보지 않았다.
+
+| | origin/commit-split | #171 commit-check · #172 dlc-unit-commits |
+|---|---|---|
+| 시작 | 2026-09-22 push(WIP 5커밋, plan `in_progress`) | 2026-09-24 착수·머지 |
+| 내용 | `/cs` hunk 분할 skill + dlc 중간 커밋 + `/e` M3 연결 | commit-check(plumbing+CAS, 승인 후 재구성) + dlc 목적 단위 커밋·fixup |
+| 결과 | close — 5파일 텍스트 충돌, 설계 3곳이 main 결정과 충돌 | main |
+
+- 왜 놓쳤나: 09-24 세션은 사용자가 "저번에 … 했던 것 같은데" 라고 앞선 작업을 암시했는데도 로컬 plan 만 보고 새로 설계했다. 원격 브랜치 목록 확인이 없었다 — 규칙은 인덱스 한 줄로 주입됐지만 착수 시점에 실행되는 절차가 없다.
+- 비용: 버린 WIP 는 작았지만(+244/−17), 뒤 작업이 앞 작업의 결정(hunk 분할)을 모르고 **기각**해 두 설계가 정면 충돌했다. 전체 감사(2026-09-25)에서야 드러났다.
+- 이번에 살린 것: `/e merge` 의 push 전 `fixup!`·`wip:` 검사 아이디어 → `plans/2026-09-25-e-merge-unfolded-commits/`.
+
+두 사례 모두 "착수 전 열린 PR·원격 브랜치·in_progress plan 확인"을 기억에 맡겨 생겼다. 세 번째가 나오면 규약 한 줄이 아니라 착수 시점의 기계적 점검(예: dlc 요구사항 명확화 단계의 원격 브랜치 목록 출력)으로 올린다(CLAUDE.md §13 "반복되면 게이트로 승격").
 
 ## 비용
 

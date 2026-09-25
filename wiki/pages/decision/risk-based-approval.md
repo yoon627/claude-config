@@ -2,7 +2,7 @@
 title: risk-based-approval
 category: decision
 created: 2026-08-03
-updated: 2026-09-07
+updated: 2026-09-25
 sources:
   - CLAUDE.md (§1 승인은 위험기반)
   - skills/wt/SKILL.md (request §3~§4)
@@ -41,6 +41,6 @@ graph engineering(2026)의 human-in-the-loop 원칙: 사람 검토는 위험 기
 
 그전까지 `CLAUDE.md` §8 과 `README` 의 settings.json 절이 "자동 실행이 필요한 repo 는 그 repo `settings.local.json` 의 allow 로 푼다"고 적고 있었다. **동작하지 않는 우회법**이며, 항상 주입되는 파일에 있었기 때문에 매 세션이 그것을 참으로 읽었다. 실제로 `ask` 를 풀려면 그 규칙 자체를 지워야 하고 그건 전역이라 모든 repo 에 적용된다 — 즉 "이 repo 만 자동 push" 라는 선택지는 `permissions` 레이어에 존재하지 않는다.
 
-이 기준에서 중요한 함의: **`ask` 를 넣는 결정은 "그 액션을 모든 repo 에서 매번 확인한다"와 같은 말**이다. 부분 해제가 안 되므로 위험기반 판정을 규칙 추가 시점에 끝내야 한다.
+이 기준에서 중요한 함의: **`ask` 를 넣는 결정은 "그 액션을 모든 repo 에서 매번 확인한다"와 같은 말**이다. 부분 해제가 안 되므로 위험기반 판정을 규칙 추가 시점에 끝내야 한다. 명령을 재작성하는 훅이 있으면 ask 규칙이 재작성된 형태에도 맞아야 실제로 걸린다 — [[rtk-rewrite-permission-rules]].
 
 > [!open] `/improve` 의 "수정은 승인 후" 와 `/wiki lint` 의 "자동 수정 안 함" 은 가역적 로컬 편집인데도 승인을 유지한다 — 가역성이 아니라 자가수정 경계에 걸리기 때문. 두 게이트의 근거가 다르다는 점을 이 기준이 흐리지 않는지 다음 `/improve` 에서 재확인.

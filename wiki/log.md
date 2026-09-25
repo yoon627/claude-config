@@ -258,3 +258,12 @@
 
 ## [2026-09-24] ingest | git-autosquash-target-selection (신규)
 - git 2.54 autosquash 대상 선택 규칙을 todo 실측 2회·sequencer.c 대조로 entity 적립. commit-restructure-plumbing-cas 에서 inbound 링크, index 등재. 출처 plan `dlc-unit-commits`.
+
+## [2026-09-25] ingest | rtk-rewrite-permission-rules (신규)
+- rtk 훅 재작성 뒤 권한 규칙이 재작성된 명령으로 평가되어 ask 가 무력화됐던 것을 hooks·permission-modes 문서와 headless 실측으로 적립. ask 72건(원래+`rtk ` 형태)·gh allow 읽기 전용 축소 결정, 남은 한계(`bash <script>`·브랜치 이름 없는 push). README `permissions.ask` 동기화.
+
+## [2026-09-25] ingest | claude-code-agents-md-loading (신규)
+- v2.1.277+ AGENTS.md 로딩 규칙(memory 문서)과 `~/.claude` 세션 주입·`claudeMdExcludes` 대응을 entity 로 적립. README `claudeMdExcludes` 항목 추가.
+
+## [2026-09-25] update | lesson-parallel-duplicate-implementation
+- 두 번째 사례(origin/commit-split vs #171·#172) 추가, 3회째면 착수 시점 기계적 점검으로 승격 조건 명시.
