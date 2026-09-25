@@ -347,8 +347,8 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 
 ### skills/commit-check/ — 커밋 단위 점검·재구성
 
-브랜치의 **미게시** 커밋이 "리뷰 가능한 하나의 목적 단위"인지 점검한다. 합치기(fixup)·파일 단위 나누기·순서·메시지 수정 제안 표를 만들고, 사용자가 승인하면 코드 내용은 그대로 둔 채 커밋 경계만 재구성한다. dlc 16단계(커밋 뒤)에서 호출하고 `/commit-check` 로도 부른다.
-- `commit_units.py` 가 수집(`collect`)·패치 조회(`show`)·재구성(`apply`)을 맡고, 판단은 모델이 SKILL.md 기준으로 해 JSON 계획으로 넘긴다. `collect` 는 `fixup!`·`squash!`·`amend!` 커밋의 합칠 대상(`fixup_of`)을 git `rebase --autosquash` 의 대상 선택을 근사해 표시한다(sha 접두·제목만, ref 이름 미해석).
+브랜치의 **미게시** 커밋이 "리뷰 가능한 하나의 목적 단위"인지 점검한다. 합치기(fixup)·파일 단위 나누기·순서·메시지 수정 제안 표를 만들고, 사용자가 승인하면 코드 내용은 그대로 둔 채 커밋 경계만 재구성한다. dlc 16단계(커밋 뒤)와 `/e merge`(push 전, 정리 안 된 커밋이 있을 때)에서 호출하고 `/commit-check` 로도 부른다.
+- `commit_units.py` 가 수집(`collect`)·패치 조회(`show`)·재구성(`apply`)·push 전 분류(`pending <upstream>`)를 맡고, 판단은 모델이 SKILL.md 기준으로 해 JSON 계획으로 넘긴다. `collect` 는 `fixup!`·`squash!`·`amend!` 커밋의 합칠 대상(`fixup_of`)을 git `rebase --autosquash` 의 대상 선택을 근사해 표시한다(sha 접두·제목만, ref 이름 미해석). `pending` 은 읽기 전용으로 `<upstream>..HEAD` 의 `wip`·`fixup!` 류 커밋을 `rewritable`/`published`(원격 추적 ref)/`held`(다른 로컬 브랜치·태그)/`blocked`(범위 재구성 불가) 로 나눈다 — `collect` 의 제외는 원격·로컬 ref·태그를 한데 묶어서, "force-push 없이는 못 고침"과 "로컬 ref 를 치우면 고칠 수 있음"을 가르지 못하기 때문이다.
 - 재구성은 plumbing(`merge-tree --write-tree` + `commit-tree`)으로 사용자 index·작업트리 밖에서 만든다. author·트레일러는 원본에서 옮겨 적고, 최종 tree 동일과 커밋별 파일이 계획 범위 안인지를 검증한 뒤에만 백업 ref(`refs/commit-check/<branch>/<UTC>`, 최근 5개) 생성·오래된 백업 삭제·브랜치 이동을 `update-ref --stdin` 트랜잭션 하나로 수행한다. 실패하면 ref·index·작업트리는 호출 전 그대로다(repo commit-msg hook 의 자체 부작용은 예외).
 - 범위: 다른 로컬 브랜치·원격·태그에서 도달 불가한 커밋만(게시 커밋 불변 → force-push 없음). 기본 브랜치·서명 커밋·merge 커밋이면 거부. git 2.40+ 필요.
 - 테스트: `test_commit_units.py`(임시 repo fixture, 전역 git 설정 격리).
