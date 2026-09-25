@@ -1,6 +1,6 @@
 ---
 title: e-merge-unfolded-commits — /e merge 가 push 전에 fixup!·wip: 등 정리 안 된 커밋을 검사
-status: in_progress
+status: done
 started: 2026-09-25
 updated: 2026-09-25
 intent: plans/2026-09-25-unit-commit-followups/intent.md
@@ -38,10 +38,12 @@ intent: plans/2026-09-25-unit-commit-followups/intent.md
 - 2026-09-25: 사용자 승인("pending 서브커맨드 추가"). TDD Red(pending 4건, `cu.pending` 부재) → 구현 → Green(66 통과) → 단위 커밋 1. `/e` M3 선행 검사·§E·README:317·intent 편집. bare remote 리허설(scratchpad `em_rehearsal.sh`): R1 OPEN PR 재실행 — 게시 wip 1 은 published 로 남고 미게시 fixup·wip 은 합쳐져 재검사 0, plan 편집 보존, ff push / R2 게시된 단위에 대한 fixup! — `fixup_of` null → reword → 재검사 0 / R3 원격 브랜치 갈라짐 → 조상 아님으로 중단.
 - 2026-09-25: code-reviewer(+codex) REQUEST CHANGES — Major 3(서명 범위 rewritable↔apply 거부 · 충돌 fold 의 reword 폴백 부재 · fetch 가 추적 ref 를 안 갱신할 수 있음), Minor 5, Nit 7. fix loop 1: `_rewrite_blocker` 로 apply 와 거부 조건 공유(서명·git 버전·기본 브랜치 → blocked), range_error 면 held 대신 blocked, symref 제외, 제목 일괄 조회, CLI 가드 테스트 수정 · SKILL/§E/README 문구. 테스트 67 통과. 리허설 2(`em_rehearsal2.sh`): R4 fetch refspec 이 main 만일 때 명시 refspec 으로 추적 ref 갱신 → 갈라짐 중단 / R5 원격 삭제 뒤 옛 추적 ref 정리 → published→rewritable / R6 충돌 fold 거부 → reword 적용 → 재검사 0. R1~R3 재통과.
 - 2026-09-25: code-reviewer 재확인(수정분) APPROVE — 남은 Minor 3·Nit 4 → fix loop 2(README·docstring 과장, 충돌 reword 승인 범위, Decisions 동기화, 추적 ref 삭제 sha 보고, held 안내), `cat-file` N회는 Deferred.
+- 2026-09-25: 단위 1 fixup·단위 2 커밋 → commit-check 제안(fixup 을 단위 1 에 합치고 메시지의 blocked 사유 갱신) 사용자 승인·적용 — 최종 tree 동일, 새 `pending` 이 이 브랜치의 fixup 을 rewritable 로 잡았고 적용 뒤 0건. 사용자 선택 `/e merge`.
+- 2026-09-25: PR #174 (`/e merge`) — done.
 
 # Next
 
-commit-check(단위 1 fixup 합치기) 승인 → 종결 방식 확인(`/e merge` 권장 — medium, PR·CI).
+(없음 — PR #174 머지로 종료)
 
 # Decisions
 

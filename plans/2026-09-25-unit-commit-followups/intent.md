@@ -1,6 +1,6 @@
 ---
 title: unit-commit-followups — 단위 커밋·fixup 흐름에서 정리 안 된 커밋이 게시되지 않게
-status: open
+status: closed
 started: 2026-09-25
 updated: 2026-09-25
 ---
