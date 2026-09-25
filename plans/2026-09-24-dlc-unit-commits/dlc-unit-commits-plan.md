@@ -3,6 +3,7 @@ title: dlc-unit-commits — dlc 에 목적 단위 중간 커밋 + fixup + commit
 status: done
 started: 2026-09-24
 updated: 2026-09-24
+intent: plans/2026-09-25-unit-commit-followups/intent.md
 ---
 
 # Goal
