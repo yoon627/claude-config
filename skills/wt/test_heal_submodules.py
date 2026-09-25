@@ -59,6 +59,9 @@ class InitSubmodulesTest(unittest.TestCase):
             mock.patch.object(
                 bootstrap, "_submodule_entries", return_value=[("x", "sub")]
             ),
+            mock.patch.object(
+                bootstrap, "_module_dir", return_value=Path("modules/x")
+            ),
             mock.patch.object(bootstrap, "_reset_submodule") as reset,
         ):
             bootstrap.init_submodules(self.root)
@@ -75,6 +78,9 @@ class InitSubmodulesTest(unittest.TestCase):
             mock.patch.object(bootstrap, "run", run),
             mock.patch.object(
                 bootstrap, "_submodule_entries", return_value=[("x", "sub")]
+            ),
+            mock.patch.object(
+                bootstrap, "_module_dir", return_value=Path("modules/x")
             ),
             mock.patch.object(bootstrap, "_reset_submodule") as reset,
         ):
@@ -97,6 +103,9 @@ class InitSubmodulesTest(unittest.TestCase):
             mock.patch.object(
                 bootstrap, "_submodule_entries", return_value=[("x", "sub")]
             ),
+            mock.patch.object(
+                bootstrap, "_module_dir", return_value=Path("modules/x")
+            ),
             mock.patch.object(bootstrap, "_reset_submodule") as reset,
         ):
             bootstrap.init_submodules(self.root)
@@ -109,6 +118,9 @@ class InitSubmodulesTest(unittest.TestCase):
             mock.patch.object(bootstrap, "run", run),
             mock.patch.object(
                 bootstrap, "_submodule_entries", return_value=[("x", "sub")]
+            ),
+            mock.patch.object(
+                bootstrap, "_module_dir", return_value=Path("modules/x")
             ),
             mock.patch.object(bootstrap, "_reset_submodule"),
         ):
@@ -153,17 +165,32 @@ class ResetSubmoduleTest(unittest.TestCase):
     def test_deinit_failure_tolerated(self) -> None:
         """미초기화 등으로 deinit 이 실패해도 module dir 삭제로 진행한다(best-effort)."""
         with (
-            mock.patch.object(bootstrap, "try_capture", return_value="some/modules/x"),
+            mock.patch.object(
+                bootstrap, "_module_dir", return_value=Path("some/modules/x")
+            ),
             mock.patch.object(bootstrap, "run", side_effect=_err()),
             mock.patch.object(bootstrap, "_force_rmtree") as rmtree,
         ):
             bootstrap._reset_submodule("x", "sub")  # raise 없이 통과
         rmtree.assert_called_once()
 
+    def test_escaping_module_dir_stops_before_any_delete(self) -> None:
+        with (
+            mock.patch.object(bootstrap, "_module_dir", return_value=None),
+            mock.patch.object(bootstrap, "run") as run,
+            mock.patch.object(bootstrap, "_force_rmtree") as rmtree,
+        ):
+            with self.assertRaises(SystemExit):
+                bootstrap._reset_submodule("x", "sub")
+        run.assert_not_called()
+        rmtree.assert_not_called()
+
     def test_rmtree_failure_is_surfaced(self) -> None:
         """module dir 삭제가 파일 점유로 실패하면 bare traceback 대신 OSError 를 surface."""
         with (
-            mock.patch.object(bootstrap, "try_capture", return_value="some/modules/x"),
+            mock.patch.object(
+                bootstrap, "_module_dir", return_value=Path("some/modules/x")
+            ),
             mock.patch.object(bootstrap, "run"),
             mock.patch.object(
                 bootstrap, "_force_rmtree", side_effect=OSError("locked")
@@ -210,6 +237,158 @@ class SubmoduleEntriesTest(unittest.TestCase):
     def test_no_gitmodules(self) -> None:
         with TemporaryDirectory() as tmp:
             self.assertEqual(bootstrap._submodule_entries(Path(tmp)), [])
+
+    def test_name_and_path_with_spaces(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".gitmodules").write_text(
+                '[submodule "my sub"]\n\tpath = my sub dir\n'
+            )
+            self.assertEqual(
+                bootstrap._submodule_entries(root), [("my sub", "my sub dir")]
+            )
+
+    def test_carriage_return_in_name_is_kept(self) -> None:
+        """text 모드는 `\\r` 을 `\\n` 으로 바꿔 name `x\\r` 을 `x` 로 잘라 버린다."""
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".gitmodules").write_bytes(b'[submodule "x\r"]\n\tpath = sub\n')
+            self.assertEqual(bootstrap._submodule_entries(root), [("x\r", "sub")])
+
+
+_ISOLATED_GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+
+
+def _git(cwd: Path, *args: str) -> str:
+    env = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_WORK_TREE")}
+    env.update(_ISOLATED_GIT_ENV)
+    return subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+        cwd=cwd, env=env, check=True, capture_output=True, text=True,
+    ).stdout.strip()
+
+
+class UnsafeModuleNameTest(unittest.TestCase):
+    """악성 `.gitmodules` name 이 heal 의 module dir 삭제를 repo·.git 밖으로 돌리지 못해야 한다.
+    victim 은 TemporaryDirectory 안에만 두고, 실행 전에 삭제 대상 경로가 정말 victim 인지
+    단언한다 — 배치가 틀리면 테스트가 엉뚱한 곳을 지울 수 있다."""
+
+    def setUp(self) -> None:
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.base = Path(tmp.name).resolve()
+        cwd = os.getcwd()
+        self.addCleanup(os.chdir, cwd)
+        env = mock.patch.dict(os.environ, _ISOLATED_GIT_ENV)
+        env.start()
+        self.addCleanup(env.stop)
+        for var in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
+            os.environ.pop(var, None)
+
+    def _plant(self, target: Path) -> Path:
+        target.mkdir(parents=True)
+        keep = target / "keep.txt"
+        keep.write_text("must survive")
+        return keep
+
+    def _assert_heal_refuses(self, repo: Path, name: str, target: Path) -> None:
+        (repo / ".gitmodules").write_text(f'[submodule "{name}"]\n\tpath = sub\n')
+        git_path = _git(repo, "rev-parse", "--git-path", f"modules/{name}")
+        self.assertEqual((repo / git_path).resolve(), target.resolve())  # 배치 사전 단언
+        keep = self._plant(target)
+        os.chdir(repo)
+        with mock.patch.object(bootstrap, "run", side_effect=_err()):
+            with self.assertRaises(SystemExit):
+                bootstrap.init_submodules(repo)
+        self.assertEqual(keep.read_text(), "must survive")
+
+    def test_refuses_name_escaping_repo(self) -> None:
+        repo = self.base / "repo"
+        repo.mkdir()
+        _git(repo, "init", "-q")
+        self._assert_heal_refuses(repo, "../../../victim", self.base / "victim")
+
+    def test_refuses_name_escaping_into_main_git_dir_from_linked_worktree(self) -> None:
+        """/wt 실사용 배치: linked worktree 의 modules/<name> 은 <main>/.git/worktrees/<wt>/
+        modules 아래라, ../../../ 가 <main>/.git 안(objects 등)을 가리킨다."""
+        main = self.base / "main"
+        main.mkdir()
+        _git(main, "init", "-q")
+        _git(main, "commit", "-q", "--allow-empty", "-m", "init")
+        wt = self.base / "wt1"
+        _git(main, "worktree", "add", "-q", "-b", "wt1", str(wt))
+        self._assert_heal_refuses(wt, "../../../sentinel", main / ".git" / "sentinel")
+
+    def test_nested_name_is_allowed(self) -> None:
+        repo = self.base / "repo"
+        repo.mkdir()
+        _git(repo, "init", "-q")
+        target = bootstrap._module_dir("manager/app/resources/templates", repo)
+        self.assertIsNotNone(target)
+
+    def test_symlinked_module_dir_escaping_is_refused(self) -> None:
+        """name 에 `..` 가 없어도 modules 아래 symlink 가 밖을 가리키면 containment 로 거부."""
+        repo = self.base / "repo"
+        repo.mkdir()
+        _git(repo, "init", "-q")
+        outside = self.base / "outside"
+        outside.mkdir()
+        (repo / ".git" / "modules").mkdir()
+        (repo / ".git" / "modules" / "evil").symlink_to(outside)
+        self.assertIsNone(bootstrap._module_dir("evil", repo))
+
+    def test_trailing_space_name_is_not_trimmed_into_a_sibling(self) -> None:
+        repo = self.base / "repo"
+        repo.mkdir()
+        _git(repo, "init", "-q")
+        self.assertNotEqual(
+            bootstrap._module_dir("sub ", repo), bootstrap._module_dir("sub", repo)
+        )
+        self.assertNotEqual(
+            bootstrap._module_dir("sub\r", repo), bootstrap._module_dir("sub", repo)
+        )
+
+    def test_overlapping_module_dirs_are_refused(self) -> None:
+        """name `a/objects` 는 submodule a 의 object DB 를 가리킨다 — 형제 module dir 을 지울 수 있다."""
+        repo = self.base / "repo"
+        repo.mkdir()
+        _git(repo, "init", "-q")
+        (repo / ".gitmodules").write_text(
+            '[submodule "a"]\n\tpath = a\n[submodule "a/objects"]\n\tpath = b\n'
+        )
+        os.chdir(repo)
+        with (
+            mock.patch.object(bootstrap, "run", side_effect=_err()),
+            mock.patch.object(bootstrap, "_reset_submodule") as reset,
+        ):
+            with self.assertRaises(SystemExit):
+                bootstrap.init_submodules(repo)
+        reset.assert_not_called()
+
+
+class EntriesFailClosedTest(unittest.TestCase):
+    """update 실패 뒤 `.gitmodules` 를 믿을 수 없으면 아무것도 리셋하지 않고 멈춘다."""
+
+    def _assert_stops(self, gitmodules: str) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".gitmodules").write_text(gitmodules)
+            with (
+                mock.patch.object(bootstrap, "run", side_effect=_err()),
+                mock.patch.object(bootstrap, "_reset_submodule") as reset,
+            ):
+                with self.assertRaises(SystemExit):
+                    bootstrap.init_submodules(root)
+            reset.assert_not_called()
+
+    def test_no_path_entries(self) -> None:
+        self._assert_stops('[submodule "x"]\n\turl = ./nowhere\n')
+
+    def test_valueless_path(self) -> None:
+        self._assert_stops('[submodule "x"]\n\tpath\n')
+
+    def test_config_syntax_error(self) -> None:
+        self._assert_stops('[submodule "x"\n\tpath = sub\n')
 
 
 if __name__ == "__main__":

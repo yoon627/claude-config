@@ -32,7 +32,7 @@ git clone <this-repo-url> .claude
 # 2. (필요 시) PowerShell ExecutionPolicy
 Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
-# 3. Pre-commit / pre-push 가드 설치 (settings.json 의 secret leak 차단)
+# 3. Pre-commit / pre-push 가드 설치 (plans·settings.json 의 secret leak 차단)
 cd $env:USERPROFILE\.claude
 .\scripts\install-hooks.ps1
 
@@ -111,11 +111,11 @@ git checkout origin/main -b main
 
 ### D. Pre-commit / Pre-push 가드
 
-`scripts/pre-commit-check.ps1` 가 staged/HEAD `settings.json` + staged `plans/*.md`(tracked §10) 를 검사해서 다음을 차단:
+`scripts/pre-commit-check.ps1` 가 커밋할 때는 staged `settings.json`·`plans/*.md`(tracked §10) 를, push 할 때는 push 되는 커밋(아직 어떤 remote-tracking ref 에도 없는 것)이 `settings.json`·`plans/*.md` 에 **추가한 줄**을 검사해서 다음을 차단:
 - 금지 키(settings.json): `mcpServers`, `apiKeyHelper`, `awsCredentialExport`, `awsAuthRefresh`
 - 토큰/시크릿 패턴(settings.json·plans): Anthropic / OpenAI / GitHub / GitLab / AWS / GCP / Slack / JWT / PEM / DB URL creds / Bearer / 따옴표 시크릿 대입
 
-`settings.json` 이 untracked 가 된 뒤로 이 가드가 실제로 보는 것은 `plans/*.md` 뿐이다. settings.json 분기는 staged/tracked 목록에 그 파일이 있을 때만 도므로 지금은 조용히 건너뛴다 — 실수로 다시 추적되면 되살아나는 안전망으로 남겨 뒀다.
+`settings.json` 이 untracked 가 된 뒤로 이 가드가 실제로 보는 것은 `plans/*.md` 뿐이다. settings.json 검사는 staged 목록이나 push 범위에 그 파일 변경이 있을 때만 돌므로 지금은 조용히 건너뛴다 — 실수로 다시 추적되면 되살아나는 안전망으로 남겨 뒀다. push 검사는 `--no-verify`·commit-check(plumbing 이라 훅 없음)·다른 도구로 pre-commit 을 건너뛴 커밋까지 잡는다.
 
 설치 한 번:
 ```powershell
@@ -124,7 +124,7 @@ git checkout origin/main -b main
 
 `.git/hooks/` 는 머신별 → clone 후 매번 실행 필요.
 
-`--no-verify` 우회 가능 — 본인 규율 의존.
+`--no-verify` 우회 가능 — 본인 규율 의존. push 검사는 해석할 수 없는 입력·git 오류를 차단 쪽으로 처리한다(fail-closed). 그 때문에 모든 push 가 막히면 `git push --no-verify` 로 한 번 빠져나오거나 `.git/hooks/pre-push` 를 지우고, 원인을 고친 뒤 되돌린다(가드 수정을 revert 해도 그 revert 의 push 가 같은 가드를 탄다).
 
 ---
 
@@ -183,7 +183,7 @@ git checkout origin/main -b main
 
 ### D. Pre-commit / Pre-push 가드 (macOS)
 
-`scripts/pre-commit-check.sh` 가 Windows `.ps1` 버전과 동일한 규칙으로 staged/HEAD `settings.json` + staged `plans/*.md`(tracked §10) 를 검사. 동일하게 금지 키 + 토큰/시크릿 패턴 차단. settings.json 이 untracked 라 실효 대상이 `plans/*.md` 뿐인 것도 Windows 판과 같다.
+`scripts/pre-commit-check.sh` 가 Windows `.ps1` 버전과 동일한 규칙으로 커밋할 때는 staged `settings.json`·`plans/*.md`(tracked §10) 를, push 할 때는 push 되는 커밋(아직 어떤 remote-tracking ref 에도 없는 것)이 `settings.json`·`plans/*.md` 에 **추가한 줄**을 검사. 동일하게 금지 키 + 토큰/시크릿 패턴 차단. settings.json 이 untracked 라 실효 대상이 `plans/*.md` 뿐인 것도 Windows 판과 같다.
 
 설치:
 ```bash
@@ -429,17 +429,17 @@ syntax 검사와 단위테스트는 **`bash scripts/verify.sh`** 가 단일 소�
 > `plan-match.js` — branch→§10 plan 매칭 **순수 모듈**(`anchorMatches`·`activePlanPath`). `session-brief`(닫히지 않은 plan 신호)와 `dlc-early-stop`(plan drift 축)이 공유해 한쪽만 바뀌어 어긋나는 것을 막는다.
 
 #### `pre-commit-check.ps1`
-staged (`pre-commit` 모드) 또는 HEAD (`pre-push` 모드) 의 `settings.json` 을 검사. 금지 키 (`mcpServers`, `apiKeyHelper`, `awsCredentialExport`, `awsAuthRefresh`) 또는 토큰 패턴 (Anthropic/OpenAI/GitHub/GitLab/AWS/GCP/Slack/JWT/PEM) 검출 시 exit 1. staged `plans/*.md` 는 토큰 패턴만 검사.
+`pre-commit` 모드는 staged `settings.json`·`plans/*.md`, `pre-push` 모드는 stdin 의 ref 줄로 받은 push 커밋 중 remote-tracking ref 에 없는 것이 두 경로에 **추가한 줄**을 검사한다. settings.json 은 금지 키 (`mcpServers`, `apiKeyHelper`, `awsCredentialExport`, `awsAuthRefresh`) + 토큰 패턴 (Anthropic/OpenAI/GitHub/GitLab/AWS/GCP/Slack/JWT/PEM 등), plans 는 토큰 패턴만. 검출 시 exit 1. push 검사는 `git log -p` 가 추가 줄을 빠뜨리는 경로를 옵션으로 막는다. 넣었다 지운 사이드 브랜치는 `--full-history`, merge 해결에서만 들어온 줄은 `-m` + `log.diffMerges=separate`, root 커밋은 `log.showRoot=true`, rename 짝짓기는 `log.follow=false`, NUL 바이트·`-diff` attributes·`core.bigFileThreshold` 는 `--text`, `git replace` 는 `--no-replace-objects` 로 막는다. 색·prefix·textconv 설정은 명시 플래그로 덮고, pathspec 환경변수(`GIT_*_PATHSPECS`)는 지우고, 로케일은 `LC_ALL=C`(잘못된 UTF-8 바이트가 섞인 줄도 검사)로 둔다. 해석할 수 없는 ref 줄·커밋이 아닌 객체·git 오류는 차단한다(fail-closed). ps1 은 git 을 PATH 로 찾은 절대경로의 `System.Diagnostics.Process` 로 부른다 — PS5.1 의 native stderr 종료 오류·콘솔 코드페이지 디코딩을 피하고, bare `git` 이면 Windows 가 repo 루트의 `git.exe` 를 먼저 실행하는 것을 막는다. stdin 도 UTF-8 로 읽는다. 알려진 한계: 이미 어떤 원격이든 remote-tracking ref 에 있는 커밋은 다시 보지 않는다(private 원격에서 받은 커밋을 public 원격으로 push 하는 경우 포함).
 
-> `settings.json` 이 untracked 가 된 뒤로 settings 분기는 **실제로는 돌지 않는다** — staged/tracked 목록에 그 파일이 있을 때만 진입하므로 조용히 건너뛴다. 실수로 다시 추적되면 되살아나도록 코드는 남겨 뒀고, 지금 실효 대상은 `plans/*.md` 다.
+> `settings.json` 이 untracked 가 된 뒤로 settings 검사는 **실제로는 돌지 않는다** — staged 목록이나 push 범위에 그 파일 변경이 있을 때만 진입한다. 실수로 다시 추적되면 되살아나도록 코드는 남겨 뒀고, 지금 실효 대상은 `plans/*.md` 다.
 
-`pre-push` 모드는 추가로 **`main`/`master` 직접 푸시를 차단**한다(`.sh`·`.ps1` 동일). 단 **repo 루트가 `~/.claude` 면 면제** — 이 repo 는 main push 허용(2026-08-05 사용자 승인, CLAUDE.md §8)이지만 이 가드는 install-hooks 를 돌린 **모든 repo 가 공유**하므로 제거 대신 repo 루트로 범위를 좁혔다. `$HOME` 과 `--show-toplevel` 중 한쪽이 심볼릭 링크일 수 있어 양쪽을 실제 경로로 해석해 비교한다. 커버리지: `pre-commit-check.test.sh`(면제 2 + 차단 2 + 무관 브랜치 1).
+`pre-push` 모드는 추가로 **`main`/`master` 직접 푸시를 차단**한다(`.sh`·`.ps1` 동일). 단 **repo 루트가 `~/.claude` 면 면제** — 이 repo 는 main push 허용(2026-08-05 사용자 승인, CLAUDE.md §8)이지만 이 가드는 install-hooks 를 돌린 **모든 repo 가 공유**하므로 제거 대신 repo 루트로 범위를 좁혔다. `$HOME` 과 `--show-toplevel` 중 한쪽이 심볼릭 링크일 수 있어 양쪽을 실제 경로로 해석해 비교한다. 커버리지: `pre-commit-check.test.sh` — 실제 커밋 fixture 로 pre-commit 12, pre-push 스캔 28(선형·merge 토폴로지·사용자 log/diff 설정·attributes·pathspec 환경변수·`git replace`·NUL·잘못된 UTF-8·게시된 커밋·태그·손상 객체·입력 불량), main 차단 5(면제 2 + 차단 2 + 무관 브랜치 1). 차단은 `[BLOCKED]` 와 기대 사유가 출력에 있어야 통과로 센다. pwsh 가 있으면(`$PWSH` 또는 PATH) 같은 케이스를 ps1 로도 돌린다.
 
 `.git/hooks/` 에 직접 두지 않고 별도 파일 → repo 에 tracked. `install-hooks.ps1` 가 `.git/hooks/{pre-commit,pre-push}` sh wrapper 를 생성해서 이 스크립트로 위임.
 
 #### `install-hooks.ps1` / `install-hooks.sh`
 `.git/hooks/` 에 세 hook 의 sh wrapper 생성 (`.ps1`=Windows, `.sh`=Unix, 동일 로직):
-- `pre-commit`·`pre-push` — settings.json 가드(`pre-commit-check`)로 위임.
+- `pre-commit`·`pre-push` — 비밀·금지 키 가드(`pre-commit-check`)로 위임.
 - **`post-checkout`** (main-autopull) — main/master 로 **branch 체크아웃 시** `git pull --ff-only origin <branch>` 로 origin 최신화. `git checkout` 을 절대 막지 않음(항상 exit 0). ff 실패는 "main 에 로컬 커밋 있음" 신호라 자동 rebase 하지 않고 경고만. **skip/무해 조건**: dirty·origin 없음·rebase/merge/bisect 중·default 브랜치가 main/master 아님. **hang 방지**: `GIT_TERMINAL_PROMPT=0`(프롬프트)+SSH `ConnectTimeout=10`+HTTP low-speed+백그라운드 pull 을 ~20s 폴링 워치독으로 kill (macOS 는 `timeout(1)` 부재라 자체 워치독). **비활성**: `export CLAUDE_AUTOPULL_OFF=1`. **제거**(rollback): `rm .git/hooks/post-checkout`(hook 은 비추적·머신별이라 스크립트 revert 로 안 지워짐).
 
 UTF-8 (no BOM) + LF endings — Git Bash 가 인식. idempotent — 재실행 시 기존 pre-commit/pre-push 는 **바이트 동일 유지**하고 post-checkout 만 추가. 새 머신 setup 시(=clone 한 repo 마다) 1회 실행. SessionStart 훅(세션 **시작** 시점 pull)과 역할 분리 — post-checkout 은 **체크아웃** 시점을 커버. hang 방지 처방은 이제 양쪽에 다 있다(2026-09-04 SessionStart 쪽에도 이식). 다만 post-checkout 은 아직 `pull` 전체를 감싸고 상한도 iteration 카운트라 Windows 에서 명목 20s 가 실제 ~24s 다 — SessionStart 쪽에서 고친 두 결함이 여기엔 남아 있다(발화 빈도가 낮아 후순위).
@@ -663,7 +663,7 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   ├── session-start-pull.test.js  # 위 스크립트 + SessionStart command 회귀 테스트(fixture HOME, settings 없으면 CANONICAL)
 │   ├── usage-count.js              # improve.sh deep — transcript 사용량 카운트 (+ .test.js)
 │   ├── native-overlap-lint.js      # improve.sh ⑨ — 네이티브 중복 대장 신선도·delta 창 (+ .test.js)
-│   ├── pre-commit-check.sh / .ps1  # settings.json secret guard (pre-commit + pre-push)
+│   ├── pre-commit-check.sh / .ps1  # plans·settings.json secret guard (staged + pushed range)
 │   ├── install-hooks.sh / .ps1     # .git/hooks/{pre-commit,pre-push,post-checkout} wrapper 생성
 │   ├── prompt-gwl.py               # UserPromptSubmit 훅 (프로젝트별 사용)
 │   ├── gwl.ps1 / gwl.zsh           # `gwl` — worktree list + 현재 위치 → (Windows / macOS·zsh)

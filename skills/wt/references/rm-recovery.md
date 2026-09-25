@@ -14,6 +14,7 @@
 새 cwd 에서 순서대로. 무엇이 실패해도 worktree 는 유지하고 에러를 그대로 보고(사용자가 수동 재실행 결정).
 1. **submodule self-heal init**: `uv run --no-project python "${CLAUDE_SKILL_DIR}/heal_submodules.py"`. 중단됐던 submodule clone(objects 불완전 → "Unable to find current revision")을 자동 복구한 뒤 init. `.gitmodules` 없는 레포는 no-op(무해).
    - **bootstrap 보다 먼저 실행하는 이유**: bootstrap 의 submodule update 가 중단 corrupt 로 죽으면 이후 단계(uv sync 등)가 안 도는 것을 방지.
+   - **자동 복구를 거부하고 exit 1 로 멈추는 경우**(어떤 deinit·삭제보다 먼저 판정): `.gitmodules` 의 path 를 읽을 수 없을 때(문법 오류·값 없는 path·항목 없음), submodule name 의 module dir 이 이 worktree 의 `modules` 디렉토리 밖을 가리킬 때(`..` 구성요소·절대경로 — linked worktree 에선 `<main>/.git/objects` 까지 닿는다), work tree 에 보존할 파일이 남았을 때. clone 한 repo 가 정하는 `.gitmodules` 를 삭제 경로로 믿지 않기 위해서다. 멈춘 뒤에는 원인을 확인하고 수동으로 복구한다.
 2. `tools/bootstrap/bootstrap.py` 있으면 `uv run tools/bootstrap/bootstrap.py`(없으면 skip — 다른 프로젝트 무영향).
 
 ## C. rm 실패 stderr 분기 — 파일 점유 (§6)
