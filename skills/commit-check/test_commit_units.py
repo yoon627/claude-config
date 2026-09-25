@@ -123,6 +123,15 @@ class Base(unittest.TestCase):
         data = data or self.collect()
         return {"schema": cu.SCHEMA, "base": data["base"], "head": data["head"], "commits": entries}
 
+    def forge_signature(self) -> None:
+        """HEAD 커밋에 gpgsig 헤더를 붙여 브랜치를 옮긴다(서명 키 없이 "서명 커밋" 상태를 만든다)."""
+        raw = self.r.git("cat-file", "commit", "HEAD")
+        head_fields, _, msg = raw.partition("\n\n")
+        forged = head_fields + "\ngpgsig -----BEGIN PGP SIGNATURE-----\n \n -----END PGP SIGNATURE-----\n\n" + msg + "\n"
+        sha = subprocess.run(["git", "hash-object", "-t", "commit", "-w", "--stdin"], cwd=self.r.root, env=self.env,
+                             input=forged, capture_output=True, text=True, check=True).stdout.strip()
+        self.r.git("update-ref", f"refs/heads/{self.r.git('branch', '--show-current')}", sha)
+
     def feature_history(self) -> tuple[str, str, str]:
         a = self.r.commit(
             "feat: b and g\n\nCo-Authored-By: Bot <bot@example.com>\n",
@@ -214,12 +223,7 @@ class ApplyFailureKeepsStateTest(Base):
 
     def test_signed_commit_in_range_rejected(self) -> None:
         self.feature_history()
-        raw = self.r.git("cat-file", "commit", "HEAD")
-        head_fields, _, msg = raw.partition("\n\n")
-        forged = head_fields + "\ngpgsig -----BEGIN PGP SIGNATURE-----\n \n -----END PGP SIGNATURE-----\n\n" + msg + "\n"
-        sha = subprocess.run(["git", "hash-object", "-t", "commit", "-w", "--stdin"], cwd=self.r.root, env=self.env,
-                             input=forged, capture_output=True, text=True, check=True).stdout.strip()
-        self.r.git("update-ref", "refs/heads/feat", sha)
+        self.forge_signature()
         data = self.collect()
         self.assertTrue(data["signed"])
         self.assert_refused(self.plan([{"from": [c["sha"]]} for c in data["commits"]], data))
@@ -694,6 +698,77 @@ class CollectTest(Base):
         self.assertIn("[ABC-1] feat: 설명", self.collect()["convention_samples"])
 
 
+class PendingTest(Base):
+    def with_origin(self) -> None:
+        origin = self.r.root.parent / "origin.git"
+        subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(origin)], env=self.env, check=True)
+        self.r.git("remote", "add", "origin", str(origin))
+        self.r.git("push", "-q", "origin", "main")
+
+    def pending(self) -> dict:
+        return cu.pending(self.g(), "origin/main")
+
+    def test_classifies_by_what_holds_the_commit(self) -> None:
+        self.with_origin()
+        pushed = self.r.commit("wip: pushed", {"k": "1\n"})
+        self.r.git("push", "-q", "origin", "feat")
+        self.r.commit("feat: normal", {"n": "1\n"})
+        tagged = self.r.commit("WIP tagged", {"t": "1\n"})
+        self.r.git("tag", "archive/x", tagged)
+        in_main = self.r.commit("fixup! feat: normal", {"n": "2\n"})
+        self.r.git("checkout", "-q", "main")
+        self.r.git("merge", "-q", "--ff-only", "feat")
+        self.r.git("checkout", "-q", "feat")
+        self.r.commit("리뷰 반영", {"n": "3\n"})
+        self.r.commit("docs(plan): x", {"plans/x-plan.md": "x\n"})
+        local = self.r.commit("squash! feat: normal", {"n": "4\n"})
+        self.r.git("symbolic-ref", "refs/remotes/origin/alias", "refs/remotes/origin/feat")
+        before = self.r.state()
+        data = self.pending()
+        self.assertEqual(before, self.r.state())
+        self.assertIsNone(data["range_error"])
+        got = {u["sha"]: u for u in data["unfolded"]}
+        self.assertEqual([pushed, tagged, in_main, local], [u["sha"] for u in data["unfolded"]])
+        self.assertEqual("published", got[pushed]["status"])
+        self.assertEqual(["refs/remotes/origin/feat"], got[pushed]["refs"])
+        self.assertEqual("held", got[tagged]["status"])
+        self.assertIn("refs/tags/archive/x", got[tagged]["refs"])
+        self.assertEqual("held", got[in_main]["status"])
+        self.assertEqual(["refs/heads/main"], got[in_main]["refs"])
+        self.assertEqual("rewritable", got[local]["status"])
+        self.assertEqual(["fixup"], got[local]["flags"])
+        self.assertEqual(["wip"], got[tagged]["flags"])
+
+    def test_blocked_when_range_cannot_be_rewritten(self) -> None:
+        self.with_origin()
+        self.r.git("checkout", "-q", "-b", "side", "main")
+        side = self.r.commit("wip: side", {"s": "1\n"})
+        self.r.git("checkout", "-q", "feat")
+        wip = self.r.commit("wip: x", {"k": "1\n"})
+        self.r.git("merge", "-q", "--no-ff", "-m", "merge side", "side")
+        data = self.pending()
+        self.assertIn("merge", data["range_error"])
+        got = {u["sha"]: (u["status"], u["refs"]) for u in data["unfolded"]}
+        self.assertEqual({wip: ("blocked", []), side: ("blocked", ["refs/heads/side"])}, got)
+
+    def test_signed_range_is_blocked(self) -> None:
+        self.with_origin()
+        wip = self.r.commit("wip: x", {"k": "1\n"})
+        self.forge_signature()
+        data = self.pending()
+        self.assertIn("서명", data["range_error"])
+        self.assertEqual(["blocked"], [u["status"] for u in data["unfolded"]])
+        self.assertNotEqual(wip, data["head"])
+
+    def test_default_branch_is_never_rewritable(self) -> None:
+        self.with_origin()
+        self.r.git("checkout", "-q", "main")
+        wip = self.r.commit("wip: on main", {"k": "1\n"})
+        data = self.pending()
+        self.assertTrue(data["range_error"])
+        self.assertEqual([(wip, "blocked")], [(u["sha"], u["status"]) for u in data["unfolded"]])
+
+
 class CliTest(Base):
     def run_cli(self, *args: str, input: str | None = None) -> subprocess.CompletedProcess:
         return subprocess.run([sys.executable, str(SCRIPT), *args], cwd=self.r.root, env=self.env,
@@ -725,6 +800,15 @@ class CliTest(Base):
         res = self.run_cli("show", "--", f"--output={out}")
         self.assertNotEqual(0, res.returncode)
         self.assertFalse(out.exists())
+
+    def test_pending_via_cli(self) -> None:
+        self.r.commit("wip: x", {"k": "1\n"})
+        res = self.run_cli("pending", "main")
+        self.assertEqual(0, res.returncode, res.stderr)
+        self.assertEqual(["rewritable"], [u["status"] for u in json.loads(res.stdout)["unfolded"]])
+        bad = self.run_cli("pending", "--", "--output=x")
+        self.assertNotEqual(0, bad.returncode)
+        self.assertTrue(bad.stderr.strip())
 
     def test_show(self) -> None:
         a, b, c = self.feature_history()

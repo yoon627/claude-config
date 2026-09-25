@@ -1,6 +1,6 @@
 ---
 name: commit-check
-description: 현재 브랜치의 아직 게시(push)되지 않은 커밋들이 "리뷰 가능한 하나의 목적 단위"인지 점검하고, 합치기(fixup)·나누기(파일 단위)·순서·메시지 수정 제안 표를 만든 뒤 사용자가 승인하면 코드 내용은 그대로 둔 채 커밋 경계만 재구성한다. dlc 마무리(16단계 커밋 뒤)에서 호출하며, `/commit-check` 명시 호출이나 "커밋 정리해줘 / 커밋 나눠줘 / 이 커밋 합쳐줘"류 요청에도 쓴다. push 는 하지 않는다.
+description: 현재 브랜치의 아직 게시(push)되지 않은 커밋들이 "리뷰 가능한 하나의 목적 단위"인지 점검하고, 합치기(fixup)·나누기(파일 단위)·순서·메시지 수정 제안 표를 만든 뒤 사용자가 승인하면 코드 내용은 그대로 둔 채 커밋 경계만 재구성한다. dlc 마무리(16단계 커밋 뒤)와 `/e merge`(push 전, 정리 안 된 커밋이 있을 때)에서 호출하며, `/commit-check` 명시 호출이나 "커밋 정리해줘 / 커밋 나눠줘 / 이 커밋 합쳐줘"류 요청에도 쓴다. push 는 하지 않는다.
 ---
 
 # commit-check — 커밋 단위 점검·재구성
@@ -36,6 +36,14 @@ description: 현재 브랜치의 아직 게시(push)되지 않은 커밋들이 "
    ```
    성공하면 `new_head`·`commits`(커밋별 sha·제목·파일)·`backup_ref`·`rollback` 을 받는다. 실패하면 브랜치·index·작업트리는 호출 전 그대로다(repo 의 commit-msg hook 이 스스로 일으킨 부작용은 예외) — 오류 문구를 그대로 보고하고, 계획을 고쳐 다시 시도하거나 보류한다.
 7. **보고** — `commits` 의 커밋별 파일이 제안 표와 맞는지 확인한다(순서를 바꾸면 한 커밋의 변경이 뒤 커밋과 상쇄돼 파일이 빠질 수 있다 — 최종 tree 는 같아도 제안과 다르면 되돌리기를 안내한다). 새 커밋 sha 목록, 백업 ref, 되돌리기 명령(`rollback`)을 보고에 적는다. 호출한 쪽의 기록 파일(plan 등)에는 쓰지 않는다.
+
+## `/e merge` 에서 부를 때
+
+`/e merge` 는 push 전에 `commit_units.py pending origin/<default>` 로 PR 에 실릴 커밋 중 `wip`·`fixup`(`squash!`·`amend!` 포함) flag 커밋을 찾고, 각각을 `rewritable`(이 스킬 범위 안) / `published`(원격 추적 ref 가 도달) / `held`(원격엔 없고 다른 로컬 브랜치·태그가 붙잡음) / `blocked`(범위를 재구성할 수 없음 — `range_error`: merge 커밋·서명 커밋·기본 브랜치 등, apply 가 거부할 조건을 `pending` 이 미리 본다) 로 나눈다. `rewritable` 이 있을 때만 이 스킬을 **`wip`·`fixup` flag 커밋 정리로 범위를 좁혀** 부른다(`review-followup`·`plan-only` flag 는 대상 아님). 이때는:
+- `wip`·`fixup` flag 커밋마다 합치기(`fixup_of` 또는 목적이 같은 앞 커밋) 또는 정식 제목으로 reword(`{"from": [sha], "message": ...}`) 중 하나를 제안한다 — 대상이 범위 밖(`fixup_of` null — 이미 게시된 단위에 대한 `fixup!` 등)이면 reword 가 답이다. 범위 첫 커밋이 `wip` 라 합칠 앞 커밋이 없어도 reword.
+- 합치기를 제안하는 flag 커밋에는 제안 표에 "충돌 시 reword: `<제목>`" 을 함께 적어 한 번의 승인으로 둘 다 덮는다. apply 가 충돌(`merge-tree --write-tree 실패`)로 거부하면 보류하지 말고 그 커밋만 표에 적은 reword 로 바꿔 한 번 다시 적용한다 — 같은 파일을 여러 단위가 고친 뒤의 `fixup!` 이 이 경우라, 보류하면 `/e merge` 가 재실행해도 같은 자리에서 멈춘다. 표에 없던 계획으로 바꿔야 하면 다시 묻는다.
+- flag 와 무관한 split·순서·메시지 제안은 표에 참고로만 적고 계획에 넣지 않는다(보류하면 머지 전체가 멈춘다).
+- 보류·적용 실패의 후속 처리는 `/e` 가 한다(이 스킬은 결과만 돌려준다).
 
 ## 계획 JSON
 

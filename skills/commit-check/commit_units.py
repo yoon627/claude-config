@@ -5,6 +5,7 @@
                   JSON 으로 낸다. 커밋별 파일·플래그·overlap·관례 샘플 포함.
   show <sha>      판정용 커밋 패치(모델이 raw git 을 치지 않게).
   apply <plan>    모델이 만든 계획(JSON 파일, '-' 면 stdin)대로 커밋 경계를 재구성한다.
+  pending <upstream>  `<upstream>..HEAD` 의 `wip`·`fixup!` 류 커밋과 각각을 고칠 수 있는지(/e merge 가 push 전에 본다).
 
 재구성은 plumbing(`merge-tree --write-tree` + `commit-tree`)으로만 하고 사용자 index·작업트리는
 건드리지 않는다. 모든 검증(최종 tree 동일·커밋별 파일)을 통과한 뒤에만 백업 ref 생성·오래된 백업
@@ -266,6 +267,67 @@ def collect(git: Git, rng: dict | None = None) -> dict:
     }
 
 
+PENDING_FLAGS = ("wip", "fixup")
+
+
+def _holding_refs(git: Git, sha: str, *prefixes: str) -> list[str]:
+    """sha 를 품은 ref — symref(`origin/HEAD` 등)는 가리키는 ref 와 중복이라 뺀다."""
+    out = []
+    for line in _lines(git.run("for-each-ref", "--format=%(refname) %(symref)", "--contains", sha, *prefixes)):
+        name, _, target = line.partition(" ")
+        if not target:
+            out.append(name)
+    return out
+
+
+def _rewrite_blocker(git: Git, rng: dict) -> str | None:
+    """apply 가 범위 전체를 거부하는 사유 — pending 이 rewritable 이라 해 놓고 apply 에서 막히지 않게 둘이 공유한다."""
+    if rng["on_default"]:
+        return f"기본 브랜치({rng['branch']})는 재구성하지 않는다 — 작업 브랜치에서 실행"
+    if not _git_version_ok(git):
+        return f"git {MIN_GIT[0]}.{MIN_GIT[1]} 이상이 필요하다(merge-tree --merge-base)"
+    if any(_signed(git, sha) for sha in rng["commits"]):
+        return "범위에 서명된 커밋이 있다 — 재구성하면 서명을 잃으므로 지원하지 않는다"
+    return None
+
+
+def pending(git: Git, upstream: str) -> dict:
+    """`<upstream>..HEAD` 의 정리 안 된 커밋(`wip`·`fixup` flag)과 commit-check 로 고칠 수 있는지 — 읽기 전용.
+
+    status: rewritable(collect 범위 안이고 범위 전체 거부 조건이 없다 — 계획별 거부(충돌·hook)는 apply 가 본다)
+    · published(원격 추적 ref 가 도달 — force-push 없이는 못 고친다) · held(원격엔 없고 다른 로컬 브랜치·태그가
+    붙잡음 — 그 ref 를 치우면 범위에 들어오고, 범위 조건은 그때 다시 본다)
+    · blocked(`range_error` 로 범위를 재구성할 수 없다 — 붙잡은 로컬 ref 가 있어도 치우는 것만으로는 안 풀리므로 held 가 아니다).
+    """
+    if upstream.startswith("-"):
+        raise CommitCheckError("upstream 인자는 커밋이어야 한다")
+    base = _text(git.run("rev-parse", "--verify", "--end-of-options", f"{upstream}^{{commit}}")).strip()
+    branch = current_branch(git)
+    try:
+        rng = resolve_range(git)
+        range_error = _rewrite_blocker(git, rng)
+        rewritable = set() if range_error else set(rng["commits"])
+    except CommitCheckError as exc:
+        range_error, rewritable = str(exc), set()
+    unfolded = []
+    log = _lines(git.run("log", "--reverse", "--topo-order", "--format=%H%x00%s", f"{base}..HEAD"))
+    for sha, _, subject in (line.partition("\0") for line in log):
+        flags = [name for name, pat in _FLAG_PATTERNS if name in PENDING_FLAGS and pat.search(subject)]
+        if not flags:
+            continue
+        refs: list[str] = []
+        if sha in rewritable:
+            status = "rewritable"
+        elif refs := _holding_refs(git, sha, "refs/remotes/"):
+            status = "published"
+        else:
+            refs = [r for r in _holding_refs(git, sha, "refs/heads/", "refs/tags/") if r != f"refs/heads/{branch}"]
+            status = "held" if refs and not range_error else "blocked"
+        unfolded.append({"sha": sha, "subject": subject, "flags": flags, "status": status, "refs": refs})
+    return {"schema": SCHEMA, "branch": branch, "head": _text(git.run("rev-parse", "HEAD")).strip(),
+            "upstream": upstream, "range_error": range_error, "unfolded": unfolded}
+
+
 def _nested_conflict(cov: set[str], paths: set[str]) -> str | None:
     """파일↔디렉토리 전환(f 삭제 + f/z 추가)은 한 항목에 있어야 합성 tree 가 성립한다."""
     for q in paths:
@@ -494,17 +556,14 @@ def _stale_backups(git: Git, branch: str) -> list[tuple[str, str]]:
 
 
 def apply(git: Git, plan: dict) -> dict:
-    if not _git_version_ok(git):
-        raise CommitCheckError(f"git {MIN_GIT[0]}.{MIN_GIT[1]} 이상이 필요하다(merge-tree --merge-base)")
     busy = _in_progress(git)
     if busy:
         raise CommitCheckError(f"진행 중인 git 작업이 있다: {', '.join(busy)}")
     rng = resolve_range(git)
-    if rng["on_default"]:
-        raise CommitCheckError(f"기본 브랜치({rng['branch']})는 재구성하지 않는다 — 작업 브랜치에서 실행")
+    blocker = _rewrite_blocker(git, rng)
+    if blocker:
+        raise CommitCheckError(blocker)
     data = collect(git, rng)
-    if data["signed"]:
-        raise CommitCheckError("범위에 서명된 커밋이 있다 — 재구성하면 서명을 잃으므로 지원하지 않는다")
     entries = validate_plan(plan, data)
     head, branch = data["head"], data["branch"]
     if not data["commits"]:
@@ -538,11 +597,15 @@ def main(argv: list[str] | None = None) -> int:
     p_show.add_argument("sha")
     p_apply = sub.add_parser("apply")
     p_apply.add_argument("plan", help="계획 JSON 파일 경로, '-' 면 stdin")
+    p_pending = sub.add_parser("pending")
+    p_pending.add_argument("upstream", help="PR 이 머지될 ref(예: origin/main)")
     args = ap.parse_args(argv)
     git = Git(Path.cwd())
     try:
         if args.cmd == "collect":
             print(json.dumps(collect(git), ensure_ascii=False, indent=1))
+        elif args.cmd == "pending":
+            print(json.dumps(pending(git, args.upstream), ensure_ascii=False, indent=1))
         elif args.cmd == "show":
             sys.stdout.write(show(git, args.sha))
         else:
