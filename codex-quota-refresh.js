@@ -15,40 +15,58 @@ const CACHE_DIR = path.join(os.homedir(), ".claude", "cache");
 const CACHE_FILE = path.join(CACHE_DIR, "codex-quota.json");
 const LOCK_FILE = path.join(CACHE_DIR, "codex-quota.lock");
 const TIMEOUT_MS = 20000;
+// app-server 가 끝난 뒤 남은 응답을 읽을 여유. 손자 프로세스가 파이프를 쥐고 있으면 close 가 늦으므로 이만큼만 기다린다.
+const DRAIN_MS = 1000;
 
+// lock 은 캐시를 쓴 경우에만 지운다. 캐시를 못 쓰면 statusline 이 refresh 주기(2초)마다 다시 spawn 하므로,
+// lock 을 남겨 statusline 이 lock 을 쓴(=spawn 한) 시각부터 25초까지는 다시 띄우지 않게 한다.
+let cacheWritten = false;
 process.on("exit", () => {
-  try { fs.unlinkSync(LOCK_FILE); } catch (_) {}
+  if (cacheWritten) try { fs.unlinkSync(LOCK_FILE); } catch (_) {}
 });
 
-// Negative cache: write fetchedAt even on failure so statusline.js stops
-// re-spawning this script every 2s while codex is unreachable/unauth'd.
-function writeNegativeCache(reason) {
+function writeCache(data) {
+  fs.mkdirSync(CACHE_DIR, { recursive: true });
+  const tmp = CACHE_FILE + ".tmp." + process.pid;
   try {
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
-    const tmp = CACHE_FILE + ".tmp." + process.pid;
-    fs.writeFileSync(tmp, JSON.stringify({ fetchedAt: Date.now(), error: String(reason || "unknown") }));
+    fs.writeFileSync(tmp, JSON.stringify({ fetchedAt: Date.now(), ...data }));
     fs.renameSync(tmp, CACHE_FILE);
-  } catch (_) { /* swallow */ }
+  } catch (err) {
+    try { fs.unlinkSync(tmp); } catch (_) {}
+    throw err;
+  }
+  cacheWritten = true;
 }
 
-const proc = spawn("codex", ["app-server"], {
-  stdio: ["pipe", "pipe", "pipe"],
-  shell: true,
-  windowsHide: true,
-  cwd: os.homedir(),
-});
+let settled = false;
+let timer = null;
+// 모든 종료 경로가 여기로 온다. 실패도 fetchedAt 을 담은 negative cache 로 남겨, codex 가 없거나
+// 인증되지 않은 동안 statusline 이 매번 다시 spawn 하지 않게 한다.
+function finish(result, error) {
+  if (settled) return;
+  settled = true;
+  clearTimeout(timer);
+  let code = error ? 1 : 0;
+  try {
+    writeCache(error ? { error: String(error) } : result);
+  } catch (_) {
+    code = 1;
+  }
+  try { proc.kill(); } catch (_) {}
+  process.exit(code);
+}
+
+// POSIX 에선 셸 없이 띄운다 — `sh -c` 가 exec 하지 않는 셸(Ubuntu dash)이면 kill 이 셸에만 가서 app-server 가 남는다.
+// Windows 의 codex 는 .cmd shim 이라 셸이 필요하고, 인자를 따로 넘기면 DEP0190 경고가 나므로 한 문자열로 준다.
+const spawnOptions = { stdio: ["pipe", "pipe", "pipe"], windowsHide: true, cwd: os.homedir() };
+const proc = process.platform === "win32"
+  ? spawn("codex app-server", { ...spawnOptions, shell: true })
+  : spawn("codex", ["app-server"], spawnOptions);
 
 let buf = "";
 let nextId = 0;
-let settled = false;
 const pending = new Map();
-const timer = setTimeout(() => {
-  if (settled) return;
-  settled = true;
-  writeNegativeCache("timeout");
-  try { proc.kill(); } catch (_) {}
-  process.exit(1);
-}, TIMEOUT_MS);
+timer = setTimeout(() => finish(null, "timeout"), TIMEOUT_MS);
 
 proc.stdout.on("data", (chunk) => {
   buf += chunk.toString();
@@ -66,23 +84,13 @@ proc.stdout.on("data", (chunk) => {
 });
 
 proc.stderr.on("data", () => { /* drain to avoid backpressure */ });
+// app-server 가 stdin 을 먼저 닫으면 write 가 EPIPE 로 실패한다 — 종료 판정은 close·exit 가 한다.
+proc.stdin.on("error", () => {});
 
-proc.on("error", (err) => {
-  if (settled) return;
-  settled = true;
-  clearTimeout(timer);
-  writeNegativeCache("spawn-error: " + (err && err.message || err));
-  process.exit(1);
-});
-
-proc.on("exit", (code, signal) => {
-  if (settled) return;
-  if (code === 0) return;
-  settled = true;
-  clearTimeout(timer);
-  writeNegativeCache(`process-exit: code=${code} signal=${signal}`);
-  process.exit(1);
-});
+proc.on("error", (err) => finish(null, "spawn-error: " + (err && err.message || err)));
+const exited = (code, signal) => finish(null, `process-exit: code=${code} signal=${signal}`);
+proc.on("close", exited);
+proc.on("exit", (code, signal) => setTimeout(() => exited(code, signal), DRAIN_MS));
 
 function rpc(method, params = {}) {
   return new Promise((res, rej) => {
@@ -93,25 +101,13 @@ function rpc(method, params = {}) {
 }
 
 (async () => {
+  let rateLimits;
   try {
     await rpc("initialize", { clientInfo: { name: "codex-quota-refresh", version: "0.1" } });
     const r = await rpc("account/rateLimits/read");
-    if (settled) return;
-    settled = true;
-    clearTimeout(timer);
-    const q = (r && r.rateLimits) || r;
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
-    const tmp = CACHE_FILE + ".tmp." + process.pid;
-    fs.writeFileSync(tmp, JSON.stringify({ fetchedAt: Date.now(), ...q }));
-    fs.renameSync(tmp, CACHE_FILE);
-    try { proc.kill(); } catch (_) {}
-    process.exit(0);
+    rateLimits = (r && r.rateLimits) || r;
   } catch (err) {
-    if (settled) return;
-    settled = true;
-    clearTimeout(timer);
-    writeNegativeCache("rpc-error: " + (err && err.message || err));
-    try { proc.kill(); } catch (_) {}
-    process.exit(1);
+    return finish(null, "rpc-error: " + (err && err.message || err));
   }
+  finish(rateLimits);
 })();

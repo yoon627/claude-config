@@ -217,7 +217,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 표시 안 되면 → "codex quota 미표시".
 
 ### 4. Subagent statusline
-`Agent` 도구로 subagent 를 띄우면 프롬프트 아래 subagent 패널의 행이 `code-reviewer · Review change · running · 48.2k tok (24%) · 3m 12s` 형태로 나와야 함(기본 표시는 `name · description · tokens`).
+`Agent` 도구로 subagent 를 띄우면 프롬프트 아래 subagent 패널의 행이 `Review change · running · 48.2k tok (24%) · 3m 12s` 형태로 나와야 함(이름을 붙여 띄운 agent 는 앞에 `code-reviewer · ` 처럼 이름이 붙는다. 기본 표시는 `이름 또는 agent 종류 · description · tokens`).
 
 ### 5. Pre-commit guard
 `.\scripts\install-hooks.ps1` 실행 후 일반 `git commit` 은 무동작 (정상). 확인하려면 `plans/` 아래 임시 plan 파일에 토큰 형태 문자열(예: `sk-` 로 시작하는 더미)을 넣고 stage 후 commit 시도 → `[BLOCKED]` 출력 + exit 1 이어야 함. (settings.json 은 untracked 라 더 이상 이 경로로 검증되지 않는다.)
@@ -264,7 +264,7 @@ background task 표시(`✻ N bg`)는 2026-09-25 제거했다 — tasks 디렉�
 
 ### subagent-statusline.js — subagent statusline
 
-`subagentStatusLine` 으로 등록되어 subagent 패널의 행을 그린다. 입력은 `{columns, tasks[]}`(task 마다 `id`·`name`·`description`·`status`·`startTime`(epoch ms)·`tokenCount`·`contextWindowSize` 등), 출력은 행마다 `{"id","content"}` JSON 한 줄이다([문서](https://code.claude.com/docs/en/statusline#subagent-status-lines)). content 는 `name · description · status · <N>k tok (P%) · Xm Ys` — 없는 조각은 빼고, `columns` 를 넘으면 description 부터 줄인다(한글·CJK·이모지는 2칸으로 센다). 비율은 `tokenCount / contextWindowSize` 로, 출력 토큰이 겹쳐 세여 100% 에서 자르는 근사치다. 문자열 id 가 없는 task 는 기본 표시로 남긴다.
+`subagentStatusLine` 으로 등록되어 subagent 패널의 행을 그린다. 입력은 `{columns, tasks[]}`(task 마다 `id`·`name`·`description`·`status`·`startTime`(epoch ms)·`tokenCount`·`contextWindowSize` 등), 출력은 행마다 `{"id","content"}` JSON 한 줄이다([문서](https://code.claude.com/docs/en/statusline#subagent-status-lines)). content 는 `name · description · status · <N>k tok (P%) · Xm Ys` — 없는 조각은 빼고(`name` 은 이름을 등록한 agent 에만 오며, 기본 표시가 대신 쓰는 agent 종류는 입력에 없다), 경과는 `running`·`pending` 일 때만 붙인다(입력에 종료 시각이 없어 끝난 행의 경과가 계속 늘기 때문). `columns` 를 넘으면 description 부터 줄인다(글자 단위, 한글·CJK·이모지는 2칸). 비율은 `tokenCount / contextWindowSize` 로, 출력 토큰이 겹쳐 세여 100% 에서 자르는 근사치다. 문자열 id 가 없는 task 와 `columns` 가 0 일 때는 기본 표시로 남긴다.
 
 ### codex-quota-refresh.js — Codex quota fetcher
 
@@ -272,6 +272,9 @@ background task 표시(`✻ N bg`)는 2026-09-25 제거했다 — tasks 디렉�
 
 - TTL: 5분
 - Negative cache: 실패 시에도 `fetchedAt` 만 기록해서 매 2초마다 재spawn 방지
+- 모든 종료 경로(응답·RPC 오류·spawn 오류·20초 timeout·app-server 종료)가 한 곳에서 캐시를 쓰고 app-server 를 끝낸 뒤 종료한다. app-server 가 응답 없이 끝나면 20초를 기다리지 않고 곧(남은 출력을 1초까지 기다린 뒤) negative cache 를 쓴다
+- 캐시 파일을 못 쓰면(rename 실패 등) 임시 파일을 지우고 lock 을 남긴다 — statusline 은 lock 을 쓴(spawn 한) 시각부터 25초까지 다시 띄우지 않으므로 2초마다 재spawn 하지 않는다
+- POSIX 에선 셸 없이 `codex app-server` 를 띄워 kill 이 app-server 에 바로 간다(Ubuntu dash 처럼 `sh -c` 가 exec 하지 않는 셸이면 셸만 죽는다). Windows 는 `.cmd` shim 이라 셸로 띄운다(미검증)
 - Codex CLI 미설치 / 인증 안 된 머신: spawn 실패 시 negative cache, statusline 의 codex 부분만 빠짐
 - Codex CLI 버전 변경으로 `account/rateLimits/read` 메소드가 사라지면 마찬가지로 빠짐 (확인된 동작 버전: codex-cli 0.128.x 시점)
 
