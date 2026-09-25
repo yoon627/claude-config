@@ -1,6 +1,6 @@
 ---
 title: repo-audit-g8-g9-docs-ci — README 유출 대응 절, CLAUDE_REVIEW_CODEX_MODE 폐기, CI 비밀 스캔 백스톱
-status: in_progress
+status: done
 started: 2026-09-26
 updated: 2026-09-26
 intent: plans/2026-09-25-repo-audit-followups/intent.md
@@ -41,10 +41,12 @@ README 의 secret 유출 대응 절을 실제로 동작하는 절차(GitHub 공�
 - 2026-09-26: plan-reviewer(+codex) CONDITIONAL — 강 5(force push 뒤 없는 base → FAIL 로 main 빨개짐 · filter-repo 는 fresh clone 필요 · main 만 push 하면 다른 ref 에 비밀 · CI 로그에 토큰 앞 30자 · PR 은 merge 커밋을 스캔) 모두 반영. 실제 filter-repo(uvx)로 README 절차 실측, GitHub 공식 문서 확인. 테스트 8 통과.
 - 2026-09-26: 단위 커밋 3개 → code-reviewer(+codex high) REQUEST CHANGES — Major 2(`GitHub PAT (fine)` 값이 가려지지 않음 · README 가 CI 를 제거 검증처럼 서술하고 push 전 확인 누락), Minor 4, Nit 7. fix loop 1: 가림 정규식 `[^:]*`·제어문자 앞에서 멈춤·`--no-verify` 줄 제거, README push 전 확인·다른 머신 중지·정리, CI 서술을 CI 커밋으로, PR base `HEAD^1`, 스텝 순서, 테스트 9(가드 차단 확인·merge 대조).
 - 2026-09-26: 재확인 — 기존 13건 해소, 신규 Major 1(스캔 스텝이 테스트 실패 시 skip → main push 누출을 영구히 놓침)·Minor 1(가림이 탭에서 멈춤)·Nit 1(정리 단계가 Support 용 파일까지 지움) → fix loop 2: `if: ${{ !cancelled() }}`, 줄 끝까지 가리고 리셋 재부착 + 탭 fixture, 정리 순서. 테스트 9 통과.
+- 2026-09-26: commit-check 제안(fixup 4개를 두 단위에 합치고 메시지를 최종 동작으로) 사용자 승인·적용 — 최종 tree 동일. 사용자 선택 `/e merge`.
+- 2026-09-26: PR #177 (`/e merge`) — done. CI 로그의 스캔 범위 줄은 머지 보고에 기록.
 
 # Next
 
-verify → fixup 커밋 → commit-check → `/e merge`(PR CI 로그의 스캔 범위 줄 확인).
+(없음 — PR #177 머지로 종료)
 
 # Decisions
 
