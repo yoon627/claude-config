@@ -34,11 +34,9 @@ updated: 2026-09-25
 - repo-audit-g5-g7-install (미착수) — G5 install-hooks(Trim·`--git-path hooks`·`.bak`, 래퍼가 원격 이름을 넘기도록)·G6 gwl 이중 마커·G7 `.editorconfig` ps1 BOM
 - repo-audit-g8-g9-docs-ci (미착수) — G8 README 유출 대응 절·`CLAUDE_REVIEW_CODEX_MODE` 존폐, G9 CI 비밀 스캔 백스톱·statusline 스모크
 - codex-side-resync (미착수) — Codex 쪽 2026-08-01 import 스냅샷 재정렬(`~/.codex/AGENTS.md`·`~/.agents/skills`·`~/.codex/agents`·`.codex/config.toml` serena·Codex 훅 부재)
-- verify-tracked-only (미착수) — `scripts/verify.sh` `find_repo` 를 `git ls-files` 기반으로(main checkout 상시 FAILED 해소)
+- `plans/2026-09-25-repo-small-cleanups/repo-small-cleanups-plan.md` — `.gitignore` `/skills/synced/` · bootstrap README settings.json 서술 · verify.sh 를 git ls-files 기반으로(main checkout 상시 FAILED 해소)
 - improve-marker (미착수) — `/improve` 권장의 `last-improve` 마커를 쓰는 경로 또는 기간 창
-- gitignore-skills-synced (미착수) — `.gitignore` 에 `/skills/synced/`
 - claude-md-guard-wording (미착수) — CLAUDE.md §8 "pre-push 훅이 하드 차단" 서술·§3-1 `/e` 8단계 참조(운영 자산 — 사용자 지시 필요)
 - automode-env-scope (미착수) — user `autoMode.environment` 의 knowledge_base 전용 서술
 - main-branch-protection (미착수) — GitHub ruleset(required check)·SessionStart 자동 pull 의 무검증 ff
-- bootstrap-readme-settings (미착수) — `scripts/bootstrap/README.md:63` settings.json tracked 서술
 - audit-low-batch (미착수) — low 묶음(codex-review effort, README `--no-verify` 안내, RTK.md `@import`, wiki 모델 목록, memory 끊긴 링크, pyright-lsp, native-overlap 대장, dlc-early-stop Bash 오탐, 권한 규칙 잔여 한계, heal `_force_rmtree` symlink, ps1 CP949 디코딩)

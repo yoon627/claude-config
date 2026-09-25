@@ -60,7 +60,7 @@ rm "$HOME/.agents/skills/jira-worklog"
 | **rtk** | 이미 설치된 standalone `rtk`가 있을 때만 `rtk verify`/`rtk init -g --hook-only --no-patch` 실행. 없으면 건너뜀. **hook 파일 직접편집 금지**(sha256 무결성). |
 | Codex jira-worklog skill | `$HOME/.agents/skills/jira-worklog`를 `$HOME/.claude/skills/jira-worklog`에 연결 — Windows junction / macOS symlink |
 | 셸 env | marker 블록(mac `~/.zshrc`) / User 레지스트리(win): `ANTHROPIC_MODEL`, PATH. `CLAUDE_CODE_EFFORT_LEVEL`은 제거/해제해 `/effort`가 동작하게 함. |
-| settings.json | **재현 안 함** — repo 추적 파일이라 `git clone` 으로 따라옴. 부트스트랩은 rtk hook 등록만. |
+| settings.json | **재현 안 함** — untracked(2026-09-07~)라 `git clone` 으로 오지 않는다. 기존 머신에서 직접 복사한다(루트 README Install A 의 settings.json 배치 단계 — Windows 5번, macOS 2번). 부트스트랩은 rtk hook 등록만. |
 | memory | `--memory-from`/`-MemoryFrom` 으로 기존 머신 경로 줄 때만 복원(아래 한계). |
 
 ## idempotent 동작
