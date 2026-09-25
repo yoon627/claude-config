@@ -242,6 +242,16 @@ ok('ts == 마커 mtime → 제외(경계)', () => {
   fs.utimesSync(marker, mt, mt);
   assert.strictEqual(run({ CLAUDE_DLC_SIGNAL_DIR: d, ...MOFF }), ''); // t <= since → 제외
 });
+ok('dlc-signal mark 로 쓴 마커를 브리프가 읽는다 → mark 뒤 무음', () => {
+  const d = sigDir();
+  writeRows(d, Array.from({ length: 6 }, (_, i) =>
+    failRow('s' + i, 'plan-blocked', '2026-07-10T00:0' + i + ':00Z')));
+  assert.match(run({ CLAUDE_DLC_SIGNAL_DIR: d, ...MOFF }), /6세션/);
+  execFileSync('node', [path.join(__dirname, 'dlc-signal.js'), 'mark'], {
+    env: { ...process.env, CLAUDE_DLC_SIGNAL_DIR: d },
+  });
+  assert.strictEqual(run({ CLAUDE_DLC_SIGNAL_DIR: d, ...MOFF }), '');
+});
 ok('main/master 는 머지 대기에서 제외(K)', () => {
   const r = initRepo();
   commit(r, 'base');

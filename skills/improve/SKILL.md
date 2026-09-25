@@ -3,7 +3,7 @@ name: improve
 description: dlc 자기개선 loop 의 분석 축 — 운영 자산 정합성 기계 점검(구 /audit 승계)과 hook 이 자동 누적한 workflow 실패 신호(telemetry)·wiki workflow-failures·feedback memory 를 함께 읽어 개선 후보를 근거·빈도 기반으로 랭킹 제시하는 오케스트레이션. `deep` 에서는 Claude Code 네이티브가 흡수한 기능과 자작 하네스의 중복을 주기(45일) 재판정하는 축도 돈다. 발견은 보고·제안까지, 수정은 사용자 승인 후 wt→dlc(운영 자산 자가수정 금지 §1 — 자동 수정 안 함). `/improve` 명시 호출 시 사용. 단순 질문·코드 변경에는 쓰지 않는다.
 ---
 
-# improve — 자기개선 loop 의 분석 축 (읽기전용·랭킹·제안)
+# improve — 자기개선 loop 의 분석 축 (자산 읽기전용·랭킹·제안)
 
 `/improve` 로 ① 운영 자산 정합성(구 `/audit` 승계)과 ② hook 이 자동 누적한 신호(telemetry)를 함께 분석해 **개선 후보를 랭킹**으로 제시한다. loop 의 다른 축과의 관계: **수집**은 hook 이 자동(`scripts/dlc-signal.js` — early-stop·guard·doc-drift·router·plan 신호), **분석·제안**이 이 skill, **반영**은 사용자 승인 후 `wt→dlc` 별도 작업, **효과 확인**은 다음 `/improve` 의 신호 추이. c/e 처럼 메인이 직접 수행(subagent 위임 아님).
 
@@ -17,7 +17,7 @@ description: dlc 자기개선 loop 의 분석 축 — 운영 자산 정합성 �
 - **대장 갱신**(네이티브 중복 판정을 wiki 에 적립) → `/wiki ingest` 영역. improve 는 **판정 초안까지**, write 는 승인 후 ingest 가 한다(§6 경계).
 - improve 고유: 자산 간 크로스참조(settings↔scripts·MEMORY↔memory·문서↔agents·죽은 스크립트 후보) + **신호·실패 이력의 종합 분석과 개선 후보 랭킹** + **네이티브 흡수분과의 중복 재판정**(§6) — 다른 어떤 메커니즘도 안 하는 부분.
 
-## 동작 (기본 4단계 + `deep` 축 2종)
+## 동작 (기본 4단계 + `deep` 축 2종 + 마무리)
 
 ### 1. 기계 점검 + 신호 집계 — `improve.sh`
 repo root 에서 `bash skills/improve/improve.sh` 를 **1회** 실행(read-only). 출력:
@@ -68,8 +68,14 @@ deep 은 **광역 관측 보강일 뿐** — 판단·제안·처분 경로는 4�
 
 **한계**: 설치 버전이 최신 릴리스보다 뒤처져 있으면 delta 창이 최신 흡수분을 못 덮는다 — **"버전 변화 없음 ≠ 중복 없음"**. 자동 업데이트를 끈 설치에서 특히 그렇다.
 
+### 7. 마무리 — `last-improve` 마커 갱신 (기본·deep 공통)
+랭킹·처분 제안(또는 "개선 후보 없음")을 확정했으면 **최종 보고를 출력하기 직전에** `node ~/.claude/scripts/dlc-signal.js mark` 를 1회 실행하고 그 결과를 보고에 넣는다. SessionStart 의 "/improve 권장 — failure 신호 N세션 누적 (마커 이후)" 는 이 마커 시각 이후의 세션만 센다 — 갱신하지 않으면 한 번 넘은 임계가 영영 내려오지 않아 권장이 신호로서 의미를 잃는다.
+- 신호를 실제로 보지 못했으면 **실행하지 않는다** — `improve.sh` 가 비0 으로 끝났거나, 점검 7 이 `신호 집계 실행 실패` 를 출력했거나, 보고 전에 중단한 경우. 보지 않은 신호까지 카운트에서 빠진다. 점검이 `[error]` 를 **발견**한 것은 실행 실패가 아니다.
+- 경로를 `~/.claude/scripts/` 로 고정하는 이유: 이 SKILL 은 user-level(main checkout)에서 로드되는데, cwd 상대경로로 부르면 worktree 세션에서 이 기능이 없는 옛 스크립트가 돌 수 있다.
+- 출력에 `last-improve 마커 갱신:` 줄이 없거나 비0 으로 끝나면 실패다 — 보고에 한 줄 적는다(다음 세션도 권장이 계속 뜬다).
+
 ## 경계 (안 하는 것)
-- **수정 안 함** — 점검·집계·랭킹·제안까지. 운영 자산 자가수정 금지(§1). improve.sh 에 수정/파괴 명령 없음(read-only). **wiki 대장도 예외 아님** — §6 판정은 초안이고 write 는 승인 후 `/wiki ingest`.
+- **수정 안 함** — 점검·집계·랭킹·제안까지. 운영 자산 자가수정 금지(§1). improve.sh 에 수정/파괴 명령 없음(read-only). 유일한 write 는 7단계 마커(`<signalDir>/last-improve` — 기본 `~/.claude/telemetry`, `CLAUDE_DLC_SIGNAL_DIR` 로 override. gitignored 로컬 상태, 운영 자산 아님)다. **wiki 대장도 예외 아님** — §6 판정은 초안이고 write 는 승인 후 `/wiki ingest`.
 - **신호 재판정 안 함** — telemetry 는 hook 판정의 사후 집계. README drift·wiki 내부는 각각 hook·`/wiki lint` 영역.
 - **죽은 스크립트 단정·삭제 안 함** — info 후보로만, 실제 판단은 사람.
 - subagent 위임 아님 — 메인이 직접 실행·판단·보고.

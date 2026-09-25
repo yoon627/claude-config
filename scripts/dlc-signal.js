@@ -104,6 +104,11 @@ function signalPath(env) {
   return path.join(signalDir(env), 'dlc-signals.jsonl');
 }
 
+// 마지막 /improve 시각 — session-brief 가 mtime 이후 failure 세션만 센다. 쓰는 쪽은 CLI `mark`.
+function improveMarkerPath(env) {
+  return path.join(signalDir(env), 'last-improve');
+}
+
 // ctx 스키마는 여기서만 정규화한다(호출 hook 4곳이 제각각 필드를 넣지 않게).
 // session_id 부재는 'default' 로 뭉개지 않고 null — unique-session 집계 왜곡 방지.
 function emit(kind, ctx, env) {
@@ -167,7 +172,24 @@ function summarize(text) {
   return byKind;
 }
 
-module.exports = { KINDS, tildeify, detectPlanSignal, signalDir, signalPath, emit, summarize };
+module.exports = { KINDS, tildeify, detectPlanSignal, signalDir, signalPath, improveMarkerPath, emit, summarize };
+
+// CLI: `node scripts/dlc-signal.js mark` — /improve 가 최종 보고 직전에 호출. hook 이 아니라 호출자가
+// 종료코드를 보는 명령이라 emit 과 달리 fail-open 이 아니다: 실패·모르는 subcommand 는 비0 으로 드러낸다.
+if (require.main === module && process.argv[2] === 'mark') {
+  const marker = improveMarkerPath();
+  try {
+    fs.mkdirSync(path.dirname(marker), { recursive: true });
+    fs.writeFileSync(marker, new Date().toISOString() + '\n');
+    console.log(`last-improve 마커 갱신: ${tildeify(marker)}`);
+  } catch (e) {
+    console.error(`last-improve 마커 갱신 실패: ${tildeify(marker)} (${e.code || e.message})`);
+    process.exitCode = 1;
+  }
+} else if (require.main === module && process.argv[2] !== 'summary') {
+  console.error('usage: node scripts/dlc-signal.js summary|mark');
+  process.exitCode = 2;
+}
 
 // CLI: `node scripts/dlc-signal.js summary` — improve.sh 가 호출하는 사람용 집계 출력.
 // 회전분(.1)이 있으면 함께 읽어 관측 창을 넓힌다(.1 이 과거라 먼저).

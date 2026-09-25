@@ -121,7 +121,7 @@ function improveNudgeLine(env) {
   const dir = signal.signalDir(env);
   let since = 0;
   try {
-    since = fs.statSync(path.join(dir, 'last-improve')).mtimeMs;
+    since = fs.statSync(signal.improveMarkerPath(env)).mtimeMs;
   } catch {
     since = 0; // 마커 없음 → 전체 누적
   }

@@ -36,5 +36,5 @@ updated: 2026-09-25
 - `plans/2026-09-25-config-docs-sync/config-docs-sync-plan.md` — CLAUDE.md §8 pre-push·§3-1 문구, 저장소 밖 적용분(autoMode.environment repo 별 분리·GitHub ruleset `main-guard`·Codex 쪽 재정렬)의 README·wiki 문서화
 - autopull-verified-ff (미착수) — SessionStart 자동 pull(`scripts/session-start-pull.sh`)이 CI 결과 없이 origin/main 을 ff 해 훅 코드로 바로 실행한다. ruleset `main-guard` 는 관리자 bypass 라 소유자의 lint 미통과 push 는 막지 못한다 — ff 전에 대상 sha 의 check 상태를 보는 방안
 - `plans/2026-09-25-repo-small-cleanups/repo-small-cleanups-plan.md` — `.gitignore` `/skills/synced/` · bootstrap README settings.json 서술 · verify.sh 를 git ls-files 기반으로(main checkout 상시 FAILED 해소)
-- improve-marker (미착수) — `/improve` 권장의 `last-improve` 마커를 쓰는 경로 또는 기간 창
+- `plans/2026-09-25-improve-marker/improve-marker-plan.md` — `/improve` 완료 시 `last-improve` 마커 갱신(`dlc-signal.js mark`)
 - audit-low-batch (미착수) — low 묶음(codex-review effort, README `--no-verify` 안내, RTK.md `@import`, wiki 모델 목록, memory 끊긴 링크, pyright-lsp, native-overlap 대장, dlc-early-stop Bash 오탐, 권한 규칙 잔여 한계, heal `_force_rmtree` symlink, ps1 CP949 디코딩, `~/.codex/agents/*.toml` 08-01 스냅샷(재생성 시 codex 자기 호출 절 제외 필요), bootstrap `setup.sh` 가 jira-worklog 외 skill 심링크와 `~/.codex/AGENTS.md` 심링크를 안 만듦(`install-codex-skill.sh` 의 메시지도 jira-worklog 고정), Codex `hooks.json` 에 dlc 훅 없음)
