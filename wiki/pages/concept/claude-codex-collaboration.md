@@ -2,8 +2,9 @@
 title: claude-codex-collaboration
 category: concept
 created: 2026-06-19
-updated: 2026-09-25
+updated: 2026-09-26
 sources:
+  - plans/2026-09-26-repo-audit-g8-g9-docs-ci (CLAUDE_REVIEW_CODEX_MODE 폐기)
   - 커밋 a3d7bdc (Codex AGENTS.md 심링크 단일 소스 결정)
   - CLAUDE.md (§9 Claude ↔ Codex 협업)
   - docs/codex-review.md
@@ -16,7 +17,7 @@ sources:
 ## 리뷰 매트릭스
 - `plan-reviewer` / `code-reviewer` = **Claude subagent 필수 + Codex 가용 시 병행**. Codex 미가용이면 생략 사유를 Report/plan에 남긴다.
 - `researcher` / 보조 구현 = 가용성·비용 대비 이득 있을 때 선택. (simplify 체크는 2026-07-04 부로 메인 직접 — 매트릭스 대상 아님)
-- 한 phase에 reviewer가 여럿이면 codex owner 1개만 지정, 나머지는 `CLAUDE_REVIEW_CODEX_MODE=external`(중복 호출 방지).
+- 한 phase에 reviewer가 여럿이면 codex owner 1개만 지정, 나머지는 프롬프트에 "Codex review is already running externally. Do not invoke Codex." 를 넣는다(중복 호출 방지, `docs/codex-review.md` §7). 예전의 환경변수 `CLAUDE_REVIEW_CODEX_MODE=external` 은 Agent 도구가 subagent 에 넘길 수 없어 실제로 쓰인 적이 없고 2026-09-26 폐기했다.
 
 ## 왜 병행인가
 Claude(컨텍스트 축적·통합)와 Codex(독립 뷰)가 같은 변경을 보면 단일 리뷰가 놓친 보안·구조 결함을 잡을 확률이 오른다. 실제로 "skill 라우팅 실패"를 plan-reviewer+Codex가 독립 발견한 전례가 있고, git 훅의 동기-pull hang 사각지대(사용자 macOS+HTTPS 환경 직격)를 code-review 병행이 Major 로 파낸 예도 있다 — [[git-hook-network-safety]].

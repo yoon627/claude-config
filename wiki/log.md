@@ -273,3 +273,6 @@
 
 ## [2026-09-25] update | claude-code-agents-md-loading · claude-codex-collaboration
 - Codex 쪽 재정렬 결과 반영: `~/.codex/AGENTS.md` CLAUDE.md 심링크 복원(2026-06-10 결정), `~/.agents/skills` 심링크, repo `AGENTS.md` 미러 제거. [!open] 해소.
+
+## [2026-09-26] update | claude-codex-collaboration
+- codex owner 가 아닌 reviewer 를 끄는 방식을 프롬프트 문구 하나로 정리(`CLAUDE_REVIEW_CODEX_MODE` 폐기 — 전달 경로·읽는 코드 없음, 사용자 결정).

@@ -11,6 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # the secret scan below needs the base commit and everything after it
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -34,11 +37,24 @@ jobs:
       - name: Python tests
         run: bash scripts/verify.sh python
 
+      # 로컬 pre-push 훅의 서버측 백스톱(사후 탐지 — push 는 이미 공개됐다): 훅이 없거나
+      # --no-verify 로 건너뛴 PR·main push 도 같은 가드로 스캔한다. PR 은 checkout 된 merge 커밋이
+      # 아니라 PR head 를 그 merge 의 첫 부모(base tip) 기준으로 본다 — merge 를 보면 main 쪽
+      # 추가분까지 PR 탓이 되고, payload 의 base.sha 는 옛 값일 수 있다. push 는 push 전 tip
+      # 기준이고, 새 브랜치나 force push 로 사라진 base 는 전체 이력을 본다.
+      - name: Secret scan (pushed range, pre-push guard)
+        # also when a test step failed: a main push that skips this scan is never rescanned
+        if: ${{ !cancelled() }}
+        run: >-
+          bash scripts/ci-secret-scan.sh
+          "${{ github.event_name == 'pull_request' && 'HEAD^1' || github.event.before }}"
+          "${{ github.event.pull_request.head.sha || github.sha }}"
+
       - name: Plan integrity (changed plans, non-blocking)
         if: github.event_name == 'pull_request'
         continue-on-error: true
         run: |
-          git fetch --no-tags --depth=1 origin "+refs/heads/$GITHUB_BASE_REF:refs/remotes/origin/$GITHUB_BASE_REF" || true
+          git fetch --no-tags origin "+refs/heads/$GITHUB_BASE_REF:refs/remotes/origin/$GITHUB_BASE_REF" || true
           git diff --name-only "origin/$GITHUB_BASE_REF" HEAD -- 'plans/*/*-plan.md' \
             | xargs node scripts/plan-lint.js
 
