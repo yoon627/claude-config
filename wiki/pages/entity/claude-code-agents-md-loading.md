@@ -6,6 +6,7 @@ updated: 2026-09-25
 sources:
   - https://code.claude.com/docs/en/memory (AGENTS.md 절, 2026-09-25 조회)
   - headless 실측 2026-09-25 (Claude Code 2.1.282)
+  - 커밋 a3d7bdc (2026-06-10 사용자 결정 — ~/.codex/AGENTS.md 는 CLAUDE.md 심링크)
 ---
 
 # claude-code-agents-md-loading
@@ -23,13 +24,14 @@ sources:
 
 ## 이 repo 에 미친 영향 (✅ 실측)
 
-- `~/.claude/AGENTS.md` 는 gitignored 로컬 파일로, 2026-08-01 Codex 앱의 Claude 설정 import 가 만든 CLAUDE.md 단어 치환본(`Claude`→`Codex`)에 손 패치를 얹은 사본이다. main checkout 세션에 CLAUDE.md 와 함께 들어가 서로 다른 규칙(결론 블록 위치, 자동 커밋·intent 규칙 부재, "Codex ↔ Codex 협업" 등)이 동시에 주입됐다.
+- `~/.claude/AGENTS.md` 는 gitignored 로컬 파일이었고, 2026-08-01 Codex 앱의 Claude 설정 import 가 만든 CLAUDE.md 단어 치환본(`Claude`→`Codex`)에 손 패치를 얹은 사본이었다(2026-09-25 제거). main checkout 세션에 CLAUDE.md 와 함께 들어가 서로 다른 규칙(결론 블록 위치, 자동 커밋·intent 규칙 부재, "Codex ↔ Codex 협업" 등)이 동시에 주입됐다.
 - worktree 세션은 자기 cwd 에 `CLAUDE.md` 가 있어 영향이 없다(규칙상).
 - 대응(2026-09-25): user `settings.json` 에 `claudeMdExcludes: ["/Users/jongyoonlee/.claude/AGENTS.md"]`. headless 세션에 "AGENTS.md 에만 있는 제목이 컨텍스트에 있나"를 물어 적용 전 YES → 적용 후 NO, CLAUDE.md 에만 있는 제목은 전후 모두 YES 로 확인했다.
-- 기각: Project instructions = `claude-md` — 다른 repo 의 AGENTS.md 까지 끊는다. AGENTS.md 삭제 — Codex 가 이 repo 에서 쓰는 프로젝트 지침이라 Codex 쪽 정리(repo-audit-remaining Deferred)와 함께 판단한다.
+- 기각: Project instructions = `claude-md` — 다른 repo 의 AGENTS.md 까지 끊는다.
+- 후속(2026-09-25): Codex 쪽 정리에서 `~/.codex/AGENTS.md` 를 `~/.claude/CLAUDE.md` 심링크로 되돌리고(2026-06-10 단일 소스 결정) 이 repo 의 `AGENTS.md` 미러는 치웠다(백업 `backups/codex-resync-20260925/`). `claudeMdExcludes` 줄은 Codex 앱 import 가 미러를 다시 만들 때를 대비해 남겨 둔다.
 
 ## 연계
 
-Codex 와의 역할 분담은 [[claude-codex-collaboration]], 항상 주입되는 문서의 크기 관리는 [[ops-doc-slimming]]. 두 도구가 같은 규칙 파일을 나눠 쓰는 설계는 아직 정하지 않았다.
+Codex 와의 역할 분담은 [[claude-codex-collaboration]], 항상 주입되는 문서의 크기 관리는 [[ops-doc-slimming]].
 
-> [!open] Codex 용 AGENTS.md 를 CLAUDE.md 에서 생성할지(생성 스크립트 + drift 검사), 심링크로 둘지, 별도 유지할지 — Codex 쪽 정리 작업에서 결정.
+Codex 용 AGENTS.md 는 **심링크**로 결정됐다(2026-06-10 `a3d7bdc` 결정을 2026-09-25 복원). 생성 스크립트·별도 유지는 두 사본이 다시 갈라지므로 택하지 않았다.

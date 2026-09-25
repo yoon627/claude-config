@@ -17,7 +17,7 @@
 ## entity
 - [[anthropic-claude-models]] — Claude 5 세대 가격·Fable 주간 50% 캡·벤치 구도(닫힌 코딩 Opus5≥Fable)·effort 지원 (2026-08).
 - [[claude-code-hook-notification-turns]] — UserPromptSubmit 은 subagent 완료 `<task-notification>` 턴에도 발동(2.1.258 실측) — hook 의 prompt 를 사용자 발화로 가정하지 말 것; dlc-task-router 오발동·장부 리셋 원인(PR #149).
-- [[claude-code-agents-md-loading]] — v2.1.277+ 는 cwd·상위에 CLAUDE.md 가 없으면 AGENTS.md 를 읽고 `~/.claude/CLAUDE.md` 는 그 판정에서 세지 않는다 → `~/.claude` 세션에 Codex 미러 AGENTS.md 가 함께 주입됐다; `claudeMdExcludes` 로 그 경로만 제외(2026-09-25 실측).
+- [[claude-code-agents-md-loading]] — v2.1.277+ 는 cwd·상위에 CLAUDE.md 가 없으면 AGENTS.md 를 읽고 `~/.claude/CLAUDE.md` 는 그 판정에서 세지 않는다 → `~/.claude` 세션에 Codex 미러 AGENTS.md 가 함께 주입됐다; `claudeMdExcludes` 로 그 경로만 제외(2026-09-25 실측). Codex 쪽은 `~/.codex/AGENTS.md` → CLAUDE.md 심링크로 복원.
 - [[worktree-isolation-bash-guard]] — worktree 격리 세션의 네이티브 Bash 거부는 경로가 아니라 명령 텍스트의 git 언급이 트리거(플래그명·heredoc 본문 포함)·비결정적; 우회는 payload 파일 분리 + git 토큰 제거. "Agent hook condition was not met" 는 이 가드가 아니라 repo agent hook.
 - [[git-autosquash-target-selection]] — git 2.54 `rebase --autosquash` 대상 선택 실측: 첫 접두는 `fixup! ` 리터럴(탭이면 fixup 아님), 제목 정확 → 커밋 이름 → 제목 접두 순·각 단계 가장 앞 커밋, 제목이 sha 보다 우선, fixup 커밋도 후보 (2026-09-24).
 - [[git-log-added-lines-hardening]] — `git log -p` 로 추가 줄을 검사할 때 사용자 설정·환경·attributes 가 줄을 0건으로 만드는 경로 13가지(`log.diffMerges=off`·`showRoot`·`follow`·binary/`-diff`·replace·pathspec env·로케일 등)와 막는 옵션, Windows PS5.1 Process·env·코드페이지 함정 (2026-09-25 실측).

@@ -4,6 +4,7 @@ category: concept
 created: 2026-06-19
 updated: 2026-09-25
 sources:
+  - 커밋 a3d7bdc (Codex AGENTS.md 심링크 단일 소스 결정)
   - CLAUDE.md (§9 Claude ↔ Codex 협업)
   - docs/codex-review.md
 ---
@@ -24,4 +25,4 @@ Claude(컨텍스트 축적·통합)와 Codex(독립 뷰)가 같은 변경을 보
 Codex는 반드시 **Bash 도구**로 호출한다 — [[codex-bash-invocation]](PowerShell hang 회피). 무거운 작업 전 짧은 smoke test로 응답부터 확인.
 
 ## 연계
-격리 구조는 [[hub-and-spoke-isolation]], 공유 채널은 [[plan-handoff]], 리뷰 관점 분리는 [[dual-review-plan-and-code]]. Codex 용 `AGENTS.md` 미러가 Claude 세션에 섞여 들어가는 경로와 차단은 [[claude-code-agents-md-loading]].
+격리 구조는 [[hub-and-spoke-isolation]], 공유 채널은 [[plan-handoff]], 리뷰 관점 분리는 [[dual-review-plan-and-code]]. Codex 용 `AGENTS.md` 미러가 Claude 세션에 섞여 들어가는 경로와 차단은 [[claude-code-agents-md-loading]]. Codex 의 전역 지침 `~/.codex/AGENTS.md` 는 `CLAUDE.md` 심링크(단일 소스)이고 `~/.agents/skills/{c,dlc,e,improve,jira-worklog,wiki,wt}` 도 이 repo `skills/` 심링크다 — Codex 앱의 Claude import 가 사본으로 덮어쓰면 규칙이 갈라진다(2026-08-01 사례, 2026-09-25 복원).

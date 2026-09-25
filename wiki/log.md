@@ -270,3 +270,6 @@
 
 ## [2026-09-25] ingest | git-log-added-lines-hardening (신규)
 - pre-push 가드(repo-audit-remaining G2) 리뷰에서 실측한 `git log -p` 추가 줄 은닉 경로·대응 옵션·영향 없음 확인 목록, Windows PowerShell 함정을 entity 로 적립. git-hook-network-safety 에서 inbound 링크.
+
+## [2026-09-25] update | claude-code-agents-md-loading · claude-codex-collaboration
+- Codex 쪽 재정렬 결과 반영: `~/.codex/AGENTS.md` CLAUDE.md 심링크 복원(2026-06-10 결정), `~/.agents/skills` 심링크, repo `AGENTS.md` 미러 제거. [!open] 해소.
