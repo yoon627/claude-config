@@ -576,18 +576,26 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 **즉시 수행 (시간 순)**:
 1. **token 회수** — 노출된 키/토큰 즉시 revoke + rotate (Anthropic console, GitHub settings, AWS IAM 등). 이게 가장 시급.
 2. **GitHub secret scanning alert 확인** — repo Settings > Security > Secret scanning. 자동 detect 됐을 가능성.
-3. **history rewrite** — `git filter-repo` 로 secret 들어간 commit 제거 후 force push.
+3. **history rewrite** — GitHub 공식 절차([Removing sensitive data from a repository](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository)). filter-repo 는 **fresh clone 에서만** 돈다 — 작업 중인 checkout(worktree·reflog·설치된 훅이 있는 `~/.claude`)에서는 `Please operate on a fresh clone instead` 로 거부하고, `--force` 로 밀면 그 checkout 의 worktree·reflog 에 옛 이력이 남는다. **시작 전에 다른 머신·세션의 push 를 멈춘다**(`/e merge` 포함) — `--mirror` 는 원격을 이 clone 의 상태로 덮어, 그 사이 push 된 브랜치·커밋을 지운다.
    ```bash
-   pip install git-filter-repo
-   # replace.txt 형식: <literal>==><replacement>   (==> 없으면 git-filter-repo 거부)
-   echo "leaked-secret-string==>***REMOVED***" > replace.txt
-   git filter-repo --replace-text replace.txt
-   git push --force-with-lease origin main
+   git clone https://github.com/<owner>/<repo>.git /tmp/scrub && cd /tmp/scrub   # fresh clone
+   # replace.txt: 한 줄에 하나 `<literal>==><replacement>` (==> 를 빼면 ***REMOVED*** 로 바뀐다)
+   printf '%s\n' 'leaked-secret-string==>***REMOVED***' > ../replace.txt
+   uvx --from git-filter-repo git-filter-repo --sensitive-data-removal --replace-text ../replace.txt   # 또는 brew install git-filter-repo
+   git log -p --all -S'leaked-secret-string' | head   # 비어 있어야 한다 — 다음 push 부터는 되돌릴 수 없다
+   grep -c '^refs/pull/.*/head$' .git/filter-repo/changed-refs   # 영향받은 PR 수(filter-repo 출력의 First Changed Commit(s) 와 함께 Support 요청에 쓴다)
+   git push --force --mirror origin   # 모든 브랜치·태그를 재작성본으로. refs/pull/* 는 GitHub 가 읽기 전용이라 실패한다(정상)
+   # Support 요청을 보낸 뒤(.git/filter-repo/first-changed-commits·changed-refs 가 필요하다) 정리한다
+   cd / && rm -rf /tmp/scrub /tmp/replace.txt   # 유출 문자열이 든 파일(셸 history 에도 남는다)
    ```
-4. **다른 머신 pull 상태 정리** — 이미 pull 한 머신은 `git fetch && git reset --hard origin/main`. 노출된 secret 이 다른 머신 local 에도 있을 수 있음 — `git log` / `git stash list` / `git reflog` 도 점검.
-5. **remote cache 점검** — PR diff, GitHub Actions log, CI artifact, 검색엔진 cache 도 표면. 가능하면 PR delete + admin contact.
+   - `--sensitive-data-removal` 은 `origin` 을 남기고(일반 모드는 지운다) 모든 브랜치·태그를 재작성한다 — `main` 만 push 하면 다른 브랜치·태그에 비밀이 남는다. 2026-09-26 bare remote 로 실측(브랜치 2·태그 1, push 뒤 모든 ref 에서 0건).
+   - GitHub ruleset `main-guard` 가 main force push 를 막는다 — 저장소 관리자(bypass `always`)로 push 해야 통과한다.
+   - fresh clone 에는 로컬 훅이 없어 push 전 가드 스캔이 없다 — 위의 `git log -S` 가 제거를 확인하는 유일한 단계다.
+   - PR ref(`refs/pull/*`)와 GitHub 의 캐시된 화면은 사용자가 지울 수 없다 — GitHub Support 포털로 요청한다(공식 절차의 다음 단계).
+4. **다른 머신·브랜치 정리** — 옛 이력에서 딴 브랜치는 **merge 하지 말고 rebase** 한다(GitHub 공식 권고 — merge 커밋 하나가 옛 이력을 통째로 되살린다). 로컬 작업이 없는 머신은 `git fetch && git reset --hard origin/main`. SessionStart 자동 pull 은 갈라진 main 을 ff 하지 못하고 세션 브리프가 "갈라져 ff 불가(rebase 나 push 필요)" 로 알린다 — 여기서 옛 main 을 push 하면 비밀이 되돌아간다. 재작성 전에 열려 있던 PR 은 새 main 위에서 다시 만든다. 노출된 secret 이 다른 머신 local 에도 있을 수 있음 — `git log` / `git stash list` / `git reflog` 도 점검.
+5. **remote cache 점검** — PR diff, GitHub Actions log, CI artifact, 검색엔진 cache 도 표면. PR 은 사용자가 지울 수 없다 — 3단계의 GitHub Support 요청에 함께 적는다.
 
-참고: `permissions.deny` 는 Claude Code (assistant) 가 명령 실행할 때만 차단. 사용자가 직접 터미널에서 `git push --force-with-lease` 실행하는 것은 영향 없음 — incident response 는 본인이 직접 터미널에서 진행.
+참고: Claude Code 의 `permissions.ask` 는 assistant 가 force push 를 실행할 때 확인을 띄울 뿐, 사용자가 터미널에서 직접 실행하는 명령에는 영향이 없다 — incident response 는 본인이 직접 터미널에서 진행.
 
 ---
 
