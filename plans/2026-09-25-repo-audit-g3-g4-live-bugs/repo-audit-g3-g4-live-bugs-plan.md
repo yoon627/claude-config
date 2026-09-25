@@ -1,6 +1,6 @@
 ---
 title: repo-audit-g3-g4-live-bugs — statusline null 입력·bg 표시 제거·subagent 행 재작성, codex quota refresh 종료 처리
-status: in_progress
+status: done
 started: 2026-09-25
 updated: 2026-09-25
 intent: plans/2026-09-25-repo-audit-followups/intent.md
@@ -42,10 +42,12 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 - 2026-09-25: bg 경로를 고쳐 이 세션 tasks 로 돌리자 foreground Bash 출력까지 세는 것이 드러남 → 사용자 결정으로 bg 표시 제거. plan-reviewer(+codex) CONDITIONAL — 강한 우려 4(worktree 뒤 slug 불일치[bg 제거로 해소]·캐시 쓰기 실패 시 helper 잔류·close 지연·한글 폭) 반영. TDD: 새 refresh 케이스는 옛 코드에서 20초/30초+ 로 실패, 구현 뒤 refresh 5·statusline 3 통과. 이 머신에 남은 refresh·app-server 프로세스 없음(`pgrep`).
 - 2026-09-25: 단위 커밋 2개 → code-reviewer(+codex high): Critical/Major 없음, 분쟁 2(kill 이 셸에만·폭 표 불완전)·논의 1(이름 없는 agent 행) → fix loop 1. POSIX 셸 없이 spawn, grapheme 폭, 끝난 task 경과 생략, `columns:0`, 빈 조각, 테스트 flaky·임시 디렉토리 정리, `missing` 테스트 추가. 테스트 statusline 3·refresh 6 통과, 라이브 refresh 확인.
 - 2026-09-25: 재확인 APPROVE(원 finding 10 해소·1 문서화). 새 Minor(`missing` 테스트 PATH 에 node 디렉토리 — npm 전역 codex 머신에서 진짜 codex 를 찾음)·Nit(stubPid null 허용) → fix loop 2. refresh 6 통과.
+- 2026-09-25: commit-check 제안(fixup 3개를 두 단위에 합치고 메시지를 현재 동작으로) 사용자 승인·적용 — 최종 tree 동일. 사용자 선택 `/e merge`.
+- 2026-09-25: PR #175 (`/e merge`) — done. post-merge 라이브 확인은 `# Acceptance` 마지막 항목.
 
 # Next
 
-commit-check(fixup 합치기, 승인) → `/e merge` → post-merge 라이브 확인.
+(없음 — PR #175 머지로 종료. post-merge 라이브 확인만 남음)
 
 # Decisions
 
