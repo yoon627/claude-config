@@ -1,6 +1,6 @@
 ---
 title: repo-audit-remaining — G1 heal 경로 탈출 차단·G2 pre-push 가 push 범위의 추가 줄을 스캔 (보안)
-status: in_progress
+status: done
 started: 2026-09-25
 updated: 2026-09-25
 intent: plans/2026-09-25-repo-audit-followups/intent.md
@@ -85,6 +85,7 @@ G2 — `bash scripts/pre-commit-check.test.sh`. 모두 실제 커밋 fixture 다
 
 # Progress
 
+- 2026-09-25: `/e merge` → PR #173(커밋 `f5b95a9` G1 · `4f44adb` G2+plan · `8d71872` wiki). intent `repo-audit-followups` 는 `(미착수)` 13 단위가 남아 open 유지.
 - 2026-09-25: commit-check 합치기 적용(승인) → `f5b95a9`(G1)·`4f44adb`(G2+plan), tree 동일. 사용자 선택 "wiki ingest 후 /e merge" → wiki `git-log-added-lines-hardening` 을 세 번째 단위로 추가.
 - 2026-09-25: evidence gate — Acceptance 1~16 충족, 판정 DONE. 격리 runner(`final_verify.sh`) 대조 일치: verify.sh `ALL PASS`(skip 없음), 하네스 sh 45/45·sh+ps1 90/90(`ps1: ran 45`), heal 29 OK, plan-lint ok, README 옛 서술 0건, rm-recovery §B 반영. Acceptance 15 dogfood 는 위 줄. PS5.1 은 미검증(Open question).
 - 2026-09-25: 표적 재리뷰 APPROVE(Major 2 해소, 추가 벡터 — `GIT_CONFIG_*` 주입·`diff.relative`·`GIT_DIFF_OPTS`·`core.attributesFile`·textconv attribute 등 — 전부 차단 실측) + Minor 2·Nit 3 → fix loop 2: fixup `820cd69`(G1 `\r` 보존)·`d229bbe`(ps1 env 정리를 `Remove-Item Env:` 로, `.exe` 우선, README 커버리지 수, sh pre-push 분기 병합). heal 29 OK, 하네스 90/90.
@@ -98,7 +99,7 @@ G2 — `bash scripts/pre-commit-check.test.sh`. 모두 실제 커밋 fixture 다
 
 # Next
 
-commit-check 로 fixup 4개 + plan fixup 을 두 단위에 합치기(승인) → `/e merge`(push·PR·CI·머지, 요청 시) → fix loop → simplify → verify → dogfood(15) → 문서(16) → Report. 머지 후: Windows 머신에서 첫 push 로 PS5.1 동작 확인(Open question).
+(없음 — PR #173 머지로 종료. 머지 후 할 일: Windows 머신에서 첫 push 로 PS5.1 동작 확인(Open question). 남은 감사 항목은 intent `repo-audit-followups` 의 `(미착수)` 단위.)
 
 # Decisions
 
