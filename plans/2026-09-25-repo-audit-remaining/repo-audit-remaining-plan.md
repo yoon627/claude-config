@@ -85,6 +85,7 @@ G2 — `bash scripts/pre-commit-check.test.sh`. 모두 실제 커밋 fixture 다
 
 # Progress
 
+- 2026-09-25: commit-check 합치기 적용(승인) → `f5b95a9`(G1)·`4f44adb`(G2+plan), tree 동일. 사용자 선택 "wiki ingest 후 /e merge" → wiki `git-log-added-lines-hardening` 을 세 번째 단위로 추가.
 - 2026-09-25: evidence gate — Acceptance 1~16 충족, 판정 DONE. 격리 runner(`final_verify.sh`) 대조 일치: verify.sh `ALL PASS`(skip 없음), 하네스 sh 45/45·sh+ps1 90/90(`ps1: ran 45`), heal 29 OK, plan-lint ok, README 옛 서술 0건, rm-recovery §B 반영. Acceptance 15 dogfood 는 위 줄. PS5.1 은 미검증(Open question).
 - 2026-09-25: 표적 재리뷰 APPROVE(Major 2 해소, 추가 벡터 — `GIT_CONFIG_*` 주입·`diff.relative`·`GIT_DIFF_OPTS`·`core.attributesFile`·textconv attribute 등 — 전부 차단 실측) + Minor 2·Nit 3 → fix loop 2: fixup `820cd69`(G1 `\r` 보존)·`d229bbe`(ps1 env 정리를 `Remove-Item Env:` 로, `.exe` 우선, README 커버리지 수, sh pre-push 분기 병합). heal 29 OK, 하네스 90/90.
 - 2026-09-25: code-reviewer(+codex) REQUEST CHANGES(Major 2·Minor 7·Nit 4) → fix loop 1: fixup `c313142`(G1)·`16e7964`(G2). 하네스 sh 45 + ps1 45 = 90/90, 옛 sh 는 새 케이스 11 실패·옛 ps1 은 9 실패(Red 증거), heal 28 OK. dogfood(15): 실제 repo 3곳 sh·ps1 모두 허용(sh 0.06s·ps1 0.35s), 원격 없는 첫 push(~/.claude 전체 이력) sh 1.21s·ps1 0.46s 허용. 표적 재리뷰 요청.

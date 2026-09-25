@@ -267,3 +267,6 @@
 
 ## [2026-09-25] update | lesson-parallel-duplicate-implementation
 - 두 번째 사례(origin/commit-split vs #171·#172) 추가, 3회째면 착수 시점 기계적 점검으로 승격 조건 명시.
+
+## [2026-09-25] ingest | git-log-added-lines-hardening (신규)
+- pre-push 가드(repo-audit-remaining G2) 리뷰에서 실측한 `git log -p` 추가 줄 은닉 경로·대응 옵션·영향 없음 확인 목록, Windows PowerShell 함정을 entity 로 적립. git-hook-network-safety 에서 inbound 링크.
