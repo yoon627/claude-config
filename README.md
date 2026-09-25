@@ -217,7 +217,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 표시 안 되면 → "codex quota 미표시".
 
 ### 4. Subagent statusline
-`Agent` 도구로 subagent 호출 시 subagent 의 statusline 에 `running | 1.2k tok | 0m 5s` 같은 한 줄이 나와야 함.
+`Agent` 도구로 subagent 를 띄우면 프롬프트 아래 subagent 패널의 행이 `code-reviewer · Review change · running · 48.2k tok (24%) · 3m 12s` 형태로 나와야 함(기본 표시는 `name · description · tokens`).
 
 ### 5. Pre-commit guard
 `.\scripts\install-hooks.ps1` 실행 후 일반 `git commit` 은 무동작 (정상). 확인하려면 `plans/` 아래 임시 plan 파일에 토큰 형태 문자열(예: `sk-` 로 시작하는 더미)을 넣고 stage 후 commit 시도 → `[BLOCKED]` 출력 + exit 1 이어야 함. (settings.json 은 untracked 라 더 이상 이 경로로 검증되지 않는다.)
@@ -257,13 +257,14 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - **Codex 5-hour rate limit**: `codex NN%(HH:MM)` — `cache/codex-quota.json` 에서 읽음, 5분 TTL, stale 시 `codex-quota-refresh.js` 백그라운드 spawn
 - **Context window**: `ctx NN%` — 현재 세션의 컨텍스트 사용률
 - **Git branch + worktree**: `main` 또는 `feature-x @wt:gallant-hodgkin` — 현재 cwd 기준
-- **Background tasks**: `✻ 2 bg 1m30s` — Claude Code 의 background task 디렉토리 (`%TEMP%\claude\<slug>\<session>\tasks\`) 의 `.output` 파일 중 mtime 이 30초 이내인 항목 카운트
 
-모든 부분이 try/catch 로 감싸져 있어 외부 의존(Codex CLI, git, fs) 실패 시 해당 부분만 빠지고 나머지는 정상 동작.
+모든 부분이 try/catch 로 감싸져 있어 외부 의존(Codex CLI, git, fs) 실패 시 해당 부분만 빠지고 나머지는 정상 동작. stdin 이 `null`·빈 값·깨진 JSON 이어도 exit 0.
+
+background task 표시(`✻ N bg`)는 2026-09-25 제거했다 — tasks 디렉토리에는 foreground Bash 출력도 쌓여 background 와 구분할 수 없고(`refreshInterval: 2` 라 Bash 를 돌릴 때마다 뜬다), macOS 에서는 경로도 틀려 한 번도 뜬 적이 없었다. background subagent 는 프롬프트 아래 subagent 패널과 `/tasks` 가 보여 준다.
 
 ### subagent-statusline.js — subagent statusline
 
-`Agent` 도구가 subagent 를 실행할 때 표시되는 한 줄. 현재 status, 누적 토큰 수, 경과 시간.
+`subagentStatusLine` 으로 등록되어 subagent 패널의 행을 그린다. 입력은 `{columns, tasks[]}`(task 마다 `id`·`name`·`description`·`status`·`startTime`(epoch ms)·`tokenCount`·`contextWindowSize` 등), 출력은 행마다 `{"id","content"}` JSON 한 줄이다([문서](https://code.claude.com/docs/en/statusline#subagent-status-lines)). content 는 `name · description · status · <N>k tok (P%) · Xm Ys` — 없는 조각은 빼고, `columns` 를 넘으면 description 부터 줄인다(한글·CJK·이모지는 2칸으로 센다). 비율은 `tokenCount / contextWindowSize` 로, 출력 토큰이 겹쳐 세여 100% 에서 자르는 근사치다. 문자열 id 가 없는 task 는 기본 표시로 남긴다.
 
 ### codex-quota-refresh.js — Codex quota fetcher
 
