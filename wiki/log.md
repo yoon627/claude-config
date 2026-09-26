@@ -288,3 +288,6 @@
 
 ## [2026-09-26] ingest | wiki-shared-layer (신규)
 - 여러 repo wiki 를 단일 repo + submodule 로 합치는 안 기각(공개 범위 혼합, worktree 에서 init 필요·DETACHED HEAD, 상위 repo 는 gitlink 만 봄 — git 2.54 실측), repo 결정은 각 repo·공용 사실은 `~/.claude/wiki` 로 결정(사용자, 2026-09-26). 구현(skill 2단 조회)은 별도 plan.
+
+## [2026-09-26] update | ci-secret-scan-backstop · git-log-added-lines-hardening
+- pre-push 가드가 "이미 공개됨" 을 추적 ref 대신 stdin remote sha 로 정하게 바뀜(push-remote-scope). CI 스크립트의 임시 bare repo 결정을 대체 기록으로 남기고 shallow 거부 추가, hardening 페이지에 remote sha 해석 예외·replace peel·pushurl 실측·전체 길이 sha 원칙 추가.

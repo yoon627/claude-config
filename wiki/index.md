@@ -20,7 +20,7 @@
 - [[claude-code-agents-md-loading]] — v2.1.277+ 는 cwd·상위에 CLAUDE.md 가 없으면 AGENTS.md 를 읽고 `~/.claude/CLAUDE.md` 는 그 판정에서 세지 않는다 → `~/.claude` 세션에 Codex 미러 AGENTS.md 가 함께 주입됐다; `claudeMdExcludes` 로 그 경로만 제외(2026-09-25 실측). Codex 쪽은 `~/.codex/AGENTS.md` → CLAUDE.md 심링크로 복원.
 - [[worktree-isolation-bash-guard]] — worktree 격리 세션의 네이티브 Bash 거부는 경로가 아니라 명령 텍스트의 git 언급이 트리거(플래그명·heredoc 본문 포함)·비결정적; 우회는 payload 파일 분리 + git 토큰 제거. "Agent hook condition was not met" 는 이 가드가 아니라 repo agent hook.
 - [[git-autosquash-target-selection]] — git 2.54 `rebase --autosquash` 대상 선택 실측: 첫 접두는 `fixup! ` 리터럴(탭이면 fixup 아님), 제목 정확 → 커밋 이름 → 제목 접두 순·각 단계 가장 앞 커밋, 제목이 sha 보다 우선, fixup 커밋도 후보 (2026-09-24).
-- [[git-log-added-lines-hardening]] — `git log -p` 로 추가 줄을 검사할 때 사용자 설정·환경·attributes 가 줄을 0건으로 만드는 경로 13가지(`log.diffMerges=off`·`showRoot`·`follow`·binary/`-diff`·replace·pathspec env·로케일 등)와 막는 옵션, Windows PS5.1 Process·env·코드페이지 함정 (2026-09-25 실측).
+- [[git-log-added-lines-hardening]] — `git log -p` 로 추가 줄을 검사할 때 사용자 설정·환경·attributes 가 줄을 0건으로 만드는 경로 13가지(`log.diffMerges=off`·`showRoot`·`follow`·binary/`-diff`·replace·pathspec env·로케일 등)와 막는 옵션, Windows PS5.1 Process·env·코드페이지 함정 (2026-09-25 실측). "이미 공개됨" 은 추적 ref 가 아니라 stdin remote sha 로 정한다(pushurl 마다 따로 옴·재작성 뒤 오래된 ref, 2026-09-26).
 - [[claude-code-statusline-input]] — subagentStatusLine 입력 `{…, columns, tasks[]}`·출력 `{"id","content"}` 줄, `name` 은 등록한 agent 만, `CLAUDE_CODE_TMPDIR` 규칙·slug 의 `.`→`-`, tasks 디렉토리에 foreground Bash 출력이 섞임, worktree 진입 뒤 transcript 는 옮겨지고 tasks 는 시작 slug 에 남음 (2026-09-25 실측).
 - [[claude-code-bash-tool-shims]] — Bash 도구의 `grep` 은 명령 모양에 따라 내장 ugrep(셸 함수, `-I --ignore-files`)이나 `rtk grep`(훅 재작성, 비UTF-8 인자에서 panic)으로 바뀐다; 스크립트 안에서만 시스템 grep. 바이트 판정은 python 으로 (2.1.282·rtk 0.44.2, 2026-09-26).
 - [[github-sensitive-data-removal]] — 비밀 이력 제거의 공식 절차가 그렇게 생긴 이유: filter-repo 는 fresh clone 만·`--sensitive-data-removal` 은 origin 유지·`--mirror` 로 모든 ref·`refs/pull/*` 는 Support·merge 말고 rebase (git-filter-repo 2.47.0 실측, 절차 정본은 README).
@@ -65,7 +65,7 @@
 - [[lesson-zip-reproducibility-os]] — Python zip 재현성은 timestamp 고정만으론 안 된다: `ZipInfo.create_system`(win32=0/그 외 3)과 `sorted(Path)` 의 Windows case-fold 로 OS 마다 sha 가 갈린다. `create_system=3` 명시 + posix 문자열 정렬, 테스트는 엔트리 순서·create_system 을 직접 assert (2026-09-22 리뷰 실측).
 - [[lesson-verify-scaffold-purpose-before-removal]] — 장치를 "낡은 scaffold" 로 없애기 전에 도입 plan·결정을 읽고 원래 목적을 하나씩 반박할 수 있는지 확인; 날짜는 경위와 적용 범위를 구분 (prompt-audit 제안 3건이 plan-review 에서 뒤집힘, 2026-09-24).
 - [[commit-restructure-plumbing-cas]] — 커밋 경계 재구성은 in-place rebase 가 아니라 merge-tree+commit-tree 재조립 후 update-ref --stdin 트랜잭션 CAS(실패 시 사용자 상태 불변). rebase abort 실패·author/트레일러 유실·symref 트랜잭션 거부 실측 (2026-09-24).
-- [[ci-secret-scan-backstop]] — CI 에서 pre-push 가드를 사후 재실행: checkout 의 추적 ref 가 `--not --remotes` 를 무력화해 alternates 임시 bare repo 에 base 하나만 둔다, PR 은 `head.sha` 를 `HEAD^1` 기준으로, 없는 base 는 전체 이력, 로그 값 마스킹, `!cancelled()` (PR #177).
+- [[ci-secret-scan-backstop]] — CI 에서 pre-push 가드를 사후 재실행: base 를 remote sha 로 넘겨 checkout 에서 바로 부른다(가드가 추적 ref 를 보지 않게 된 뒤 임시 bare repo 제거, shallow 거부), PR 은 `head.sha` 를 `HEAD^1` 기준으로, 없는 base 는 전체 이력, 로그 값 마스킹, `!cancelled()` (PR #177).
 - [[wiki-shared-layer]] — 여러 repo wiki 를 submodule 하나로 합치는 안 기각(공개 범위 혼합·worktree 에서 init·DETACHED·같은 브랜치 갱신 불가 실측); repo 결정은 각 repo, 공용 사실은 `~/.claude/wiki` (2026-09-26 사용자 결정, 구현 미착수).
 
 ## source

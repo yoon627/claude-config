@@ -34,12 +34,14 @@ run_guard() { # <engine> <mode> <stdin>; GUARD_ENV (one NAME=value) is exported 
   fi
 }
 
-check() { # <engine> <block|allow> <reason substring or -> <desc> <mode> [stdin]
+check() { # <engine> <block|allow|clean> <reason substring or -> <desc> <mode> [stdin]; clean = allow with no output
   local engine="$1" expect="$2" reason="$3" desc="$4" mode="$5" input="${6-}" out rc ok=0
   out="$(run_guard "$engine" "$mode" "$input")"; rc=$?
   [ "$engine" = ps1 ] && ps1_ran=$((ps1_ran+1))
   if [ "$expect" = allow ]; then
     [ $rc -eq 0 ] && ok=1
+  elif [ "$expect" = clean ]; then
+    [ $rc -eq 0 ] && [ -z "$out" ] && ok=1
   elif [ $rc -ne 0 ] && [[ "$out" == *"[BLOCKED]"* ]] && { [ "$reason" = - ] || [[ "$out" == *"$reason"* ]]; }; then
     ok=1
   fi
@@ -52,7 +54,7 @@ check() { # <engine> <block|allow> <reason substring or -> <desc> <mode> [stdin]
 }
 both() { local e; for e in "${ENGINES[@]}"; do check "$e" "$@"; done; }
 
-newrepo() { REPO="$(mktemp -d "$T/r.XXXXXX")"; git -C "$REPO" init -q -b feat; }
+newrepo() { REPO="$(mktemp -d "$T/r.XXXXXX")"; git -C "$REPO" init -q -b feat "$@"; }
 stage() { mkdir -p "$REPO/$(dirname "$1")"; printf '%s' "$2" > "$REPO/$1"; g add -f "$1"; }
 commit() { stage "$1" "$2"; g commit -q -m "c $1"; git -C "$REPO" rev-parse HEAD; }
 line() { printf '%s %s %s %s\n' "refs/heads/$1" "$2" "refs/heads/$1" "${3:-$ZERO}"; }
@@ -85,6 +87,10 @@ both block 'AWS key' 'plan AWS key without settings.json staged' pre-commit
 # an invalid UTF-8 byte on the line must not make the scanner skip it
 newrepo; mkdir -p "$REPO/plans/x"; printf 'leak \377 %s\n' "$TOKEN" > "$REPO/plans/x/x-plan.md"; g add -f plans/x/x-plan.md
 both block 'Anthropic key' 'plan token next to an invalid UTF-8 byte' pre-commit
+# a replace ref must not substitute what the scan reads for what gets committed
+newrepo; stage plans/x/x-plan.md "leak $TOKEN"
+g replace "$(git -C "$REPO" rev-parse :plans/x/x-plan.md)" "$(printf 'clean' | git -C "$REPO" hash-object -w --stdin)"
+both block 'Anthropic key' 'git replace on the staged blob' pre-commit
 
 # --- pre-push: lines added in the pushed range ---
 newrepo; s=$(commit plans/a/a-plan.md 'clean plan')
@@ -145,10 +151,63 @@ g checkout -q -b decoy; clean=$(commit plans/a/a-plan.md 'clean')
 g checkout -q feat; s=$(commit plans/a/a-plan.md "leak $TOKEN"); g replace "$s" "$clean"
 both block 'Anthropic key' 'git replace hides the pushed commit' pre-push "$(line feat "$s")"
 
-# already published (reachable from a remote-tracking ref) is not rescanned
-newrepo; s1=$(commit plans/a/a-plan.md "leak $TOKEN"); g update-ref refs/remotes/origin/feat "$s1"
+# "already published" = what the destination refs have now (the remote sha on stdin), not tracking refs
+newrepo; s1=$(commit plans/a/a-plan.md "leak $TOKEN"); g update-ref refs/remotes/origin/other "$s1"
 s=$(commit other.txt ok)
-both allow - 'token only in already-published commit' pre-push "$(line feat "$s" "$s1")"
+both block 'Anthropic key' 'token only on another branch'"'"'s tracking ref, new branch push' pre-push "$(line feat "$s")"
+g update-ref -d refs/remotes/origin/other
+both allow - 'token only in the commit the destination already has' pre-push "$(line feat "$s" "$s1")"
+
+# after a history rewrite the fetched tracking ref still holds the token; the remote no longer does
+newrepo; commit README.md base >/dev/null; t=$(commit plans/a/a-plan.md "leak $TOKEN")
+g update-ref refs/remotes/origin/feat "$t"
+g checkout -q -b rewritten HEAD~1; c=$(commit plans/a/a-plan.md 'scrubbed'); g checkout -q feat
+s=$(commit other.txt ok)
+both block 'Anthropic key' 'stale tracking ref after a history rewrite' pre-push "$(line feat "$s" "$c")"
+
+# a remote sha this repo lacks excludes nothing
+UNKNOWN=1234567890abcdef1234567890abcdef12345678
+newrepo; s=$(commit plans/a/a-plan.md "leak $TOKEN")
+both block 'Anthropic key' 'remote sha not in this repo, token in range' pre-push "$(line feat "$s" "$UNKNOWN")"
+newrepo; s=$(commit plans/a/a-plan.md 'clean')
+both clean - 'remote sha not in this repo, clean range' pre-push "$(line feat "$s" "$UNKNOWN")"
+both block 'malformed' 'remote sha not hex' pre-push "$(line feat "$s" zzzz567890abcdef1234567890abcdef12345678)"
+both block 'malformed' 'short remote sha' pre-push "$(line feat "$s" beef)"
+both block 'malformed' 'short local sha' pre-push "refs/heads/feat beef refs/heads/feat $ZERO"
+both block 'malformed' 'sha256-length remote sha in a sha1 repo' pre-push "$(line feat "$s" "$s${s:0:24}")"
+both block 'malformed' 'deletion line with a malformed remote sha' pre-push "(delete) $ZERO refs/heads/gone not-a-sha"
+b=$(printf 'x' | git -C "$REPO" hash-object -w --stdin); tree=$(git -C "$REPO" rev-parse 'HEAD^{tree}')
+both clean - 'remote sha is a blob' pre-push "refs/tags/b $s refs/tags/b $b"
+both clean - 'remote sha is a tree' pre-push "refs/tags/tr $s refs/tags/tr $tree"
+
+# an annotated tag as the remote sha is peeled to its commit
+newrepo; s1=$(commit plans/a/a-plan.md "leak $TOKEN"); g tag -a v1 -m v1 "$s1"; old=$(git -C "$REPO" rev-parse v1)
+s=$(commit other.txt ok); g tag -f -a v1 -m v1b "$s" >/dev/null; new=$(git -C "$REPO" rev-parse v1)
+both allow - 'retargeted annotated tag' pre-push "refs/tags/v1 $new refs/tags/v1 $old"
+
+# every line's remote sha is on the same remote, deletions included
+newrepo; t=$(commit plans/a/a-plan.md "leak $TOKEN"); s=$(commit other.txt ok)
+both allow - 'deleted ref'"'"'s remote value counts, deletion first' pre-push "(delete) $ZERO refs/heads/old $t
+$(line feat "$s")"
+both allow - 'deleted ref'"'"'s remote value counts, deletion last' pre-push "$(line feat "$s")
+(delete) $ZERO refs/heads/old $t"
+newrepo; m=$(commit plans/a/a-plan.md "leak $TOKEN"); m2=$(commit README.md next)
+g checkout -q -b side "$m"; s=$(commit other.txt ok)
+both allow - 'one line'"'"'s remote sha is excluded for the others' pre-push "refs/heads/feat $m2 refs/heads/feat $m
+$(line side "$s")"
+
+# sha256 repos pass 64-character object names
+ZERO64=$ZERO$ZERO; ZERO64=${ZERO64:0:64}
+newrepo --object-format=sha256; s1=$(commit plans/a/a-plan.md "leak $TOKEN"); s=$(commit other.txt ok)
+both block 'Anthropic key' 'sha256 repo, new branch' pre-push "$(line feat "$s" "$ZERO64")"
+both allow - 'sha256 repo, token only in what the destination has' pre-push "$(line feat "$s" "$s1")"
+
+# a replace ref must not turn the remote's tag into a commit it does not have
+newrepo; c0=$(commit README.md base); g tag -a va -m a "$c0"; A=$(git -C "$REPO" rev-parse va)
+t=$(commit plans/a/a-plan.md "leak $TOKEN"); g tag -a vb -m b "$t"; B=$(git -C "$REPO" rev-parse vb)
+s=$(commit other.txt ok); g replace -f "$A" "$B"
+both block 'Anthropic key' 'replace ref on the remote'"'"'s tag' pre-push "refs/tags/va $A refs/tags/va $A
+$(line feat "$s")"
 
 # ref deletion, tags, malformed input, unresolvable and corrupt objects
 newrepo; s=$(commit plans/a/a-plan.md 'clean')
@@ -171,7 +230,7 @@ newrepo; s=$(commit plans/a/a-plan.md "++ $TOKEN")
 both block 'Anthropic key' 'added line starting with ++' pre-push "$(line feat "$s")"
 
 # rename of a published plan into settings.json must still be key-checked
-newrepo; s1=$(commit plans/a/a-plan.md '{"mcpServers":{}}'); g update-ref refs/remotes/origin/feat "$s1"
+newrepo; s1=$(commit plans/a/a-plan.md '{"mcpServers":{}}')
 g mv plans/a/a-plan.md settings.json; g commit -q -m rename; s=$(git -C "$REPO" rev-parse HEAD)
 both block 'forbidden key' 'plans -> settings.json rename' pre-push "$(line feat "$s" "$s1")"
 g config log.follow true
