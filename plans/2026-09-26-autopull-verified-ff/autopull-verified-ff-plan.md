@@ -1,6 +1,6 @@
 ---
 title: autopull-verified-ff — main push 의 lint 가 통과하면 CI 가 그 sha 를 ci/verified 브랜치에 기록(자동 pull 검증 게이트의 1단계)
-status: in_progress
+status: done
 started: 2026-09-26
 updated: 2026-09-26
 intent: plans/2026-09-25-repo-audit-followups/intent.md
@@ -41,10 +41,11 @@ SessionStart 자동 pull 이 CI 를 통과한 커밋까지만 ff 하게 만드�
 - 2026-09-26: `record-verified` job 작성(순서: job 을 먼저 쓰고 하니스를 뒤에 — plan 에 적은 "하니스 먼저" 와 다르다). scratch 하니스가 lint.yml 의 run 블록을 그대로 꺼내 가짜 `gh`(main 이력·기록 상태 흉내)로 8 분기 실행 → 8/8(처음 4건 실패는 하니스의 트리 검사 버그 — 수정). mutation 2개(main 밖 sha 가드 제거·"더 새 기록 유지" 제거)가 각각 해당 케이스를 실패시킴. YAML 파싱: 최상위 `contents: read`, job `needs`·`if`·`permissions`·`concurrency`·`timeout-minutes` 확인. README CI 절·wiki 새 decision 페이지·index·log, check_links clean.
 - 2026-09-26: code-reviewer(Codex 미가용) REQUEST CHANGES — Major 2(API 오류를 삼켜 green 무기록·기록 후퇴 — 502 주입 재현, 하니스가 scratch 에만 있음), Minor 4, Nit 6, refuted 11. fix: 404 만 main 밖·나머지 job 실패·비교 결과 변수화, `scripts/record-verified.test.sh` 로 승격(11 케이스, 수정 전 run 블록에서 API 오류 3건 Red → 수정 후 11/11), 주석·README·wiki hedge·한계·단독 되돌리기. shellcheck ok.
 - 2026-09-26: 최종 검증(격리 runner) — `record-verified.test.sh` 11/0, `verify.sh` 마지막 줄 `ALL PASS`(skip 없음, 새 테스트 `ok`), actionlint 0 finding, plan-lint 0, wiki link clean, 수정 전 run 블록은 API 오류 3건만 실패. runner 대조 어긋남 없음. evidence gate: Acceptance 1~4 충족, [post-merge] 1건 남음. 판정 DONE(통합 대기).
+- 2026-09-26: 커밋 `b8bd8bc`, 사용자 선택 `/e merge` → PR #179. [post-merge] 관찰 결과는 머지 보고와 client 단위 착수 시점에 기록.
 
 # Next
 
-커밋 → 사용자 확인 후 `/e merge` → [post-merge] 관찰(머지 push 의 `record-verified` 성공, `origin/ci/verified:main-sha` = 머지 커밋).
+(없음 — PR #179 머지로 종료. [post-merge] 관찰은 client 단위의 착수 조건)
 
 # Decisions
 
