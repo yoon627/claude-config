@@ -18,14 +18,14 @@ SKILL 은 2스텝 이름(재현 → 인과 사슬)·"재현 없이 고쳤다 금
 - 가능하면 재현 테스트 먼저(TDD Red) — 수정 후 그 테스트가 green 이 되는 것이 acceptance 증거.
 
 ## C. wiki 연계 메커닉 (SKILL wiki 연계, CLAUDE.md §11)
-두 판정(ingest·feedback memory) **누락 금지** 게이트는 SKILL 본문이 단일 소스 — 여기는 그 판정을 **어떻게** 수행하나(조건부·opt-in 2지점, 16단계 표 안 늘림, wiki 없으면 no-op):
-- **1 Explore**: `wiki/index.md` 있으면 관련 `decision`/`entity` 페이지 read(과거 결정·검증된 외부 사실 재사용 → researcher 재검색 절감). 없으면 skip.
-- **16 Report — ingest 판정 대상**: 재사용 지식 = 비자명 결정·교훈·확정한 외부 사실. trivial·일회성·이 작업 국한은 제외.
+두 판정(ingest·feedback memory) **누락 금지** 게이트는 SKILL 본문이 단일 소스 — 여기는 그 판정을 **어떻게** 수행하나(조건부·opt-in 2지점, 16단계 표 안 늘림). wiki 는 두 계층(현재 repo 의 `wiki/`, 공용 `~/.claude/wiki/`)이고 배치 규칙은 CLAUDE.md §11:
+- **1 Explore**: 두 `index.md`(있는 것만 — `~/.claude` 에서는 하나)를 작업 키워드로 걸러 관련 `decision`/`entity` 페이지 read(과거 결정·검증된 외부 사실 재사용 → researcher 재검색 절감). 둘 다 없으면 skip.
+- **16 Report — ingest 판정 대상**: 재사용 지식 = 비자명 결정·교훈·확정한 외부 사실. trivial·일회성·이 작업 국한은 제외. 대상이면 계층까지 정한다 — repo 고유는 repo wiki, 여러 repo 에 쓸모 있는 공개 가능한 사실·전역 자산 교훈은 공용. 다른 repo 에서 공용 대상이면 적립하지 않고 `~/.claude 에서 /wt → /wiki ingest …` 제안을 Report 와 plan `# Deferred` 에 `<요약 · 공개 근거 · 출처(공개/비공개)>` 형식으로(§11 공개 점검 — 출처가 빠지면 적립 쪽이 비공개로 보고 diff 확인을 거친다).
 - plan→wiki **일방향 승격**(plans=일시적 핸드오프, wiki=영속 누적). 양방향 동기화 금지.
 
 ## D. Workflow Findings 기록 형식·hook 관계 (SKILL Workflow Findings)
 SKILL 은 3-트리거·반복 2회+ 제안·자가수정 경계만 인라인. 기록 방법:
-- **기록(2곳)**: ① plan `# Workflow Findings` 한 줄 ② **wiki `decision/workflow-failures.md` 누적**(영속·반복 추적). 형식 `깨진 규칙/단계 · 재발 조건 · 수정 후보 위치 · 발생 횟수`. 같은 실패면 기존 항목 횟수만 올린다.
+- **기록(2곳)**: ① plan `# Workflow Findings` 한 줄 ② **공용 wiki `decision/workflow-failures.md` 누적**(영속·반복 추적 — dlc 는 전역 자산이라 공용 계층. 다른 repo 세션이면 이 기록은 §11 공용 제안으로). 형식 `깨진 규칙/단계 · 재발 조건 · 수정 후보 위치 · 발생 횟수`. 같은 실패면 기존 항목 횟수만 올린다.
 - **자동 신호와 관계**: hook(`scripts/dlc-signal.js`)이 early-stop·doc-drift·guard 차단·plan-blocked 신호를 `~/.claude/telemetry/dlc-signals.jsonl` 자동 누적, `/improve` 가 집계·랭킹 제안. 이 수동 기록은 신호가 못 담는 **맥락**(원인·재발 조건·수정 후보 위치) — 상보(대체 아님).
 
 ## E. 격리 경계 상세 — runner 반환 계약·simplify 체크리스트 (SKILL 격리 경계)

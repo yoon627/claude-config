@@ -242,9 +242,9 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 8. Git / 보안 — destructive 명령 금지, 시크릿 출력 금지, 코드/파일 변경은 규모 불문 worktree(`/wt`)에서(gitignored 글로벌 상태 제외), **검증 통과분은 요청 없이 작업 브랜치 커밋**(push 는 요청 시만), 커밋은 하나의 목적 단위(`commit-check` 로 점검), trivial·small 종결은 로컬 ff-merge
 9. Claude ↔ Codex 협업 — `plans/` 핸드오프 채널, 리뷰 매트릭스
 10. `plans/` 핸드오프 규약 — slug, frontmatter, 필수 6개 + 선택 섹션(Intent·Acceptance·Review Disposition·Deferred·Workflow Findings — Intent 는 medium 이상 항상), 묶음 intent(`plans/<date>-<intent-slug>/intent.md` 하나에 plan 여럿이 `intent:` 로 링크 — 단발 작업은 plan `# Intent` 만. medium 이상은 dlc 분할 판정이 "독립 머지 가능한 복수 plan 으로 나뉘는가"를 능동으로 보고 안 나뉘면 `분할: 없음 — <근거>`)
-11. 영속 프로젝트 메모리 (LLM Wiki) — `wiki/` 누적 지식, `plans/` 와 경계 (일시적 vs 영속)
+11. 영속 프로젝트 메모리 (LLM Wiki) — 두 계층: repo `wiki/`(그 repo 의 결정·교훈) + 공용 `~/.claude/wiki/`(여러 repo 에 쓸모 있는 공개 가능한 사실·전역 자산 교훈 — 모든 repo 가 조회, 다른 repo 세션은 적립 제안만, 공개 repo 라 회사·비공개 정보 금지), `plans/` 와 경계 (일시적 vs 영속)
 12. 피드백 메모리 — 작업 방식 교정을 `memory/`(type: feedback) + `MEMORY.md` 인덱스로 영속화해 다음 작업에 반영. 보편·중대 규칙은 이 `CLAUDE.md` 로 승격.
-13. 실수·교훈 로그 — 반복 실수를 wiki `decision/lesson-*`(상세) + `MEMORY.md` 인덱스(자동 상기)로 적립해 다음 구현에서 회피. 인덱스 주입은 권고이지 강제 아님.
+13. 실수·교훈 로그 — 반복 실수를 대상 계층 wiki 의 교훈 페이지(상세 — 공용은 `decision/lesson-*`, 다른 repo 는 그 WIKI.md 형식. 전역 워크플로우 교훈은 공용) + `MEMORY.md` 인덱스(자동 상기 — 프로젝트별이라 다른 repo 에는 공용 index 조회로)로 적립해 다음 구현에서 회피. 인덱스 주입은 권고이지 강제 아님.
 
 세션 시작 시점 자동 적용. 프로젝트별 추가 규칙은 per-repo `CLAUDE.md` 에 둘 수 있고, 글로벌 + 프로젝트 둘 다 로드됨.
 
@@ -338,7 +338,7 @@ background task 표시(`✻ N bg`)는 2026-09-25 제거했다 — tasks 디렉�
 
 ### skills/wiki/ — LLM Wiki (영속 프로젝트 메모리)
 
-`/wiki <ingest|query|lint>` 로 `wiki/`(영속 프로젝트 메모리)를 운영. ingest(raw·작업지식 → 상호링크 페이지 + index/log) · query(누적 페이지로 답 → 가치 있으면 filed) · lint(orphan·dead link·모순 점검·보고). 운영 규약 단일 소스는 `wiki/WIKI.md`. `plans/`(일시적 작업 핸드오프)와 달리 작업을 **가로질러 누적**. raw 원문은 gitignored·읽기 전용, 페이지만 tracked. dlc 연계는 CLAUDE.md §11.
+`/wiki <ingest|query|lint>` 로 영속 프로젝트 메모리를 운영. 두 계층 — 현재 repo 의 `wiki/`(그 repo 의 결정·교훈)와 공용 `~/.claude/wiki/`(여러 repo 에 쓸모 있는 공개 가능한 사실·전역 자산 교훈). query 는 두 index 를 보고, ingest 는 대상 계층을 먼저 정한다 — 다른 repo 세션에서 공용 대상이면 쓰지 않고 `~/.claude 에서 /wt → /wiki ingest <요약 · 공개 근거 · 출처(공개/비공개)>` 제안을 Report·plan `# Deferred` 에 남긴다. 공용 wiki(이 repo)는 공개라 적립 작업이 공개하는 모든 것(페이지·sources·index·log·plan·브랜치/worktree 이름·커밋 메시지·PR)에 회사·조직명·내부 호스트/IP·코드명·티켓 키·비공개 repo 이름/경로를 두지 않고(단일 정의는 CLAUDE.md §11 공개 점검), 출처가 비공개이거나 불명인 제안은 커밋 전 diff 를 확인받는다. 현재 repo 판정은 `[ "$(git rev-parse --path-format=absolute --git-common-dir)" -ef "$HOME/.claude/.git" ]`. ingest(raw·작업지식 → 상호링크 페이지 + index/log) · query(누적 페이지로 답 → 가치 있으면 현재 repo wiki 에 filed) · lint(현재 repo wiki 의 orphan·dead link·모순 점검·보고). 배치 규칙은 CLAUDE.md §11, 형식은 각 wiki 의 `WIKI.md`. `plans/`(일시적 작업 핸드오프)와 달리 작업을 **가로질러 누적**. raw 원문은 gitignored·읽기 전용, 페이지만 tracked. dlc 연계는 CLAUDE.md §11.
 
 ### skills/improve/ — 자기개선 loop 분석 축 (구 /audit 흡수)
 

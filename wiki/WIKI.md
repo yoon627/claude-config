@@ -1,6 +1,6 @@
 # WIKI.md — 영속 프로젝트 메모리 운영 규약
 
-이 `wiki/` 는 이 repo·워크플로우의 **누적 프로젝트 메모리**다. raw 원문은 읽기 전용, pages 는 LLM 이 생성·유지. `plans/`(일시적 작업 핸드오프)와 달리 작업을 가로질러 누적된다. 이 파일이 wiki 운영 규약의 **단일 진실 소스**다. 충돌 시 `CLAUDE.md` 우선.
+이 `wiki/` 는 이 repo·워크플로우의 **누적 프로젝트 메모리**이자, 모든 repo 세션이 조회하는 **공용 wiki**(CLAUDE.md §11)다 — 이 repo 의 결정·교훈에 더해 여러 repo 에 쓸모 있는 공개 가능한 사실(도구·플랫폼·라이브러리 동작)과 전역 자산(dlc·hook·skill)의 결정·교훈을 담는다. 다른 repo 의 고유 결정은 그 repo 의 wiki 에 둔다. raw 원문은 읽기 전용, pages 는 LLM 이 생성·유지. `plans/`(일시적 작업 핸드오프)와 달리 작업을 가로질러 누적된다. 이 파일이 이 wiki 의 운영 규약(형식)의 **단일 진실 소스**다 — 어느 wiki 에 둘지는 CLAUDE.md §11. 충돌 시 `CLAUDE.md` 우선.
 
 ## 레이어 · 디렉토리
 
@@ -15,7 +15,7 @@
 페이지 카테고리 — `pages/<category>/<kebab-name>.md`:
 - `concept/` — 개념·패턴·방법론.
 - `entity/` — 외부 사실: 라이브러리·모델·API·CVE. **버전/날짜 포함**.
-- `decision/` — 이 repo 의 아키텍처 결정·교훈(ADR-lite). 이 인스턴스의 핵심.
+- `decision/` — 이 repo·전역 자산의 아키텍처 결정·교훈(ADR-lite). 여러 repo 에서 얻은 워크플로우 교훈도 여기(공개 점검 통과분만). 이 인스턴스의 핵심.
 - `source/` — raw 원문 1:1 요약.
 - `query/` — filed query 답변.
 
@@ -50,3 +50,4 @@ sources: [원문경로 | PR | 커밋 | URL]
 ## 보안
 - raw·pages 에 token/password/key/인증서/PII/내부 비밀 유입 금지(CLAUDE.md §8). **모든 raw 적재·페이지 write 전 점검**, 발견 시 마스킹/중단(경고 후 진행 금지).
 - raw 는 gitignored — 적재 전 `git check-ignore wiki/raw/<f>` 로 확인.
+- **이 repo 는 공개다.** 금지 목록과 점검 표면(페이지·`sources`·index·log·plan·브랜치/worktree 이름·커밋 메시지·PR 제목/본문)은 CLAUDE.md §11 **공개 점검**이 단일 정의다 — 요지는 회사·조직명, 내부 도메인·호스트·IP, 고객·제품 코드명·티켓 키, 비공개 repo 의 이름·경로·내부 도구명 금지(비공개 repo 는 "회사 repo" 로만). 유출 사례를 기록할 때도 값 자체는 옮기지 않는다. 근거는 공개 검증 가능한 것만. 출처가 비공개이거나 불명인 제안은 커밋 전 diff 를 보이고 확인받는다(절차는 `skills/wiki/SKILL.md` 공개 점검).

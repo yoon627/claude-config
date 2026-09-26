@@ -294,3 +294,7 @@
 
 ## [2026-09-26] ingest | autopull-verified-ff (신규)
 - SessionStart 자동 pull 검증 게이트 1단계 결정: CI 가 `ci/verified` 에 기록 커밋을 쌓는 방식, GITHUB_TOKEN `workflows` 권한 제약(researcher — 공식 권한 목록·반복 거부 사례), 기록 값 불변식, CI 먼저 분할, rollback 순서, 기각안. prune 범위 오측정 정정. git-hook-network-safety 에서 inbound 링크.
+
+## [2026-09-26] update | wiki-shared-layer · project-memory · ingest-operation
+- 두 계층 구현(CLAUDE.md §11·§13, wiki·dlc skill): 모든 repo 가 두 index 조회, 다른 repo 세션은 공용 적립 제안만, 공개 repo 기밀 게이트(사용자 결정 — 비공개 repo 이름까지 금지), 계층 간 참조·filed·교훈·Workflow Findings 규칙. 회사 repo 표 줄 일반화, project-memory 의 `plans/` gitignored 낡은 서술 정정.
+- 리뷰 반영: 공개 점검 표면을 적립 작업이 공개하는 모든 것(plan·브랜치/worktree 이름·PR·티켓 키 포함)으로, 제안 형식에 출처(공개/비공개), 판정은 `-ef`. ingest-operation 절차에 계층 판정 단계, 남은 것에 가드 공백·제안 수집 경로·기존 이름 처분.
