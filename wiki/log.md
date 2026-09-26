@@ -294,3 +294,6 @@
 
 ## [2026-09-26] ingest | autopull-verified-ff (신규)
 - SessionStart 자동 pull 검증 게이트 1단계 결정: CI 가 `ci/verified` 에 기록 커밋을 쌓는 방식, GITHUB_TOKEN `workflows` 권한 제약(researcher — 공식 권한 목록·반복 거부 사례), 기록 값 불변식, CI 먼저 분할, rollback 순서, 기각안. prune 범위 오측정 정정. git-hook-network-safety 에서 inbound 링크.
+
+## [2026-09-26] update | autopull-verified-ff
+- 2단계(client) 반영: 자동 pull 이 기록 sha 가 origin/main 조상일 때만 ff, `+`·`--prune`·`--no-write-fetch-head`, `CLAUDE_AUTOPULL_VERIFY=0` 은 예전 fetch(탈출구), MSYS 경로 변환은 끄지 않음(끄면 Windows 에서 `-C` 경로가 깨진다 — code-reviewer), 게이트는 SessionStart 경로만, 머신·원격 레버와 수동 복구, D/F·Windows·fork 한계. REST root 기록 생성 ❌→✅(PR #179 첫 기록).
