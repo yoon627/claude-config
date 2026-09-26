@@ -298,3 +298,6 @@
 ## [2026-09-26] update | wiki-shared-layer · project-memory · ingest-operation
 - 두 계층 구현(CLAUDE.md §11·§13, wiki·dlc skill): 모든 repo 가 두 index 조회, 다른 repo 세션은 공용 적립 제안만, 공개 repo 기밀 게이트(사용자 결정 — 비공개 repo 이름까지 금지), 계층 간 참조·filed·교훈·Workflow Findings 규칙. 회사 repo 표 줄 일반화, project-memory 의 `plans/` gitignored 낡은 서술 정정.
 - 리뷰 반영: 공개 점검 표면을 적립 작업이 공개하는 모든 것(plan·브랜치/worktree 이름·PR·티켓 키 포함)으로, 제안 형식에 출처(공개/비공개), 판정은 `-ef`. ingest-operation 절차에 계층 판정 단계, 남은 것에 가드 공백·제안 수집 경로·기존 이름 처분.
+
+## [2026-09-26] ingest | lesson-no-speculative-platform-switch (신규)
+- §13 교훈(사용자 승인): autopull client 에 Windows 경로 변환 방어로 `MSYS_NO_PATHCONV`·`MSYS2_ARG_CONV_EXCL` 을 넣었으나 두 변수는 명령의 모든 인자에서 변환을 꺼 `-C` 경로까지 native git 에 그대로 넘긴다 — Windows 자동 pull 무음 정지 위험(code-reviewer Critical). 근거는 MSYS2 문서·Git for Windows msys2-runtime PR #11·변환 코드(`msys2_path_conv.cc`)·같은 증상 공개 이슈(Windows 미실행). 영향 범위와 위험의 실재를 문서로 확인하지 못하면 넣지 않고 미검증으로 보고, 넣을 땐 가장 좁게·대상 플랫폼 확인은 머지 전, 제거 후 재도입 단언. memory 인덱스 줄은 main 세션에서 함께 적었다.
