@@ -2,8 +2,9 @@
 title: workflow-failures
 category: decision
 created: 2026-06-19
-updated: 2026-09-03
+updated: 2026-09-26
 sources:
+  - plans/2026-09-26-wiki-ingest-audit-lessons (early-stop 오탐 24회 분류 — 세션 transcript 2026-09-24~26)
   - PR #149 (dlc-task-router 알림 턴 오발동 fixed — 2026-09-02)
   - plans/2026-09-02-e-merge-path (codex 정본 호출 worktree 거부 — Deferred)
   - ~/.local/bin/rtk-0.44.2 (rtk 업그레이드 확인 — 2026-09-02)
@@ -36,6 +37,8 @@ dlc/규약 자체의 문제로 작업이 샌 **확인된 workflow 실패**를 �
 | doc-drift 오탐 **sub-class(재편집)** — 동기화를 마친 뒤 이미 문서화된 trigger 파일을 다시 편집하면 **재-dirty**. `applyChange` 가 dirty 를 편집 *순서*로만 모델링(trigger→true / target→false)해, target 뒤에 오는 어떤 trigger 든 미동기화로 뒤집었다. 문서 동기화는 순서가 아니라 **상태**다 | 동기화 후 같은 표면을 한 번 더 만지는 세션마다(결정적). **2026-08-12 한 세션에서 2회**: ① `scripts/*.js` → README 갱신 → simplify 재편집 ② `wiki/pages/*` → `index.md` 갱신 → 대장에 콜아웃 추가. 둘 다 문서는 실제 동기화 상태였다(`pages=40 = index=40`, README diff +15) | `scripts/dlc-doc-drift.js` — **covered-set** 전환: target 갱신 시 그때까지의 trigger 를 `*Covered` 로 넘기고 covered 재편집은 dirty 로 안 침. 새 surface 는 종전대로(미탐 미도입). `dlc-ledger.js DEFAULT` 에 covered/pending 4필드(얕은복사 공유 회피 위해 concat only) | 2 | fixed (2026-08-12) |
 | doc-drift-readme 오탐 **sub-class** — `scripts/*.test.js` **기존 파일 편집**만으로 README 미갱신 경고. `classify()` 의 `/^scripts\/[^/]+\.js$/` 가 `.test.js` 도 매치하는데, README 는 테스트를 `x.js (+ .test.js)` 접미 표기로만 문서화해 내용 변경이 README 에 영향이 없다 | 기존 테스트 파일을 편집한 세션마다(결정적). telemetry detail `scripts/session-brief.test.js`(2026-08-04) 로 확정 | `scripts/dlc-doc-drift.js` — `readme-trigger-new` 카테고리 신설(README 가 **존재만** 문서화하는 부류는 신규 추가일 때만 trigger) + 신규 판정은 `scripts/dlc-evidence-ledger.js` 의 `isNewInRepo`(`git ls-tree HEAD`)가 주입 | 1 | fixed (2026-08-05) |
 | 규약이 권장한 `gh pr merge --delete-branch` 가 worktree 환경에서 항상 실패 — gh 는 로컬 브랜치를 지우려 base 로 checkout 하는데 그 base(main)를 main worktree 가 점유해 `fatal: 'main' is already used by worktree` 로 거부된다. **머지는 성공하고 정리 단계만 조용히 누락**돼, 규약을 따를수록 원격·로컬 브랜치가 남는다(§8(a) "머지 후 정리 방치 금지"와 정면 충돌) | 비trivial 작업을 항상 worktree 에서 하므로, 규약대로 머지하는 PR 마다(결정적) | `CLAUDE.md` §8 — `--delete-branch` 를 빼고 `--merge` 로만 머지, 정리는 §8(a) 순서(worktree → `git branch -d` → `git push origin --delete`)로 직접 | 1 | fixed (2026-08-05, 커밋 `31be25b`/PR #123 — PR #121 실패·#122 `--merge` 정상으로 실측. 2026-09-02 부터 머지 경로 자체가 [[e-merge-mode]] 로 규약화) |
+| early-stop 의 plan·doc-drift·verify 축이 **Bash 경유 편집·검증을 못 본다** — 장부(`dlc-evidence-ledger.js`)는 Edit·Write·NotebookEdit 의 `file_path` 만 편집으로 기록하고 Bash 는 VERIFY 패턴 판정에만 쓴다. python·sed 스크립트로 plan·README·`wiki/index.md` 를 고치거나, 검증을 VERIFY_SCRIPT 에 안 맞는 이름의 스크립트로 돌리면 "plan 미갱신"·"README/index drift"·"검증 없음" 경고가 뜬다 | 편집·검증을 스크립트 파일로 묶는 세션마다(결정적 — worktree 격리 가드가 복합 명령을 거부해 스크립트 파일을 쓰게 된다). 한 세션(2026-09-24~26)에서 오탐 응답 24회 중 17회 | 후보: `scripts/dlc-evidence-ledger.js`·`dlc-early-stop.js` 가 Stop 시점 `git status`·`git diff --name-only` 로 편집 집합을 보강. intent `repo-audit-followups` 의 `audit-low-batch`("dlc-early-stop Bash 오탐")에서 다룬다 | 17 | tracking (2026-09-26) |
+| early-stop 이 **subagent 결과를 기다리는 중간 턴**에도 결론 블록·검증 경고를 낸다 — hook 은 턴 종료와 작업 종료를 구분하지 못한다 | reviewer 를 background 로 띄우고 알림을 기다리며 턴을 닫을 때마다. 같은 세션에서 4회 | 미정 — hook 입력으로 대기 중인 background 작업을 알 수 있는지부터 확인 | 4 | tracking (2026-09-26) |
 
 - **기록 규칙**: 같은 실패면 새 줄 말고 기존 항목 횟수만 +1. 상태 = `tracking`(누적 중) / `proposed`(wt 해결 제안함) / `fixed`(수정 머지) / `wontfix`.
 - **반복 해결**: 횟수 ≥2 → dlc 가 `AskUserQuestion` 으로 "이 실패 N회 반복 — wt 로 고칠까?" 제안. 수정은 사용자 승인 후 **wt→dlc**(운영 자산 자가수정 금지 — [[self-diagnosis-and-improvement-status]]).

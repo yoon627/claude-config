@@ -276,3 +276,15 @@
 
 ## [2026-09-26] update | claude-codex-collaboration
 - codex owner 가 아닌 reviewer 를 끄는 방식을 프롬프트 문구 하나로 정리(`CLAUDE_REVIEW_CODEX_MODE` 폐기 — 전달 경로·읽는 코드 없음, 사용자 결정).
+
+## [2026-09-26] ingest | claude-code-statusline-input · github-sensitive-data-removal · ci-secret-scan-backstop (신규)
+- repo-audit 후속(PR #175·#177)에서 확인한 statusline 입력 스키마·임시 디렉토리 규칙, GitHub 민감정보 제거 절차의 근거(filter-repo 2.47.0 실측), CI 비밀 스캔 설계 결정·한계를 적립. 절차 원문은 README 를 가리킨다. 출처 plan `repo-audit-g3-g4-live-bugs`·`repo-audit-g8-g9-docs-ci`.
+
+## [2026-09-26] ingest | claude-code-bash-tool-shims (신규) · lesson-grep-absence-not-proof (사례 4)
+- "BOM 없는 ps1 은 모두 ASCII" 오판을 재현해 원인을 확정: Bash 도구의 `grep` 이 셸 함수(내장 ugrep 7.8.4)나 rtk 훅(`rtk grep`, 비UTF-8 인자에서 panic)으로 바뀐다. 처음 추정("grep 바이트 범위식 결함")은 재현으로 뒤집혔다.
+
+## [2026-09-26] update | workflow-failures
+- early-stop 오탐 두 class 를 tracking 으로 추가: Bash 경유 편집·검증 미추적 17회, subagent 대기 중간 턴 4회(한 세션 오탐 응답 24회 분류).
+
+## [2026-09-26] ingest | wiki-shared-layer (신규)
+- 여러 repo wiki 를 단일 repo + submodule 로 합치는 안 기각(공개 범위 혼합, worktree 에서 init 필요·DETACHED HEAD, 상위 repo 는 gitlink 만 봄 — git 2.54 실측), repo 결정은 각 repo·공용 사실은 `~/.claude/wiki` 로 결정(사용자, 2026-09-26). 구현(skill 2단 조회)은 별도 plan.

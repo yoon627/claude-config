@@ -2,9 +2,10 @@
 title: project-memory
 category: concept
 created: 2026-06-16
-updated: 2026-06-16
+updated: 2026-09-26
 sources:
   - plans/2026-06-15-llm-wiki/llm-wiki-plan.md
+  - plans/2026-09-26-wiki-ingest-audit-lessons (여러 repo 사이 — 사용자 결정)
 ---
 
 # project-memory
@@ -18,3 +19,6 @@ sources:
 
 ## 적재 경로
 - 외부 사실(버전/API/CVE) → `entity/`. 이 repo 결정·교훈 → `decision/`. 절차는 [[ingest-operation]].
+
+## 여러 repo 사이
+repo 고유 결정은 각 repo 의 `wiki/` 에, 여러 repo 에 쓸모 있는 사실은 `~/.claude/wiki` 에 둔다(2026-09-26 결정, 구현 미착수). submodule 로 하나를 공유하는 안을 기각한 근거는 [[wiki-shared-layer]].
