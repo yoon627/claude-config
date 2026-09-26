@@ -4,7 +4,7 @@
 
 ## concept
 - [[llm-wiki-pattern]] — 이 wiki 가 따르는 LLM Wiki 패턴(Karpathy): 영속·누적 markdown 지식베이스.
-- [[project-memory]] — 이 wiki 의 목적·`plans/` 와의 경계(일시적 vs 영속).
+- [[project-memory]] — 이 wiki 의 목적·`plans/` 와의 경계(일시적 vs 영속)·이 wiki 가 모든 repo 가 조회하는 공용 계층을 겸함.
 - [[ingest-operation]] — raw/지식을 wiki 에 반영하는 연산 절차.
 - [[dlc-development-cycle]] — 비자명 코드변경 개발사이클 오케스트레이션(규모 gate·16단계·격리·요구사항 명확화 6항→plan `# Intent`(medium 이상 항상)·분할 판정(→ 묶음 intent 또는 `분할: 없음`)·마무리 판정 3값).
 - [[plan-handoff]] — 세션·도구 간 작업 컨텍스트 단일 plan 채널(§10·single-writer·active tracking·선택 섹션 `# Intent`/`# Acceptance` 외·묶음 intent `intent.md` 에 plan 여럿이 `intent:` 로 링크).
@@ -67,7 +67,7 @@
 - [[commit-restructure-plumbing-cas]] — 커밋 경계 재구성은 in-place rebase 가 아니라 merge-tree+commit-tree 재조립 후 update-ref --stdin 트랜잭션 CAS(실패 시 사용자 상태 불변). rebase abort 실패·author/트레일러 유실·symref 트랜잭션 거부 실측 (2026-09-24).
 - [[ci-secret-scan-backstop]] — CI 에서 pre-push 가드를 사후 재실행: base 를 remote sha 로 넘겨 checkout 에서 바로 부른다(가드가 추적 ref 를 보지 않게 된 뒤 임시 bare repo 제거, shallow 거부), PR 은 `head.sha` 를 `HEAD^1` 기준으로, 없는 base 는 전체 이력, 로그 값 마스킹, `!cancelled()` (PR #177).
 - [[autopull-verified-ff]] — SessionStart 자동 pull 이 CI 를 통과한 커밋까지만 따라가게: main push 의 lint 통과 시 CI 가 `ci/verified` 에 기록 커밋(`main-sha`)을 쌓는다. GITHUB_TOKEN 은 `workflows` 권한이 없어 main 커밋을 가리키는 ref 는 workflow 변경 뒤 못 옮길 수 있음·기록 값은 늘 main 위·CI 먼저 client 나중·rollback 순서 (2026-09-26, client 단계 미착수).
-- [[wiki-shared-layer]] — 여러 repo wiki 를 submodule 하나로 합치는 안 기각(공개 범위 혼합·worktree 에서 init·DETACHED·같은 브랜치 갱신 불가 실측); repo 결정은 각 repo, 공용 사실은 `~/.claude/wiki` (2026-09-26 사용자 결정, 구현 미착수).
+- [[wiki-shared-layer]] — 여러 repo wiki 를 submodule 하나로 합치는 안 기각(공개 범위 혼합·worktree 에서 init·DETACHED·같은 브랜치 갱신 불가 실측); repo 결정은 각 repo, 공용 사실·전역 자산 교훈은 `~/.claude/wiki` — 모든 repo 가 두 index 조회, 다른 repo 세션은 공용 적립 제안만, 공개 repo 기밀 게이트(비공개 repo 이름까지 금지·비공개 출처는 커밋 전 diff 확인), 판정은 `--git-common-dir` (2026-09-26 결정·구현).
 
 ## source
 - [[ai-native-sdlc-playbook-intent]] — Claude Academy "AI-Native SDLC Playbook" Stage 1 "Capture as intent.md" 요약: 발의자가 Claude 와 proto-spec 을 그 자리에 쓰고 커밋(Problem·Proposed outcome·Affected·Constraints·Open questions), 증거는 커밋 이력, 후행지표는 survival rate. 이 repo 는 plan `# Intent`(단발) + 묶음 `plans/<date>-<slug>/intent.md`(여러 plan, 2026-09-15) 채택, 조직 장치·별도 `intent/` 홈 미채택.
