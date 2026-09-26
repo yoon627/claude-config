@@ -1,6 +1,6 @@
 ---
 title: push-remote-scope — pre-push 가드가 추적 ref 대신 push 대상 ref 의 실제 값으로 "이미 공개됨"을 판단
-status: in_progress
+status: done
 started: 2026-09-26
 updated: 2026-09-26
 intent: plans/2026-09-25-repo-audit-followups/intent.md
@@ -55,10 +55,11 @@ pre-push 비밀 가드(`scripts/pre-commit-check.{sh,ps1}`)가 스캔에서 빼�
 - 2026-09-26: TDD — 옛 가드에서 엔진당 10건 Red(A·B·C·E×3·G·H×2·I, 예측과 일치) → 구현 → sh 59 + ps1 59 = 118/118. CI 테스트 9/9(ref 불변 삭제, shallow 추가). 실제 push E2E(scratch, 가짜 HOME → worktree 가드) 4/4, 같은 시나리오를 main 의 옛 가드로 돌리면 재작성 뒤 오래된 ref·pushurl 두 개에서 토큰이 원격에 올라감(2/4). dogfood: 이 repo 505 커밋 전체 재스캔 허용, sh 0.75s·ps1 0.47s. ps1 추가 줄에 PS7 전용 구문 없음. README·wiki·intent 동기화. local sha 도 전체 길이만 받도록 함께 좁힘(Decisions).
 - 2026-09-26: code-reviewer APPROVE(Critical·Major 0, Minor 5·Nit 6, refuted 11). Codex 는 high effort 로 호출했으나 "workspace out of credits" 로 finding 0 — 세션 마커 `codex-unavailable` 작성됨. fix loop 1: sha 길이를 repo 해시 형식에 묶음, 테스트 4건 추가(pre-commit replace·짧은 local sha·sha1 repo 의 64자 sha·sha256 repo 2건 — 옛 가드에서 새 4건 모두 Red, 전체 14 Red), CI shallow 판정 실패 메시지·zero 폴백 길이, 주석·README 중복. 128/128(sh 64 + ps1 64), CI 9/9, shellcheck ok. E2E 3번을 (C) 형태(`push --force origin feat`, remote sha = 재작성된 값)로 고쳐 새 가드 4/4·옛 가드 2/4. simplify 체크: 변경 없음(아래 Disposition).
 - 2026-09-26: 최종 검증(격리 runner, 명령 7개 모두 exit 0) — 가드 테스트 128/0·`ps1: ran 64`, CI 9/0, `verify.sh` 마지막 줄 `ALL PASS`(skip 없음), plan-lint 0, wiki link clean, E2E 4/0, dogfood 505 커밋 sh 0.79s·ps1 0.51s 허용. runner 대조에 어긋난 항목 없음. evidence gate: Acceptance 1·2·4·5·6 충족, 3 은 PR CI 로그 범위 확인만 남음(push 뒤에만 관찰 가능). 판정 DONE(통합 대기).
+- 2026-09-26: 커밋 `4b432d9`, 사용자 선택 `/e merge` → PR #178. Acceptance 3 의 PR CI 로그 범위는 머지 보고에 기록.
 
 # Next
 
-커밋 → commit-check → `/e merge` 여부 확인(PR 의 Secret scan step 로그에서 `ci-secret-scan: <base>..<head>` 범위 확인 — Acceptance 3 마지막 항목). 머지 후: Windows 첫 push 확인(PS 5.1).
+(없음 — PR #178 머지로 종료. 머지 후 Windows 에서의 첫 push 가 PS 5.1 실검증 — 사용자 관찰)
 
 # Decisions
 
