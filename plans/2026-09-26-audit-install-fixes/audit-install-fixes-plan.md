@@ -1,8 +1,8 @@
 ---
 title: audit-install-fixes — heal 의 symlink chmod 차단, bootstrap(macOS)이 Codex skill 7종·AGENTS.md 를 연결
-status: in_progress
+status: done
 started: 2026-09-26
-updated: 2026-09-26
+updated: 2026-09-27
 intent: plans/2026-09-25-repo-audit-followups/intent.md
 ---
 
@@ -39,10 +39,10 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 - 2026-09-26: plan-reviewer(Codex 크레딧 소진으로 생략) CONDITIONAL — 강 A1~A4·B1~B2 반영(heal 은 사전 chmod 제거·실패 핸들러 방식, setup 은 단일 호출·끝에서 exit 1·non-dry-run 검증, 분할 줄 보강). `CODEX_HOME` 은 공식 문서로 확인.
 - 2026-09-26: TDD — heal 새 테스트 Red(밖의 `linked.pack` 이 `0o200`, 핸들러 부재) → rmtree 실패 핸들러 구현 → Green(3.13·3.9), 단위 커밋 1. installer `--file` 테스트 Red(메시지에 jira-worklog 고정) → 구현 → Green, setup.sh 3b 루프·끝 요약, throwaway HOME 하니스(/bin/bash 3.2) (a)~(e)·실제 HOME 불변 전부 통과, 단위 커밋 2. code-reviewer(Codex 생략) APPROVE — Minor 반영: 부모 symlink 를 거친 `..` 상대 링크 오판(기존 결함, Red 재현 → `cd -P` → Green), `--file` 충돌 행렬 보강, `CODEX_SKILLS` 존재 검사, rmtree 배선 테스트(onexc·onerror, mutation 둘 다 잡힘), README macOS 한정·백업 위치·source missing 안내·override 문구, 요약 메시지. fixup 2개.
 - 2026-09-26: 최종 검증(격리 runner) — verify.sh `ALL PASS`(skip 없음)·improve error=0·plan-lint·heal 3.9 32 OK·setup 하니스 전부 PASS·배선 mutation 2종 모두 잡힘. evidence gate(시스템 grep, 양성 샘플 포함)로 Acceptance 1~6 충족 → DONE.
+- 2026-09-27: 담당 없는 저우선 항목은 intent `audit-leftovers (미착수)` 로(사용자 결정). 로컬 main(교훈 커밋) push 후 `/e merge` — PR #181. 머지 뒤 공용 wiki 적립(POSIX unlink·chmod·hardlink, `cd` vs `cd -P`)은 별도 `/wt`(사용자 결정).
 
 # Next
 
-로컬 main(교훈 커밋) push → `/e merge`(사용자 결정 2026-09-27) → 머지 뒤 공용 wiki 적립(POSIX unlink·chmod·hardlink, `cd` vs `cd -P` — 별도 `/wt`).
 
 # Decisions
 
