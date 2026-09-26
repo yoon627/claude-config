@@ -301,3 +301,6 @@
 
 ## [2026-09-26] ingest | lesson-no-speculative-platform-switch (신규)
 - §13 교훈(사용자 승인): autopull client 에 Windows 경로 변환 방어로 `MSYS_NO_PATHCONV`·`MSYS2_ARG_CONV_EXCL` 을 넣었으나 두 변수는 명령의 모든 인자에서 변환을 꺼 `-C` 경로까지 native git 에 그대로 넘긴다 — Windows 자동 pull 무음 정지 위험(code-reviewer Critical). 근거는 MSYS2 문서·Git for Windows msys2-runtime PR #11·변환 코드(`msys2_path_conv.cc`)·같은 증상 공개 이슈(Windows 미실행). 영향 범위와 위험의 실재를 문서로 확인하지 못하면 넣지 않고 미검증으로 보고, 넣을 땐 가장 좁게·대상 플랫폼 확인은 머지 전, 제거 후 재도입 단언. memory 인덱스 줄은 main 세션에서 함께 적었다.
+
+## [2026-09-27] ingest | link-following-file-ops (신규)
+- 공용 wiki 적립(사용자 결정): POSIX 에서 파일 모드는 삭제를 막지 않고(sticky 디렉토리는 XBD 4.5), `os.chmod` 는 심링크를 따라가며(Windows 는 기본 `follow_symlinks=False`) hardlink 는 모드를 공유하고, git 로컬 clone 은 objects 를 hardlink 한다 — 삭제 전 일괄 chmod 가 트리 밖 파일을 `0o200` 으로 만든 heal 결함과 rmtree 실패 핸들러(Windows·비심링크만) 해법·Windows 잔여 한계, `cd` 의 `..` 글자 처리 대 `cd -P`(설치 도구의 링크 오판). 근거는 POSIX unlink·XBD 4.5·link·cd, Python os·shutil, git-clone 문서, PR #181. code-reviewer 가 Windows chmod 기본값 누락을 잡아 정정. lesson-no-speculative-platform-switch 에서 inbound.

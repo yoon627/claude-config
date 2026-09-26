@@ -2,7 +2,7 @@
 title: lesson-no-speculative-platform-switch
 category: decision
 created: 2026-09-26
-updated: 2026-09-26
+updated: 2026-09-27
 sources:
   - https://www.msys2.org/docs/filesystem-paths/ (MSYS2 — `MSYS2_ARG_CONV_EXCL` 은 `*` 면 모든 인자를 변환에서 뺀다)
   - https://github.com/git-for-windows/msys2-runtime/pull/11 (Git for Windows — `MSYS_NO_PATHCONV` 도입, 값과 무관하게 설정만 돼 있으면 명령의 경로 변환을 끈다, 2015-06-17 머지)
@@ -45,4 +45,4 @@ code-reviewer 가 Critical 로 잡았다.
 
 ## 연계
 
-자동 pull 검증 게이트의 설계는 [[autopull-verified-ff]], 안전측 판단은 [[lesson-gate-safe-side-first]], 플랫폼별 fail-open 사례는 [[lesson-agent-hook-if-best-effort]].
+자동 pull 검증 게이트의 설계는 [[autopull-verified-ff]], 안전측 판단은 [[lesson-gate-safe-side-first]], 플랫폼별 fail-open 사례는 [[lesson-agent-hook-if-best-effort]]. 같은 원칙을 heal 의 Windows 전용 read-only 해제에 적용한 사례는 [[link-following-file-ops]].
