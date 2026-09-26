@@ -2,7 +2,7 @@
 title: git-hook-network-safety
 category: decision
 created: 2026-07-16
-updated: 2026-09-25
+updated: 2026-09-26
 sources: [PR #82, 커밋 888ec8e, plans/2026-07-05-main-autopull]
 ---
 
@@ -39,3 +39,4 @@ git `post-checkout`(및 대부분의 클라이언트 훅)은 **동기 실행**�
 - 위 hang 함정은 [[claude-codex-collaboration]] 의 code-review(codex+Claude 병행)가 사각지대(Major)로 파냄 — 사용자 환경(macOS+HTTPS)이 정확히 취약점이었고 단일 리뷰였으면 놓쳤을 것.
 - 재귀 안전은 [[evidence-gate]] 대로 정적 단언이 아니라 격리 fixture 실측으로 확정.
 - 훅 안에서 `git log -p` 출력을 검사할 때 사용자 설정이 추가 줄을 숨기는 경로는 [[git-log-added-lines-hardening]].
+- SessionStart pull 이 CI 를 통과한 커밋까지만 따라가게 하는 검증 게이트(CI 가 `ci/verified` 에 기록)는 [[autopull-verified-ff]].

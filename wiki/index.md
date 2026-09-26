@@ -66,6 +66,7 @@
 - [[lesson-verify-scaffold-purpose-before-removal]] — 장치를 "낡은 scaffold" 로 없애기 전에 도입 plan·결정을 읽고 원래 목적을 하나씩 반박할 수 있는지 확인; 날짜는 경위와 적용 범위를 구분 (prompt-audit 제안 3건이 plan-review 에서 뒤집힘, 2026-09-24).
 - [[commit-restructure-plumbing-cas]] — 커밋 경계 재구성은 in-place rebase 가 아니라 merge-tree+commit-tree 재조립 후 update-ref --stdin 트랜잭션 CAS(실패 시 사용자 상태 불변). rebase abort 실패·author/트레일러 유실·symref 트랜잭션 거부 실측 (2026-09-24).
 - [[ci-secret-scan-backstop]] — CI 에서 pre-push 가드를 사후 재실행: base 를 remote sha 로 넘겨 checkout 에서 바로 부른다(가드가 추적 ref 를 보지 않게 된 뒤 임시 bare repo 제거, shallow 거부), PR 은 `head.sha` 를 `HEAD^1` 기준으로, 없는 base 는 전체 이력, 로그 값 마스킹, `!cancelled()` (PR #177).
+- [[autopull-verified-ff]] — SessionStart 자동 pull 이 CI 를 통과한 커밋까지만 따라가게: main push 의 lint 통과 시 CI 가 `ci/verified` 에 기록 커밋(`main-sha`)을 쌓는다. GITHUB_TOKEN 은 `workflows` 권한이 없어 main 커밋을 가리키는 ref 는 workflow 변경 뒤 못 옮길 수 있음·기록 값은 늘 main 위·CI 먼저 client 나중·rollback 순서 (2026-09-26, client 단계 미착수).
 - [[wiki-shared-layer]] — 여러 repo wiki 를 submodule 하나로 합치는 안 기각(공개 범위 혼합·worktree 에서 init·DETACHED·같은 브랜치 갱신 불가 실측); repo 결정은 각 repo, 공용 사실은 `~/.claude/wiki` (2026-09-26 사용자 결정, 구현 미착수).
 
 ## source
