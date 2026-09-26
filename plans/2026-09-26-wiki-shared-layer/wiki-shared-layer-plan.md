@@ -1,6 +1,6 @@
 ---
 title: wiki-shared-layer — ~/.claude/wiki 를 여러 repo 가 함께 쓰는 공용 계층으로(조회는 두 곳, 공용 적립은 ~/.claude 세션, 공개 repo 기밀 게이트)
-status: in_progress
+status: done
 started: 2026-09-26
 updated: 2026-09-26
 ---
@@ -35,10 +35,10 @@ updated: 2026-09-26
 - 2026-09-26: 판정 명령 5맥락 실측(`~/.claude` main·이 worktree → `~/.claude`, 다른 repo·`~/.claude` 안 중첩 repo·비-git → other). 편집: CLAUDE.md §11·§13, `skills/wiki/SKILL.md`(전면), `skills/dlc/SKILL.md`·`docs/dlc-details.md` §C·§D, `wiki/WIKI.md`, README(§11·§13 요약·wiki 절), `wiki-shared-layer`(구현됨·회사 repo 표 줄 일반화)·`project-memory`·index·log. check_links clean, plan-lint ok, `improve.sh --ci` error=0. 이번 diff 의 추가 줄에 비공개 repo 이름·회사 식별자 없음(스캔).
 - 2026-09-26: code-reviewer REQUEST CHANGES(주 2·경 다수) 반영 — 공개 점검 표면을 적립 작업이 공개하는 모든 것으로 넓혀 §11 에 단일 정의, 제안 형식 `<요약 · 공개 근거 · 출처(공개/비공개)>` 로 통일(출처 불명 = 비공개), 판정을 `-ef` 로 바꿔 bash·sh·dash·심볼릭 링크 실측, 계층 명시(§3-6·§8 의 `workflow-failures`, dlc 반복 제안·self-diagnosis 링크), `ingest-operation` 에 계층 판정 단계.
 - 2026-09-26: code-reviewer 2차 APPROVE, 경 2·open 1 반영(memory 줄은 main 복귀 후, 출처 칸은 `공개`/`비공개` 만, lesson 경로는 대상 wiki 형식). `-ef` 판정 5맥락 × bash·/bin/sh·dash + 심볼릭 링크 실측 일치.
+- 2026-09-26: 커밋 후 `/e merge` — PR #180.
 
 # Next
 
-머지 — main 이 base 보다 앞서 있어 로컬 ff 불가, `/e merge`(push·PR 은 사용자 확인 후). 머지 뒤 [post-merge] 관찰.
 
 # Decisions
 
