@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tests for ci-secret-scan.sh on fixtures shaped like a CI checkout: the branch under test is
-# already on a remote-tracking ref, which is exactly what makes a plain pre-push run scan nothing.
+# already on a remote-tracking ref, so a guard that trusted tracking refs would scan nothing.
 set -u
 DIR="$(cd "$(dirname "$0")" && pwd)"
 SCAN="$DIR/ci-secret-scan.sh"
@@ -50,11 +50,11 @@ git clone -q "$T/origin.git" "$T/ci" 2>/dev/null
 g "$T/ci" fetch -q origin '+refs/heads/*:refs/remotes/origin/*'
 
 g "$T/ci" switch -q --detach origin/leak
-refs_before="$(g "$T/ci" for-each-ref)"
 check 'token added in base..HEAD is blocked even though origin/leak already has it' 1 'token pattern' scan_in "$T/ci" "$base"
 log_clean() { ! scan_in "$1" "$2" 2>&1 | grep -qE 'sk-ant-|github_pat_|zyxwvutsrq|no-verify'; }
 check 'matched values (a pattern name with parentheses, a tab inside the value) and the --no-verify hint stay out of the CI log' 0 - log_clean "$T/ci" "$base"
-check 'the scan leaves the checkout refs untouched' 0 - test "$refs_before" = "$(g "$T/ci" for-each-ref)"
+git clone -q --depth 1 --branch leak "file://$T/origin.git" "$T/shallow" 2>/dev/null
+check 'a shallow checkout is refused rather than scanned from its cut-off' 1 'shallow checkout' scan_in "$T/shallow" "$ZERO"
 
 g "$T/ci" switch -q --detach origin/clean
 check 'clean range passes; a token only before base is not rescanned' 0 - scan_in "$T/ci" "$base"

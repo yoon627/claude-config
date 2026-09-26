@@ -2,7 +2,7 @@
 # pre-commit-check.sh — guard settings.json (forbidden keys) and settings.json + plans/*.md (secret/token patterns)
 # Usage: pre-commit-check.sh [pre-commit|pre-push]
 # pre-commit scans the staged versions; pre-push scans the lines added by the commits being pushed
-# (not yet on any remote-tracking ref), so commits that skipped pre-commit are still checked.
+# that the destination refs do not already have, so commits that skipped pre-commit are still checked.
 # plans/ is tracked under approach A (plans-sync), so plan files are scanned for pasted secrets.
 
 set -e
@@ -10,6 +10,9 @@ set -e
 # Match bytes, not characters: in a UTF-8 locale awk aborts and grep skips lines that carry an
 # invalid byte, which would hide a token on the same line.
 export LC_ALL=C
+# A replace ref would let every git call below read a substitute object — a tag peeled to a
+# commit the remote does not have, or a staged blob other than the one being committed.
+export GIT_NO_REPLACE_OBJECTS=1
 # Pathspec magic from the environment would change what 'plans/*.md' matches in the push scan.
 unset GIT_LITERAL_PATHSPECS GIT_GLOB_PATHSPECS GIT_NOGLOB_PATHSPECS GIT_ICASE_PATHSPECS
 
@@ -91,8 +94,8 @@ scan_keys() {
   done
 }
 
-# added_lines <pathspec> — lines added under <pathspec> by the pushed commits that no
-# remote-tracking ref already has. Every option guards a way the scan could go blind:
+# added_lines <pathspec> — lines added under <pathspec> by the pushed commits that the
+# destination refs do not already have. Every option guards a way the scan could go blind:
 # --full-history keeps side branches that net to no change; -m with log.diffMerges=separate
 # shows what a merge adds against each parent; log.showRoot=true includes root commits;
 # log.follow=false keeps a rename into the pathspec from being paired with its source;
@@ -106,7 +109,7 @@ added_lines() {
     -c log.showRoot=true -c log.follow=false \
     log -p --text --no-color --no-ext-diff --no-textconv \
     --full-history -m -U0 --src-prefix=a/ --dst-prefix=b/ --format= \
-    "${push_commits[@]}" --not --remotes -- "$1")" || return 1
+    "${push_commits[@]}" --not ${published[@]+"${published[@]}"} -- "$1")" || return 1
   # Header lines run from "diff --git" to the first "@@"; a body line starting with "++"
   # appears as "+++" and must not be mistaken for a header.
   printf '%s\n' "$out" | awk '/^diff --git /{h=1; next} /^@@/{h=0; next} !h && /^\+/{print substr($0, 2)}'
@@ -136,15 +139,31 @@ if [ "$MODE" = "pre-commit" ]; then
     scan_tokens "$(git show ":$f" 2>/dev/null || true)" "$f"
   done < <(printf '%s\n' "$staged" | grep -E '^plans/.*\.md$' || true)
 else
-  # Anything the guard cannot interpret is blocked: a real pre-push always passes four
-  # fields and local objects, so a mismatch means the scan cannot be trusted.
+  # Anything the guard cannot interpret is blocked: a real pre-push always passes four fields
+  # with object names exactly as long as this repo's hash, and pushes local objects, so a
+  # mismatch means the scan cannot be trusted. (Any other hex string could resolve to a ref of
+  # the same name instead.)
+  # "Already published" is what the destination refs hold right now: the remote sha of every
+  # line, deletions included, comes from the remote itself — unlike tracking refs, which can
+  # be stale, belong to another remote, or not match a pushurl. git sends at most the commits
+  # none of the remote's refs have, so excluding only these keeps the scan a superset of it.
   push_commits=()
+  published=()
+  case "$(git rev-parse --show-object-format 2>/dev/null)" in
+    sha256) oid='^[0-9a-fA-F]{64}$' ;;
+    *) oid='^[0-9a-fA-F]{40}$' ;;
+  esac
   for _line in "${push_lines[@]+"${push_lines[@]}"}"; do
     [ -z "${_line//[[:space:]]/}" ] && continue
     read -r lref lsha rref rsha extra <<<"$_line" || true
-    if [ -z "${rsha-}" ] || [ -n "${extra-}" ] || ! [[ "$lsha" =~ ^[0-9a-fA-F]{4,}$ ]]; then
+    if [ -n "${extra-}" ] || ! [[ "$lsha" =~ $oid ]] || ! [[ "${rsha-}" =~ $oid ]]; then
       violations+=("pre-push: malformed ref line: ${_line}")
       continue
+    fi
+    # A remote value that is not a commit here (not fetched, a blob or tree) excludes nothing.
+    # stderr is dropped because peeling a blob or tree prints an error even with --quiet.
+    if ! [[ "$rsha" =~ ^0+$ ]] && remote_commit="$(git rev-parse --verify --quiet "${rsha}^{commit}" 2>/dev/null)"; then
+      published+=("$remote_commit")
     fi
     [[ "$lsha" =~ ^0+$ ]] && continue
     if ! commit="$(git rev-parse --verify --quiet "${lsha}^{commit}")"; then

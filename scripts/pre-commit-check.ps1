@@ -16,21 +16,28 @@ if (-not $gitExe) { throw 'git executable not found on PATH' }
 foreach ($v in @('GIT_LITERAL_PATHSPECS', 'GIT_GLOB_PATHSPECS', 'GIT_NOGLOB_PATHSPECS', 'GIT_ICASE_PATHSPECS')) {
     Remove-Item -Path "Env:$v" -ErrorAction SilentlyContinue
 }
+# A replace ref would let every git call below read a substitute object — a tag peeled to a
+# commit the remote does not have, or a staged blob other than the one being committed.
+$env:GIT_NO_REPLACE_OBJECTS = '1'
 
 # Invoke-Git: run git without the PowerShell native-command pipeline. Windows PowerShell 5.1
 # turns redirected native stderr into terminating errors under EAP=Stop and decodes stdout
 # with the console code page; a Process with UTF-8 stdout avoids both. stderr is left
-# attached to the hook's stderr. Arguments must not contain spaces (joined as-is).
-function Invoke-Git([string[]]$GitArgs) {
+# attached to the hook's stderr unless -DropStderr. Arguments must not contain spaces (joined as-is).
+function Invoke-Git([string[]]$GitArgs, [switch]$DropStderr) {
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = $script:gitExe
     $psi.Arguments = ($GitArgs -join ' ')
     $psi.UseShellExecute = $false
     $psi.RedirectStandardOutput = $true
     $psi.StandardOutputEncoding = New-Object System.Text.UTF8Encoding($false)
+    $psi.RedirectStandardError = [bool]$DropStderr
     $proc = [System.Diagnostics.Process]::Start($psi)
+    $err = $null
+    if ($DropStderr) { $err = $proc.StandardError.ReadToEndAsync() }
     $out = $proc.StandardOutput.ReadToEnd()
     $proc.WaitForExit()
+    if ($err) { [void]$err.Result }
     return @{ Code = $proc.ExitCode; Out = $out }
 }
 
@@ -109,14 +116,14 @@ function Scan-Keys([string]$Content) {
     }
 }
 
-# Get-AddedLines: lines added under $Pathspec by the pushed commits that no remote-tracking
-# ref already has, or $null when git fails. Options mirror pre-commit-check.sh added_lines.
+# Get-AddedLines: lines added under $Pathspec by the pushed commits that the destination refs
+# do not already have, or $null when git fails. Options mirror pre-commit-check.sh added_lines.
 function Get-AddedLines([string]$Pathspec) {
     $gitArgs = @('--no-replace-objects', '-c', 'core.quotePath=false', '-c', 'log.diffMerges=separate',
         '-c', 'log.showRoot=true', '-c', 'log.follow=false',
         'log', '-p', '--text', '--no-color', '--no-ext-diff', '--no-textconv',
         '--full-history', '-m', '-U0', '--src-prefix=a/', '--dst-prefix=b/', '--format=') +
-        $script:pushCommits + @('--not', '--remotes', '--', $Pathspec)
+        $script:pushCommits + @('--not') + $script:published + @('--', $Pathspec)
     $r = Invoke-Git $gitArgs
     if ($r.Code -ne 0) { return $null }
     $added = New-Object System.Collections.Generic.List[string]
@@ -153,14 +160,29 @@ if ($Mode -eq 'pre-commit') {
         Scan-Tokens $pc $f
     }
 } else {
-    # Anything the guard cannot interpret is blocked: a real pre-push always passes four
-    # fields and local objects, so a mismatch means the scan cannot be trusted.
+    # Anything the guard cannot interpret is blocked: a real pre-push always passes four fields
+    # with object names exactly as long as this repo's hash, and pushes local objects, so a
+    # mismatch means the scan cannot be trusted. (Any other hex string could resolve to a ref of
+    # the same name instead.)
+    # "Already published" is what the destination refs hold right now: the remote sha of every
+    # line, deletions included, comes from the remote itself — unlike tracking refs, which can
+    # be stale, belong to another remote, or not match a pushurl. git sends at most the commits
+    # none of the remote's refs have, so excluding only these keeps the scan a superset of it.
     $pushCommits = @()
+    $published = @()
+    $oid = '^[0-9a-fA-F]{40}$'
+    if ((Invoke-Git @('rev-parse', '--show-object-format') -DropStderr).Out.Trim() -eq 'sha256') { $oid = '^[0-9a-fA-F]{64}$' }
     foreach ($line in $pushLines) {
         $f = @($line.Trim() -split '\s+')
-        if ($f.Count -ne 4 -or $f[1] -notmatch '^[0-9a-fA-F]{4,}$') {
+        if ($f.Count -ne 4 -or $f[1] -notmatch $oid -or $f[3] -notmatch $oid) {
             $violations += "pre-push: malformed ref line: $line"
             continue
+        }
+        # A remote value that is not a commit here (not fetched, a blob or tree) excludes nothing.
+        # stderr is dropped because peeling a blob or tree prints an error even with --quiet.
+        if ($f[3] -notmatch '^0+$') {
+            $r = Invoke-Git @('rev-parse', '--verify', '--quiet', "$($f[3])^{commit}") -DropStderr
+            if ($r.Code -eq 0) { $published += $r.Out.Trim() }
         }
         if ($f[1] -match '^0+$') { continue }
         $r = Invoke-Git @('rev-parse', '--verify', '--quiet', "$($f[1])^{commit}")
