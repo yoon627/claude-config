@@ -29,6 +29,7 @@ import shutil
 import stat
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 # Windows 콘솔 기본 인코딩(cp1252 등)에서 한글 로그 출력 시 UnicodeEncodeError
@@ -135,16 +136,28 @@ def _submodule_worktree_has_files(worktree: Path) -> bool:
     )
 
 
+# POSIX 의 unlink 는 파일 모드와 무관하다. 그런데 chmod 는 링크를 따라가므로 트리
+# 안 symlink·hardlink 가 가리키는 밖의 파일 모드까지 바꾼다 — Windows 에서만 푼다.
+_CLEAR_READONLY = os.name == "nt"
+
+
+def _retry_readonly(func: Callable[[str], object], path: str, exc: BaseException) -> None:
+    if not _CLEAR_READONLY or os.path.islink(path):
+        raise exc
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
 def _force_rmtree(path: Path) -> None:
     """Windows 는 git pack 파일이 read-only 라 shutil.rmtree 가 PermissionError 를
-    낸다 — 먼저 하위 파일의 read-only 를 풀고 삭제한다. 경로가 없으면 no-op. 다른
+    낸다 — 실패한 항목만 read-only 를 풀고 다시 지운다. 경로가 없으면 no-op. 다른
     프로세스가 파일을 점유(WinError 32)하면 OSError 가 나며 호출부가 안내·surface 한다."""
     if not path.is_dir():
         return
-    for child in path.rglob("*"):
-        if child.is_file():
-            os.chmod(child, stat.S_IWRITE)
-    shutil.rmtree(path)
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=_retry_readonly)
+    else:
+        shutil.rmtree(path, onerror=lambda func, p, info: _retry_readonly(func, p, info[1]))
 
 
 def _reset_submodule(name: str, path: str) -> None:
