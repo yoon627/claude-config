@@ -202,7 +202,7 @@ class ResetSubmoduleTest(unittest.TestCase):
 
 class ForceRmtreeTest(unittest.TestCase):
     def test_removes_readonly_tree(self) -> None:
-        """Windows: git pack 파일이 read-only 라 일반 rmtree 가 실패 → 사전 chmod 로 제거."""
+        """read-only pack 파일 트리도 지운다 — Windows 는 실패 시 핸들러가 read-only 를 풀고 재시도, POSIX 는 모드와 무관."""
         with TemporaryDirectory() as tmp:
             target = Path(tmp) / "modules" / "x"
             (target / "objects").mkdir(parents=True)
@@ -215,6 +215,89 @@ class ForceRmtreeTest(unittest.TestCase):
     def test_missing_path_noop(self) -> None:
         with TemporaryDirectory() as tmp:
             bootstrap._force_rmtree(Path(tmp) / "absent")  # raise 없이 통과
+
+    @unittest.skipIf(os.name == "nt", "Windows 는 hardlink 가 read-only 속성을 공유해 삭제 시 풀린다")
+    def test_links_inside_tree_leave_outside_modes_alone(self) -> None:
+        """트리 안 파일 symlink·hardlink·디렉토리 symlink 가 밖을 가리켜도 밖의 파일 모드는 그대로다."""
+        with TemporaryDirectory() as tmp:
+            outside = Path(tmp) / "outside"
+            (outside / "dir").mkdir(parents=True)
+            files = [outside / "linked.pack", outside / "hard.pack", outside / "dir" / "inner.pack"]
+            for f in files:
+                f.write_text("data")
+                os.chmod(f, 0o444)
+            target = Path(tmp) / "modules" / "x"
+            target.mkdir(parents=True)
+            (target / "via-symlink").symlink_to(files[0])
+            os.link(files[1], target / "via-hardlink")
+            (target / "via-dir-symlink").symlink_to(outside / "dir")
+            bootstrap._force_rmtree(target)
+            self.assertFalse(target.exists())
+            for f in files:
+                self.assertEqual(stat.S_IMODE(f.stat().st_mode), 0o444, f.name)
+
+    @unittest.skipIf(os.name == "nt" or os.geteuid() == 0, "POSIX 비-root 에서만 쓰기 금지 디렉토리로 삭제 실패를 만든다")
+    def test_rmtree_failures_reach_the_readonly_handler(self) -> None:
+        """삭제 실패가 핸들러로 전달된다 — 3.12+ onexc, 그 전 onerror 분기 모두."""
+        versions = [(3, 11)] + ([(3, 13)] if sys.version_info >= (3, 12) else [])
+        for version in versions:
+            with self.subTest(version=version), TemporaryDirectory() as tmp:
+                target = Path(tmp) / "modules" / "x"
+                locked = target / "objects"
+                locked.mkdir(parents=True)
+                (locked / "pack.idx").write_text("data")
+                os.chmod(locked, stat.S_IREAD | stat.S_IEXEC)
+                seen: list[BaseException] = []
+
+                def spy(func, path, exc):
+                    seen.append(exc)
+                    raise exc
+
+                try:
+                    with (
+                        mock.patch.object(bootstrap, "sys", mock.Mock(version_info=version)),
+                        mock.patch.object(bootstrap, "_retry_readonly", side_effect=spy),
+                    ):
+                        with self.assertRaises(PermissionError):
+                            bootstrap._force_rmtree(target)
+                finally:
+                    os.chmod(locked, stat.S_IRWXU)
+                self.assertTrue(seen)
+                self.assertIsInstance(seen[0], PermissionError)
+
+    def test_readonly_retry_is_windows_only_and_skips_symlinks(self) -> None:
+        """삭제 실패 시 read-only 해제·재시도는 게이트(Windows)가 켜져 있고 symlink 가 아닐 때만."""
+        with TemporaryDirectory() as tmp:
+            regular = Path(tmp) / "pack.idx"
+            regular.write_text("data")
+            link = Path(tmp) / "link.idx"
+            try:
+                link.symlink_to(regular)
+            except OSError as exc:
+                self.skipTest(f"symlink 생성 불가: {exc}")
+            err = PermissionError("read-only")
+            func = mock.Mock()
+            with (
+                mock.patch.object(bootstrap, "_CLEAR_READONLY", True),
+                mock.patch.object(bootstrap.os, "chmod") as chmod,
+            ):
+                bootstrap._retry_readonly(func, str(regular), err)
+                chmod.assert_called_once_with(str(regular), stat.S_IWRITE)
+                func.assert_called_once_with(str(regular))
+                chmod.reset_mock()
+                func.reset_mock()
+                with self.assertRaises(PermissionError):
+                    bootstrap._retry_readonly(func, str(link), err)
+                chmod.assert_not_called()
+                func.assert_not_called()
+            with (
+                mock.patch.object(bootstrap, "_CLEAR_READONLY", False),
+                mock.patch.object(bootstrap.os, "chmod") as chmod,
+            ):
+                with self.assertRaises(PermissionError):
+                    bootstrap._retry_readonly(func, str(regular), err)
+                chmod.assert_not_called()
+                func.assert_not_called()
 
 
 class SubmoduleEntriesTest(unittest.TestCase):
