@@ -189,7 +189,7 @@
 - 동반 README 정정 2건: 이 키를 여기 두지 않는 이유 명시 + `pyright-lsp` 서술이 `false` 로 stale 했던 것(`80dbb3c` 가 `true` 로 되돌림)을 실제 상태로 동기화.
 
 ## [2026-09-07] ingest | lesson-tracked-config-machine-paths 재발 2회 → settings.json 추적 중단
-- 세 번째 사례는 `/auto-mode-setup` 이 쓴 `autoMode` 블록이다. 머신 절대경로에 더해 **사내 IP(`192.168.62.48`)·도메인(`aigw.autocrypt.co.kr`)·조직명·Bitbucket URL** 이 담겼고 이 레포는 **public** 이라 유출 표면이 앞선 두 사례보다 넓다. 증상은 동일 — `git pull --rebase` 거부.
+- 세 번째 사례는 `/auto-mode-setup` 이 쓴 `autoMode` 블록이다. 머신 절대경로에 더해 **사내 IP·사내 도메인·조직명·Bitbucket URL** 이 담겼고 이 레포는 **public** 이라 유출 표면이 앞선 두 사례보다 넓다. 증상은 동일 — `git pull --rebase` 거부.
 - **표준 remedy 가 처음으로 통하지 않았다**: `autoMode` 는 `settings.local.json` 에서 읽히지 않는다(공식 문서 *Where the classifier reads configuration*). 유효 스코프는 `~/.claude/settings.json`·managed settings·`--settings` 뿐이고, 옮기면 에러 없이 **조용히 무시**된다. managed settings 는 `C:\Program Files\ClaudeCode\` 라 관리자 권한이 필요해 이 머신에선 불가.
 - 그래서 키가 아니라 **파일을 뺐다**(`.gitignore` 화이트리스트에서 제거 + `git rm --cached`). 키 단위 대응이 3회 반복된 것이 근거 — 뺄 키를 고를 때마다 Claude Code 는 다음 기능으로 또 쓴다. 증상 억제 대신 원인 제거.
 - 추적 전제에 의존하던 것 동반 수정: CI JSON validation 제거, `session-start-pull.test.js` 이원화(settings 있으면 실제 배선까지 검증 / 없으면 CANONICAL 로 스크립트 동작 고정 — 19 tests 양쪽 통과 실측), `guard-worktree-edit.js` main 허용목록에 추가, `dlc-doc-drift.js` trigger 에서 제외.
