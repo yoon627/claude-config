@@ -67,23 +67,27 @@ if have jq; then skip "jq 있음"; else
 if [ -x "$LOCAL_BIN/uv" ] || have uv; then skip "uv 있음"; else
   run "uv 설치 (astral)"; do_cmd sh -c 'curl -LsSf https://astral.sh/uv/install.sh | sh' && ok "uv 설치"; fi
 
-# --- 3b. Codex user-scope skill (stable source survives worktree removal) ---
-CODEX_SKILL_SOURCE="$CLAUDE_DIR/skills/jira-worklog"
-CODEX_SKILL_TARGET="$HOME/.agents/skills/jira-worklog"
-CODEX_SKILL_INSTALLER="$REPO_ROOT/scripts/bootstrap/install-codex-skill.sh"
-run "Codex jira-worklog skill 연결: $CODEX_SKILL_TARGET -> $CODEX_SKILL_SOURCE"
-if [ "$DRY_RUN" = 1 ]; then
-  if ! bash "$CODEX_SKILL_INSTALLER" --source "$CODEX_SKILL_SOURCE" --target "$CODEX_SKILL_TARGET" --dry-run; then
-    warn "Codex jira-worklog skill 연결 실패"
-    exit 1
+# --- 3b. Codex 연결: skill 심링크 + AGENTS.md → CLAUDE.md (stable source survives worktree removal) ---
+# 충돌은 건드리지 않고 모아 두었다가 마지막에 exit 1 — Codex 연결은 뒤 단계의 전제가 아니다.
+CODEX_SKILLS="c dlc e improve jira-worklog wiki wt"
+CODEX_LINKER="$REPO_ROOT/scripts/bootstrap/install-codex-skill.sh"
+dry_flag=""; [ "$DRY_RUN" = 1 ] && dry_flag="--dry-run"
+codex_failed=""
+for name in $CODEX_SKILLS; do
+  run "Codex skill 연결: $HOME/.agents/skills/$name -> $CLAUDE_DIR/skills/$name"
+  if bash "$CODEX_LINKER" --source "$CLAUDE_DIR/skills/$name" --target "$HOME/.agents/skills/$name" ${dry_flag:+"$dry_flag"}; then
+    ok "Codex skill $name"
+  else
+    warn "Codex skill $name 연결 실패"; codex_failed="$codex_failed skill:$name"
   fi
+done
+CODEX_AGENTS="${CODEX_HOME:-$HOME/.codex}/AGENTS.md"
+run "Codex AGENTS.md 연결: $CODEX_AGENTS -> $CLAUDE_DIR/CLAUDE.md"
+if bash "$CODEX_LINKER" --file --source "$CLAUDE_DIR/CLAUDE.md" --target "$CODEX_AGENTS" ${dry_flag:+"$dry_flag"}; then
+  ok "Codex AGENTS.md"
 else
-  if ! bash "$CODEX_SKILL_INSTALLER" --source "$CODEX_SKILL_SOURCE" --target "$CODEX_SKILL_TARGET"; then
-    warn "Codex jira-worklog skill 연결 실패"
-    exit 1
-  fi
+  warn "Codex AGENTS.md 연결 실패"; codex_failed="$codex_failed AGENTS.md"
 fi
-ok "Codex jira-worklog skill 연결"
 
 # --- 5. rtk (standalone 설치본 선택) ---
 if have rtk; then
@@ -146,4 +150,8 @@ git config --global user.email >/dev/null 2>&1 || warn "git user.email 미설정
 if have gh; then gh auth status >/dev/null 2>&1 || warn "gh 미인증 — gh auth login"; else warn "gh 미설치 — brew install gh"; fi
 
 echo
+if [ -n "$codex_failed" ]; then
+  warn "Codex 연결 실패:$codex_failed — 원인은 위 installer 메시지. scripts/bootstrap/README.md 'Codex 연결 충돌' 절에 따라 정리한 뒤 재실행."
+  exit 1
+fi
 ok "부트스트랩 완료. 새 셸을 열거나 'source ~/.zshrc' 후 'claude' 실행."
