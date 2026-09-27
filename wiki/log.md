@@ -304,3 +304,6 @@
 
 ## [2026-09-27] ingest | link-following-file-ops (신규)
 - 공용 wiki 적립(사용자 결정): POSIX 에서 파일 모드는 삭제를 막지 않고(sticky 디렉토리는 XBD 4.5), `os.chmod` 는 심링크를 따라가며(Windows 는 기본 `follow_symlinks=False`) hardlink 는 모드를 공유하고, git 로컬 clone 은 objects 를 hardlink 한다 — 삭제 전 일괄 chmod 가 트리 밖 파일을 `0o200` 으로 만든 heal 결함과 rmtree 실패 핸들러(Windows·비심링크만) 해법·Windows 잔여 한계, `cd` 의 `..` 글자 처리 대 `cd -P`(설치 도구의 링크 오판). 근거는 POSIX unlink·XBD 4.5·link·cd, Python os·shutil, git-clone 문서, PR #181. code-reviewer 가 Windows chmod 기본값 누락을 잡아 정정. lesson-no-speculative-platform-switch 에서 inbound.
+
+## [2026-09-27] update | rtk-rewrite-permission-rules
+- 남은 한계 절을 규칙 문자열 대조 + `rtk rewrite` 실측(rtk 0.44.2)으로 갱신: 인자 없는 `git push` 는 정확 일치 규칙에 걸림, `git push origin`·`-u origin HEAD` 는 안 걸림(⚠️ 대조 기준), `git -C` 는 `rtk git -C … push` 로 재작성돼 규칙 밖, `--mirror`·`--all`·`--prune` ask 없음, 백스톱은 pre-push 가드(설치 repo·`~/.claude` 면제)와 관리자 bypass 인 `main-guard`. README `permissions.ask` 항목과 같은 내용(audit-docs-drift).

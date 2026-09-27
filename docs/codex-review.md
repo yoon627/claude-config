@@ -58,7 +58,7 @@ codex exec --sandbox read-only --ephemeral -c 'model_reasoning_effort="medium"' 
   | 최심층 (지원 모델 한정) | `xhigh` |
 
 - **구현 후 리뷰의 범위는 브랜치 전체 diff** — 프롬프트에 `git diff <base>...HEAD`(base = `origin/<default>` 또는 호출 측이 준 sha)를 명시하고 codex 가 read-only sandbox 안에서 직접 실행하게 한다(번들 파일 목록만 주면 pre-push 가 잡던 범위 밖 결함을 놓친다). P0/P1 급(돈·데이터·보안) 결함을 먼저 보고하게 한다.
-- **effort 는 항상 `-c model_reasoning_effort=...` 로 명시한다.** 생략하면 `~/.codex/config.toml` 기본값(현재 `xhigh`)이 적용돼 토큰이 최대로 샌다.
+- **effort 는 항상 `-c model_reasoning_effort=...` 로 명시한다.** 생략하면 머신마다 다른 `~/.codex/config.toml` 의 `model_reasoning_effort` 값(키가 없으면 codex 내장 기본값)이 적용돼 위 표의 phase 별 차등이 무너진다 — 기본값이 높으면 토큰이 새고, 낮으면 리뷰 깊이가 모자란다.
 - `minimal` 은 일부 모델(gpt-5.5 등)에서 `web_search`/`image_gen` 툴과 충돌(400)하니 실질 최저는 `low`.
 - `xhigh` 는 지원 모델(gpt-5.1-codex-max / gpt-5.2-codex / gpt-5.5 등) 한정. 미지원 모델은 자동 폴백되지 않으니 호출 전 모델 확인.
 - `hide_agent_reasoning=true` 는 **출력 노이즈 억제용** — reasoning 토큰 자체는 줄지 않는다(과금 동일). 실제 토큰 절감은 effort 차등과 글로벌 AGENTS.md 슬림화 두 축뿐이다. 일부 codex 버전에서 무시될 수 있어(openai/codex#7090) 결론 추출은 §5 의 grep/tail 로 보장한다.
