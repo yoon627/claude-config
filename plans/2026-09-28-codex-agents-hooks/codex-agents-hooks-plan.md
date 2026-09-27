@@ -1,6 +1,6 @@
 ---
 title: codex-agents-hooks — Codex agent 정의 재생성과 hooks.json 의 dlc 훅 판단
-status: in_progress
+status: done
 started: 2026-09-28
 updated: 2026-09-28
 intent: plans/2026-09-25-repo-audit-followups/intent.md
@@ -32,9 +32,9 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 - 2026-09-28: plan-reviewer CONDITIONAL(Review Disposition). 테스트 재작성 → Red 6(새 API·표식·충돌·orphan·`--check`·CRLF·sandbox·fail-closed) → 생성기 재작성 → 7 OK(python 3.13), `/usr/bin/python3` 3.9.6 에서 7 중 TOML 검사 3 skip·4 OK. `setup.sh` 3b 연결(`bash -n`·shellcheck 통과). Acceptance 4 먼저: 빈 임시 `CODEX_HOME` 의 `setup.sh --dry-run` → `would update` 4·파일 0, 3.9 생성기 dry-run 동일. Acceptance 3(a): import 사본 4개를 `~/.codex/agents.bak-20260928/` 로 옮기고 생성 → 4개 파싱·잔존 0·`--check` 0. README·bootstrap README 갱신. `bash scripts/verify.sh` ALL PASS.
 - 2026-09-28: code-reviewer REQUEST CHANGES(Review Disposition `[code 1]`). 테스트 재작성 → Red 11(종료 코드 2·H1 경계·`~~~`/4백틱 펜스·제목 바꾼 실제 원본·조건부 sandbox·다중 원본·대소문자) → 생성기 수정 → 10 OK(3.13), 3.9 에서 TOML 3 skip·7 OK. 생성기 소스의 BOM 리터럴을 escape 로. 실제 `~/.codex/agents` 재생성 — reviewer 3개는 키 3개(import 사본과 같음), researcher 만 `sandbox_mode`, 잔존 0, `--check` 0. README·bootstrap README·intent 줄 갱신. `bash scripts/verify.sh` ALL PASS.
 - 2026-09-28: code-reviewer 재검토 APPROVE(`[code 2]`) → N1~N4 수정(Red 2 → 11 OK). simplify: 변경 없음. 격리 runner — `verify.sh` 마지막 줄 `ALL PASS`(skip 없음), 테스트 3.13 `Ran 11 OK`·3.9 `OK (skipped=3)`(메인이 `-v` 로 skip 3개가 모두 TOML 파서 필요 테스트임을 확인), `bash -n` 0, 실제 `~/.codex/agents` `--check` 0(`unchanged` 4). evidence gate: Acceptance 1·2·4·5·6 충족, 3 은 (a) 충족·(b) 미검증(Deferred) → DONE.
+- 2026-09-28: 사용자 승인으로 main 의 `45a06bb` 를 main checkout 에서 push(worktree 에서는 pre-push 훅이 main push 를 막는다). `/e merge` — PR #186.
 
 # Next
-`/e merge` 전에 main 의 미push 커밋 `45a06bb`(교훈 사례 3) 처리를 사용자에게 묻는다 — 이 브랜치 base 는 `origin/main@30c3530` 이라 PR 머지 전에 `45a06bb` 가 origin 에 올라가야 로컬 main 이 ff 로 따라온다.
 
 # Decisions
 - 생성기는 Python(`scripts/bootstrap/sync_codex_agents.py`) — 테스트가 `tomllib` 로 결과를 다시 읽어 대조할 수 있다(Node 는 TOML 파서가 없다). 생성기 자체는 3.9 에서도 돈다(쓰기만, `from __future__ import annotations`). 테스트는 `tomllib`→`tomli`→skip 순(시스템 python 3.9 에서 `verify.sh` 를 깨지 않기 위해 — plan-reviewer).
