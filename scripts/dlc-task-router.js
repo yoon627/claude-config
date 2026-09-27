@@ -19,6 +19,9 @@ try {
 // 증상 표현 위주로 좁힘 — "error handling 추가" 같은 기능 요청 오탐 완화.
 const DBG = /(디버그|debugging|stack ?trace|스택\s?트레이스|재현|reproduce|회귀\s?버그|regression|crash|튕긴|튕겨|예외가\s?(발생|나)|exception\s?(발생|thrown)|안\s?돼|안\s?됨|동작\s?안|작동\s?안|버그가|에러가\s?(나|발생)|깨졌|깨진다|실패한다|failing)/;
 const RENDER = /(렌더링|\brender\b|\bsvg\b|canvas|webgl|애니메이션|animation|차트를?\s?그|시각화|three\.?js|\bd3\.js\b|그래프를?\s?그|게임\s?화면|화면에\s?그)/;
+// subagent 보고(hand-back) 턴 — 태그 뒤에 하네스 안내 문단이 붙어 태그만 걷어내면 텍스트가 남으므로
+// 걷어내지 않고 턴 앞머리로 판별해 통째로 건너뛴다. 문장 중간의 태그는 사용자가 붙여넣은 것이다.
+const HANDBACK = /^\s*(?:another claude session sent a message:\s*)?<agent-message\b/;
 
 let raw = '';
 const wd = setTimeout(() => process.exit(0), 1000); // stdin 미수신 안전망
@@ -38,7 +41,7 @@ process.stdin.on('end', () => {
   const prompt = String(input.prompt || '')
     .toLowerCase()
     .replace(/<(system-reminder|task-notification)>[\s\S]*?<\/\1>/g, '');
-  if (!prompt.trim()) process.exit(0);
+  if (!prompt.trim() || HANDBACK.test(prompt)) process.exit(0);
   ledger.reset(input.session_id); // 새 사용자 턴 시작
   const ctx = { session_id: input.session_id, cwd: input.cwd };
   const out = [];

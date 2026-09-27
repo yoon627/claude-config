@@ -319,3 +319,6 @@
 
 ## [2026-09-27] update | lesson-grep-absence-not-proof (사례 5·6)
 - §13 교훈(사용자 승인): native-overlap-recheck 에서 리뷰가 잡은 실수 두 건 — WebFetch 요약을 근거로 "UserPromptSubmit 관련 변경이 창에 없다"고 적어 v2.1.271·280 을 놓침(사례 5), 라우터 오발동을 표본으로 세어 두 번 과소(1 → 41 → 14개 세션 130건, 사례 6). 올바른 방법에 "외부 문서는 원문을 받아 끝까지 읽는다"·"빈도는 전체 데이터로, 표본은 표본이라고 적는다" 추가. memory 인덱스 줄은 main 세션에서.
+
+## [2026-09-27] update | workflow-failures · claude-code-hook-notification-turns (router-agent-message)
+- 라우터 hand-back 경로 fixed: reminder·notification 을 걷어낸 뒤 `<agent-message` 로 시작하는 턴(접두어 선택적)을 통째로 건너뛴다(라우팅·장부 리셋 모두). 태그만 걷어내면 뒤 하네스 안내 문단이 남는다(transcript 213/213). 판별식은 hand-back 213/213 을 잡고 다른 user 텍스트 턴 1,888건은 0건. 실제 hook stdin 실측은 머지 뒤(plan Acceptance 6).
