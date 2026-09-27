@@ -67,7 +67,7 @@ if have jq; then skip "jq 있음"; else
 if [ -x "$LOCAL_BIN/uv" ] || have uv; then skip "uv 있음"; else
   run "uv 설치 (astral)"; do_cmd sh -c 'curl -LsSf https://astral.sh/uv/install.sh | sh' && ok "uv 설치"; fi
 
-# --- 3b. Codex 연결: skill 심링크 + AGENTS.md → CLAUDE.md (stable source survives worktree removal) ---
+# --- 3b. Codex 연결: skill 심링크 + AGENTS.md → CLAUDE.md + agent 정의 생성 (stable source survives worktree removal) ---
 # 충돌은 건드리지 않고 모아 두었다가 마지막에 exit 1 — Codex 연결은 뒤 단계의 전제가 아니다.
 CODEX_SKILLS="c dlc e improve jira-worklog wiki wt"
 CODEX_LINKER="$REPO_ROOT/scripts/bootstrap/install-codex-skill.sh"
@@ -87,6 +87,16 @@ if bash "$CODEX_LINKER" --file --source "$CLAUDE_DIR/CLAUDE.md" --target "$CODEX
   ok "Codex AGENTS.md"
 else
   warn "Codex AGENTS.md 연결 실패"; codex_failed="$codex_failed AGENTS.md"
+fi
+# agent 정의는 링크가 아니라 생성 사본이다 — 원본의 Codex 병행 절이 Codex 안에서 자기 자신을 부르므로 뺀다.
+CODEX_AGENT_DIR="${CODEX_HOME:-$HOME/.codex}/agents"
+run "Codex agent 정의 생성: $CODEX_AGENT_DIR <- $CLAUDE_DIR/agents"
+if ! have python3; then
+  warn "python3 없음 — Codex agent 정의 생성 건너뜀"; codex_failed="$codex_failed agents:python3"
+elif python3 "$REPO_ROOT/scripts/bootstrap/sync_codex_agents.py" --source "$CLAUDE_DIR/agents" --out "$CODEX_AGENT_DIR" ${dry_flag:+"$dry_flag"}; then
+  ok "Codex agent 정의"
+else
+  warn "Codex agent 정의 생성 실패"; codex_failed="$codex_failed agents"
 fi
 
 # --- 5. rtk (standalone 설치본 선택) ---
@@ -151,7 +161,7 @@ if have gh; then gh auth status >/dev/null 2>&1 || warn "gh 미인증 — gh aut
 
 echo
 if [ -n "$codex_failed" ]; then
-  warn "Codex 연결 실패:$codex_failed — 원인은 위 installer 메시지. scripts/bootstrap/README.md 'Codex 연결 충돌' 절에 따라 정리한 뒤 재실행."
+  warn "Codex 연결 실패:$codex_failed — 원인은 위 installer·생성기 메시지(충돌·python3 부재·원본 형식). 충돌은 scripts/bootstrap/README.md 'Codex 연결 충돌' 절에 따라 정리한 뒤 재실행."
   exit 1
 fi
 ok "부트스트랩 완료. 새 셸을 열거나 'source ~/.zshrc' 후 'claude' 실행."
