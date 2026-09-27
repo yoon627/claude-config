@@ -328,3 +328,6 @@
 
 ## [2026-09-27] update | workflow-failures (ledger-bash-edits)
 - "Bash 경유 편집" 행: plan·README·index 편집 부분 fixed — PostToolUse `tool_response.bashEditDiff`(v2.1.269)의 이 브랜치 plan·README·index 경로를 HEAD 와 다를 때만 `planTouched`·drift target 으로(경고 끄기만). 대칭 처리는 새 오탐 3부류(git 동기화 diff·경로 순서·veto)로 기각. verify 부분(이름이 안 맞는 검증 스크립트)은 tracking. "중간 턴" 행 fixed — Stop `background_tasks` 에 subagent·workflow 가 있으면(teammate 는 idle 도 running 으로 남아 제외) early-stop 이 장부를 건드리지 않고 통과.
+
+## [2026-09-27] update | claude-code-agents-md-loading (worktree CLAUDE.md 이중 주입)
+- `~/.claude` worktree 세션이 전역 `CLAUDE.md`(user 지침)와 worktree `CLAUDE.md`(프로젝트 지침)를 둘 다 싣는 것을 headless 실측(62,827 → 44,300 토큰, main 44,097). user `settings.json` `claudeMdExcludes` 에 `**/.claude/.claude/worktrees/*/CLAUDE.md` 와 `*/AGENTS.md`(CLAUDE.md 를 빼면 AGENTS.md 폴백이 켜짐 — 실측) 추가(plan claude-md-dedupe) — worktree 세션은 main checkout 의 CLAUDE.md 로 돌고 branch 변경은 main 반영 뒤 새 세션부터.

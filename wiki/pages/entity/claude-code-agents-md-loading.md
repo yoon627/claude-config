@@ -2,10 +2,11 @@
 title: claude-code-agents-md-loading
 category: entity
 created: 2026-09-25
-updated: 2026-09-25
+updated: 2026-09-27
 sources:
-  - https://code.claude.com/docs/en/memory (AGENTS.md 절, 2026-09-25 조회)
+  - https://code.claude.com/docs/en/memory (AGENTS.md 절, 2026-09-25 조회 · claudeMdExcludes 절, 2026-09-27 조회)
   - headless 실측 2026-09-25 (Claude Code 2.1.282)
+  - headless 실측 2026-09-27 (Claude Code 2.1.283 — worktree CLAUDE.md 이중 주입, plan claude-md-dedupe)
   - 커밋 a3d7bdc (2026-06-10 사용자 결정 — ~/.codex/AGENTS.md 는 CLAUDE.md 심링크)
 ---
 
@@ -29,6 +30,13 @@ sources:
 - 대응(2026-09-25): user `settings.json` 에 `claudeMdExcludes: ["/Users/jongyoonlee/.claude/AGENTS.md"]`. headless 세션에 "AGENTS.md 에만 있는 제목이 컨텍스트에 있나"를 물어 적용 전 YES → 적용 후 NO, CLAUDE.md 에만 있는 제목은 전후 모두 YES 로 확인했다.
 - 기각: Project instructions = `claude-md` — 다른 repo 의 AGENTS.md 까지 끊는다.
 - 후속(2026-09-25): Codex 쪽 정리에서 `~/.codex/AGENTS.md` 를 `~/.claude/CLAUDE.md` 심링크로 되돌리고(2026-06-10 단일 소스 결정) 이 repo 의 `AGENTS.md` 미러는 치웠다(백업 `backups/codex-resync-20260925/`). `claudeMdExcludes` 줄은 Codex 앱 import 가 미러를 다시 만들 때를 대비해 남겨 둔다.
+
+## worktree 세션의 CLAUDE.md 이중 주입 (✅ 실측 2026-09-27)
+
+- 이 repo 의 worktree(`~/.claude/.claude/worktrees/<n>`) 세션은 `~/.claude/CLAUDE.md` 를 **user 지침**으로, worktree 의 `CLAUDE.md` 를 **프로젝트 지침**으로 둘 다 싣는다 — 경로가 달라 중복으로 보지 않는다. worktree 사본 끝에 임시 표식을 붙이고 headless `claude -p --model haiku` 로 물어 확인했다: 기본 = 표식 있음·입력 62,827 토큰, `--settings` 로 `claudeMdExcludes: ["**/.claude/.claude/worktrees/*/CLAUDE.md"]` 주입 = 표식 없음·44,300 토큰(전역 사본 내용은 그대로), main 세션 + 같은 패턴 = 전역 사본 내용 있음·44,097 토큰. 컨텍스트 약 18.5k 토큰(haiku 기준)이 중복이었다.
+- **worktree `CLAUDE.md` 를 빼면 그 worktree 의 `AGENTS.md` 폴백이 켜진다**: 표식을 넣은 임시 `AGENTS.md` 로 재니 기본 = 없음, `CLAUDE.md` 만 제외 = **있음**, `AGENTS.md` 도 제외 = 없음. 제외된 CLAUDE.md 는 폴백 판정("CLAUDE.md 가 있으면 AGENTS.md 를 안 읽는다")에서 세지 않는다.
+- 대응: user `settings.json` `claudeMdExcludes` 에 `**/.claude/.claude/worktrees/*/CLAUDE.md` 와 `**/.claude/.claude/worktrees/*/AGENTS.md`. worktree 사본을 빼는 이유는 전역 사본이 main 세션에서 프로젝트 파일과 같은 경로라서다. `.claude` 가 두 번 이어지는 경로만 맞아 다른 repo 의 worktree 는 걸리지 않는다. 결과: worktree 세션과 그 subagent 는 main checkout 의 `CLAUDE.md` 로 돌고, branch 에서 고친 규칙은 main 작업트리에 반영된 뒤 새 세션부터 적용된다. macOS 에서만 실측했다(Windows 경로 매칭 미검증).
+- 기각: main `settings.local.json` 에 두기 — project 범위라 `/wt` 가 복사한 새 worktree 에만 따라가고 기존 worktree 는 수동 복사가 필요하다. 기각: worktree 에서만 전역 사본을 빼 branch 편집을 바로 반영하기 — worktree 전용 settings 파일이 필요한데 `/wt` 가 복사하는 main `settings.local.json` 은 main 세션에도 적용돼 main 이 전역 사본을 잃는다.
 
 ## 연계
 
