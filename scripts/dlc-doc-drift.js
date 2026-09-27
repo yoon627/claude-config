@@ -108,9 +108,10 @@ function applyChange(data, fp, cwd, home, isNewFile) {
 }
 
 // dirty 인데 실제로는 이미 동기화됐는가를 **파일 상태**로 재확인한다.
-// dirty 는 PostToolUse 의 `Edit|Write|NotebookEdit` 분기에서만 세워진다 — README 를 Bash
-// (`node -e`·`sed`·heredoc)로 고치면 target 갱신이 장부에 안 잡혀 dirty 가 영영 안 풀리고
-// "고쳤는데도 경고"가 난다(실측). mtime 비교는 편집 도구와 무관하므로 그 비대칭을 없앤다.
+// dirty 는 PostToolUse 의 `Edit|Write|NotebookEdit` 분기에서만 세워진다. README 를 Bash
+// (`node -e`·`sed`·heredoc)로 고친 target 갱신은 `bashEditDiff` 가 올 때(auto·bypass 모드)만 장부에
+// 잡히고, 그 밖엔 dirty 가 안 풀려 "고쳤는데도 경고"가 난다(실측). mtime 비교는 편집 도구와 무관하므로
+// 그 비대칭을 없앤다.
 // 이 모듈은 순수하게 두고 stat 은 호출부가 `mtimeOf(rel)→ms|null` 로 주입한다(isNewFile 과 같은 패턴).
 // **판정 불가는 전부 "경고 유지"** — 이 게이트는 보조망이라 미탐(조용히 통과)이 오탐보다 나쁘다.
 // pending trigger 를 target mtime 기준으로 가른다.

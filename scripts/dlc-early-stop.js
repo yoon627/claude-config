@@ -116,8 +116,8 @@ process.stdin.on('end', () => {
   // (2) 문서 drift
   let docSettled = false;
   if (drift && process.env.CLAUDE_DLC_DOCDRIFT_OFF !== '1' && (data.docBlocks || 0) < CAP) {
-    // 장부의 dirty flag 는 Edit/Write 로 고친 것만 본다 — README 를 Bash 로 고치면 dirty 가 안
-    // 풀려 "고쳤는데도 경고"가 난다. 실제 파일 mtime 을 주입해 drift 가 상태로 재확인하게 한다.
+    // 장부는 Bash 로 고친 README·index 를 `bashEditDiff` 가 올 때(auto·bypass 모드)만 본다 — 그 밖엔
+    // dirty 가 안 풀려 "고쳤는데도 경고"가 난다. 실제 파일 mtime 을 주입해 drift 가 상태로 재확인하게 한다.
     // **root 를 대조하는 이유**: pending 의 rel 은 *편집 시점* root 기준이다. 세션이 그 뒤 다른
     // worktree·main 으로 옮기면(§3-1·/e 8단계가 main 복귀를 시킨다) 같은 rel 이 **다른 파일**을
     // 가리키고, main 은 README 가 매 머지마다 재작성돼 거의 항상 최신이라 게이트가 통째로 꺼진다.
