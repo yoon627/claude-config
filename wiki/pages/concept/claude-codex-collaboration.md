@@ -2,8 +2,9 @@
 title: claude-codex-collaboration
 category: concept
 created: 2026-06-19
-updated: 2026-09-26
+updated: 2026-09-28
 sources:
+  - plans/2026-09-28-codex-agents-hooks (Codex agent 정의 생성·hooks 미적용)
   - plans/2026-09-26-repo-audit-g8-g9-docs-ci (CLAUDE_REVIEW_CODEX_MODE 폐기)
   - 커밋 a3d7bdc (Codex AGENTS.md 심링크 단일 소스 결정)
   - CLAUDE.md (§9 Claude ↔ Codex 협업)
@@ -26,4 +27,4 @@ Claude(컨텍스트 축적·통합)와 Codex(독립 뷰)가 같은 변경을 보
 Codex는 반드시 **Bash 도구**로 호출한다 — [[codex-bash-invocation]](PowerShell hang 회피). 무거운 작업 전 짧은 smoke test로 응답부터 확인.
 
 ## 연계
-격리 구조는 [[hub-and-spoke-isolation]], 공유 채널은 [[plan-handoff]], 리뷰 관점 분리는 [[dual-review-plan-and-code]]. Codex 용 `AGENTS.md` 미러가 Claude 세션에 섞여 들어가는 경로와 차단은 [[claude-code-agents-md-loading]]. Codex 의 전역 지침 `~/.codex/AGENTS.md` 는 `CLAUDE.md` 심링크(단일 소스)이고 `~/.agents/skills/{c,dlc,e,improve,jira-worklog,wiki,wt}` 도 이 repo `skills/` 심링크다 — Codex 앱의 Claude import 가 사본으로 덮어쓰면 규칙이 갈라진다(2026-08-01 사례, 2026-09-25 복원).
+격리 구조는 [[hub-and-spoke-isolation]], 공유 채널은 [[plan-handoff]], 리뷰 관점 분리는 [[dual-review-plan-and-code]]. Codex 용 `AGENTS.md` 미러가 Claude 세션에 섞여 들어가는 경로와 차단은 [[claude-code-agents-md-loading]]. Codex 의 전역 지침 `~/.codex/AGENTS.md` 는 `CLAUDE.md` 심링크(단일 소스)이고 `~/.agents/skills/{c,dlc,e,improve,jira-worklog,wiki,wt}` 도 이 repo `skills/` 심링크다 — Codex 앱의 Claude import 가 사본으로 덮어쓰면 규칙이 갈라진다(2026-08-01 사례, 2026-09-25 복원). Codex agent 정의(`~/.codex/agents/*.toml`)는 링크가 아니라 이 repo `agents/*.md` 에서 "Codex 병행" 절을 뺀 생성 사본이고, Codex `hooks.json` 에는 dlc 훅을 두지 않는다 — 근거는 [[codex-cli-agents-and-hooks]](2026-09-28).

@@ -28,6 +28,7 @@
 - [[claude-code-subagent-config]] — subagent frontmatter model/effort·env 우선순위·Haiku effort.
 - [[claude-code-model-selection]] — alias 해석(opus→Opus 5.5, fable→Fable 5.1)·Fable advisor 가능·/model 우선순위·subagent 모델 순위(v2.1.251 부터 env 는 frontmatter 뒤, 비상 레버는 `…_FORCE=1`)·subagent effort 는 세션 상속·pin 시 확정사실(`[1m]` 금지·native 1M·폴백 없음).
 - [[claude-code-oss-frameworks]] — OSS 하네스 생태계 스냅샷(2026-08): 커버리지 부분적·프레임워크 후퇴·내부 확장이 정책 안전.
+- [[codex-cli-agents-and-hooks]] — Codex CLI 0.154.0(2026-09-28): custom agent toml 키(tools 제한 없음 → `sandbox_mode`)·이름 호출 불확실·`max_depth` 가 셸 `codex exec` 재귀를 못 막음, hook 은 필드명이 Claude Code 와 같지만 편집이 `apply_patch`(경로가 patch 본문 안)·`bashEditDiff`/`background_tasks` 없음 → dlc 훅 미이식 근거.
 - [[codegraph]] — retired(2026-09-15) 코드 심볼 그래프 MCP 의 historical 기록 — 보존 로그상 성공 호출 0회로 전역 해제, wt 자동 init·bootstrap 에서 제거.
 - [[headroom]] — retired 컨텍스트 최적화 proxy/MCP의 historical 기록(현재 bootstrap·runtime 미사용).
 

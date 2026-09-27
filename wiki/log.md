@@ -337,3 +337,6 @@
 
 ## [2026-09-28] update | lesson-verify-scaffold-purpose-before-removal (사례 3)
 - 사례 3: 2026-08-12 EnterWorktree 세션에서만 잰 "네이티브 ⊇ guard ②" 로 `retire` 했다가 2026-09-27 재실측에서 worktree 디렉토리에서 시작한 세션이 격리되지 않아 뒤집힘(plan guard-deny-removal). 같은 작업에서 오탐 4건(전부 gitignored)을 "untracked" 로 뭉쳐 없는 상충을 적은 self-flag 도 같은 축. 올바른 방법에 두 항목 추가 — 대체 판정은 장치가 발동하는 조건마다 잰다, 트레이드오프 전 관측 표본 속성을 가장 좁은 범주로 적는다.
+
+## [2026-09-28] ingest | codex-cli-agents-and-hooks
+- 새 entity: Codex CLI 0.154.0 의 custom agent toml(필수 키, tools 제한 키 없음 → `sandbox_mode`, 이름 호출 #15250, `max_depth` 가 셸 `codex exec` 재귀를 못 막음 #46704·#32027)과 hooks(로컬 로드 형태 `{"hooks": {...}}`, 이벤트·출력 필드는 Claude Code 와 같음, 편집이 `apply_patch` 라 경로가 patch 본문 안, `bashEditDiff`·`background_tasks` 없음, PostToolUse 출력 누락 보고 #34289·#46455), worktree 가 편집 경계가 아님. codex-agents-hooks(PR #186)의 결정 근거. `claude-codex-collaboration` 에서 링크.
