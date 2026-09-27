@@ -1,6 +1,6 @@
 ---
 title: audit-docs-drift — Codex effort 서술·README --no-verify·RTK import·권한 규칙 한계·모델 사실(wiki·README 비상 레버)을 현재 상태에 맞춤
-status: in_progress
+status: done
 started: 2026-09-27
 updated: 2026-09-27
 intent: plans/2026-09-25-repo-audit-followups/intent.md
@@ -41,10 +41,10 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 - 2026-09-27: plan-reviewer(Codex 생략) CONDITIONAL — 강 5(README:285 범위 추가, RTK 문안, Deferred 신설, 25건 열거, decision 규칙 분리)·약 다수 반영. 핵심 사실 3개를 편집 전에 공식 문서 원문으로 재확인(subagent 모델 순위·FORCE·subagent effort 상속, Opus 5.5 기본 medium·Claude Code 의 `effortLevel` 미적용, Fable 5.1 v2.1.257 / Opus 5.5 v2.1.280). `rtk rewrite` 로 push 형태별 재작성 실측(rtk 0.44.2).
 - 2026-09-27: 커밋 A `34e89fb`(README 가드·RTK·권한 한계, codex-review, rtk-rewrite 한계 절) · 커밋 B `776c40c`(wiki 모델 페이지 4개·index·log, README 비상 레버). 가격·라인업·권장 문구·advisor 는 편집 전 원문 재확인. verify ALL PASS·check_links clean.
 - 2026-09-27: 리뷰 workflow `wf_9da65693-33d`(code-reviewer + 사실 반박 5묶음, 에이전트 6·오류 0) — code-reviewer REQUEST CHANGES: Major 1(리뷰어 effort 를 미결 회귀로 적음 — 실제로는 2026-09-24 M12 결정으로 `modelSettings` Opus 5.5 `medium` 이 저장돼 있음, settings 직접 확인) + Minor 다수. 사실 검증 61건 중 과장 8·반박 1(원문에 없는 인용). 전부 반영(아래 Disposition), `--hook-only` 의미와 전역 옵션 재작성은 실측으로 확인.
+- 2026-09-27: 최종 검증(격리 runner) verify ALL PASS·improve error=0·check_links clean·plan-lint·공개 스캔 통과. 내용 단언 스크립트는 runner 쪽 auto mode 분류기가 거부 — 우회하지 않고 메인이 개별 grep 으로 Acceptance 1~6 확인 → DONE. commit-check 로 fixup 합치고 두 메시지 정정. `/e merge` — PR #182.
 
 # Next
 
-리뷰 반영분을 fixup 으로 커밋(README·index·log 는 두 단위가 함께 고친 파일이라 B fixup, codex-review·rtk-rewrite 페이지는 A fixup) → commit-check 로 합치고 B 메시지 정정 → 머지 방식 확인(`/e merge`).
 
 # Decisions
 
