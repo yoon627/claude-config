@@ -1,8 +1,8 @@
 ---
 title: improve-followups — /improve deep(2026-09-27)이 찾은 하니스 결함·비용을 주인 있게 추적
-status: open
+status: closed
 started: 2026-09-27
-updated: 2026-09-27
+updated: 2026-09-28
 ---
 
 # Problem
@@ -30,4 +30,4 @@ updated: 2026-09-27
 
 - `plans/2026-09-27-router-agent-message/router-agent-message-plan.md` — `scripts/dlc-task-router.js` 가 subagent 보고(hand-back) 턴을 사용자 턴으로 보고 라우팅 힌트를 오발동하고 장부를 리셋한다(workflow-failures 의 라우터 알림 턴 행 — 2026-09-15 부터 auto mode 14개 세션에서 130건). 이 턴은 v2.1.271 의 auto mode 전용 hand-back 호출에서 생겼고, transcript 에서는 `Another Claude session sent a message:` + 개행 + `<agent-message from="…">` 형태다(`<system-reminder>` 래퍼 없음). 태그만 걷어내면 평문 접두어가 남아 리셋이 계속될 수 있다 ⚠️ — 텍스트 제거 대신 턴의 출처를 판별하는 방식도 후보. 재현 테스트 먼저, small 예상. 감사 묶음의 ledger-bash-edits 가 이 단위 뒤에 온다.
 - `plans/2026-09-27-claude-md-dedupe/claude-md-dedupe-plan.md` — 이 repo 의 worktree 세션에 `CLAUDE.md`(42KB)가 전역 사본과 worktree 사본으로 두 번 주입되던 것(컨텍스트 ~18.5k 토큰, headless 실측)을 user `settings.json` `claudeMdExcludes` 의 `**/.claude/.claude/worktrees/*/CLAUDE.md`·`*/AGENTS.md`(CLAUDE.md 를 빼면 AGENTS.md 폴백이 켜짐)로 뺀다. worktree 세션은 main checkout 의 CLAUDE.md 로 돌고 branch 변경은 main 반영 뒤 새 세션부터 적용된다.
-- guard-deny-removal (미착수) — `scripts/guard-worktree-edit.js` 의 worktree 밖 편집 `deny` 분기 제거(`native-overlap-ledger` 1b `retire`, 2026-08-12 판정 뒤 미이행). **착수 조건**: 대장 1b 의 2026-08-12 관측표를 현재 버전에서 다시 실측한다(그 뒤 v2.1.251·257·259·274 에서 네이티브 격리 경계가, v2.1.283 에서 auto-memory 쓰기 판정이 바뀌었다). 같은 실측으로 대장 1b 콜아웃의 worktree 세션 memory 쓰기 막힘도 확인한다. 함께 사라지는 것(`guard-worktree-deny` 신호, <2.1.222 보호, 테스트의 ② 케이스)은 대장 1b 절에 있다. 기능 ①(main 편집 ask)은 남긴다.
+- `plans/2026-09-27-guard-deny-removal/guard-deny-removal-plan.md` — 원안은 `scripts/guard-worktree-edit.js` 의 worktree 밖 편집 `deny` 분기 제거(`native-overlap-ledger` 1b `retire`)였다. 착수 조건인 2.1.283 재실측에서 네이티브 격리가 EnterWorktree 세션은 덮지만 worktree 디렉토리에서 시작한 세션은 덮지 않음을 확인해, 제거 대신 **main checkout 의 추적 파일 편집과 새 not-ignored 파일 생성만 막게 좁히고**(관측 오탐 4건은 전부 gitignored 경로) 대장 1b 를 정정한다(사용자 결정). worktree 세션 memory 쓰기는 2.1.283 에서도 막힌다. 기능 ①(main 편집 ask)은 남긴다.

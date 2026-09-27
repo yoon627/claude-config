@@ -331,3 +331,6 @@
 
 ## [2026-09-27] update | claude-code-agents-md-loading (worktree CLAUDE.md 이중 주입)
 - `~/.claude` worktree 세션이 전역 `CLAUDE.md`(user 지침)와 worktree `CLAUDE.md`(프로젝트 지침)를 둘 다 싣는 것을 headless 실측(62,827 → 44,300 토큰, main 44,097). user `settings.json` `claudeMdExcludes` 에 `**/.claude/.claude/worktrees/*/CLAUDE.md` 와 `*/AGENTS.md`(CLAUDE.md 를 빼면 AGENTS.md 폴백이 켜짐 — 실측) 추가(plan claude-md-dedupe) — worktree 세션은 main checkout 의 CLAUDE.md 로 돌고 branch 변경은 main 반영 뒤 새 세션부터.
+
+## [2026-09-27] update | native-overlap-ledger (1b 정정)
+- 1b(guard ② worktree 밖 편집 deny) `retire` → `keep`. 2.1.283 표적 재실측: EnterWorktree 세션은 네이티브가 Write·Edit·NotebookEdit 로 main checkout 을 고치는 시도를 전부 hook 보다 먼저 거부(memory 쓰기 포함 — 1b 콜아웃 유지), worktree 디렉토리에서 바로 시작한 세션은 격리가 없어 ② 가 유일한 보호. ② 발동 이력(09-27 이전 7건) = 오탐 4(전부 gitignored 경로)·08-12 hook 직접 호출 3, 09-27 1행은 측정 행. ② 를 main checkout 의 추적 파일 편집·새 not-ignored 파일 생성만 막게 좁혔다(plan guard-deny-removal). 표적 실측이라 `checked` 는 유지. `worktree-per-task`·`dlc-wt-autoflow` 의 해당 서술에 정정·범위(EnterWorktree 한정)를 달았다.
