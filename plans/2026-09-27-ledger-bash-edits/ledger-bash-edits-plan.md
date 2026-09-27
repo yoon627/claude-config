@@ -1,6 +1,6 @@
 ---
 title: ledger-bash-edits — Bash 로 고친 plan·문서가 early-stop 경고를 끄고, subagent 대기 턴에는 경고를 미룬다
-status: in_progress
+status: done
 started: 2026-09-27
 updated: 2026-09-27
 intent: plans/2026-09-25-repo-audit-followups/intent.md
@@ -30,9 +30,10 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 - 2026-09-27: code-reviewer APPROVE — minor 7·nit 4 처분(Review Disposition). ledger 83건·early-stop 31건 통과, `verify.sh` ALL PASS.
 
 - 2026-09-27: 재리뷰(fix loop 2) APPROVE — minor 2·nit 5 처분. 격리 runner 최종 검증이 메인 판정과 일치(ledger 83·early-stop 31·doc-drift 76·plan-match 11, `verify.sh` ALL PASS, check_links clean, plan-lint 0, tree clean) — runner 가 짚은 `monitor` 케이스 누락은 테스트 목록에 추가. evidence gate DONE(Acceptance 1~6 충족, 7 은 post-merge).
+- 2026-09-27: commit-check 로 fixup 5개를 두 단위 커밋에 합치고 메시지 갱신(사용자 승인). PR #184.
 
 # Next
-commit-check(fixup 합치기, 승인 후) → `/e merge`(hook 코드라 CI 경유) → 머지 뒤 Acceptance 7 실측.
+
 
 # Decisions
 - Bash 편집 감지는 네이티브 `bashEditDiff` 로 한다. 기각안: Stop 시점 `git status`/`git diff --name-only` 로 편집 집합 보강 — 사용자·다른 세션의 동시 편집까지 이 세션 것으로 잡고, 매 Stop 마다 git 을 돌리며, 커밋된 편집은 못 본다.
