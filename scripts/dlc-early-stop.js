@@ -14,6 +14,7 @@
 //   - CLAUDE_DLC_EARLYSTOP_OFF=1 → 검증 누락 경고 비활성. CLAUDE_DLC_DOCDRIFT_OFF=1 → 문서 drift 경고 비활성(독립).
 //     CLAUDE_DLC_PLANDRIFT_OFF=1 → plan drift 비활성. CLAUDE_DLC_CONCLUSION_OFF=1 → 결론 누락 비활성.
 //   - stop_hook_active=true → 무한 루프 방지로 즉시 통과.
+//   - background_tasks 에 subagent·workflow → 턴이 끝난 게 아니라 결과를 기다리는 중이라 경고를 미룬다.
 //   - capped(CAP=1): 각 누락당 1회만 block, 재종료 시 통과 → trivial·예외에 최소 마찰.
 //   - 의존/파싱/ledger 오류 → exit 0(절대 막지 않음). doc-drift 모듈만 없으면 검증 경고는 유지.
 'use strict';
@@ -44,6 +45,10 @@ try {
   /* plan drift 축만 skip */
 }
 const CAP = 1;
+// 결과를 들고 이 세션으로 돌아오는 background 작업. shell·monitor 는 끝나지 않는 서버·tail 일 수 있고,
+// teammate 는 일을 마치고 idle 이어도 목록에 running 으로 남으며(직렬화에 idle 여부가 없다), cloud session
+// 은 결과가 이 세션으로 오는지 모른다. 모르는 type 은 경고를 살려 두는 쪽이 안전하다.
+const WAIT_TYPES = new Set(['subagent', 'workflow']);
 
 const VERIFY_MISSING =
   '파일을 변경했는데 검증(test/lint/typecheck/build 또는 실행·관찰) 기록이 없습니다. ' +
@@ -81,6 +86,11 @@ process.stdin.on('end', () => {
   try {
     input = JSON.parse(raw);
   } catch {
+    process.exit(0);
+  }
+  // 대기 턴은 장부를 읽지도 쓰지도 않는다 — cap·edited 를 소비하면 결과가 온 뒤의 진짜 마지막 턴에서
+  // 경고가 사라진다. stop_hook_active 분기보다 먼저 봐야 그 분기의 edited 소비도 피한다.
+  if (Array.isArray(input.background_tasks) && input.background_tasks.some((t) => t && WAIT_TYPES.has(t.type))) {
     process.exit(0);
   }
   const data = ledger.read(input.session_id);
