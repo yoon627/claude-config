@@ -2,7 +2,7 @@
 title: effort-global-xhigh
 category: decision
 created: 2026-06-26
-updated: 2026-09-02
+updated: 2026-09-27
 sources:
   - 커밋 f1cbee0 (2026-08-12, env=max + effortLevel 제거 + model 핀 — 단일화 해소)
   - 실측 2026-08-12 (CLI 2.1.228 바이너리: $et() vs T9()/TSe() 파서 분기, WebSearch·WebFetch on max)
@@ -17,8 +17,8 @@ sources:
 
 # effort-global-xhigh
 
-> [!note] 현재 상태 (2026-09-02)
-> 전역 `CLAUDE_CODE_EFFORT_LEVEL` 강제를 제거했다. 현재 settings/bootstrap/shell은 effort를 고정하지 않으므로 `/effort` 또는 모델 기본값을 사용한다. 아래 2026-08-12 내용은 당시 `max` 정책과 그 근거를 보존한 historical 기록이다.
+> [!note] 현재 상태 (2026-09-27 갱신)
+> 전역 `CLAUDE_CODE_EFFORT_LEVEL` 강제는 2026-09-02 에 제거했다. bootstrap/shell 은 effort 를 고정하지 않는다. `/effort`·picker 에서 저장한 레벨은 user settings 의 `modelSettings` 에 **모델별로** 남는다 — 현재 Opus 5.5 `medium`(2026-09-24 **M12 결정**, `plans/2026-09-24-prompt-audit-apply` — A/B 에서 medium·high 모두 숨은 테스트 9/9, fix 과제 비용 약 29% 절감, 놓침·재작업이 보이면 그 키만 `high` 로 되돌리는 기준), Opus 5·Sonnet 5·Fable 5.1 `high`. Opus 5.5 의 API 기본값도 `medium` 이고 user settings 최상위 `effortLevel` 은 Opus 5.5 에 적용되지 않는다([[anthropic-claude-models]]). subagent 는 세션 레벨을 물려받고 이 repo 의 `agents/*.md` 에는 `effort` 가 없다 — M12 plan 이 ❌ 로 남긴 "세션 모델과 다른 모델로 고정된 subagent 가 어떤 레벨을 받는가"는 문서로도 아직 확인되지 않는다. 아래 2026-08-12 내용은 당시 `max` 정책과 그 근거를 보존한 historical 기록이다.
 
 메인 세션과 모든 subagent 를 `model: opus` + effort `xhigh` 단일 정책으로 통일한 결정(2026-06-26, PR #66·#67·#68 머지). [[subagent-model-effort-tiering]]의 model/effort 차등을 폐기하고 단일 레버로 되돌렸다.
 
@@ -40,14 +40,17 @@ sources:
   > - 근본원인: `scripts/bootstrap/setup.sh:118`(`export CLAUDE_CODE_EFFORT_LEVEL=max`)·`setup.ps1:156` 이 **이 repo 안에서** shell/User env 에 `max` 를 심는다. 즉 [[effort-os-env-single-source]] 가 적립한 실패(설정만 낮추고 OS env 가 이겨 계속 max)가 **재발한 상태**이고, bootstrap 재실행 시 다시 심어진다. (수정은 별건 — plan `# Deferred`.)
   > - **페이지명 `effort-global-xhigh` 는 이제 값이 아니라 "effort 를 전역 단일 레버로 둔다"는 결정을 가리키는 이름으로 읽을 것** — rename 은 링크 전수 수정을 동반해 별도 작업으로 미뤘다. 아래 "근거" 절의 xhigh 권장 서술은 *채택 당시* 근거이지 현재값이 아니다.
 - **subagent frontmatter**: `agents/*.md` 는 `model: opus` 만 두고 `effort` 필드 제거 — env 가 frontmatter effort 를 override 하므로 어차피 죽은 설정이었다([[claude-code-subagent-config]]).
+  > [!note] 이후 변경(2026-09-27) — 이 근거(env 가 override)는 2026-09-02 env 제거로 사라졌다. 지금은 frontmatter `effort` 를 두면 그대로 적용된다(sub-agents 문서: "Overrides the session effort level").
 - model 차등(simplifier sonnet / researcher haiku)도 폐기 → 전부 opus.
 - **`model: opus` → `model: inherit` 로 변경 (이유: Fable 가용성 변동 대비 — 모델 세대 교체 시 agents 수정 지점 0, 세션 모델 상속. 2026-07-04, asset-cleanup)**. effort 전역 단일은 유지 — 이 결정의 "단일 레버" 원칙은 불변이고 model 명시만 상속으로 완화. 상속 동작 근거는 [[claude-code-subagent-config]](미지정=세션 상속·inherit 별칭).
 - **`inherit` → 단계별 고정으로 재변경 (2026-08-06, subagent-model-pinning)**: reviewer 3종 `model: opus`, researcher `model: sonnet`. 이유는 [[model-stage-tiering]] — 2026-07-04 inherit 결정의 전제("Fable 가용성 변동 대비")가 **Fable 이 기본 세션 모델이 되고 주간 50% 캡이 붙은 뒤로 역효과**가 됐다. 세션이 Fable 이면 리뷰·조사까지 Fable 캡을 소모하는데, 리뷰 품질 병목엔 opus 면 충분하고 검색·요약엔 sonnet 이면 충분하다. **inherit 결정이 지키려던 "세대 교체 시 수정 지점 0" 은 별칭(`opus`/`sonnet`)이라 그대로 보존**되고, 끊는 것은 *세션 모델 추종* 하나뿐이다(그게 이번 의도).
   - `[1m]` 접미사는 쓰지 않는다 — subagent frontmatter 의 공식 허용값에 미기재이고 stripping 버그 이력(anthropics/claude-code#45169, 미수정). 필요도 없다: Opus 5 는 Anthropic API·Max/Team/Enterprise 에서 **자동 1M** 이라 `model: opus` 만으로 1M 이 유지된다. subagent context 는 부모 상속이 아니라 **자기 모델 기준**(공식).
   - 트레이드오프: 명시 pin 은 **자동 폴백이 없다**. Opus 한도 소진 시 subagent 는 `Agent terminated early due to an API error` 로 실패하고, plan-reviewer/code-reviewer 는 필수 게이트라 dlc 가 멈춘다. 비상 레버는 `CLAUDE_CODE_SUBAGENT_MODEL=<별칭>`(frontmatter 보다 우선 — [[claude-code-model-selection]]). **`inherit` 값은 무효**(v2.1.196+ 미설정과 동일)이니 되돌릴 땐 구체적 별칭을 줄 것.
+    > [!note] 이후 변경(2026-09-27) — v2.1.251 부터 이 env 는 frontmatter **뒤**라 혼자서는 pin 을 덮지 못한다. 비상 레버는 `CLAUDE_CODE_SUBAGENT_MODEL=<별칭>` + `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`(v2.1.257+, researcher·빌트인 Explore/Plan 까지 덮음) 또는 `agents/*.md` 의 `model:` 편집. `opus` 는 이제 Opus 5.5 이고 Anthropic API 의 모든 플랜(Pro 포함)에서 native 1M 이라 `[1m]` 불필요는 그대로다.
 
 ## 근거 (공식 docs)
 - **Opus 4.8 코딩 권장 = xhigh**: "Start with `xhigh` for coding and agentic use cases." 기본값은 high 이므로 xhigh 는 명시 설정해야 적용.
+  > [!note] 이후 변경(2026-09-27) — 이 인용은 채택 당시(Opus 4.8) 근거로만 유효하다. 지금 `opus` 인 Opus 5.5 는 기본 `medium` 이고 문서는 이전 모델 설정을 옮기지 말고 effort sweep 을 하라고 권한다. Fable 5.1·Opus 5 는 "Start with `high`, the default".
 - **effort 는 hard cap 이 아니라 adaptive signal**: 쉬운 작업엔 높은 설정이어도 모델이 덜 추론. "간단한 작업까지 과추론"은 약한 우려.
 - **`max` 는 frontier 전용**: 공식이 "structured-output·less intelligence-sensitive 작업엔 overthinking 유발"이라 경고. 코드리뷰 같은 작업엔 max 보다 xhigh 가 맞다 → reviewer 의 옛 `effort: max` 는 부적절했고, env=xhigh override 로 실제로도 적용된 적 없음.
   > [!note] 2026-08-12 에 사용자가 **전역 `max` 를 명시 선택**했다. 위 공식 경고는 철회되지 않았다 — 트레이드오프(토큰·레이턴시·과추론)를 알고 택한 것으로 읽을 것. 되돌린다면 `xhigh` 가 아니라 `high` 로: `xhigh` 는 아래 400 이슈가 있다.

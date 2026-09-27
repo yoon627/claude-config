@@ -15,7 +15,7 @@
 - [[unknowns-discovery]] — 구현 전 unknowns(unknown unknowns) 능동 발굴 기법→dlc 매핑(blind-spot·질문우선순위·프로토타입-우선·퀴즈·deviations·Intent 기록).
 
 ## entity
-- [[anthropic-claude-models]] — Claude 5 세대 가격·Fable 주간 50% 캡·벤치 구도(닫힌 코딩 Opus5≥Fable)·effort 지원 (2026-08).
+- [[anthropic-claude-models]] — 현재 라인업(2026-09-27): Fable 5.1 $10/$50·Opus 5.5 $4/$20(기본 effort medium)·Sonnet 5 $2/$10(인상 취소)·Haiku 4.5(은퇴 2026-10-15 이후), Opus 5·Fable 5 는 legacy. 공식 권장 "Opus 5.5 부터", Fable 주간 50% 캡, 모델별 기본 effort·Claude Code effort 해석, 안전 분류기 폴백. 2026-08 의 Opus5≥Fable5 구도는 역사 기록.
 - [[claude-code-hook-notification-turns]] — UserPromptSubmit 은 subagent 완료 `<task-notification>` 턴에도 발동(2.1.258 실측) — hook 의 prompt 를 사용자 발화로 가정하지 말 것; dlc-task-router 오발동·장부 리셋 원인(PR #149).
 - [[link-following-file-ops]] — POSIX 에서 파일 모드는 삭제를 막지 않고(부모 디렉토리 권한, sticky 는 예외), `os.chmod` 는 심링크를 따라가며(Windows 는 기본 따라가지 않음) hardlink 는 모드를 공유한다 → 삭제 전 일괄 chmod 는 트리 밖 파일을 망가뜨림(rmtree 실패 핸들러에서만·Windows 만), `cd` 는 `..` 를 글자로 처리하고 `cd -P` 는 커널처럼 심링크를 먼저 푼다(PR #181).
 - [[claude-code-agents-md-loading]] — v2.1.277+ 는 cwd·상위에 CLAUDE.md 가 없으면 AGENTS.md 를 읽고 `~/.claude/CLAUDE.md` 는 그 판정에서 세지 않는다 → `~/.claude` 세션에 Codex 미러 AGENTS.md 가 함께 주입됐다; `claudeMdExcludes` 로 그 경로만 제외(2026-09-25 실측). Codex 쪽은 `~/.codex/AGENTS.md` → CLAUDE.md 심링크로 복원.
@@ -26,14 +26,14 @@
 - [[claude-code-bash-tool-shims]] — Bash 도구의 `grep` 은 명령 모양에 따라 내장 ugrep(셸 함수, `-I --ignore-files`)이나 `rtk grep`(훅 재작성, 비UTF-8 인자에서 panic)으로 바뀐다; 스크립트 안에서만 시스템 grep. 바이트 판정은 python 으로 (2.1.282·rtk 0.44.2, 2026-09-26).
 - [[github-sensitive-data-removal]] — 비밀 이력 제거의 공식 절차가 그렇게 생긴 이유: filter-repo 는 fresh clone 만·`--sensitive-data-removal` 은 origin 유지·`--mirror` 로 모든 ref·`refs/pull/*` 는 Support·merge 말고 rebase (git-filter-repo 2.47.0 실측, 절차 정본은 README).
 - [[claude-code-subagent-config]] — subagent frontmatter model/effort·env 우선순위·Haiku effort.
-- [[claude-code-model-selection]] — alias(opusplan, fableplan 없음)·advisor tool 공식 수치·/model 저장·subagent model 함정(inherit×Fable)·pin 시 확정사실(`[1m]` 금지·자동 1M·폴백 없음).
+- [[claude-code-model-selection]] — alias 해석(opus→Opus 5.5, fable→Fable 5.1)·Fable advisor 가능·/model 우선순위·subagent 모델 순위(v2.1.251 부터 env 는 frontmatter 뒤, 비상 레버는 `…_FORCE=1`)·subagent effort 는 세션 상속·pin 시 확정사실(`[1m]` 금지·native 1M·폴백 없음).
 - [[claude-code-oss-frameworks]] — OSS 하네스 생태계 스냅샷(2026-08): 커버리지 부분적·프레임워크 후퇴·내부 확장이 정책 안전.
 - [[codegraph]] — retired(2026-09-15) 코드 심볼 그래프 MCP 의 historical 기록 — 보존 로그상 성공 호출 0회로 전역 해제, wt 자동 init·bootstrap 에서 제거.
 - [[headroom]] — retired 컨텍스트 최적화 proxy/MCP의 historical 기록(현재 bootstrap·runtime 미사용).
 
 ## decision
-- [[effort-global-xhigh]] — effort 정책의 이력; 현재는 강제 env 없음으로 `/effort`·모델 기본값을 사용한다. `max`는 settings 파일이 아니라 env/일회성 옵션에서만 가능.
-- [[model-stage-tiering]] — dlc 단계별 모델 배치(2026-08-05): Fable=plan/설계만(50% 캡), 구현 opus(촘촘한 plan은 sonnet), 리뷰 opus, 조사 sonnet. **agents/*.md 고정 완료(2026-08-06)**.
+- [[effort-global-xhigh]] — effort 정책의 이력; 현재는 강제 env 없음으로 `/effort`·모델 기본값을 사용한다(저장 레벨은 `modelSettings` 모델별 — Opus 5.5 `medium` 은 2026-09-24 M12 결정, 세션 모델과 다른 고정 subagent 의 레벨은 ❌). `max`는 settings 파일이 아니라 env/일회성 옵션에서만 가능.
+- [[model-stage-tiering]] — dlc 단계별 모델 배치(2026-08-05): Fable=plan/설계만(50% 캡), 구현 opus(촘촘한 plan은 sonnet), 리뷰 opus, 조사 sonnet. **agents/*.md 고정 완료(2026-08-06)**. 2026-09-27: 별칭이 Opus 5.5·Fable 5.1 로 넘어가 근거 일부가 바뀌었고 Fable advisor 재평가 트리거 충족(재평가는 사용자 결정 대기).
 - [[harness-keep-and-borrow]] — 자작 하네스 유지+부품 차용 결정(2026-08-05): 대체 OSS 부재·프레임워크 후퇴·정책 안전성; 유지비 감시 + 네이티브 중복 역정리 조건(→ [[native-overlap-ledger]] 로 2026-08-06 구현).
 - [[subagent-model-effort-tiering]] — (superseded by [[effort-global-xhigh]]; model 차등만 2026-08-06 부분 복원 → [[model-stage-tiering]]) reviewer opus+max / simplifier sonnet / researcher haiku 차등 (#51).
 - [[effort-os-env-single-source]] — OS env > settings.json env라는 precedence와, 전역 env를 제거해 `/effort`를 복구한 결정.
@@ -49,7 +49,7 @@
 - [[e-merge-mode]] — `/e merge` 머지 모드 설계(2026-09-02): 트리거 토큰 한정·done 을 PR 에 싣고 REJECTED 만 복구·mergedAt+fetch invariant·MERGED PR 재사용 안 함·checks 는 exit code+bucket·`--delete-branch` 금지.
 - [[dlc-wt-autoflow]] — dlc 가 코드/파일을 바꾸면 규모 불문 wt worktree 자동 경유(순환 방지·생성은 무확인, 2026-08-03 확인 폐지 · 2026-09-04 trivial 포함으로 확대).
 - [[risk-based-approval]] — 승인은 가역성으로 가른다: 비가역·외부공개·파괴적만 확인, 가역·로컬은 무확인 실행 후 되돌릴 정보 보고 (2026-08-03, graph engineering HITL 원칙). **`ask` 는 `allow` 로 풀리지 않는다**(deny→ask→allow, first match wins) — 2026-09-07 정정.
-- [[rtk-rewrite-permission-rules]] — 명령을 재작성하는 PreToolUse 훅(rtk)이 있으면 권한 규칙은 재작성된 명령으로 평가된다: ask 는 원래 형태 + `rtk ` 형태를 함께 둔다. allow 는 auto 분류기보다 먼저 통과시키고 ask 는 auto 에서도 확인 창(2026-09-25 headless 실측·ask 10→72).
+- [[rtk-rewrite-permission-rules]] — 명령을 재작성하는 PreToolUse 훅(rtk)이 있으면 권한 규칙은 재작성된 명령으로 평가된다: ask 는 원래 형태 + `rtk ` 형태를 함께 둔다. allow 는 auto 분류기보다 먼저 통과시키고 ask 는 auto 에서도 확인 창(2026-09-25 headless 실측·ask 10→72). 남은 빈틈(2026-09-27): `bash <script>`, 브랜치 이름 없는 push(`origin`·`-u origin HEAD`), `git <전역 옵션> push`(`-C`·`-c`·`--git-dir` 등), `--mirror`·`--all`·`--prune`.
 - [[fablize-adopted-disciplines]] — fablize 검증 규율 차용(grounding·investigation·early-stop), 플러그인 없이 직접 구현.
 - [[workflow-failures]] — 반복 workflow 실패 누적 추적(자동 신호는 telemetry, 표는 맥락), 2회+ 반복 시 wt 해결 제안. 규약이 권장한 명령 자체가 실패하는 건도 적립(`gh pr merge --delete-branch` — worktree 가 base 를 점유해 정리만 누락, #123 에서 fixed). 2026-09-26: early-stop 이 Bash 경유 편집·검증을 못 봐 오탐 17회, 중간 턴 오탐 4회 tracking.
 - [[ops-doc-slimming]] — 항상주입 운영문서 압축 상한 실측 ~11%(규칙손실0 유지 시), 30%+ 는 이관=범위확대; bytes 목표는 보조·규칙손실0 이 hard gate (#73). 후속 이관 실행(#89-92): 압축률∝1/규칙밀도(e −31%~CLAUDE −1.1%)·조건부로드 skill 이 참조하는 canonical 스펙 이관 금지(방향역전)·manifest+diff-U0+합집합grep 방법론.

@@ -2,9 +2,10 @@
 title: rtk-rewrite-permission-rules
 category: decision
 created: 2026-09-25
-updated: 2026-09-25
+updated: 2026-09-27
 sources:
   - https://code.claude.com/docs/en/hooks (PreToolUse updatedInput·permissionDecision)
+  - "rtk rewrite 실측 2026-09-27 (rtk 0.44.2, push 형태별 재작성) + settings.json push ask 규칙 문자열 대조"
   - https://code.claude.com/docs/en/permission-modes (auto 모드 평가 순서)
   - headless 실측 2026-09-25 (Claude Code 2.1.281~2.1.282, rtk 0.44.2)
   - plans/2026-09-25-repo-audit-remaining/repo-audit-remaining-plan.md (감사 hooks-01~03)
@@ -32,11 +33,14 @@ sources:
 - 기각: `rtk git *` allow 를 없애고 git 을 전부 분류기에 맡기기 — 파괴적 명령의 "항상 확인"(CLAUDE.md §8(b))은 분류기가 아니라 ask 로만 보장되므로 어차피 ask 목록이 필요하고, allow 를 지우면 일상 git 명령만 느려진다.
 - 수정 후 같은 headless 실측: 파괴적 5종(`main` push·`HEAD:main` push·`-D`·`checkout --`·`gh api -X DELETE`)은 `permission_denials` 로 거부, 일상 4종(`git status`·`git branch -d`·`gh pr list`·기능 브랜치 dry-run push)은 통과. 대화형 auto 모드에서 main push 에 확인 창이 뜨는 것도 사용자가 확인했다.
 
-## 남은 한계 (⚠️)
+## 남은 한계 (2026-09-27 갱신 — 규칙 문자열 대조 + `rtk rewrite` 실측, rtk 0.44.2)
 
-- `bash <script>` 로 실행하면 규칙은 `bash …` 만 본다 — 스크립트 안의 명령은 패턴에 보이지 않는다(CLAUDE.md §2 가 긴 명령을 스크립트로 빼라고 권하므로 흔한 경로다). auto 분류기가 스크립트 내용을 읽는지는 ❌모름.
-- main 에서 `git push -u origin HEAD` 처럼 브랜치 이름이 없는 push 는 패턴으로 가를 수 없다.
-- 규칙을 새로 만들 때 rtk 가 그 명령을 재작성하는지 `rtk hook claude` probe 로 먼저 본다. 재작성 대상 목록은 rtk 버전마다 바뀔 수 있다([[lesson-stale-tool-version]]).
+- `bash <script>` 로 실행하면 규칙은 `bash …` 만 본다 — rtk 도 재작성하지 않고(`rtk rewrite` 가 재작성 없음을 반환), 스크립트 안의 명령은 패턴에 보이지 않는다(CLAUDE.md §2 가 긴 명령을 스크립트로 빼라고 권하므로 흔한 경로다). auto 분류기가 스크립트 내용을 읽는지는 ❌모름.
+- 대상 브랜치 이름이 명령에 없는 push: 인자 없는 `git push` 는 정확 일치 규칙 `Bash(git push)`·`Bash(rtk git push)` 에 걸린다. main 체크아웃에서 하는 `git push origin`·`git push -u origin HEAD` 는 `* main*`·`*:main*`·`*refs/heads/main*` 어느 것에도 맞지 않는다 ⚠️(규칙 문자열 대조, headless 실측 없음).
+- `git <전역 옵션> push …`(`-C <dir>`·`-c k=v`·`--git-dir=…`·`--no-pager` 등)는 `rtk git <옵션> push …` 로 재작성되고, push 규칙은 모두 `git push` 로 시작해 맞지 않는다.
+- `--mirror`·`--all`·`--prune` push 는 원격 ref 를 덮거나 지울 수 있지만 해당 ask 규칙이 없다(모두 `rtk git push …` 로 재작성됨).
+- 위 빈틈 중 재작성되는 형태(`bash <script>` 를 뺀 전부)는 맞는 ask 가 없으면 repo-local `Bash(rtk git *)` allow 에 걸려 분류기 없이 통과하고, allow 가 없는 repo 에서는 auto 분류기가 판정한다. 명령 모양이 아니라 push 대상 ref 를 보는 백스톱은 pre-push 가드인데, `install-hooks` 를 실행한 repo 에만 있고 `~/.claude` main checkout 은 면제이며 `--no-verify` 로 건너뛸 수 있다. GitHub `main-guard` ruleset 은 관리자 bypass 라 소유자 본인의 main push 를 막지 않는다.
+- 규칙을 새로 만들 때 rtk 가 그 명령을 재작성하는지 `rtk rewrite "<명령>"`(hook 재작성의 단일 소스) 또는 `rtk hook claude` probe 로 먼저 본다. 재작성 대상 목록은 rtk 버전마다 바뀔 수 있다([[lesson-stale-tool-version]]).
 
 ## 연계
 
