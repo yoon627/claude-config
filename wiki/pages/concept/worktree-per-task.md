@@ -2,7 +2,7 @@
 title: worktree-per-task
 category: concept
 created: 2026-06-19
-updated: 2026-09-15
+updated: 2026-09-27
 sources:
   - skills/wt/SKILL.md
   - skills/e/SKILL.md
@@ -20,7 +20,7 @@ sources:
 `/wt <요청사항>` → slug 파생(확인 없음 — [[risk-based-approval]]) → `.claude/worktrees/<name>/`에 prefix 없는 브랜치 생성 → main에서 `.env` 복사 → submodule heal + bootstrap → [[dlc-development-cycle]] 시작. `/wt <N>`·기존 이름은 이동, `?` 접두는 질문 모드.
 
 ## 안전장치
-- worktree 세션 guard hook: worktree 안에서 main repo 소스 Edit/Write 차단(실수 방지). **2026-08-12 실측으로 이 기능은 네이티브 worktree 격리(v2.1.222)가 더 넓게 덮는 것이 확인됐다 — `retire` 후보([[native-overlap-ledger]] 1b).** 비-worktree 세션의 main 직접편집 `ask` 는 교집합이 없어 유지.
+- worktree 세션 guard hook: worktree 안에서 main repo 소스 Edit/Write 차단(실수 방지). 2026-08-12 실측으로 네이티브 worktree 격리(v2.1.222)가 더 넓게 덮는다고 보고 `retire` 후보로 올렸으나, **2026-09-27 재실측에서 네이티브는 EnterWorktree 세션은 덮지만 worktree 디렉토리에서 바로 시작한 세션은 덮지 않음이 확인돼 `keep` 으로 정정했다** — 격리되지 않은 채 cwd 가 worktree 안인 세션의 유일한 보호라 main checkout 의 추적 파일 편집·새 파일 생성만 막게 좁혀 유지한다([[native-overlap-ledger]] "1b 정정"). 비-worktree 세션의 main 직접편집 `ask` 는 교집합이 없어 유지.
 - 삭제 조건(`/e`): done ∧ clean ∧ pushed ∧ base에 merged 모두 충족 시에만 제안(자동 삭제 안 함).
 - **삭제 주의**: `git worktree remove`는 gitignored 파일(`.env` 등)을 무경고 동반 삭제(`plans/` 는 tracked 라 미커밋이면 remove 가 거부한다 — CLAUDE.md §8) → 삭제 전 `git status --porcelain --ignored` 점검, plan은 main으로 먼저 보존.
 
