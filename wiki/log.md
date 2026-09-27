@@ -322,3 +322,6 @@
 
 ## [2026-09-27] update | workflow-failures · claude-code-hook-notification-turns (router-agent-message)
 - 라우터 hand-back 경로 fixed: reminder·notification 을 걷어낸 뒤 `<agent-message` 로 시작하는 턴(접두어 선택적)을 통째로 건너뛴다(라우팅·장부 리셋 모두). 태그만 걷어내면 뒤 하네스 안내 문단이 남는다(transcript 213/213). 판별식은 hand-back 213/213 을 잡고 다른 user 텍스트 턴 1,888건은 0건. 실제 hook stdin 실측은 머지 뒤(plan Acceptance 6).
+
+## [2026-09-27] update | workflow-failures (router-agent-message 머지 뒤 실측)
+- 라우터 hand-back 경로 fix 를 머지 뒤 실제 hand-back 턴으로 확인: 수정 전이면 라우팅됐을 턴에서 hook 주입·`router-investigation` 신호 없음, evidence 장부 유지.

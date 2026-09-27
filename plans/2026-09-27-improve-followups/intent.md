@@ -24,7 +24,7 @@ updated: 2026-09-27
 
 # Open questions
 
-- (열림) UserPromptSubmit hook 의 `prompt` 필드가 transcript 의 user 턴 텍스트와 같은가(평문 접두어 포함 여부) — router-agent-message 가 hook stdin 캡처로 답한다.
+- (해소) UserPromptSubmit hook 의 `prompt` 필드가 transcript 의 user 턴 텍스트와 같은가(평문 접두어 포함 여부) — stdin 캡처는 못 했지만, router-agent-message 머지 뒤 실제 hand-back 턴에서 앞머리 판별식이 맞아 라우팅·리셋이 건너뛰어졌다(plan Acceptance 6). 즉 hook 이 받는 `prompt` 도 걷어낸 뒤 접두어나 `<agent-message` 로 시작한다 ⚠️(건너뛴 경로는 기록이 없어 간접 증거).
 
 # Plans
 
