@@ -325,3 +325,6 @@
 
 ## [2026-09-27] update | workflow-failures (router-agent-message 머지 뒤 실측)
 - 라우터 hand-back 경로 fix 를 머지 뒤 실제 hand-back 턴으로 확인: 수정 전이면 라우팅됐을 턴에서 hook 주입·`router-investigation` 신호 없음, evidence 장부 유지.
+
+## [2026-09-27] update | workflow-failures (ledger-bash-edits)
+- "Bash 경유 편집" 행: plan·README·index 편집 부분 fixed — PostToolUse `tool_response.bashEditDiff`(v2.1.269)의 이 브랜치 plan·README·index 경로를 HEAD 와 다를 때만 `planTouched`·drift target 으로(경고 끄기만). 대칭 처리는 새 오탐 3부류(git 동기화 diff·경로 순서·veto)로 기각. verify 부분(이름이 안 맞는 검증 스크립트)은 tracking. "중간 턴" 행 fixed — Stop `background_tasks` 에 subagent·workflow 가 있으면(teammate 는 idle 도 running 으로 남아 제외) early-stop 이 장부를 건드리지 않고 통과.

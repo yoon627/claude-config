@@ -356,4 +356,52 @@ ok('결론 축: 구 장부(신규 필드 없음) → DEFAULT 병합으로 침묵
   assert.ok(!blocked(r.out));
 });
 
+// ---- 대기 턴: background_tasks 에 결과를 들고 돌아올 작업이 있으면 경고를 미룬다 ----
+const bg = (type, extra) => ({ id: `t-${type}`, type, status: 'running', description: 'x', ...extra });
+const UNVERIFIED = { changed: true, verified: false, changedTrigger: 'x.js', edited: true };
+
+ok('background subagent 대기 중 → 경고 없음, 장부도 그대로', () => {
+  const F = makeHome();
+  writeLedger(F.tmp, UNVERIFIED);
+  const before = fs.readFileSync(ledgerFile(F.tmp), 'utf8');
+  const r = run(F, F.root, { input: { background_tasks: [bg('subagent', { agent_type: 'code-reviewer' })], last_assistant_message: NO_CONCLUSION } });
+  assert.ok(!blocked(r.out), `경고가 뜨면 안 된다: ${r.out.slice(0, 120)}`);
+  assert.deepStrictEqual(r.signals, []);
+  assert.strictEqual(fs.readFileSync(ledgerFile(F.tmp), 'utf8'), before, '억제된 턴은 cap·edited 를 소비하면 안 된다');
+});
+ok('workflow 대기도 같다', () => {
+  const F = makeHome();
+  writeLedger(F.tmp, UNVERIFIED);
+  assert.ok(!blocked(run(F, F.root, { input: { background_tasks: [bg('workflow')] } }).out));
+});
+ok('shell·monitor·teammate(idle 도 running 으로 남음)·cloud session·모르는 type 만 있으면 기존대로 경고', () => {
+  for (const t of ['shell', 'monitor', 'teammate', 'cloud session', 'dream']) {
+    const F = makeHome();
+    writeLedger(F.tmp, UNVERIFIED);
+    assert.ok(blocked(run(F, F.root, { input: { background_tasks: [bg(t, { command: 'tail -f log' })] } }).out), t);
+  }
+});
+ok('background_tasks 가 비었거나 없으면 기존대로 경고', () => {
+  for (const extra of [{ background_tasks: [] }, {}]) {
+    const F = makeHome();
+    writeLedger(F.tmp, UNVERIFIED);
+    assert.ok(blocked(run(F, F.root, { input: extra }).out));
+  }
+});
+ok('stop_hook_active 재종료여도 대기 중이면 장부를 건드리지 않는다', () => {
+  const F = makeHome();
+  writeLedger(F.tmp, UNVERIFIED);
+  const before = fs.readFileSync(ledgerFile(F.tmp), 'utf8');
+  run(F, F.root, { input: { stop_hook_active: true, background_tasks: [bg('subagent')], last_assistant_message: '## 결론\n- 문제: x' } });
+  assert.strictEqual(fs.readFileSync(ledgerFile(F.tmp), 'utf8'), before);
+});
+ok('미룬 뒤 background 가 끝난 Stop 에서는 cap 이 보존된 채 경고', () => {
+  const F = makeHome();
+  writeLedger(F.tmp, UNVERIFIED);
+  run(F, F.root, { input: { background_tasks: [bg('subagent')] } });
+  const r = run(F, F.root, { input: { background_tasks: [] } });
+  assert.ok(blocked(r.out));
+  assert.strictEqual(readLedger(F.tmp).blocks, 1);
+});
+
 console.log(`dlc-early-stop.test.js: ${n} tests passed`);

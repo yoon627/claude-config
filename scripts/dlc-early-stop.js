@@ -14,6 +14,7 @@
 //   - CLAUDE_DLC_EARLYSTOP_OFF=1 → 검증 누락 경고 비활성. CLAUDE_DLC_DOCDRIFT_OFF=1 → 문서 drift 경고 비활성(독립).
 //     CLAUDE_DLC_PLANDRIFT_OFF=1 → plan drift 비활성. CLAUDE_DLC_CONCLUSION_OFF=1 → 결론 누락 비활성.
 //   - stop_hook_active=true → 무한 루프 방지로 즉시 통과.
+//   - background_tasks 에 subagent·workflow → 턴이 끝난 게 아니라 결과를 기다리는 중이라 경고를 미룬다.
 //   - capped(CAP=1): 각 누락당 1회만 block, 재종료 시 통과 → trivial·예외에 최소 마찰.
 //   - 의존/파싱/ledger 오류 → exit 0(절대 막지 않음). doc-drift 모듈만 없으면 검증 경고는 유지.
 'use strict';
@@ -44,6 +45,10 @@ try {
   /* plan drift 축만 skip */
 }
 const CAP = 1;
+// 결과를 들고 이 세션으로 돌아오는 background 작업. shell·monitor 는 끝나지 않는 서버·tail 일 수 있고,
+// teammate 는 일을 마치고 idle 이어도 목록에 running 으로 남으며(직렬화에 idle 여부가 없다), cloud session
+// 은 결과가 이 세션으로 오는지 모른다. 모르는 type 은 경고를 살려 두는 쪽이 안전하다.
+const WAIT_TYPES = new Set(['subagent', 'workflow']);
 
 const VERIFY_MISSING =
   '파일을 변경했는데 검증(test/lint/typecheck/build 또는 실행·관찰) 기록이 없습니다. ' +
@@ -83,6 +88,11 @@ process.stdin.on('end', () => {
   } catch {
     process.exit(0);
   }
+  // 대기 턴은 장부를 읽지도 쓰지도 않는다 — cap·edited 를 소비하면 결과가 온 뒤의 진짜 마지막 턴에서
+  // 경고가 사라진다. stop_hook_active 분기보다 먼저 봐야 그 분기의 edited 소비도 피한다.
+  if (Array.isArray(input.background_tasks) && input.background_tasks.some((t) => t && WAIT_TYPES.has(t.type))) {
+    process.exit(0);
+  }
   const data = ledger.read(input.session_id);
   if (input.stop_hook_active === true) {
     // 무한 루프 방지 — 경고는 안 하되 block 대응 턴에서 낸 결론은 소비한다(안 하면 재편집 뒤
@@ -116,8 +126,8 @@ process.stdin.on('end', () => {
   // (2) 문서 drift
   let docSettled = false;
   if (drift && process.env.CLAUDE_DLC_DOCDRIFT_OFF !== '1' && (data.docBlocks || 0) < CAP) {
-    // 장부의 dirty flag 는 Edit/Write 로 고친 것만 본다 — README 를 Bash 로 고치면 dirty 가 안
-    // 풀려 "고쳤는데도 경고"가 난다. 실제 파일 mtime 을 주입해 drift 가 상태로 재확인하게 한다.
+    // 장부는 Bash 로 고친 README·index 를 `bashEditDiff` 가 올 때(auto·bypass 모드)만 본다 — 그 밖엔
+    // dirty 가 안 풀려 "고쳤는데도 경고"가 난다. 실제 파일 mtime 을 주입해 drift 가 상태로 재확인하게 한다.
     // **root 를 대조하는 이유**: pending 의 rel 은 *편집 시점* root 기준이다. 세션이 그 뒤 다른
     // worktree·main 으로 옮기면(§3-1·/e 8단계가 main 복귀를 시킨다) 같은 rel 이 **다른 파일**을
     // 가리키고, main 은 README 가 매 머지마다 재작성돼 거의 항상 최신이라 게이트가 통째로 꺼진다.
