@@ -21,7 +21,7 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 4. 실물 대조: transcript 의 `bashEditDiff` 레코드 전체에서 plan·README·index 경로가 든 레코드 수와, 그중 git 동기화 명령(pull·merge·checkout·rebase·reset·stash·cherry-pick)인 것의 수를 센다 — 후자는 런타임 HEAD 비교로 걸러져야 하므로 테스트 1 의 git merge 케이스가 그 경로를 덮는지 대조. 확인: scratch 재생 스크립트 출력.
 5. 문서: README 의 `dlc-evidence-ledger.js`·`dlc-early-stop.js` 설명이 새 동작과 한계(auto·bypass 밖에서는 Bash 편집 기록 없음, 대기 중 새 사용자 프롬프트가 오면 미룬 경고가 리셋으로 사라짐)를 서술, 스크립트 주석의 "Edit/Write 로 고친 것만 본다" 서술 갱신, workflow-failures 두 행 상태 갱신과 `audit-low-batch` 포인터를 이 단위로 교체, `wiki/index.md`·`wiki/log.md` 동기화, `check_links.py wiki` clean.
 6. 기준선: router-agent-message 머지(2026-09-27T06:5xZ) 뒤 이 단위 머지 전까지의 `early-stop-plan-drift`·`early-stop-conclusion`·`early-stop-verify` telemetry 수를 적어 둔다(효과 비교용).
-7. - [ ] [post-merge] 실제 hook 경로: main 반영 뒤 (a) 소스를 Edit 로 고치고 plan 을 Bash 로만 고친 턴에서 plan drift 경고가 없는지 (b) background subagent 를 띄우고 턴을 닫을 때 early-stop 경고가 없는지 관찰.
+7. - [x] [post-merge] 실제 hook 경로: main 반영 뒤 (a) 소스를 Edit 로 고치고 plan 을 Bash 로만 고친 턴에서 plan drift 경고가 없는지 (b) background subagent 를 띄우고 턴을 닫을 때 early-stop 경고가 없는지 관찰.
 
 # Progress
 - 2026-09-27: worktree 생성(base `origin/main@43069b0`). 실측 — transcript Bash 결과 14,351건 중 800건에 `bashEditDiff`(v2.1.272~, 설정 없이 auto mode), 이 세션의 스크립트·`sed -i` 편집 160건이 잡힘. 필드: `files[{filePath(절대), hunks, deleted}]`·`moreFiles`·`changedFiles`(문자열, 상한 200)·`unavailable`·`shared`(바이너리 스키마엔 `created`·`skipped` 도). hooks 문서: PostToolUse 가 `tool_response.bashEditDiff` 로 받음, 기본은 auto·bypass 에서 Claude Code 가 Bash 편집을 시킨 경우만. Stop 입력 `background_tasks`(v2.1.145)는 스크립트가 아직 안 씀. doc-drift 는 이미 Stop 시점 mtime 비교(`partitionPending`)로 Bash 로 고친 README·index 를 보정하고, 남은 빈틈은 plan 축(`planTouched` 가 Edit/Write 에서만 켜짐 — 이 세션 `early-stop-plan-drift` raw 12). plan-reviewer CONDITIONAL → 단위 1 설계를 "경고 끄기만"으로 좁힘(사용자 결정). 기준선(Acceptance 6, 2026-09-27T06:52Z~07:32Z, 이 세션만): `early-stop-verify` 1·`doc-drift-index` 1·`early-stop-conclusion` 1·`early-stop-plan-drift` 0.
@@ -31,6 +31,7 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 
 - 2026-09-27: 재리뷰(fix loop 2) APPROVE — minor 2·nit 5 처분. 격리 runner 최종 검증이 메인 판정과 일치(ledger 83·early-stop 31·doc-drift 76·plan-match 11, `verify.sh` ALL PASS, check_links clean, plan-lint 0, tree clean) — runner 가 짚은 `monitor` 케이스 누락은 테스트 목록에 추가. evidence gate DONE(Acceptance 1~6 충족, 7 은 post-merge).
 - 2026-09-27: commit-check 로 fixup 5개를 두 단위 커밋에 합치고 메시지 갱신(사용자 승인). PR #184.
+- 2026-09-27 (머지 뒤): Acceptance 7 통과. (a) 임시 worktree `a7-probe` 에 브랜치 plan 을 만들고 장부 `planTouched` 를 false 로 되돌린 뒤 python 으로만 plan 을 고침 → 그 명령 결과에 `bashEditDiff`(plan 나열, positive control)가 붙고 live 장부 `planTouched` 가 true 로 바뀜. (b) 장부를 `changed: true`·`verified: false` 로 만든 뒤 60초 도는 background subagent 를 띄우고 턴을 닫음 → early-stop 경고 없음·장부 `blocks` 0 유지·신호 0. 보고가 온 뒤 대기 작업 없이 닫은 턴에서는 검증 경고가 그대로 남(대조군). probe worktree·실측용 장부 상태는 정리.
 
 # Next
 
