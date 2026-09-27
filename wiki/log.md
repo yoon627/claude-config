@@ -334,3 +334,6 @@
 
 ## [2026-09-27] update | native-overlap-ledger (1b 정정)
 - 1b(guard ② worktree 밖 편집 deny) `retire` → `keep`. 2.1.283 표적 재실측: EnterWorktree 세션은 네이티브가 Write·Edit·NotebookEdit 로 main checkout 을 고치는 시도를 전부 hook 보다 먼저 거부(memory 쓰기 포함 — 1b 콜아웃 유지), worktree 디렉토리에서 바로 시작한 세션은 격리가 없어 ② 가 유일한 보호. ② 발동 이력(09-27 이전 7건) = 오탐 4(전부 gitignored 경로)·08-12 hook 직접 호출 3, 09-27 1행은 측정 행. ② 를 main checkout 의 추적 파일 편집·새 not-ignored 파일 생성만 막게 좁혔다(plan guard-deny-removal). 표적 실측이라 `checked` 는 유지. `worktree-per-task`·`dlc-wt-autoflow` 의 해당 서술에 정정·범위(EnterWorktree 한정)를 달았다.
+
+## [2026-09-28] update | lesson-verify-scaffold-purpose-before-removal (사례 3)
+- 사례 3: 2026-08-12 EnterWorktree 세션에서만 잰 "네이티브 ⊇ guard ②" 로 `retire` 했다가 2026-09-27 재실측에서 worktree 디렉토리에서 시작한 세션이 격리되지 않아 뒤집힘(plan guard-deny-removal). 같은 작업에서 오탐 4건(전부 gitignored)을 "untracked" 로 뭉쳐 없는 상충을 적은 self-flag 도 같은 축. 올바른 방법에 두 항목 추가 — 대체 판정은 장치가 발동하는 조건마다 잰다, 트레이드오프 전 관측 표본 속성을 가장 좁은 범주로 적는다.
