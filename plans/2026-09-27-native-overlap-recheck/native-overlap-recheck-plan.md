@@ -1,6 +1,6 @@
 ---
 title: native-overlap-recheck — 네이티브 중복 대장 재판정(v2.1.223~283)과 /improve 발견 적립
-status: in_progress
+status: done
 started: 2026-09-27
 updated: 2026-09-27
 intent: plans/2026-09-25-repo-audit-followups/intent.md
@@ -24,10 +24,10 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 7. 추가된 줄과 새 파일에 공개 금지 식별자 없음(스캔 0건, 양성 샘플로 검사식 확인).
 
 # Progress
-- 2026-09-27: `/improve deep` 실행(error 0·warn 0), researcher 로 changelog 대조, 초안·후보 승인. worktree 생성(base `origin/main@b4a9f66`). 대장·workflow-failures·hook-notification·intent·index·log 편집, 링크 clean·plan-lint rc=0·공개 스캔 0건·`verify.sh` ALL PASS. 리뷰 2종 병렬(Codex 크레딧 소진으로 생략) — plan-reviewer CONDITIONAL(major 4), code-reviewer REQUEST CHANGES(major 4). 처분: CHANGELOG 원문을 받아 창 전수 재조회(subagent 가 2,326줄 전부 read), telemetry·transcript 로 라우터 오발동 확인(2회차 리뷰 뒤 전체 기준 130건/14세션으로 정정), 새 묶음 intent 생성, 버전·날짜쌍 npm 대조 0 불일치. 인용 문서(worktrees·hooks) 원문 확인. fix loop 2회로 종료. 격리 runner 최종 검증: verify ALL PASS(skip 없음)·check_links clean·plan-lint rc=0·날짜 40쌍 0 불일치·행번호 참조 0·변경 파일 집합 일치 — 메인 판정과 일치, evidence gate DONE.
+- 2026-09-27: `/improve deep` 실행(error 0·warn 0), researcher 로 changelog 대조, 초안·후보 승인. worktree 생성(base `origin/main@b4a9f66`). 대장·workflow-failures·hook-notification·intent·index·log 편집, 링크 clean·plan-lint rc=0·공개 스캔 0건·`verify.sh` ALL PASS. 리뷰 2종 병렬(Codex 크레딧 소진으로 생략) — plan-reviewer CONDITIONAL(major 4), code-reviewer REQUEST CHANGES(major 4). 처분: CHANGELOG 원문을 받아 창 전수 재조회(subagent 가 2,326줄 전부 read), telemetry·transcript 로 라우터 오발동 확인(2회차 리뷰 뒤 전체 기준 130건/14세션으로 정정), 새 묶음 intent 생성, 버전·날짜쌍 npm 대조 0 불일치. 인용 문서(worktrees·hooks) 원문 확인. fix loop 2회로 종료. 격리 runner 최종 검증: verify ALL PASS(skip 없음)·check_links clean·plan-lint rc=0·날짜 40쌍 0 불일치·행번호 참조 0·변경 파일 집합 일치 — 메인 판정과 일치, evidence gate DONE. PR #183.
 
 # Next
-커밋 → commit-check → `/e merge`(medium — push·PR·CI).
+
 
 # Decisions
 - 규모 small — 문서만, 판정 내용은 사전 승인. diff 가 커지면 재판정. → medium 으로 재판정(구현 뒤 wiki·intent +70/−14, plan 44줄): plan-reviewer 와 code-reviewer 를 병렬로 돌린다(계획 내용이 구현보다 먼저 사용자 승인을 받아 순서만 바뀜).
