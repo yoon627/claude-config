@@ -313,3 +313,6 @@
 
 ## [2026-09-27] update | lesson-verify-scaffold-purpose-before-removal (사례 2)
 - §13 교훈(사용자 승인): audit-docs-drift 에서 Opus 5.5 기본 effort `medium` 을 보고 opus 리뷰어 effort 를 복원 여부가 사용자 결정을 기다리는 상태로 적었으나 실제로는 2026-09-24 M12 결정(user settings `modelSettings`)이었다 — code-reviewer 가 settings·plan 을 읽어 잡음. 교훈 범위를 "장치 제거"에서 "설정값을 회귀·미결로 적거나 바꾸는 제안"까지 넓힘. memory 인덱스 줄도 같은 내용으로 갱신(main 세션).
+
+## [2026-09-27] update | native-overlap-ledger · workflow-failures · claude-code-hook-notification-turns
+- `/improve deep`(사용자 승인 초안) 적립. 대장: 창 v2.1.223~283 재판정 — GitHub `CHANGELOG.md` 원문을 받아 2,326줄 전수(처음 WebFetch 조회는 잘리고 귀속이 흔들려 리뷰가 누락을 잡음 → 운영 규칙에 "원문을 로컬로 읽는다" 추가), 날짜는 npm 게시 시각. 대체 0, 기존 판정 유지(1b `retire` 미이행 표기, memory 쓰기 콜아웃은 v2.1.283 의 다른 경로 수정이라 재실측 필요), 신규 행 7개(commit-check·SessionStart pull/brief·plans 핸드오프·router·pre-commit/pre-push·notify/statusline `keep`, `/improve` `watch` — `/doctor prompt-audit`·`/skill-doctor`). router 행은 대체가 아니라 파손: v2.1.271 auto mode hand-back 호출. `checked` 2026-09-27·`checked_version` 2.1.283. workflow-failures: 라우터 알림 턴 행에 새 경로(hand-back 턴 — 2026-09-15 부터 14개 세션 130건, 4→134, fixed 유지 + 새 경로 proposed), 중간 턴 오탐 행 +1(5). hook-notification 페이지에 hand-back 턴 raw 형태(평문 접두어·개행·태그, 래퍼 없음 — transcript 210건, 런타임 2.1.271~2.1.281 auto mode)와 v2.1.234·271 관련 사실 추가. 새 개선 3개는 감사 묶음의 Out of scope 라 새 묶음 `plans/2026-09-27-improve-followups/intent.md` 로.
