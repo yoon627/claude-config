@@ -310,3 +310,6 @@
 
 ## [2026-09-27] update | anthropic-claude-models · claude-code-model-selection · model-stage-tiering · effort-global-xhigh
 - 모델 사실을 Opus 5.5(2026-09-22)·Fable 5.1(2026-09-01) 라인업으로 갱신: 가격·legacy·Sonnet 5 인상 취소·Haiku 4.5 은퇴 하한·모델별 기본 effort(Opus 5.5 medium)·Claude Code effort 해석(`effortLevel` 은 Opus 5.5 에 미적용)·폴백·Fable advisor 가능·subagent 모델 순위(v2.1.251 부터 env 는 frontmatter 뒤, 비상 레버 `…_FORCE=1`)·subagent effort 는 세션 상속. Fable 5.1 최소 버전 불일치는 `[!conflict]`. decision 페이지는 당시 근거를 보존하고 인접 `[!note] 이후 변경` 으로, `effort-global-xhigh` 의 현재 상태 callout 은 제자리 갱신. 근거는 공식 models overview·pricing·effort·model-config·sub-agents·advisor 원문(2026-09-27)과 workflow 교차 검증(wf_83e9d53b-c4e). README 비상 레버도 같은 사실로(audit-docs-drift). 리뷰 정정: 리뷰어 effort 는 미결 회귀가 아니라 2026-09-24 M12 결정(user settings `modelSettings` — Opus 5.5 `medium`)이고, 남은 미확인은 세션 모델과 다른 고정 subagent 의 레벨뿐이다. 원문에 없는 인용 1건을 실제 문구로 바꾸고 과장 표현(다른 모델 `high`, FORCE 단독, 조직 기본값, effort 순서의 ultracode 전제)을 좁혔다.
+
+## [2026-09-27] update | lesson-verify-scaffold-purpose-before-removal (사례 2)
+- §13 교훈(사용자 승인): audit-docs-drift 에서 Opus 5.5 기본 effort `medium` 을 보고 opus 리뷰어 effort 를 복원 여부가 사용자 결정을 기다리는 상태로 적었으나 실제로는 2026-09-24 M12 결정(user settings `modelSettings`)이었다 — code-reviewer 가 settings·plan 을 읽어 잡음. 교훈 범위를 "장치 제거"에서 "설정값을 회귀·미결로 적거나 바꾸는 제안"까지 넓힘. memory 인덱스 줄도 같은 내용으로 갱신(main 세션).
