@@ -1,8 +1,8 @@
 ---
 title: improve-followups — /improve deep(2026-09-27)이 찾은 하니스 결함·비용을 주인 있게 추적
-status: open
+status: closed
 started: 2026-09-27
-updated: 2026-09-27
+updated: 2026-09-28
 ---
 
 # Problem

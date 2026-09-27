@@ -1,6 +1,6 @@
 ---
 title: guard-deny-removal — guard-worktree-edit 기능 ②(worktree 밖 편집 deny) 재판정·처분
-status: in_progress
+status: done
 started: 2026-09-27
 updated: 2026-09-28
 intent: plans/2026-09-27-improve-followups/intent.md
@@ -36,9 +36,10 @@ intent: plans/2026-09-27-improve-followups/intent.md
 - 2026-09-27: plan-reviewer CONDITIONAL(아래 Review Disposition). ⚠️ self-flag 전제 오류(관측 오탐은 전부 gitignored 라 새 파일 차단과 양립) → 사용자 결정으로 규칙 (C) 채택. 테스트 갱신 → Red 3건(새 not-ignored 파일 2·상속 `GIT_DIR`) → `git()` 헬퍼(`spawnSync`·`GIT_LOCAL_ENV` 제거·`core.fsmonitor=`)·`isNewUnignored`(check-ignore)로 Green(guard ALL PASS, dlc-signal 22 passed). 스크래치에서 옛 guard(HEAD)로 새 테스트 Red 8건(+ⓘ 는 스크래치에 `dlc-signal.js` 가 없어서 난 실패), `..` 정규화 제거 변이본에서 traversal FAIL. Acceptance 8 을 머지 전 실세션으로 확인(3건 기대대로). README·대장(정정 절 보강·retire 포인터 4곳)·`worktree-per-task`·`dlc-wt-autoflow`·log 갱신. 단위 커밋 2개(`fix(guard)`·`docs(wiki)`).
 - 2026-09-28: code-reviewer(1회 600초 무진행으로 멈춰 이어서 완료) APPROVE — 처분은 Review Disposition. Red 1건(일반 repo `.git/hooks` 새 파일) → `.git/` allow 로 Green, 테스트 크래시 판정·실물 whitelist fixture·서술 범위·대장 84·85행 포인터 반영 → fixup 2개. simplify: 로직 중복·죽은 분기 없음, 옛 `projects/` 예외를 예로 든 `..` 정규화 주석만 `plans/` 로 고침(fixup). 격리 runner 에 `bash scripts/verify.sh` 위임.
 - 2026-09-28: 격리 runner — `bash scripts/verify.sh` exit 0·마지막 줄 `ALL PASS`(skip 없음, node tests 16 에 두 테스트 포함), guard 테스트 41 PASS·ALL PASS, dlc-signal 22 passed. runner 가 not observed 로 둔 두 곳을 메인이 확인: ⓕ·ⓖ 는 base 에도 없는 번호(원래 없는 케이스), dlc-signal `ok(` 22개에 213행 guard 통합 테스트 포함. A5 옛 문구 부재(`main repo 소스`·`main repo 편집 차단` grep 0), 공개 점검(diff·plan 에 비공개 repo 이름·홈 경로 0). evidence gate: Acceptance 1~8 충족 → DONE.
+- 2026-09-28: commit-check 승인·적용 — fixup 4개를 단위 커밋 2개(`fix(guard)`·`docs(wiki)`)에 합치고 본문 보강(최종 tree 동일). `/e merge` — PR #185.
 
 # Next
-commit-check 로 fixup 합치기(승인) → `/e merge`(push·PR·머지 — 사용자 지시 시).
+
 
 # Decisions
 - 대장 1b 의 "네이티브 ⊇ 자작 ②"는 **EnterWorktree 세션에 한해서만** 참이다(2026-09-27 실측). 네이티브 격리는 세션이 worktree 에 들어간 경로(EnterWorktree)에 걸리고, worktree 디렉토리에서 시작한 세션에는 걸리지 않는다 — 그런 세션에서 ② 가 유일한 보호다. 08-12 실측은 EnterWorktree 세션만 쟀다.
