@@ -212,9 +212,15 @@ ok('summarize: kind 별 raw/unique-session/기간 집계, 불량 라인·미정�
 // ---- hook 통합 (spawn — 실제 emit 경로 관찰, OFF 자기격리와 동일 채널) ----
 ok('통합(guard): deny 시 guard-worktree-deny 신호가 지정 DIR 에 기록된다', () => {
   const d = tmp();
+  // guard 는 main checkout 의 추적 파일만 deny 하므로 실 repo 에 추적 파일을 둔다.
+  const repo = tmp();
+  execFileSync('git', ['init', '-q', repo], { stdio: 'ignore' });
+  fs.mkdirSync(path.join(repo, 'scripts'));
+  fs.writeFileSync(path.join(repo, 'scripts', 'x.js'), 'x');
+  execFileSync('git', ['-C', repo, 'add', 'scripts/x.js'], { stdio: 'ignore' });
   const inp = JSON.stringify({
-    cwd: '/Users/u/repo/.claude/worktrees/wt1/sub',
-    tool_input: { file_path: '/Users/u/repo/scripts/x.js' },
+    cwd: path.join(repo, '.claude/worktrees/wt1/sub'),
+    tool_input: { file_path: path.join(repo, 'scripts', 'x.js') },
     session_id: 'g1',
   });
   const out = execFileSync('node', [path.join(__dirname, 'guard-worktree-edit.js')], {
