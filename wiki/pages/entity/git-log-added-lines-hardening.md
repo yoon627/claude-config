@@ -2,8 +2,10 @@
 title: git-log-added-lines-hardening
 category: entity
 created: 2026-09-25
-updated: 2026-09-26
+updated: 2026-09-28
 sources:
+  - git 2.54.0 (Apple Git-157) `git log --stdin`·`git rev-list --stdin` 실측 — scratch 재현 후, 조건을 바꿔 반례를 찾는 재실행 (2026-09-28), git v2.54.0 revision.c `read_revisions_from_stdin`
+  - git RelNotes 2.42.0·2.43.0 · 커밋 c40f0b78771e "revision: handle pseudo-opts in `--stdin` mode" (v2.42.0 에 처음) · PR #188 (scripts/pre-commit-check.sh stdin 전환)
   - plans/2026-09-25-repo-audit-remaining/repo-audit-remaining-plan.md (plan-reviewer·code-reviewer 실측, 2026-09-25)
   - plans/2026-09-26-push-remote-scope (remote sha 기준 제외·replace peel·pushurl 실측, 2026-09-26)
   - 커밋 4f44adb (scripts/pre-commit-check.{sh,ps1}, pre-commit-check.test.sh 회귀 케이스)
@@ -38,6 +40,25 @@ sources:
 - ref 줄의 sha 는 repo 해시 길이(`rev-parse --show-object-format` — sha1 40자·sha256 64자)만 받는다. 그 밖의 16진수 문자열(짧은 것, sha1 repo 의 64자)은 rev-parse 가 같은 이름의 ref 로 풀 수 있다(code-reviewer 재현: 64자 이름의 ref 가 토큰 커밋을 가리키면 제외됐다).
 - 경로 종류마다 따로 실행한다. pathspec 밖에서 들어온 rename 은 짝지어지지 않아 추가 줄로 보인다.
 
+## 커밋 목록을 stdin 으로 넘길 때 — `git log --stdin` (✅ 2.54 실측)
+
+push 커밋과 제외 커밋을 argv 로 넘기면, ref 가 많은 push 에서 Windows 명령줄 한계 32,767자(CreateProcessW `lpCommandLine`, Microsoft 문서)를 넘어 git 프로세스를 띄우지 못한다. 새 원격에 약 790개 이상이 기준인데, 이 수는 32,767자를 sha1 한 개(약 41자)로 나눈 계산값이다. 가드가 fail-closed 라 유출은 없지만 push 가 아예 안 된다(⚠️ 이 문단은 문서·계산 근거이고 Windows 에서 실측하지 않았다. 아래 bullet 은 2.54 실측). 그래서 `--stdin` 으로 넘기는데(이 repo 의 sh 가드는 PR #188 부터, ps1 은 아직 argv), 그러면 argv 에는 없던 함정이 생긴다.
+
+- **빈 입력이면 HEAD 를 스캔한다.**
+  - stdin 이 비었거나 첫 줄이 빈 줄이면 리비전이 0개가 되고, `git log` 는 문서화된 기본값 HEAD 로 돈다(rc 0). argv 에도 리비전이 없을 때만 그렇다.
+  - HEAD 기본값은 `git log` 의 것이다. `git rev-list --stdin` 은 빈 입력이면 아무것도 출력하지 않는다(rc 0).
+  - 입력을 만드는 단계(dedupe 파이프 등)가 조용히 실패하면 push 커밋 대신 HEAD 이력을 검사해 통과하는 fail-open 이 된다. 그래서 목록을 변수로 먼저 만들고 비면 차단한다.
+- **빈 줄에서 읽기를 멈춘다.**
+  - 목록 중간의 빈 줄(LF·CRLF 모두) 뒤에 오는 리비전은 경고 없이 버려진다(rc 0). 빈 줄은 걸러서 넘긴다(`awk 'NF'`).
+  - 공백만 있는 줄은 빈 줄로 치지 않고 `fatal: bad revision ' '`(128)이다.
+  - 근거는 실측과 `revision.c` `read_revisions_from_stdin` 의 `if (!sb.len) break;` 이다. git-log·git-rev-list 문서에는 이 동작이 없다.
+  - `--` 줄 뒤는 pathspec 으로 읽히고, 거기서 빈 줄은 `fatal: empty string is not a valid pathspec`(128)이다.
+- **제외 커밋은 `^<sha>` 줄로 넘긴다.** argv 와 똑같이 동작한다.
+  - `--not`·`--all`·`--glob=<pat>` 같은 pseudo-option 줄은 2.42.0 부터 받는다(RelNotes 2.42.0 — 커밋 c40f0b78771e 가 v2.42.0 에 처음 들어갔다). 같은 커밋이 `--end-of-options` 줄도 받게 했지만 RelNotes 에는 없다.
+  - 2.43.0 에서 `--not` 의 적용 범위가 바뀌었다. stdin 의 `--not` 은 stdin 리비전에만, 명령줄의 `--not` 은 명령줄 리비전에만 적용된다(RelNotes 2.43.0).
+  - 그 밖의 옵션 줄(`-n1`·`--since=…`)은 `fatal: invalid option '-n1' in --stdin mode`(128)이다. 값을 다음 줄에 둔 `--glob` 도 실패한다(`--glob=<pat>` 처럼 붙여 써야 한다).
+  - `^<sha>` 는 리비전 문법이라 버전 제약이 없다고 보고 이 형식을 쓴다. 2.42 이전 git 에서는 실측하지 않았다(⚠️).
+
 ## 영향 없음으로 확인된 것 (위 명령 기준)
 
 - `GIT_CONFIG_COUNT`·`GIT_CONFIG_PARAMETERS` 로 설정을 주입해도 명령줄 `-c` 가 이긴다.
@@ -53,4 +74,4 @@ sources:
 
 ## 연계
 
-"출력 0건 ≠ 없음"이라는 같은 함정은 [[lesson-grep-absence-not-proof]] 에 있다. git 훅의 hang·재귀 안전은 [[git-hook-network-safety]] 에, git 동작을 실측해 규칙으로 옮긴 다른 사례는 [[git-autosquash-target-selection]] 에 있다.
+"출력 0건 ≠ 없음"이라는 같은 함정은 [[lesson-grep-absence-not-proof]] 에 있다. `GIT_*_PATHSPECS` 전역 설정끼리의 충돌과 `--literal-pathspecs` 의 범위는 [[git-literal-pathspecs]] 에 있다. git 훅의 hang·재귀 안전은 [[git-hook-network-safety]] 에, git 동작을 실측해 규칙으로 옮긴 다른 사례는 [[git-autosquash-target-selection]] 에 있다.

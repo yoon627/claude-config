@@ -340,3 +340,9 @@
 
 ## [2026-09-28] ingest | codex-cli-agents-and-hooks
 - 새 entity: Codex CLI 0.154.0 의 custom agent toml(필수 키, tools 제한 키 없음 → `sandbox_mode`, 이름 호출 #15250, `max_depth` 가 셸 `codex exec` 재귀를 못 막음 #46704·#32027)과 hooks(로컬 로드 형태 `{"hooks": {...}}`, 이벤트·출력 필드는 Claude Code 와 같음, 편집이 `apply_patch` 라 경로가 patch 본문 안, `bashEditDiff`·`background_tasks` 없음, PostToolUse 출력 누락 보고 #34289·#46455), worktree 가 편집 경계가 아님. codex-agents-hooks(PR #186)의 결정 근거. `claude-codex-collaboration` 에서 링크.
+
+## [2026-09-28] ingest | git-literal-pathspecs · git-gitfile-format · git-log-added-lines-hardening (stdin 절)
+- audit-leftovers(PR #188)에서 확인한 git 사실을 공용 wiki 로 옮겼다. 네 가지 사실(`git log --stdin`, submodule pathspec, 전역 pathspec 설정 충돌·check-ignore, `.git` 파일 형식)을 scratch repo 에서 다시 재현하고, 반례를 찾는 별도 재실행으로 성립 조건을 좁혔다(git 2.54.0, 2026-09-28). 외부 인용은 원문으로 대조했다: RelNotes 2.42.0·2.43.0·2.56.0, 커밋 c40f0b78771e(v2.42.0 에 처음)·1dd27bfbfd(v2.54.0·v2.55.0 포함)·54a441bcea(v2.55.0 미포함).
+- `git-log-added-lines-hardening` 에 `git log --stdin` 절 추가: 빈 입력·첫 빈 줄이면 HEAD 를 스캔(`git log` 만, argv 리비전이 없을 때), 중간 빈 줄 뒤는 조용히 버림, `^<sha>` 제외, pseudo-option 2.42+·`--not` 범위 2.43.
+- 새 entity `git-literal-pathspecs`: submodule 경로 인자=pathspec, `--literal-pathspecs` 는 glob·magic 해석만 끔(앞 디렉토리 매칭은 남음), 전역 literal + GLOB/ICASE 는 pathspec 인자가 있을 때만 fatal(noglob 허용), check-ignore 는 `top` 외 magic 거부.
+- 새 entity `git-gitfile-format`: `gitdir: ` 8바이트 접두어, `\r`/`\n` 만 제거, 대상 오류 메시지의 2.54 `(null)` 회귀와 수정 경과.
