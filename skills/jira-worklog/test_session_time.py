@@ -219,11 +219,10 @@ class WaitExclusionTest(unittest.TestCase):
         )), 10 * 60)
 
     def test_long_tool_run_survives_default_backstop(self):
-        # 대기를 정면으로 걸러낸 대가로 백스톱을 완화했다 — 2시간짜리 빌드가 살아난다.
         self.assertEqual(seconds(self.intervals(
             tool_use(0, "Bash", LIVE_WT),
-            tool_result(120, LIVE_WT),
-        )), 120 * 60)
+            tool_result(1440, LIVE_WT),
+        )), 1440 * 60)
 
     def test_backstop_still_cuts_absurd_gaps(self):
         # 백스톱은 남긴다 — 앞으로 추가될 대화형 도구가 같은 구멍을 내면 여기서 막힌다.

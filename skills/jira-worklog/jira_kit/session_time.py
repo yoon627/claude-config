@@ -54,10 +54,8 @@ _WORKTREES_SEGMENTS = (".claude", "worktrees")
 # tool_result 를 assistant 로 분류(과소계상 방지)한 대가로 생긴 구멍을 여기서 정면으로 막는다.
 _AWAIT_USER_TOOLS = frozenset({"AskUserQuestion", "ExitPlanMode"})
 
-# 대기를 role 로 걸러낸 뒤 남는 idle gap 백스톱. 실측상 이 시간을 넘긴 gap 은 전부 위 도구의
-# 대기였고 진짜 작업은 없었다 — 그래서 8시간까지 완화해 장시간 빌드·테스트를 살린다.
-# 아예 없애지 않는 이유는 앞으로 추가될 대화형 도구가 같은 구멍을 낼 수 있어서다.
-DEFAULT_MAX_GAP_MINUTES = 480
+# 대기 필터 이후에도 식별하지 못한 유휴 구간이 남을 수 있어 상한을 둔다.
+DEFAULT_MAX_GAP_MINUTES = 1440
 
 
 class BucketKind(Enum):
