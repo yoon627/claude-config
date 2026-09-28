@@ -45,7 +45,7 @@ class Repo:
 
     def git(self, *args: str, env: dict[str, str] | None = None, check: bool = True) -> str:
         r = subprocess.run(
-            ["git", *args], cwd=self.root, env=env or self.env, capture_output=True, text=True
+            ["git", *args], cwd=self.root, env=env or self.env, capture_output=True, encoding="utf-8"
         )
         if check and r.returncode != 0:
             raise AssertionError(f"git {args} failed: {r.stderr}")
@@ -69,9 +69,10 @@ class Repo:
         args = ["commit", "-q", "-F", "-"]
         if allow_empty:
             args.insert(1, "--allow-empty")
-        r = subprocess.run(["git", *args], cwd=self.root, env=env, input=message, capture_output=True, text=True)
+        # 텍스트 모드 stdin 은 Windows 에서 로캘 코드페이지로 인코딩하고 \n 을 \r\n 으로 바꾼다 — 바이트로 넘긴다.
+        r = subprocess.run(["git", *args], cwd=self.root, env=env, input=message.encode("utf-8"), capture_output=True)
         if r.returncode != 0:
-            raise AssertionError(r.stderr)
+            raise AssertionError(r.stderr.decode("utf-8", "replace"))
         return self.git("rev-parse", "HEAD")
 
     def head(self) -> str:
@@ -129,7 +130,7 @@ class Base(unittest.TestCase):
         head_fields, _, msg = raw.partition("\n\n")
         forged = head_fields + "\ngpgsig -----BEGIN PGP SIGNATURE-----\n \n -----END PGP SIGNATURE-----\n\n" + msg + "\n"
         sha = subprocess.run(["git", "hash-object", "-t", "commit", "-w", "--stdin"], cwd=self.r.root, env=self.env,
-                             input=forged, capture_output=True, text=True, check=True).stdout.strip()
+                             input=forged.encode("utf-8"), capture_output=True, check=True).stdout.decode().strip()
         self.r.git("update-ref", f"refs/heads/{self.r.git('branch', '--show-current')}", sha)
 
     def feature_history(self) -> tuple[str, str, str]:
@@ -772,7 +773,7 @@ class PendingTest(Base):
 class CliTest(Base):
     def run_cli(self, *args: str, input: str | None = None) -> subprocess.CompletedProcess:
         return subprocess.run([sys.executable, str(SCRIPT), *args], cwd=self.r.root, env=self.env,
-                              input=input, capture_output=True, text=True)
+                              input=input, capture_output=True, encoding="utf-8")
 
     def test_collect_then_apply_via_cli(self) -> None:
         a, b, c = self.feature_history()
@@ -785,6 +786,13 @@ class CliTest(Base):
         res = self.run_cli("apply", str(plan_file))
         self.assertEqual(0, res.returncode, res.stderr)
         self.assertIn("backup_ref", json.loads(res.stdout))
+
+    def test_apply_plan_from_stdin_keeps_non_ascii_message(self) -> None:
+        a, b, c = self.feature_history()
+        plan = self.plan([{"from": [a, c], "message": "feat: 리뷰 반영"}, {"from": [b]}])
+        res = self.run_cli("apply", "-", input=json.dumps(plan, ensure_ascii=False))
+        self.assertEqual(0, res.returncode, res.stderr)
+        self.assertIn("feat: 리뷰 반영", self.r.git("log", "--format=%s", "main.."))
 
     def test_apply_error_exit_nonzero(self) -> None:
         a, b, c = self.feature_history()

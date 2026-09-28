@@ -609,9 +609,10 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "show":
             sys.stdout.write(show(git, args.sha))
         else:
-            raw = sys.stdin.read() if args.plan == "-" else Path(args.plan).read_text(encoding="utf-8")
+            # sys.stdin 은 Windows 에서 로캘 코드페이지로 디코딩해 한글 메시지가 깨진다 — 바이트로 읽는다.
+            raw = sys.stdin.buffer.read().decode("utf-8") if args.plan == "-" else Path(args.plan).read_text(encoding="utf-8")
             print(json.dumps(apply(git, json.loads(raw)), ensure_ascii=False, indent=1))
-    except (CommitCheckError, json.JSONDecodeError, OSError) as exc:
+    except (CommitCheckError, json.JSONDecodeError, UnicodeDecodeError, OSError) as exc:
         print(f"commit-check: {exc}", file=sys.stderr)
         return 1
     return 0
