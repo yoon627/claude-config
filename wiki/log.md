@@ -349,3 +349,6 @@
 - `git-log-added-lines-hardening` 에 `git log --stdin` 절 추가: 빈 입력·첫 빈 줄이면 HEAD 를 스캔(`git log` 만, argv 리비전이 없을 때), 중간 빈 줄 뒤는 조용히 버림, `^<sha>` 제외, pseudo-option 2.42+·`--not` 범위 2.43.
 - 새 entity `git-literal-pathspecs`: submodule 경로 인자=pathspec, `--literal-pathspecs` 는 glob·magic 해석만 끔(앞 디렉토리 매칭은 남음), 전역 literal + GLOB/ICASE 는 pathspec 인자가 있을 때만 fatal(noglob 허용), check-ignore 는 `top` 외 magic 거부.
 - 새 entity `git-gitfile-format`: `gitdir: ` 8바이트 접두어, `\r`/`\n` 만 제거, 대상 오류 메시지의 2.54 `(null)` 회귀와 수정 경과.
+
+## [2026-09-28] update | unknowns-discovery (퀴즈 옵션 제거)
+- Report 선택지의 "변경 이해 리포트+퀴즈" 옵션을 CLAUDE.md §3-6·dlc 16 Report 에서 제거(사용자 승인). 근거: 2026-08-31~09-28 Windows 세션 로그 2,072개에서 14회 제시·0회 선택, AskUserQuestion 선택지 상한 4개를 기본 세트가 채워 넣을 때마다 기본 선택지 하나를 밀어냄. 대응 표 행은 지우지 않고 "제거" 로 바꿔 기각 근거를 남겼다(plan remove-quiz-option).
