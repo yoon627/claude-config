@@ -77,7 +77,7 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 - **실행**: POSIX에서는 `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh"`(dry-run), Windows PowerShell에서는 `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1"`(dry-run)로 날짜별 시간·대상 티켓 확인. launcher는 `uv` 우선, `python3`/`python` fallback(Windows는 `py` 포함)이다. 귀속은 줄 단위 cwd 기준이라 **main 으로 복귀한 뒤에 돌려도 그 worktree 시간이 정확히 잡힌다**(이름을 인자로 주면 된다) — 예전처럼 "복귀 전"일 필요는 없다. 다만 삭제 전이어야 한다는 제약은 그대로다.
 - **등록**: 티켓이 잡히고(worktree 이름 prefix) `~/.jira-kit/.env` 에 토큰 있으면 이어서 POSIX `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh" --register`, Windows PowerShell `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1" --register` — **그 worktree 의** 그날 항목 upsert(멱등, /e 반복해도 중복 없음. 같은 티켓의 다른 worktree 항목은 건드리지 않고 티켓 총합은 Jira 가 합산). **티켓 없음/토큰 없음/세션 활동 없음 → preview 만 하고 조용히 넘어감**(마무리 흐름 방해 금지). 사용자가 /e 에 이 동작을 넣은 것 = 등록 표준 동의(별도 AskUserQuestion 안 만듦, §3-6 1회 원칙).
 - **비차단**: 조회·네트워크 실패는 보고 1줄만 하고 마무리는 계속(worklog 실패가 /e 를 막지 않는다).
-- 보고 1줄: 등록 결과("CSTP1-xxxx 에 `<시간>` 등록" · "티켓 없음/토큰 없음 → preview 만" · "세션 활동 없음").
+- 보고 1줄: 등록 결과("ABC-1234 에 `<시간>` 등록" · "티켓 없음/토큰 없음 → preview 만" · "세션 활동 없음").
 
 ### 7. worktree 정리 (조건부 — merged 면 무확인)
 마무리가 끝난 뒤, 현재 worktree 가 **역할을 다했고 안전하게 지울 수 있으면** 정리한다. 아래 조건이 **전부 충족되면 묻지 않고 worktree + 로컬 브랜치를 지운다**(CLAUDE.md §8(a) — 누가 머지했는지 불문). **원격 브랜치 삭제는 여기 포함되지 않는다 — 항상 AskUserQuestion**(§8(b)).

@@ -10,7 +10,7 @@ jira-worklog 기본 max-gap을 24시간으로 변경하고 worktree 시간 계�
 
 # Progress
 - 2026-09-11: origin/main@a01340d에서 worktree 생성. 기존 108개 테스트 통과. 24시간 경계 테스트를 먼저 수정해 0 != 86400 실패 확인 후 상수 1440 및 문서 수정.
-- 2026-09-11: 변경 후 108개 통과, 설정 기본값 1440/명시 override 480 보존 확인. CSTP1-3000 dry-run은 24h와 8h 모두 세션 6개/항목 8개/5h 4m(이전 대화 이후 세션 추가). Codex 독립 리뷰 APPROVE. simplify 점검상 추가 추상화/정리 불필요.
+- 2026-09-11: 변경 후 108개 통과, 설정 기본값 1440/명시 override 480 보존 확인. ABC-3000 dry-run은 24h와 8h 모두 세션 6개/항목 8개/5h 4m(이전 대화 이후 세션 추가). Codex 독립 리뷰 APPROVE. simplify 점검상 추가 추상화/정리 불필요.
 
 # Next
 기본값 변경은 로컬 main에 반영됨. 파서 개선은 Deferred의 우선순위대로 별도 계획 합의 후 진행한다.
@@ -34,7 +34,7 @@ jira-worklog 기본 max-gap을 24시간으로 변경하고 worktree 시간 계�
 # Acceptance
 - [x] 기본 max-gap 1440분이며 24시간 작업 구간 포함, 상한 초과/사용자 대기 제외가 기존 테스트와 함께 통과한다 — unittest 108개 통과 및 resolve_config 기본값/override 실행 확인.
 - [x] README와 SKILL의 현재 기본값이 24시간으로 일치한다 — diff와 독립 리뷰 확인.
-- [x] 실행 검증 및 개선 조사 결과를 보고한다. Jira 쓰기는 수행하지 않는다 — 격리 runner scripts/verify.sh exit 0 ALL PASS(skip 없음), CSTP1-3000 dry-run 확인, Deferred에 조사 증거 보존.
+- [x] 실행 검증 및 개선 조사 결과를 보고한다. Jira 쓰기는 수행하지 않는다 — 격리 runner scripts/verify.sh exit 0 ALL PASS(skip 없음), ABC-3000 dry-run 확인, Deferred에 조사 증거 보존.
 
 # Deferred
 - 이전 조사에서 발견한 인증 설정 override, URL 검증, 등록 동시성 문제는 이번 기본값 변경 범위 밖이다.

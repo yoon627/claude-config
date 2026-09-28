@@ -365,11 +365,11 @@ AI 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex/sessions`)
 - **대기 제외는 role 단계에서** — 진짜 사용자 입력 직전 gap과 Claude의 `AskUserQuestion`·`ExitPlanMode` 응답 대기를 제외한다. `--max-gap` 기본값은 24시간(1,440분)이며, 필터 이후 남은 인접 이벤트 간격이 이를 초과하면 구간 전체를 제외한다. 24시간 이하의 미식별 유휴 구간은 포함될 수 있다. CLI·환경변수·설정 파일에 명시한 값은 기본값보다 우선한다.
 - **권한 승인 대기는 걸러내지 못한다**: tool_result 에 승인 여부를 가릴 필드가 없어 정상 결과와 구분되지 않는다(거부만 본문으로 식별 가능). 실측 규모는 작다 — Bash 는 8177건 중 5분 초과가 16건, 최대 17분이고 그마저 실제 실행시간이 섞여 있다.
 - **귀속은 줄 단위 `cwd` 기준**(폴더 아님). Claude 세션 파일은 cwd 를 따라 slug 폴더를 **이동**하므로 파일 위치로 귀속하면 오간 세션의 시간이 마지막 위치 한 곳으로 몰린다(실측상 다중 cwd 파일이 다수 — 예외가 아니라 기본 케이스). 이벤트마다 cwd 를 읽어 bucket(live/dead/main/unmatched)으로 나누고, **인접 이벤트 쌍의 bucket 이 같을 때만** 구간을 발행한다(bucket 별로 먼저 거르면 A→B→A 왕복이 A 를 가로질러 이어붙어 이중계상). 코퍼스는 **한 번만** 스캔한다(worktree 마다 재스캔하면 N배).
-- **삭제된 worktree**: `<root>/.claude/worktrees/<name>` 규약으로 이름을 복원해 **표시만** 하고 등록하지 않는다. 등록 가능 여부는 이름이 아니라 `Bucket.kind` 로 판정한다 — 죽은 worktree 이름이 티켓형(`CSTP1-…`)이면 이름 기준 필터로는 샌다. main 은 모든 worktree 의 조상이라 **조상 폴백을 하지 않는다**(하면 삭제된 worktree 시간이 통째로 main 에 흡수된다).
+- **삭제된 worktree**: `<root>/.claude/worktrees/<name>` 규약으로 이름을 복원해 **표시만** 하고 등록하지 않는다. 등록 가능 여부는 이름이 아니라 `Bucket.kind` 로 판정한다 — 죽은 worktree 이름이 티켓형(`ABC-1234-…`)이면 이름 기준 필터로는 샌다. main 은 모든 worktree 의 조상이라 **조상 폴백을 하지 않는다**(하면 삭제된 worktree 시간이 통째로 main 에 흡수된다).
 - **Codex 는 파일 단위 귀속** — rollout 전수에서 세션 중 cwd 이동이 0건이라 나눌 것이 없다. 단 **소속 판정은 Claude 와 같은 분류기**(`WorktreeIndex.classify`)를 태운다 — worktree 하위 디렉토리에서 시작한 세션도 그 worktree 로 잡힌다(예전엔 정확일치라 26건이 어디에도 못 가고 사라졌다). "파일 단위"는 *한 rollout 을 쪼개지 않는다*는 뜻이지 매칭이 엄격하다는 뜻이 아니다.
 - **등록 게이트**(게이트까지 all-or-nothing — 통과 후 HTTP 실패는 부분 반영 가능, Jira 에 트랜잭션 없음): 전 날짜 `old → new` diff 출력 후, 30분 이상 & 50% 초과 변동(**증가·감소 양쪽**)이나 rename 의심(같은 날 내 다른 worktree 항목 존재 + 이 마커 없음)이면 **한 건도 쓰지 않고** 중단. `--allow-large-change` 로 진행하며, 직전 값·worklog id 는 `~/.claude/logs/jira-worklog-<날짜>.jsonl` 에 남는다(Jira 쓰기는 code revert 로 복구 불가).
 - 대상 티켓은 **worktree 디렉토리 이름 prefix**(anchored)에서 우선 추출, 없으면 브랜치명 fallback. 어느 쪽에도 없으면 등록 skip(안전).
-- **worklog 항목은 세션 단위**: 마커 `[jira-kit] worklog <티켓> <날짜> (<worktree>) [<세션>]` 로 그 세션의 그날 항목만 upsert 한다(멱등). 세션 id 자체가 분할 키라 "어디까지 등록했나" 워터마크 없이 재실행이 안전하다. 세션이 끝날 때마다 실행하면 그 몫이 독립 항목으로 남고 **티켓 총 작업시간은 Jira 가 합산** — 대신 한 티켓에 항목이 여러 줄 쌓인다(실측 CSTP1-2812: 3항목 → 22항목). 한 세션이 여러 worktree 를 오가면 worktree 마다 항목을 갖는다(세션은 등록 단위이지 귀속 단위가 아니다).
+- **worklog 항목은 세션 단위**: 마커 `[jira-kit] worklog <티켓> <날짜> (<worktree>) [<세션>]` 로 그 세션의 그날 항목만 upsert 한다(멱등). 세션 id 자체가 분할 키라 "어디까지 등록했나" 워터마크 없이 재실행이 안전하다. 세션이 끝날 때마다 실행하면 그 몫이 독립 항목으로 남고 **티켓 총 작업시간은 Jira 가 합산** — 대신 한 티켓에 항목이 여러 줄 쌓인다(실측 한 티켓: 3항목 → 22항목). 한 세션이 여러 worktree 를 오가면 worktree 마다 항목을 갖는다(세션은 등록 단위이지 귀속 단위가 아니다).
 - **세션 id 는 uuid 의 뒤 8자**(`claude:e7173e9a`). 앞이 아니라 뒤인 이유는 Codex rollout id 가 UUIDv7 이라 앞 48비트가 timestamp 여서다 — 앞 8자로 줄이면 수 초 안에 시작된 세션끼리 그대로 겹친다(실측 수십 건이 한 항목으로 합쳐졌다). 그래도 겹치면 등록 전에 감지해 경고한다.
 - **겹침 union 은 세션 안에서만** 일어난다. 두 세션을 같은 시각에 병렬로 돌리면 겹치는 시간이 양쪽에 잡혀 합계가 실제 경과시간보다 커진다 — 실측(knowledge_base) 등록 대상 worktree 기준 과다분 합계 약 2.3h, worktree 94개 중 89개는 겹침 0.
 - 마커 매칭은 ADF **줄 정확일치** — 부분문자열이면 사용자 `--comment` 본문이나 Jira UI 편집 텍스트에 마커가 섞인 항목을 자기 것으로 오인한다. 반대로 마커를 **놓치면** 새 항목이 생겨 조용히 이중계상되므로, 줄 추출은 UI 편집이 만드는 `hardBreak`·`codeBlock`·`heading`·앞뒤 공백까지 흡수한다.
@@ -381,7 +381,7 @@ AI 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex/sessions`)
 현재 worktree에서 추가·수정한 내용을 `작업 내용:` 한 줄, 최대 1~3문장으로 기존 Jira task description에 반영한다. 기본은 미리보기이며, `/e`에서 사용자 확인 후 `--post`를 붙여 기존 본문에 추가하거나 같은 marker 항목을 갱신한다. 별도 Jira comment는 생성하지 않는다. 인증 경로는 `jira-worklog`와 같은 `~/.jira-kit/.env`를 사용한다.
 
 ```text
-uv run --no-project python "skills/jira-task/jira_task.py" --ticket CSTP1-1234 --summary-file "<요약 파일>"
+uv run --no-project python "skills/jira-task/jira_task.py" --ticket ABC-1234 --summary-file "<요약 파일>"
 ```
 
 요약(`작업 내용: ...`)은 파일로 넘긴다 — 명령 인자로 넣으면 backtick·`$` 가 셸에서 해석된다.

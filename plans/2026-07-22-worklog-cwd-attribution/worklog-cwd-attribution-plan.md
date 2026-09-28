@@ -63,20 +63,20 @@ updated: 2026-08-04
 - 현재 귀속 단위는 **폴더**다: cwd → `project_slug()` → `~/.claude/projects/<slug>/` 폴더의 `*.jsonl` **전부**를 합산(`session_time.py:37-46,172-177`). 파일 **내용의 `cwd` 는 읽지 않는다** — 파서가 꺼내는 필드는 `timestamp` 와 `type` 뿐(`session_time.py:85-97`, `_sessionio.py:19-42`).
 - 그런데 세션 파일은 **cwd 를 따라 폴더를 옮겨 다닌다**(세션 시작 위치 고정이 아님). 실측:
   - 세션 `7826dfb7`: 12:51 main 에서 시작 → 13:00 worktree 진입 → 종료. 파일은 **worktree 폴더**에 있고 main 구간 85줄까지 그 안에 들어있음.
-  - 세션 `cf0d4e59`(knowledge_base): 10:49 main 시작 → 10:54~12:5x 를 CSTP1-2812 worktree 3곳에서 작업(1,191줄) → 13:01 main 복귀. 파일은 **main 폴더**(4.4MB, AI 시간 2h). CSTP1-2812 worktree 들의 slug 폴더는 **0개**(파일이 세션과 함께 떠났음).
+  - 세션 `cf0d4e59`(knowledge_base): 10:49 main 시작 → 10:54~12:5x 를 ABC-2812 worktree 3곳에서 작업(1,191줄) → 13:01 main 복귀. 파일은 **main 폴더**(4.4MB, AI 시간 2h). ABC-2812 worktree 들의 slug 폴더는 **0개**(파일이 세션과 함께 떠났음).
   - 같은 세션 id 파일이 두 폴더에 동시 존재하지 않음 → 복사가 아니라 **이동**.
-- 결과 ①: 오간 세션의 시간이 **마지막 위치 한 곳**에 전부 몰린다. 위 예시는 main(`ticket=(없음)`)으로 몰려 CSTP1-2812 worklog 는 0 — 2시간이 통째로 미등록.
+- 결과 ①: 오간 세션의 시간이 **마지막 위치 한 곳**에 전부 몰린다. 위 예시는 main(`ticket=(없음)`)으로 몰려 ABC-2812 worklog 는 0 — 2시간이 통째로 미등록.
 - 결과 ②: A 에서 등록 후 B 로 이동해 다시 등록하면 **A 시간이 B 에 또 계산**된다(이중계상).
 - `skills/e/SKILL.md:45-46` 의 "worklog 는 6단계 삭제·7단계 main 복귀 **전**에 실행 — 순서가 중요"는 이 이동 특성에 대한 기존 우회책이다(규약으로 막고 있을 뿐 구조는 취약).
 
 ## 접근
 - **Claude 세션은 줄 단위 `cwd` 로 분리한다.** 각 줄에 `cwd` 필드가 존재함을 실측 확인 → 데이터는 이미 있다. 이벤트마다 cwd 를 읽어 소속 worktree 를 정하고, **worktree 별로 따로** interval 을 뽑아 union 한다.
-- ~~**cwd → worktree 매핑은 longest-prefix**~~ → **2026-08-04 폐기 (plan-review blocker, 메인 시뮬레이션으로 재현)**. live `git worktree list` 만으로 longest-prefix 를 하면 **삭제된 worktree 의 cwd 가 조상인 main 으로 흡수**된다(프로덕션 코퍼스 기준 main 38.56h vs 실제 몫 10.95h — 3.5배). main 은 모든 worktree 의 조상이자 자신도 목록에 있으므로 "매칭 실패 → 조상으로 폴백"이 곧 오귀속이다. billable 티켓 worktree 하위에 중첩 worktree 가 있던 실사례(`.../CSTP1-2812/ingest-pipeline`)에서는 **과다 등록**으로 이어진다.
+- ~~**cwd → worktree 매핑은 longest-prefix**~~ → **2026-08-04 폐기 (plan-review blocker, 메인 시뮬레이션으로 재현)**. live `git worktree list` 만으로 longest-prefix 를 하면 **삭제된 worktree 의 cwd 가 조상인 main 으로 흡수**된다(프로덕션 코퍼스 기준 main 38.56h vs 실제 몫 10.95h — 3.5배). main 은 모든 worktree 의 조상이자 자신도 목록에 있으므로 "매칭 실패 → 조상으로 폴백"이 곧 오귀속이다. billable 티켓 worktree 하위에 중첩 worktree 가 있던 실사례(`.../ABC-2812/ingest-pipeline`)에서는 **과다 등록**으로 이어진다.
   - **대체 규칙 (2026-08-04 2차 리뷰 B1·B2 반영해 확정 — 이 순서 그대로 구현)**. 순수 함수 `classify_cwd(cwd, root, live_worktrees) -> Bucket(kind, name)`, `kind ∈ {live, dead, main, unmatched}`:
     1. **정규화** — `Path.resolve()` + `os.path.normcase`(Windows·APFS 대소문자. 이 CLI 는 Windows 를 명시 지원한다 — `jira_worklog.py:30-34`).
     2. **repo 소속 선검증 (B1)** — `cwd` 가 `root` 아래가 **아니면 즉시 `unmatched`**. main 폴백 금지. 이 조건이 없으면 타 repo(`coin-trading-bot` 계열 ~29h)와 홈 디렉토리 cwd 가 전부 main 으로 흡수된다 — 1차 blocker 보다 큰 오귀속이 문구상 열려 있었다.
     3. **후보 수집** — live worktree 목록 + `<root>/.claude/worktrees/<name>` 규약으로 식별한 historical(삭제된) bucket. historical 은 **경로 문자열의 마지막 `.claude/worktrees/<name>` 출현** 기준으로 이름을 뽑고, 앵커는 `git worktree list` 의 main 경로로 고정한다(타 repo bucket 이 이름만으로 섞이지 않게).
-    4. **최심(最深) 1개 선택 (B2)** — 후보 여러 개가 동시에 매치되면(`<root>` 와 `<root>/.claude/worktrees/A` 는 **항상** 함께 매치되고, `<A>/.claude/worktrees/B` 는 A 와도 매치된다) **경로 요소 수가 가장 깊은 하나**를 고른다. 이 규칙이 없으면 삭제된 중첩 worktree B 가 상위 live worktree A 로 흡수돼, 폐기 근거로 든 `.../CSTP1-2812/ingest-pipeline` 과다등록이 **대체 규칙에서도 그대로 재현**된다.
+    4. **최심(最深) 1개 선택 (B2)** — 후보 여러 개가 동시에 매치되면(`<root>` 와 `<root>/.claude/worktrees/A` 는 **항상** 함께 매치되고, `<A>/.claude/worktrees/B` 는 A 와도 매치된다) **경로 요소 수가 가장 깊은 하나**를 고른다. 이 규칙이 없으면 삭제된 중첩 worktree B 가 상위 live worktree A 로 흡수돼, 폐기 근거로 든 `.../ABC-2812/ingest-pipeline` 과다등록이 **대체 규칙에서도 그대로 재현**된다.
     5. **비교는 경로 요소 단위**(`is_relative_to`) — 문자열 접두는 `/wt/foo` 가 `/wt/foobar` 에 걸린다.
     6. 어떤 worktree 후보에도 안 걸리고 `root` 아래인 cwd만 `main`.
   - **규약 밖 경로의 잔여 위험 (닫지 못함, 완화만)**: `<root>/tmp-wt` 처럼 `.claude/worktrees/` 규약을 안 따르고 root 안에 있던 삭제 worktree 는 historical 복원이 불가해 main 으로 간다. 완화책으로 **main bucket 에 기여한 distinct cwd 서브루트 목록을 dry-run 에 출력**해 사람이 이상을 알아채게 한다.
@@ -105,7 +105,7 @@ updated: 2026-08-04
 - 이 게이트는 측정 로직과 독립적으로 테스트 가능해야 한다(**순수 판정 함수**로 분리).
 
 ## 죽은 bucket 의 등록 제외는 필터가 아니라 타입으로 강제 (2026-08-04 2차 리뷰)
-등록 분기는 현재 `ticket` 유무만 본다(`jira_worklog.py:131-135`). 죽은 bucket 이름이 `CSTP1-1234-foo` 형태면 `extract_ticket` 이 티켓을 뽑아내 정상 worktree 와 구분되지 않는다. **`Bucket.kind`(또는 `registrable: bool`)를 `_register` 진입까지 전달하고 upsert 직전에 assert** 한다. `--all` 은 `register = args.register and not args.all`(`jira_worklog.py:179`)로 이미 안전하므로, 새는 경로는 **단일 worktree 실행** 쪽이다.
+등록 분기는 현재 `ticket` 유무만 본다(`jira_worklog.py:131-135`). 죽은 bucket 이름이 `ABC-1234-foo` 형태면 `extract_ticket` 이 티켓을 뽑아내 정상 worktree 와 구분되지 않는다. **`Bucket.kind`(또는 `registrable: bool`)를 `_register` 진입까지 전달하고 upsert 직전에 assert** 한다. `--all` 은 `register = args.register and not args.all`(`jira_worklog.py:179`)로 이미 안전하므로, 새는 경로는 **단일 worktree 실행** 쪽이다.
 
 ## `--all` 단일 패스는 성능이 아니라 요구사항 (2026-08-04 2차 리뷰)
 현재 `process()` 는 worktree 마다 `discover_sessions(wt.path)` 를 호출한다(`jira_worklog.py:111`). cwd 판정을 위해 전체 코퍼스를 읽는 구조에서 이걸 유지하면 **worktree 수 N배 스캔**이 된다. 1패스 실측 약 1.2초라 5초 기준은 N≤4 에서만 성립 → **코퍼스를 한 번만 읽고 bucket 별로 나누는 단일 패스가 Acceptance 충족의 전제**다.
@@ -136,7 +136,7 @@ updated: 2026-08-04
 - [x] 중첩 worktree(`<wt>/<subwt>`) fixture 에서 하위 worktree 구간이 상위로 새지 않음 — **최심 후보 선택 규칙 검증**(하위가 *삭제된* 경우도 포함. "longest-prefix 검증"이라는 옛 표현은 폐기된 규칙명이라 쓰지 않는다)  ✅(테스트 `test_deleted_nested_worktree_does_not_leak_to_parent_worktree`)
 - [x] `classify_cwd` 테이블 테스트: 타 repo cwd·홈 디렉토리·root 의 조상·worktrees 컨테이너 자체(`<root>/.claude/worktrees`)·대소문자 차이 → 각각 기대 bucket 으로 분류 (테스트 통과)  ✅(테스트 15개 통과)
 - [ ] ~~오가지 않은 단일 worktree 세션의 산출값이 변경 전과 동일~~ → **2026-08-04 정정(plan-review 가 반증)**. worktree 수준에서는 거짓이다 — 새 방식은 *다른* slug 폴더에 있는 파일에서도 자기 cwd 줄을 끌어오므로 값이 바뀌는 게 정상이다(실측: doc-slim 1.96h→2.63h). 기준을 **"단일 cwd 만 담긴 파일 fixture 에서 산출값이 변경 전과 동일"** 로 한정한다(테스트 통과).
-- [ ] ~~knowledge_base 에서 CSTP1-2812 계열에 시간이 잡히고 main 의 2h 가 줄어듦~~ / ~~main 42.53h→11.63h~~ → **2026-08-04 두 번 정정**. ① CSTP1-2812 worktree 는 삭제돼 `--all`(live 만 순회)로 검증 불가. ② 대체안으로 쓴 고정 수치도 재귀 코퍼스 오염값인 데다, **실데이터는 매일 늘어 고정 수치는 내일 틀린다**(2차 리뷰 B3). 대체 기준 — **스냅샷 fixture + 불변식**:
+- [ ] ~~knowledge_base 에서 ABC-2812 계열에 시간이 잡히고 main 의 2h 가 줄어듦~~ / ~~main 42.53h→11.63h~~ → **2026-08-04 두 번 정정**. ① ABC-2812 worktree 는 삭제돼 `--all`(live 만 순회)로 검증 불가. ② 대체안으로 쓴 고정 수치도 재귀 코퍼스 오염값인 데다, **실데이터는 매일 늘어 고정 수치는 내일 틀린다**(2차 리뷰 B3). 대체 기준 — **스냅샷 fixture + 불변식**:
   - `find_session_files(cwd, home)` 의 `home` 파라미터로 고정 corpus 를 주입해 재현 가능하게 한다.
   - 불변식 ① **main bucket 에 `<root>/.claude/worktrees/*` cwd 의 기여가 0**.
   - 불변식 ② **모든 bucket 시간의 합 ≤ 파일 union 총합**(이중계상 없음).
@@ -147,7 +147,7 @@ updated: 2026-08-04
 - [x] **한 파일을 여러 bucket 처리에서 재파싱해도 각 이벤트는 정확히 한 bucket 에만 기여** (테스트 통과 — 불변식)  ✅(테스트 `test_does_not_bridge_across_files` 등)
 - [x] 등록 게이트가 **all-or-nothing**: 마지막 날짜가 임계를 넘기면 앞 날짜도 등록되지 않음 (테스트 통과)  ✅(테스트 `test_later_day_precondition_blocks_earlier_day_too`)
 - [x] 등록 게이트가 **증가 방향도** 차단하고, worktree rename 으로 마커가 안 잡힐 때 create 를 막음 (테스트 통과)  ✅(테스트 `test_large_increase_blocks_too`·`test_created_with_rival_worktree_blocks`)
-- [x] 죽은 bucket 이 `CSTP1-1234-foo` 처럼 티켓 추출 가능한 이름이어도 **단일 worktree 실행에서 등록되지 않음** (테스트 통과 — 타입 강제)  ✅(조회키가 LIVE/MAIN 만 생성 + `registrable`)
+- [x] 죽은 bucket 이 `ABC-1234-foo` 처럼 티켓 추출 가능한 이름이어도 **단일 worktree 실행에서 등록되지 않음** (테스트 통과 — 타입 강제)  ✅(조회키가 LIVE/MAIN 만 생성 + `registrable`)
 - [x] **삭제된 worktree 가 별도 bucket 으로 표시**되고 main 에 흡수되지 않음. 실데이터에서 `plans-sync`·`doc-slim` 등이 자기 이름으로 뜨고 main 은 자기 몫만 받음 (실행·관찰)  ✅(실행 관찰: dead 37개 표시, main 9h46m 자기 몫)
 - [x] 삭제된 worktree bucket 은 **등록 대상에서 제외**됨 (테스트 통과 — dry-run 표시와 등록 목록이 분리)  ✅(`Bucket.registrable` + 조회키가 LIVE/MAIN 만 생성)
 - [x] `--register` 전 `(ticket, date, worktree, old, new)` diff 출력, **감소폭 임계 초과 시 등록 차단**, 이전값·worklog id 로깅 (테스트 통과 — 판정 함수 단위)  ✅(테스트 `test_register_gate.py` 18개)

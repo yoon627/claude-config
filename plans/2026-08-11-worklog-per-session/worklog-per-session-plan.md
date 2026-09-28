@@ -20,8 +20,8 @@ worklog 등록 단위를 (티켓, 날짜, worktree) → **(티켓, 날짜, workt
   (수십 건). 뒤 8자로 정정하고 재실행해 충돌 0 확인.
 - 2026-08-11: 테스트 3종 통과(session_time 60 / scope 29 / gate 19), dry-run 관찰 정상.
 - 2026-08-12: PR #137 머지 → `origin/main` 위로 rebase → **PR #142** 생성, CI(Lint) 통과.
-- 2026-08-12: **CSTP1-2829 로 실제 Jira 등록까지 end-to-end 검증.** 임시 worktree
-  `CSTP1-2829-worklog-test` 를 만들어 세션을 들여보낸 뒤: 티켓 추출 → 세션키
+- 2026-08-12: **ABC-2829 로 실제 Jira 등록까지 end-to-end 검증.** 임시 worktree
+  `ABC-2829-worklog-test` 를 만들어 세션을 들여보낸 뒤: 티켓 추출 → 세션키
   `claude:815a82ff` → `created`(id=172631) → 재실행 `updated 1m → 2m`(항목 수 2건 유지,
   새로 만들지 않음) → 기존 수동 항목(id=171610, 8h, 마커 없음) 무손상 확인. 검증 후 worktree·
   브랜치 삭제. Jira 테스트 항목은 사용자가 UI 에서 정리.
@@ -40,10 +40,10 @@ worklog 등록 단위를 (티켓, 날짜, worktree) → **(티켓, 날짜, workt
 - **겹침 union 포기는 수용한다.** 세션별로 쪼개면 동시 실행 세션의 겹치는 시간을 union 으로
   지울 수 없다. 실측(knowledge_base): 전체로는 77.66% 과다지만 그 대부분이 `main` bucket
   (티켓 없음 → 등록 대상 아님)이고, **등록 대상 worktree 만 보면 합계 약 2.3h**
-  (review-show-original 71분, CSTP1-2812 58분, 나머지 8분). worktree 94개 중 89개는 겹침 0.
+  (review-show-original 71분, ABC-2812 58분, 나머지 8분). worktree 94개 중 89개는 겹침 0.
 - **stacked on PR #137.** 대기 필터가 아직 머지 전이고 `session_time.py` 를 같이 건드리므로
   main 이 아니라 그 브랜치를 base 로 한다. #137 머지 후 rebase.
-- 항목 수 증가는 감수한다 — CSTP1-2812 기준 3항목 → 22항목(7/22 하루가 15항목). 티켓 총
+- 항목 수 증가는 감수한다 — ABC-2812 기준 3항목 → 22항목(7/22 하루가 15항목). 티켓 총
   Time Spent 는 Jira 가 합산하므로 동일하다.
 - **구형 마커는 중단이 아니라 경고**(사용자 판단 2026-08-11: "예전 기록과 누적돼 더 계산돼도
   상관없다"). `legacy_worklog_marker`(worktree 없음)의 기존 **중단**은 그대로 두고, 이번에

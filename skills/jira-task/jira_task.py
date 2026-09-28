@@ -595,7 +595,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--ticket",
-        help="Jira issue key (예: CSTP1-1234). 생략 시 worktree/branch에서 추출",
+        help="Jira issue key (예: ABC-1234). 생략 시 worktree/branch에서 추출",
     )
     parser.add_argument("--worktree", help="marker에 기록할 worktree 이름")
     parser.add_argument(

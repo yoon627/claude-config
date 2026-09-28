@@ -36,8 +36,8 @@ updated: 2026-08-31
   worktree 68개 중 **60개**(upstream 없음)가 "294~1019커밋 뒤처짐"으로 걸린다(리뷰어 실측). 폴백을
   제거했고, 계기 사건은 폴백 없이도 잡힌다. 반영 후 **67 tests passed**, 실 repo 관찰도 다시 했다:
   upstream 없는 `adapter-sandbox` 는 이제 무음(전에는 1022커밋 뒤처짐이라고 했다),
-  `CSTP1-2898-dev-merge` 는 `origin/dev 대비 336커밋 뒤처짐 — 이 repo 에는 자동 pull 이 없다`,
-  `cstp-ai-agent-defaults` 는 `미커밋 13일: wiki/index.md, …`.
+  회사 repo 의 티켓 worktree(`ABC-2898-dev-merge`) 는 `origin/dev 대비 336커밋 뒤처짐 — 이 repo 에는 자동 pull 이 없다`,
+  회사 repo 의 다른 worktree 는 `미커밋 13일: wiki/index.md, …`.
 - 2026-08-31: 검증 통과 후 `~/.claude` main 에 ff-only 머지했다(`f89d84b`). CI(lint.yml)의 node 축을
   그대로 재현 — `node --check` 전 파일, node 단위테스트 10종 전부 통과(session-brief **67**,
   session-start-pull 9, 나머지 불변), `settings.json` JSON 검증, plan-lint exit 0. 사용자의 기존

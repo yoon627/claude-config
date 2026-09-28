@@ -9,7 +9,7 @@ updated: 2026-09-24
 브랜치의 커밋들이 "리뷰 가능한 하나의 목적 단위"인지 점검하고, 승인하면 코드 내용은 그대로 둔 채 커밋 경계만 재구성하는 `commit-check` 스킬을 만든다. dlc 마무리(16단계)에서 호출하고, 원칙은 전역 CLAUDE.md §8 에 짧게 둔다.
 
 # Intent
-- Problem: 커밋 단위 판단(후속 수정을 어느 커밋에 합칠지, 목적이 섞인 커밋을 나눌지, 메시지 prefix)이 매번 추론으로 갈린다(cstp_compliance 2026-09-15~16 FE 커밋 분리·`fix`/`refactor` 논쟁). 규칙은 cstp `AGENTS.md:75` 에만 있고 전역에는 없다.
+- Problem: 커밋 단위 판단(후속 수정을 어느 커밋에 합칠지, 목적이 섞인 커밋을 나눌지, 메시지 prefix)이 매번 추론으로 갈린다(회사 repo 2026-09-15~16 FE 커밋 분리·`fix`/`refactor` 논쟁). 규칙은 회사 repo `AGENTS.md:75` 에만 있고 전역에는 없다.
 - Constraints (사용자 확인 2026-09-24): 재구성은 **제안 표 → 승인 후 실행**. 호출 시점은 **dlc 마무리 과정**. 원칙 명시는 **전역 CLAUDE.md 만**(Codex 파일 제외). 코드 내용은 바꾸지 않는다(사용자 요청 "커밋 단위 점검"의 전제 — 재구성 전후 최종 트리 동일).
 - Out of scope: Codex 쪽(`~/.codex/AGENTS.md`·`~/.claude/AGENTS.md` 규칙 추가, `~/.agents/skills` 등록) — 사용자가 전역 CLAUDE.md 만 선택. `/e merge` 연결 — 사용자가 dlc 마무리를 선택. hunk 단위 분할 — 파일 단위만 자동, hunk 단위는 제안·수동 안내. repo 별 메시지 형식 규칙 자체(각 repo AGENTS/CLAUDE 가 정본, 스킬은 읽기만). 게시(push)된 커밋 재작성 — 아래 Decisions.
 - 분할: 없음 — 스킬 단독 머지(1단계) → dlc·CLAUDE.md 연결(2단계)로 나누면 순서대로 머지해도 무모순이다. 나누지 않는 이유는 사용자가 dlc 연결까지를 한 요구로 지정했고, 연결 전 실사용 관찰(Acceptance 9)을 이 plan 안에서 하므로 분리의 이득(dogfooding 기간)이 plan 고정비(worktree·리뷰·머지 2회)보다 작아서다.
@@ -24,14 +24,14 @@ updated: 2026-09-24
 6. **push 하지 않음** — git 호출 인자를 가로채는 테스트로 apply 전 과정에 `push` 가 없음을 확인.
 7. **롤백** — apply 가 백업 ref(`refs/commit-check/<branch>/<UTC>`)를 남기고, 출력한 롤백 명령(`git update-ref refs/heads/<branch> <원래 HEAD sha> <new>`)으로 원래 HEAD 로 돌아간다(fixture). 백업 정리는 같은 트랜잭션 안에서 이 브랜치 직속 백업만 대상으로 한다.
 8. 문서: CLAUDE.md §8 커밋 단위 원칙 bullet, `skills/dlc/SKILL.md` 16단계 호출 지점(결과 sha·백업 ref 는 Report 에만), README `skills/commit-check/` 섹션.
-9. 실사용 관찰: (a) 이 repo 실제 브랜치에서 `collect` (b) 실제 history 복사본에서 합치기 시나리오 `apply` 후 트리 동일 (c) 다른 repo(cstp_compliance) worktree 세션 경로에서 스크립트 절대경로 호출이 worktree 가드를 통과하는지 — 관찰 불가면 그 사실과 사유를 Report 에.
+9. 실사용 관찰: (a) 이 repo 실제 브랜치에서 `collect` (b) 실제 history 복사본에서 합치기 시나리오 `apply` 후 트리 동일 (c) 다른 repo(회사 repo) worktree 세션 경로에서 스크립트 절대경로 호출이 worktree 가드를 통과하는지 — 관찰 불가면 그 사실과 사유를 Report 에.
 10. `bash scripts/verify.sh` 마지막 줄 `ALL PASS`(skip 없음).
 
 # Progress
-- 2026-09-24: 착수. 사용자 결정 3건(승인 후 재구성·dlc 마무리·전역 CLAUDE.md 만). 근거 조사 — 규칙 원문 cstp `AGENTS.md:75`, 전역 규칙 부재 확인, git 2.54 비대화형 `rebase --autosquash`·todo 복사 `rebase -i` 동작 실측.
+- 2026-09-24: 착수. 사용자 결정 3건(승인 후 재구성·dlc 마무리·전역 CLAUDE.md 만). 근거 조사 — 규칙 원문 회사 repo `AGENTS.md:75`, 전역 규칙 부재 확인, git 2.54 비대화형 `rebase --autosquash`·todo 복사 `rebase -i` 동작 실측.
 - 2026-09-24: architecture-reviewer(planning) REQUEST CHANGES·plan-reviewer(+codex) CONDITIONAL — in-place rebase 는 실패 시 abort 도 실패(exit 128, worktree 가 rebase 도중 상태로 남음)·분할 재커밋이 author/date/트레일러 유실·`set -e`+`&&` 로 파일 누락이 exit 0(리뷰어 실측). 설계를 plumbing 재조립 + CAS update-ref 로 전환, scratch 실측으로 순서 변경·합치기·파일 분할·author/트레일러 보존·CAS 1회성·작업트리 무변경 확인.
 
-- 2026-09-24: plan-reviewer 재검토 CONDITIONAL(경미) 반영. TDD Red(모듈 없음) → 구현 → 41 테스트 Green. SKILL.md·CLAUDE.md §8·dlc 16·README 연결, improve.sh error=0. 실사용: 이 repo collect(게시 커밋 4 제외), ~/.claude 실제 history clone 에서 합치기 apply(tree 동일·트레일러 보존·clean), cstp main·worktree 5곳 read-only collect 정상. cstp worktree **세션**의 가드 통과 여부는 이 세션에서 관찰 불가.
+- 2026-09-24: plan-reviewer 재검토 CONDITIONAL(경미) 반영. TDD Red(모듈 없음) → 구현 → 41 테스트 Green. SKILL.md·CLAUDE.md §8·dlc 16·README 연결, improve.sh error=0. 실사용: 이 repo collect(게시 커밋 4 제외), ~/.claude 실제 history clone 에서 합치기 apply(tree 동일·트레일러 보존·clean), 회사 repo main·worktree 5곳 read-only collect 정상. 회사 repo worktree **세션**의 가드 통과 여부는 이 세션에서 관찰 불가.
 
 - 2026-09-24: architecture-reviewer(정밀) APPROVE, code-reviewer(+codex high) REQUEST CHANGES → fix loop 1회: 재현 테스트 16개 추가(Red 15) 후 수정, 57 테스트 Green. simplify: apply 의 범위 이중 계산 제거.
 
@@ -45,7 +45,7 @@ updated: 2026-09-24
 # Decisions
 - 판단(모델)과 실행(스크립트)을 나눈다 — 수집·검증·재조립·ref 이동은 결정적이라 `commit_units.py` 서브커맨드(`collect`/`show`/`apply`)로, 어떤 커밋을 합치고 나눌지는 SKILL.md 기준으로 모델이 판정해 JSON 계획으로 넘긴다. 계획 스키마의 정본은 스크립트의 검증 함수 하나(SKILL.md 는 예시만). 기각: 모델이 git 명령을 직접 조합(안전 조건을 매번 재현해야 하고 테스트 불가).
 - **재구성은 plumbing 으로, 사용자 작업 공간 밖에서** — 새 커밋마다 원본 커밋(분할이면 경로를 제한한 합성 커밋)을 `git merge-tree --write-tree --merge-base=<원본 부모>` 로 현재 tip 위에 3-way 적용하고 `git commit-tree` 로 커밋을 만든다. 임시 index 는 `GIT_INDEX_FILE` 로만. 모든 검증을 통과한 뒤 마지막에 백업 ref 를 쓰고 브랜치를 CAS 로 옮긴다(`update-ref refs/heads/<br> <new> <old>`). 트리가 같으므로 사용자 index·작업트리는 건드릴 필요가 없고, 실패하면 만든 객체를 버리기만 한다(abort 경로 없음). 기각: (1) 사용자 worktree 에서 `rebase -i` + todo(실패 시 abort 가 실패해 worktree 가 망가짐 — 리뷰어 실측), (2) 임시 worktree 에서 rebase 후 ref 이동(체크아웃 비용·hook 실행·정리 필요, plumbing 이 같은 격리를 더 싸게 준다), (3) `commit --fixup` + `rebase --autosquash`(합치기만 되고 분할·순서·메시지 수정은 안 되며 in-place 문제 동일), (4) 새 브랜치에 `checkout <backup> -- <files>` 재조립(파일이 여러 커밋에 걸쳐 변하면 중간 상태 재현 불가).
-- **hook** — `commit-tree` 는 hook 을 실행하지 않는다. 최종 트리가 원본과 같고 working tree 를 거치지 않으므로(eol 정규화·formatter 개입 없음) 파일 내용 hook 을 다시 돌릴 대상이 없다고 본다. 단 순서를 바꾸면 merge-tree 가 원본에 없던 중간 blob 을 만들 수 있어, 중간 커밋은 "미검증"이다. 계획이 새로 쓴 **메시지**는 유일한 새 내용이라 `git hook run --ignore-missing commit-msg -- <msgfile>`(git 2.36+, 파일 무변경)을 돌리고, 실패하면 계획 거부·hook 이 고친 메시지는 그대로 쓴다. CLAUDE.md §8 의 `--no-verify` 금지는 "hook 에 막힌 커밋을 우회"하는 것이라 해당하지 않는다. 대신 분할로 생긴 중간 커밋은 hook·빌드를 거친 적 없는 조합이라 제안 표에 "중간 커밋 미검증"을 표시한다. 기각: hook 을 돌리고 실패·수정 시 롤백(cstp 의 파일 수정 hook 이 중간 상태를 고쳐 매번 롤백 — 스킬이 주 사용처에서 동작 안 함).
+- **hook** — `commit-tree` 는 hook 을 실행하지 않는다. 최종 트리가 원본과 같고 working tree 를 거치지 않으므로(eol 정규화·formatter 개입 없음) 파일 내용 hook 을 다시 돌릴 대상이 없다고 본다. 단 순서를 바꾸면 merge-tree 가 원본에 없던 중간 blob 을 만들 수 있어, 중간 커밋은 "미검증"이다. 계획이 새로 쓴 **메시지**는 유일한 새 내용이라 `git hook run --ignore-missing commit-msg -- <msgfile>`(git 2.36+, 파일 무변경)을 돌리고, 실패하면 계획 거부·hook 이 고친 메시지는 그대로 쓴다. CLAUDE.md §8 의 `--no-verify` 금지는 "hook 에 막힌 커밋을 우회"하는 것이라 해당하지 않는다. 대신 분할로 생긴 중간 커밋은 hook·빌드를 거친 적 없는 조합이라 제안 표에 "중간 커밋 미검증"을 표시한다. 기각: hook 을 돌리고 실패·수정 시 롤백(회사 repo 의 파일 수정 hook 이 중간 상태를 고쳐 매번 롤백 — 스킬이 주 사용처에서 동작 안 함).
 - **게시된 커밋은 불변** — 재작성 범위에서 어느 원격 ref 에서든 도달 가능한 커밋은 뺀다. 따라서 force-push 경로가 없고 `/e merge` M3 의 일반 push 와 충돌하지 않는다. 원격 정보가 없으면(원격 없음) 로컬 default·다른 브랜치만 기준. 기각: push 된 브랜치도 재작성 + `--force-with-lease` 확인(확인 주체·경로가 없고 M3 가 non-ff 로 중단).
 - **범위 경계** — 제외 기준 ref 를 명시 열거한다: 현재 브랜치를 뺀 `refs/heads/*`·`refs/remotes/*`·`refs/tags/*`(`--all` 금지 — 자기 백업 ref `refs/commit-check/*` 가 범위를 잠근다). 태그가 걸린 커밋은 재작성하면 태그가 옛 커밋에 남으므로 제외한다. 게시 판정은 로컬 remote-tracking ref 기준이라 fetch 안 한 다른 머신의 push 는 못 본다(이 repo 의 push 경로 `/e merge` 는 tracking ref 를 갱신하므로 실용상 수용). 이 규칙으로 로컬 default 와 origin default 가 모두 제외된다(CLAUDE.md §8 은 로컬 ff-merge 후 push 안 한 상태를 정상으로 둔다 — 이 worktree 실측에서도 로컬 main≠origin/main). 다른 로컬 브랜치가 포함한 커밋도 뺀다(stacked branch). 범위가 선형이 아니면(merge 커밋) 거부.
 - **merge-tree 판정** — exit code 로 한다(0 clean·1 충돌·그 외 오류). 충돌이어도 첫 줄에 tree OID 가 찍히므로 출력만 보면 충돌 tree 로 커밋을 만들 수 있다.

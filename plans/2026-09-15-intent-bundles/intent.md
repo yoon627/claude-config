@@ -7,7 +7,7 @@ updated: 2026-09-16
 
 # Problem
 
-plan `# Intent`(2026-09-07)는 plan 과 1:1 을 전제했는데, 실제 작업은 한 요구가 하루에 plan 3~4개로 갈라진다(knowledge_base 2026-09-14: `proxy-peer-address` → `home-banner-query-agent` → `home-banner-simplify` + `login-session-400d`; `worker-default-options-dkms` → `security-workflow-redesign` → `wifi-bt-protocols`). 각 plan 이 Problem 을 처음부터 다시 쓰고, 계보는 "이전 브랜치 종료 후"·"별도 브랜치 X" 산문으로만 남으며, 공통 제약("cstp read-only")이 plan 마다 복제된다. 앞 plan 의 Out of scope 를 뒤 plan 이 이어받는지 확인할 단일 위치가 없다.
+plan `# Intent`(2026-09-07)는 plan 과 1:1 을 전제했는데, 실제 작업은 한 요구가 하루에 plan 3~4개로 갈라진다(knowledge_base 2026-09-14: `proxy-peer-address` → `home-banner-query-agent` → `home-banner-simplify` + `login-session-400d`; `worker-default-options-dkms` → `security-workflow-redesign` → `wifi-bt-protocols`). 각 plan 이 Problem 을 처음부터 다시 쓰고, 계보는 "이전 브랜치 종료 후"·"별도 브랜치 X" 산문으로만 남으며, 공통 제약("회사 repo read-only")이 plan 마다 복제된다. 앞 plan 의 Out of scope 를 뒤 plan 이 이어받는지 확인할 단일 위치가 없다.
 
 # Proposed outcome
 
