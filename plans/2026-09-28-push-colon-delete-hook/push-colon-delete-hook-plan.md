@@ -1,6 +1,6 @@
 ---
 title: push-colon-delete-hook — 콜론 refspec 원격 삭제 확인을 ask 규칙에서 PreToolUse hook 으로
-status: in_progress
+status: done
 started: 2026-09-28
 updated: 2026-09-28
 ---
@@ -19,11 +19,9 @@ updated: 2026-09-28
 # Progress
 
 - 2026-09-28: worktree 생성, Explore(guard-worktree-edit.js 형식·README 482/490 행·verify.sh node 축 glob), plan 작성.
-- 2026-09-28: hook ask 실측(auto+allow 아래서도 차단, 대조군은 실행됨) → TDD Red(모듈 없음 26건) → 구현 → Green 26/26 → e2e(bare remote: hook 있으면 `:b1`·`rtk … :b2` 유지, 없으면 `:c1` 삭제) → README 갱신. plan-reviewer(CONDITIONAL)·code-reviewer(REQUEST CHANGES) → fix loop 1(전 위치 git·큰따옴표 스캔·줄 이음 등, 50/50) → 재리뷰(Major 1) → fix loop 2(따옴표 상태 스택, 59/59, 재리뷰 하네스 전부 기대대로).
+- 2026-09-28: hook ask 실측(auto+allow 아래서도 차단, 대조군은 실행됨) → TDD Red(모듈 없음 26건) → 구현 → Green 26/26 → e2e(bare remote: hook 있으면 `:b1`·`rtk … :b2` 유지, 없으면 `:c1` 삭제) → README 갱신. plan-reviewer(CONDITIONAL)·code-reviewer(REQUEST CHANGES) → fix loop 1(전 위치 git·큰따옴표 스캔·줄 이음 등, 50/50) → 재리뷰(Major 1) → fix loop 2(따옴표 상태 스택, 59/59, 재리뷰 하네스 전부 기대대로) → e2e 한 줄 루프 차단 확인 → verify.sh ALL PASS → 커밋 07981bd → `/e merge` PR #187.
 
 # Next
-
-- 커밋 → ff-merge → main 에서 settings.json 을 Decisions 의 6단계 순서로 편집 → 시작 출력 경고 0줄 확인(Acceptance 5).
 
 # Decisions
 
@@ -39,11 +37,11 @@ updated: 2026-09-28
 
 # Acceptance
 
-1. `node scripts/guard-push-delete.test.js` 통과 — ask: `git push origin :feat`, `rtk git push origin :feat`, `git push origin +:feat`, `cd x && git push origin :feat`, `git -C /r push origin :feat`, `/usr/bin/git push o :x` / allow: `git push origin feat`, `git push origin :`, `git push origin HEAD:feat`, `echo "git push origin :x"`(따옴표 안), `git log :x`, 빈/비JSON 입력(크래시 없음).
-2. 실측: headless `claude -p --permission-mode auto` 로 로컬 bare remote 에 `git push origin :<b>` 를 시키면 hook 이 ask → 실행되지 않고 원격 브랜치 유지(`Bash(git *)`·`Bash(rtk git *)` allow 가 있는 상태). 대조군(hook 없음)은 삭제됨. headless 라 확인 창이 아니라 거부로 관찰된다 — 대화형 확인 창은 관찰 범위 밖(⚠️).
-3. `bash scripts/verify.sh` 가 `ALL PASS`(skip 없는 줄).
-4. README: `permissions.ask` 절의 `:branch` 서술과 `hooks.PreToolUse` 목록·진입점 목록·트리에 hook 반영.
-5. (main 복귀 후, Decisions 의 순서대로) hook 등록 후 main 스크립트 경로로 발동 실측 → 두 규칙 제거 → `claude -p` 시작 출력에 Permission 경고 0줄.
+- [x] 1. `node scripts/guard-push-delete.test.js` 통과 — ask: `git push origin :feat`, `rtk git push origin :feat`, `git push origin +:feat`, `cd x && git push origin :feat`, `git -C /r push origin :feat`, `/usr/bin/git push o :x` / allow: `git push origin feat`, `git push origin :`, `git push origin HEAD:feat`, `echo "git push origin :x"`(따옴표 안), `git log :x`, 빈/비JSON 입력(크래시 없음).
+- [x] 2. 실측: headless `claude -p --permission-mode auto` 로 로컬 bare remote 에 `git push origin :<b>` 를 시키면 hook 이 ask → 실행되지 않고 원격 브랜치 유지(`Bash(git *)`·`Bash(rtk git *)` allow 가 있는 상태). 대조군(hook 없음)은 삭제됨. headless 라 확인 창이 아니라 거부로 관찰된다 — 대화형 확인 창은 관찰 범위 밖(⚠️).
+- [x] 3. `bash scripts/verify.sh` 가 `ALL PASS`(skip 없는 줄).
+- [x] 4. README: `permissions.ask` 절의 `:branch` 서술과 `hooks.PreToolUse` 목록·진입점 목록·트리에 hook 반영.
+- [ ] [post-merge] 5. (main 복귀 후, Decisions 의 순서대로) hook 등록 후 main 스크립트 경로로 발동 실측 → 두 규칙 제거 → `claude -p` 시작 출력에 Permission 경고 0줄.
 
 # Key Files
 
@@ -57,7 +55,7 @@ updated: 2026-09-28
 # Review Disposition
 
 - ⚠️ self-flag(auto 에서도 ask) — resolved: plan-reviewer 가 선택 타당 판정(§8(b)·대체 대상이 ask 규칙).
-- [plan] 강: settings 편집 순서·롤백 없음 — fix(Decisions 6단계·Acceptance 5).
+- [plan] 강: settings 편집 순서·롤백 없음 — fix(Decisions 6단계·Acceptance 항목 5).
 - [plan] 강 / [code] minor: `\`+개행 줄 이음 FN — fix(+테스트 2).
 - [plan] 약: `$(…)`·`bash -c`·`env`/`sudo`·`2>&1` FN — fix(전 위치 검사·`-c`/`eval` 재귀·리다이렉트 `&`).
 - [plan] 약: 다른 머신 수동 단계 — fix(README 한계 절).
