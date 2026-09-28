@@ -352,3 +352,6 @@
 
 ## [2026-09-28] update | unknowns-discovery (퀴즈 옵션 제거)
 - Report 선택지의 "변경 이해 리포트+퀴즈" 옵션을 CLAUDE.md §3-6·dlc 16 Report 에서 제거(사용자 승인). 근거: 2026-08-31~09-28 Windows 세션 로그 2,072개에서 14회 제시·0회 선택, AskUserQuestion 선택지 상한 4개를 기본 세트가 채워 넣을 때마다 기본 선택지 하나를 밀어냄. 대응 표 행은 지우지 않고 "제거" 로 바꿔 기각 근거를 남겼다(plan remove-quiz-option).
+
+## [2026-09-28] ingest | python-subprocess-text-stdin-windows (신규)
+- 공용 wiki 적립(사용자 요청): Windows 의 `subprocess.run(input=str, text=True)` 가 `encoding` 없이 로캘 코드페이지로 인코딩하다 writer 스레드가 `UnicodeEncodeError` 로 죽으면 `stdin.close()` 에 닿지 못해 자식이 무한 대기한다. 근거는 CPython 3.13.15 `Lib/subprocess.py`(`_stdin_write` 는 BrokenPipe·EINVAL 만 처리, POSIX 는 `_save_input` 이 메인 스레드에서 인코딩)와 Windows 최소 재현(`text=True` 만 → timeout, `encoding="utf-8"`·`PYTHONUTF8=1` → 즉시 종료). 발견 경로는 commit-check 테스트가 Windows verify.sh 를 1시간+ 멈춘 것. POSIX 동작은 코드 읽기(⚠️ 미실행).

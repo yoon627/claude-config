@@ -2,7 +2,7 @@
 title: lesson-zip-reproducibility-os
 category: decision
 created: 2026-09-22
-updated: 2026-09-22
+updated: 2026-09-28
 sources:
   - cstp_compliance CSTP1-3043-ai-agent-worker 커밋 a66bb98cf (agent/Scripts/ai_skill_package/build.py)
   - code-reviewer 실측 2026-09-22 (Windows 빌드에서 `create_system 0`·엔트리 순서 역전 확인)
@@ -33,4 +33,4 @@ entries = sorted(files, key=lambda p: p.relative_to(root).as_posix())  # 문자�
 
 ## 일반화
 
-[[lesson-test-copies-artifact]] 와 같은 계열: "통과" 가 정보를 주지 않는 검증이 있다. 결정성처럼 *환경 축* 을 가진 성질은 한 환경에서의 반복 실행이 아니라 그 축을 고정했는지를 검사해야 한다. [[evidence-gate]] 의 "실행·관찰" 에서 관찰 대상은 결과 해시가 아니라 해시를 만드는 입력 축이다. 기록 경위는 [[workflow-failures]] 가 아니라 정상 리뷰 발굴이라 lesson 만 남긴다.
+[[lesson-test-copies-artifact]] 와 같은 계열: "통과" 가 정보를 주지 않는 검증이 있다. 결정성처럼 *환경 축* 을 가진 성질은 한 환경에서의 반복 실행이 아니라 그 축을 고정했는지를 검사해야 한다. [[evidence-gate]] 의 "실행·관찰" 에서 관찰 대상은 결과 해시가 아니라 해시를 만드는 입력 축이다. 기록 경위는 [[workflow-failures]] 가 아니라 정상 리뷰 발굴이라 lesson 만 남긴다. 같은 축(OS 기본값이 Python 동작을 가름)의 다른 사례: 파이프 인코딩 기본값 때문에 Windows 에서만 무한 대기하는 [[python-subprocess-text-stdin-windows]].

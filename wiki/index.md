@@ -33,6 +33,7 @@
 - [[codex-cli-agents-and-hooks]] — Codex CLI 0.154.0(2026-09-28): custom agent toml 키(tools 제한 없음 → `sandbox_mode`)·이름 호출 불확실·`max_depth` 가 셸 `codex exec` 재귀를 못 막음, hook 은 필드명이 Claude Code 와 같지만 편집이 `apply_patch`(경로가 patch 본문 안)·`bashEditDiff`/`background_tasks` 없음 → dlc 훅 미이식 근거.
 - [[codegraph]] — retired(2026-09-15) 코드 심볼 그래프 MCP 의 historical 기록 — 보존 로그상 성공 호출 0회로 전역 해제, wt 자동 init·bootstrap 에서 제거.
 - [[headroom]] — retired 컨텍스트 최적화 proxy/MCP의 historical 기록(현재 bootstrap·runtime 미사용).
+- [[python-subprocess-text-stdin-windows]] — Windows 에서 `subprocess.run(input=str, text=True)` 를 `encoding` 없이 쓰면 로캘 코드페이지(cp1252)로 표현 못 하는 문자에서 writer 스레드가 `UnicodeEncodeError` 로 죽고 stdin 이 안 닫혀 자식이 무한 대기(예외 아님). `encoding="utf-8"` 명시 + `timeout`, 우회 `PYTHONUTF8=1`. ubuntu CI 는 못 잡는다(Python 3.13.15 재현, 2026-09-28).
 
 ## decision
 - [[effort-global-xhigh]] — effort 정책의 이력; 현재는 강제 env 없음으로 `/effort`·모델 기본값을 사용한다(저장 레벨은 `modelSettings` 모델별 — Opus 5.5 `medium` 은 2026-09-24 M12 결정, 세션 모델과 다른 고정 subagent 의 레벨은 ❌). `max`는 settings 파일이 아니라 env/일회성 옵션에서만 가능.
