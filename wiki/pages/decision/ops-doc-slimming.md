@@ -2,8 +2,8 @@
 title: ops-doc-slimming
 category: decision
 created: 2026-07-14
-updated: 2026-07-17
-sources: [PR #73, 커밋 6b81a1a, plans/2026-07-04-doc-slim/doc-slim-plan.md, PR #89, PR #90, PR #91, PR #92, 커밋 7d5efcc 의 plans/giggly-petting-moonbeam.md(이후 삭제)]
+updated: 2026-09-29
+sources: [PR #73, 커밋 6b81a1a, plans/2026-07-04-doc-slim/doc-slim-plan.md, PR #89, PR #90, PR #91, PR #92, 커밋 7d5efcc 의 plans/giggly-petting-moonbeam.md(이후 삭제), plans/2026-09-28-claude-md-slim (미게시 로컬 branch claude-md-slim, 보류 — 2026-09-28 재검토), plans/2026-09-28-wiki-context-cost-lessons/analysis/ (측정 스크립트)]
 ---
 
 # ops-doc-slimming — 항상 주입 운영 문서 토큰 최적화 규약
@@ -36,3 +36,9 @@ bytes 감소를 hard gate 로 두면 규칙을 배경위장·참조화로 밀어
 - **이관 방향이 중요 — dependency inversion 금지**: 조건부-로드 skill(예 c/e)이 *참조하는* canonical always-injected 스펙(예 CLAUDE.md §10 plan frontmatter/6섹션)을 그 skill 로 "이관"하는 것은 방향 역전이다. 참조원이 조건부 로드라 그 skill 미호출 세션은 스펙을 잃는다(로드 등급 하락 = 손실). → §10 은 미변경 보존. plan 의 "c/e 가 §10 을 구현" 전제가 부정확했고(실제는 c/e→§10 참조), rule-loss-0 이 이를 잡아냈다. "로드 등급 하락 = 손실" 원칙(이 페이지 상단)의 특수 케이스.
 - **이관 형태(선례 확립)**: 원본에 명령형 1문장 + 절대경로 포인터 + "언제 Read" 트리거 잔존, 이관 doc 상단에 "자동 로드 안 됨" 주의줄. 신규 참조 doc: `docs/worktree-lifecycle.md`·`docs/dlc-details.md`·`skills/wt/references/{env-copy,codegraph-worktree,rm-recovery}.md`.
 - **방법론(매 PR 공통)**: 이관 전 rule manifest 작성 → `git diff -U0` 삭제 라인마다 새 위치(인라인 OR 이관doc+포인터) 대조 → (SKILL∪doc) 합집합 manifest grep **0 dangling** → [[claude-codex-collaboration]] code-reviewer(Claude)+codex 병행 dangling 관점. 4 PR 전건 양측 Critical/Major 0.
+
+## 2026-09-28 재검토 — 슬림화보다 컨텍스트 길이
+CLAUDE.md 는 7월(18,912B) 뒤 두 달 반 만에 43,079B(한글 위주, import 하는 RTK.md 까지 약 2만 토큰)로 2.3배가 됐다. 늘어난 부분에는 경위·실측 인용이 많다(⚠️ 정황). 다시 줄이려던 계획(plans/2026-09-28-claude-md-slim)이 이 결정을 조회하지 않고 bytes ≤22K 를 hard gate 로, §10 을 포함한 규칙 이관을 수단으로 잡아 plan-reviewer 에 막혔다([[lesson-verify-scaffold-purpose-before-removal]] 사례 4). 그 뒤 실사용 비중을 재어 방향을 다시 정했다([[claude-code-context-cost]]).
+- 새 세션 기본 컨텍스트에서는 CLAUDE.md 가 36% 지만, 한 사용자 30일 표본의 1M 세션에서는 전체 호출 컨텍스트의 3.6~6.6%(계산값: `2만 × 호출 수 ÷ 전체 호출 컨텍스트 합`, 본 세션에만 실리면 3.6%·subagent 에도 실리면 6.6%)다. 규칙을 보존하는 압축의 기대효과 = 압축률 × 이 몫 — 압축률을 7월 상한 11% 로 두면 약 0.4~0.7%, 7월 뒤 늘어난 경위·실측분을 걷어내 30% 까지 간다고 보면(⚠️ 추정) 약 1~2%. 규칙 이관을 더하는 안은 몫이 같은데 로드 등급 손실이 붙고, 영어로 옮기는 안은 같은 몫 안에서만 줄면서 사용자가 직접 읽고 고치는 문서의 가독성을 잃는다(토큰 효과 미측정) — 둘 다 기각 권고(사용자 결정은 슬림화 보류와 함께 재측정 뒤로).
+- 가장 큰 수단은 auto-compact 창이다(재생 시뮬레이션, 본 세션 비용 기준 −28~39%). 2026-09-28 `autoCompactWindow` 300K 를 적용했고, 슬림화 계획은 적용 후 재측정 결과를 보고 규칙 보존 압축으로 재개할지 정한다(보류).
+- 이 결정의 원칙(규칙 손실 0 hard gate · 로드 등급 보존 · bytes 보조목표 · §10 이관 금지)은 그대로다.

@@ -2,18 +2,20 @@
 title: lesson-verify-scaffold-purpose-before-removal
 category: decision
 created: 2026-09-24
-updated: 2026-09-28
+updated: 2026-09-29
 sources:
   - plans/2026-09-24-prompt-audit-apply/prompt-audit-apply-plan.md (Progress·Decisions·Review Disposition)
   - plans/2026-09-27-audit-docs-drift/audit-docs-drift-plan.md (Progress·Review Disposition·Deferred — 사례 2)
   - plans/2026-09-27-guard-deny-removal/guard-deny-removal-plan.md (Progress·Decisions·Review Disposition — 사례 3)
   - plans/2026-06-04-dlc-final-verify-subagent/dlc-final-verify-subagent-plan.md (runner 원래 목적)
   - plans/2026-09-07-playbook-gaps/playbook-gaps-plan.md (runner Acceptance 독립 대조 도입)
+  - plans/2026-09-28-claude-md-slim (사례 4 — Review Disposition, 미게시 로컬 branch claude-md-slim 보류 중)
+  - plans/2026-09-28-wiki-context-cost-lessons (사례 4 원인 분석·Deferred 제안)
 ---
 
 # lesson-verify-scaffold-purpose-before-removal
 
-프롬프트·하네스 장치를 "낡은 scaffold" 로 보고 없애자고 하기 전에, **그 장치를 도입한 plan·결정을 먼저 읽고 원래 목적을 하나씩 반박할 수 있는지** 확인한다. 패턴 표에 맞는다는 것은 제거 근거가 아니다. **설정값(effort·모델·권한)을 "회귀"·"미결"로 적거나 바꾸자고 할 때도 같다** — 실제 설정 파일의 값과 그 값을 만든 결정 기록을 먼저 찾는다(사례 2).
+프롬프트·하네스 장치를 "낡은 scaffold" 로 보고 없애자고 하기 전에, **그 장치를 도입한 plan·결정을 먼저 읽고 원래 목적을 하나씩 반박할 수 있는지** 확인한다. 패턴 표에 맞는다는 것은 제거 근거가 아니다. **설정값(effort·모델·권한)을 "회귀"·"미결"로 적거나 바꾸자고 할 때도 같다** — 실제 설정 파일의 값과 그 값을 만든 결정 기록을 먼저 찾는다(사례 2). **운영 자산(문서·설정·hook)을 바꾸는 계획도 같다**(슬림화·재구성 포함) — 계획을 쓰기 전에 wiki index 에서 그 자산에 걸린 decision 을 찾는다(사례 4).
 
 ## 사례 1 — prompt-audit 의 제거 제안 (2026-09-24)
 
@@ -39,6 +41,7 @@ sources:
 - 설정값이 문서·기본값과 다르거나 기본값이 바뀌어 동작이 달라졌다고 적기 전에, **실제 설정 파일의 값을 읽고** 그 키 이름으로 `plans/` 를 grep 해 그 값을 정한 결정이 있는지 본다. 결정이 있으면 "회귀"가 아니라 "그 결정의 범위"로 적고, 남은 미확인만 따로 적는다.
 - 대체 수단이 장치를 덮는다는 판정은 **장치가 발동하는 조건마다** 확인한다. 장치의 발동 기록(telemetry·차단 로그)을 먼저 분류해 어떤 조건에서 발동하는지 보고, 대체 수단은 그 조건별로 잰다. 한 조건에서 잰 "⊇" 는 그 조건으로 한정해 적는다(사례 3).
 - "둘 다는 안 된다"는 트레이드오프를 적기 전에 관측 표본의 공통 속성을 가장 좁은 범주로 적는다 — 넓은 범주로 뭉치면 없는 상충이 생긴다(사례 3).
+- 운영 자산(CLAUDE.md·skill·agent·hook·설정)을 바꾸는 계획을 쓰기 전에 wiki index 를 **자산 이름과 작업 종류**(slim·압축·이관·재구성 등)로 조회해 그 자산에 걸린 decision 을 찾는다. 있으면 따를지 뒤집을지를 plan `# Decisions` 첫 줄에 적고, 뒤집으면 근거와 사용자 승인을 붙인다(사례 4).
 
 ## 사례 2 — 결정된 설정값을 "미결 회귀"로 적음 (2026-09-27)
 
@@ -59,6 +62,16 @@ audit-docs-drift 에서 Opus 5.5 의 API 기본 effort 가 `medium` 이라는 �
   3. 왜 발동 조건을 안 봤나 — "대체됐나"를 "네이티브가 무엇을 막나"로만 물었지 "장치가 어떤 조건에서 발동하나"로 묻지 않았다. self-flag 도 같은 축이다 — 관측 표본의 속성(gitignored)을 한 단계 넓은 범주(untracked)로 적어 없는 상충을 만들었다.
 - 막은 것: 원안대로 제거했다면 worktree 디렉토리에서 시작한 세션이 main checkout 의 추적 파일을 조용히 고칠 수 있었다(`~/.claude` 밖 repo 는 권한 요청도 없다). self-flag 를 그대로 두었다면 main 에 남은 새 파일이 브랜치 커밋에서 빠지고 뒤의 ff-merge·autopull 을 막는 경우를 놓쳤다.
 - 찾은 방법: 제거 단위가 착수 조건으로 "현재 버전 재실측"을 걸어 두었고, 재실측에서 guard 의 telemetry 차단 기록 7행을 분류한 뒤(오탐 4건은 모두 네이티브 격리 밖이었다 — 2.1.222 이전 1건, `ExitWorktree` 로 격리를 벗어난 뒤 cwd 가 worktree 로 돌아온 세션 3건. 나머지 3행은 08-12 실측의 hook 직접 호출) hook 을 끈 headless 세션을 임시 repo 의 linked worktree 디렉토리에서 시작해 대조했다.
+
+## 사례 4 — 슬림화 계획이 기존 결정을 조회하지 않음 (2026-09-28)
+
+토큰 절감 논의 끝에 CLAUDE.md 슬림화 plan 을 쓰면서 `wc -c ≤ 22,000` 을 hard gate 로, 근거·절차를 참조 문서로 옮기는 것(§10 포함)을 수단으로 잡았다. 이 repo 에는 7월 결정 [[ops-doc-slimming]] 이 있었다 — 규칙 손실 0 이 hard gate, 항상 주입 규칙을 조건부 로드로 옮기면 그 자체가 손실, bytes 는 보조목표, §10 스펙 이관 금지. CLAUDE.md §11 은 작업 시작 시 index 조회를 요구하는데 건너뛰었고, plan-reviewer(+Codex)가 잡았다. 편집 전이라 되돌릴 것은 없었다.
+
+- 원인 (3 Whys):
+  1. 왜 기존 결정과 정면충돌하는 계획을 썼나 — 그 결정을 몰랐다.
+  2. 왜 몰랐나 — index 조회(§11)를 건너뛰었다. 조회했다면 `ops-doc-slimming` 한 줄 요약에 "bytes 목표는 보조·규칙손실0 이 hard gate" 가 그대로 있었다.
+  3. 왜 건너뛰었나 — 조회를 거는 시점이 없었다. §11 의 조회 트리거는 "작업 시작 시" 하나인데, 이 계획은 같은 세션의 측정·분석 흐름에서 이어져 나와 "시작"으로 인식되지 않았다. dlc 의 Explore wiki 조회도 "조건부·opt-in" 으로 적혀 있고 절차는 자동 로드되지 않는 `docs/dlc-details.md` §C 에 있다. 이 lesson 도 "제거·설정값"만 다뤄 계획 쪽 신호가 되지 못했다 — lesson 의 적용 범위는 넓혔고(위 첫 문단·올바른 방법), 트리거 공백(분석 → 계획 전환 시 조회)은 운영 자산 변경이라 제안으로만 남긴다(plans/2026-09-28-wiki-context-cost-lessons `# Deferred`).
+- 막은 것: 규칙을 조건부 로드 문서로 밀어내는 슬림화가 main 에 들어가는 것. 이어서 실사용 비중을 재 보니 슬림화 자체의 기대효과가 약 0.4~2%(압축률 가정에 따라) 라 우선순위도 바뀌었다([[claude-code-context-cost]]).
 
 ## 전후 비교는 증거로 만든다
 

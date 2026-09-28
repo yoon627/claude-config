@@ -358,3 +358,9 @@
 
 ## [2026-09-28] update | claude-code-bash-tool-shims (rg 경로)
 - `rtk grep` 은 rg 가 PATH 에 있어도 시스템 grep 을 써 단순 명령 `grep -r` 이 `.gitignore` 를 무시(12.3초·292,500 매치 vs `rtk rg` 0.04초·1,465), `rtk rg` 는 독립 rg 실행 파일이 필요(없으면 실패) — 실측 추가. CLAUDE.md §2 재귀 검색 규칙·bootstrap ripgrep 설치와 같은 브랜치(plan bash-search-use-rg).
+
+## [2026-09-28] ingest | claude-code-context-cost (신규) · ops-doc-slimming · lesson 2건
+- 신규 entity: native 1M 모델 auto-compact 기본 약 967K·`autoCompactWindow`(100K~1M, env > flag > setting)·200K 초과 할증 없음(공식 model-config·settings-reference·env-vars), Opus 5.5 cache read 0.05×·1h 쓰기 2×(bundled claude-api skill 2.1.283). 한 사용자 30일 transcript 실측(비율·토큰 수만): 호출당 평균 컨텍스트 약 46만·81% 가 200K 초과, 재작성 원인(1h+ 휴식 80%·`/model` 87.5%·compaction 100%·cwd 변경은 기준선 수준·`/effort` 무효화 없음 1회 관찰), 2.1.239~2.1.247 한정 무신호 재작성(2.1.260 이후 약 0%), auto-compact 창 재생 시뮬레이션(300K −38.9%). 집계는 `message.id` 중복 제거 필수.
+- ops-doc-slimming: 2026-09-28 재검토 절 — CLAUDE.md 몫 3.6~6.6%(계산값), 규칙 보존 압축 기대 약 0.4~2%(압축률 가정 11~30%), 이관·영어 번역안 기각 권고, auto-compact 300K 적용·슬림화 보류.
+- lesson-grep-absence-not-proof 사례 7(집계 단위 중복·단가 가정·비대표 표본, 3 Whys), lesson-verify-scaffold-purpose-before-removal 사례 4(운영 자산 변경 계획 전 decision 미조회 — 원인은 분석 → 계획 전환에 조회 트리거가 없는 것) — 적용 범위를 "운영 자산을 바꾸는 계획"으로 넓힘. 사용자 승인(§13) 후 적립.
+- 2026-09-29 code-reviewer(+Codex) 반영: `autoCompactWindow` scope(Any file)·env 는 정수만(`300k`→100K)·managed 우선, `/effort` 는 대부분 모델에서 무효화(공식)·세션 간 디렉토리별 캐시, TTL 1시간은 구독 포함 사용량 안의 본 대화만, 재작성 정의(60K·50%)와 신호별 n, 표본 한정 표현, 절대 합계 삭제(개인 사용 규모 역산 방지), 측정 스크립트를 plans/2026-09-28-wiki-context-cost-lessons/analysis/ 로 보존.
