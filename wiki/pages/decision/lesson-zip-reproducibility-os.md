@@ -4,7 +4,7 @@ category: decision
 created: 2026-09-22
 updated: 2026-09-28
 sources:
-  - cstp_compliance CSTP1-3043-ai-agent-worker 커밋 a66bb98cf (agent/Scripts/ai_skill_package/build.py)
+  - 회사 repo 커밋 (AI skill 패키지 빌더)
   - code-reviewer 실측 2026-09-22 (Windows 빌드에서 `create_system 0`·엔트리 순서 역전 확인)
 ---
 
