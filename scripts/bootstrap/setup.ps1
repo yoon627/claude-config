@@ -24,7 +24,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-# codegraph 인덱스·memory 복원 대상은 Claude Code 가 실제 읽는 ~\.claude 로 고정 (RepoRoot 와 분리).
+# memory 복원·Codex skill source 는 Claude Code 가 실제 읽는 ~\.claude 로 고정 (RepoRoot 와 분리).
 $ClaudeDir = Join-Path $env:USERPROFILE '.claude'
 $LocalBin = Join-Path $env:USERPROFILE '.local\bin'
 
@@ -66,7 +66,7 @@ if (-not (Test-InPath $LocalBin $userPath)) {
 } else { Skip 'PATH 에 ~\.local\bin 있음' }
 if (-not (Test-InPath $LocalBin $env:PATH)) { $env:PATH = "$LocalBin;$env:PATH" }
 
-# --- 2. node (codegraph npm 전) ---
+# --- 2. node (hook 진입점 scripts\*.js 실행) ---
 if (Have 'node') { Skip "node 있음 ($(node --version))" }
 else {
   if ($pkg -eq 'winget') { Run 'winget install OpenJS.NodeJS'; RunCmd 'winget install -e --id OpenJS.NodeJS' }
@@ -100,10 +100,6 @@ if ($DryRun) {
 if ($LASTEXITCODE -ne 0) { throw "Codex jira-worklog skill 연결 실패(exit $LASTEXITCODE)" }
 Ok 'Codex jira-worklog skill 연결'
 
-# --- 4. codegraph (npm -g) ---
-if (Have 'codegraph') { Skip 'codegraph 있음' }
-else { Run 'npm install -g @colbymchenry/codegraph'; RunCmd 'npm install -g @colbymchenry/codegraph'; Ok 'codegraph 설치' }
-
 # --- 5. rtk (standalone 설치본 선택) ---
 if (Have 'rtk') {
   if ($DryRun) { Skip 'rtk hook 검증/서명(dry-run)' }
@@ -113,20 +109,6 @@ if (Have 'rtk') {
     else { Run 'rtk init -g --hook-only --no-patch'; RunCmd 'rtk init -g --hook-only --no-patch'; Ok 'rtk hook 등록·서명' }
   }
 } else { Skip 'rtk 미설치(선택)' }
-
-# --- 6. MCP 등록 (홈 ~\.claude.json) ---
-$mcp = (claude mcp list 2>$null) -join "`n"
-if ($mcp -match '(?im)^codegraph') { Skip 'codegraph MCP 등록됨' }
-else { Run 'codegraph install -y'; RunCmd 'codegraph install -y'; Ok 'codegraph MCP 등록' }
-
-# --- 7. codegraph init (~\.claude 인덱스) ---
-if (Test-Path (Join-Path $ClaudeDir '.codegraph')) { Skip 'codegraph 인덱스 있음' }
-else {
-  Run "codegraph init $ClaudeDir"
-  if ($DryRun) { Write-Host "    (dry-run) codegraph init $ClaudeDir" }
-  else { & codegraph init $ClaudeDir; if ($LASTEXITCODE -ne 0) { throw 'codegraph init 실패' } }
-  Ok 'codegraph init'
-}
 
 # --- 8. User env (레지스트리) ---
 function Set-UserEnv($name, $val) {

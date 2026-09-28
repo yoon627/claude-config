@@ -41,9 +41,11 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 ## 요구사항 명확화 (규모 gate 직후, 비-trivial)
 규모 판정 후 Explore 전, 요구의 **공백**을 점검한다 — §3 "모호하면 질문"의 판정 절차. 임의 추론으로 메우지 않는다.
 - **체크리스트** — 1) 문제·왜 지금(Problem) 2) 제약·경계조건(Constraints) 3) 완료 기준 4) 대상 파일/기능 범위 5) 사용자-visible 산출물·문구 형태 6) 명시적 금지/제외 범위. 빈 칸이 **완료 판정(acceptance)에 영향 줄 가능성이 조금이라도 있으면 질문**(`AskUserQuestion`), 불확실하면 질문(fail-safe). **명백히 결과무관일 때만** 가정 + 1줄 명시 후 진행.
-- **결과는 plan `# Intent` 에 남긴다**(plan 이 있으면 그때, 없으면 3단계 draft plan 시) — 대화로만 끝내면 증발해 다음 세션이 같은 것을 다시 묻고 **이미 기각된 선택지가 되살아난다**(2026-09-07 실측: 제약을 안 적어 같은 안이 3회 제시·기각). 섹션 정의는 CLAUDE.md §10 이 단일 소스 — 여기는 채우는 조건과 절차만.
-- **medium 이상은 공백 유무와 무관하게 항상 적는다**(2026-09-09) — 위 실측의 실패는 공백을 못 본 것이 아니라 제약이 어디에도 적히지 않은 것이라, 공백을 발견했을 때만 적는 규칙으로는 막지 못한다. small 은 plan 이 있고 공백을 발견했을 때만, trivial 은 `# Intent` 기록 대상이 아니다. 이 규칙 이전에 만들어진 plan·이어받는 plan 에는 소급하지 않는다.
+- **결과는 plan `# Intent` 에 남긴다**(plan 이 있으면 그때, 없으면 3단계 draft plan 시) — 대화로만 끝내면 증발해 다음 세션이 같은 것을 다시 묻고 **이미 기각된 선택지가 되살아난다**. 섹션 정의는 CLAUDE.md §10 이 단일 소스 — 여기는 채우는 조건과 절차만.
+- **medium 이상은 공백 유무와 무관하게 항상 적는다**(2026-09-09 도입) — 선택지가 되살아나는 원인은 공백을 못 본 것이 아니라 제약이 어디에도 적히지 않은 것이라, 공백을 발견했을 때만 적는 규칙으로는 막지 못한다. small 은 plan 이 있고 공백을 발견했을 때만, trivial 은 `# Intent` 기록 대상이 아니다. 이 규칙 도입(2026-09-09) 이전에 만들어진 plan·이어받는 plan 에는 소급하지 않는다.
 - **무엇을 적나** — Problem 은 내용으로. Constraints·Out of scope 는 내용 또는 `없음 — <근거 한 구절>`(맨 `없음` 금지 — "고려했으나 없다"와 "잊었다"를 구분하고 리뷰어가 반박할 수 있게. self-flag 의 "해당 없으면 0줄"과 다른 이유: Intent 는 고정 항목이라 `없음` 이 상태 기록이지 발명이 아니다). Open questions 는 못 좁힌 질문이 있을 때만(다음 세션이 이어받는다). 사용자가 확인한 것과 모델이 추론한 것을 구분한다 — 추론분은 ⚠️ 표기 또는 Open questions 로(§10 정의는 "확정한 요구"라, 추론이 확정으로 박히면 다음 세션이 잘못된 근거로 선택지를 기각한다).
+- **묶음 intent(§10 `intent.md`)** — 체크리스트 전에 `git worktree list --porcelain` 의 **모든 worktree** `plans/*/intent.md` 중 `status: open` 을 훑는다(미머지 선행 브랜치의 묶음은 그 worktree 에만 있다 — 여기서 놓치면 같은 묶음을 중복 생성한다). 이 요구가 그 묶음의 후속이면 새로 만들지 않고 연결하고, 파일이 이 worktree 에 없으면 §10 한계대로 가져온다. 없는데 §10 생성 트리거 1·3 에 걸리면 intent.md 를 먼저 만든다(트리거 2 는 medium 이상이면 아래 분할 판정, small 은 §10 대로). 연결한 요구가 그 묶음 `# Plans` 의 `(미착수)` 줄이면 그 줄을 이 plan 의 실제 경로로 치환한다 — 묶음에 속한 단위는 규모와 무관하게(trivial 포함) plan 파일을 만든다(치환할 경로가 있어야 한다). 연결된 plan 의 `# Intent` 는 링크 1줄 + 델타만(트리거·형식·수명·소유권은 §10 이 단일 소스 — 여기서 재서술하지 않는다).
+- **분할 판정 (medium 이상, 2026-09-16 도입)** — 체크리스트 뒤에 이 요구가 **각 단위가 순서대로 혼자 default 에 머지돼도 빌드·규약이 모순 없이 유효한** 복수 plan 으로 나뉘는지 능동으로 본다(§10 트리거 2 의 절차). 기준은 크기가 아니라 머지 무모순(plan 마다 worktree·리뷰·머지 고정비가 붙는다) — 문서 규약처럼 "빌드는 안 깨지지만 일부만 머지되면 규약끼리 모순"인 경우는 나뉘지 않는다. 순차 의존은 분할을 막지 않는다(의존은 `# Plans` 메모에). **나뉘면** intent.md 를 만들고(이미 open 묶음의 후속이면 그 `# Plans` 에 줄을 더한다) 단위별 줄(첫 plan 만 착수, 나머지 `<slug 후보> (미착수)`)을 적은 뒤 그 초안을 다른 분할선 후보·기각 사유와 함께 plan-reviewer 에 **묶음 모드**로 1회 넘긴다(`agents/plan-reviewer.md` 15항, codex off — 새 경계에만·소급 3 은 제외. 결과·처분은 3단계 첫 plan 의 `# Review Disposition` 에 `[묶음]` 접두. 경계·의존·공통 제약이 바뀌면 재검토). 첫 plan `# Intent` 델타에 `분할: 묶음 → <intent.md 경로>` 1줄. 나뉜 단위는 각자 plan 을 갖고(위 묶음 bullet) 규모는 각자 gate 로 독립 판정한다 — 분할은 규모 판정을 면제하지 않으며 structural 트리거(다계층·public API·DB·신규 service)를 가진 단위는 그 plan 이 structural 로 돈다. **안 나뉘면** plan `# Intent` 에 `분할: 없음 — <무엇을 나누려 했고 어떤 결합 때문에 못 나눴나>` 1줄(맨 `없음` 금지. 단위 후보가 1개뿐이면 그렇게 적는다 — 무엇이 한 머지에서만 유효한지). 이 판정은 **예비값** — Explore 후 확정하고 뒤집히면 갱신한다: 없음→나뉨이면 그때 intent.md·묶음 리뷰·`분할:` 줄을 만들고, 나뉨→하나로 합쳐지면 남은 plan 은 `intent:` 를 유지하고 `(미착수)` 줄은 지운다(착수 전이라 폐기할 plan 이 없다 — 묶음 수명은 §10). 2026-09-16 이후 새로 만든 plan 부터.
 - **silent** — 공백 없으면 **질문 없이** 진행(명확한 요구엔 마찰 0). 질문 축에만 걸린다 — `# Intent` 기록은 위 규칙대로.
 - **질문 구성·우선순위 심화** — 질문 vs 추천 경계(무엇이 빠졌으면 질문·방법만 갈리면 추천) · 답이 설계·acceptance 를 바꾸는 것부터(부담 보이면 인터뷰식 1개씩) · 낯선 영역이면 함정·기준·과거결정 **blind-spot 브리핑** 후 질문 재구성 · 취향·시각 산출물이면 **프로토타입-우선**(mockup 2~4종 먼저). 세부는 `docs/dlc-details.md` §A. (render 요청엔 `dlc-task-router` 가 프로토타입 축을 turn-start 조기 주입.)
 - **trivial 도 예외 아님** — 절차 생략이지 요구 불명확 허용 아님. 산출물·문구 모호하면 먼저 질문.
@@ -72,11 +74,11 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 
 ## 판정 + 알림 (비-trivial)
 **작업을 끝낼 때** evidence gate 결과를 세 값 중 하나로 명시 판정한다 — "대체로 됐다" 로 끝내지 않는다. 아직 고칠 수 있고 고치는 중이면 판정 대상이 아니다(계속 진행).
-- **DONE** — `# Acceptance` 전 항목이 증거로 충족. **여기서 plan `status` 를 done 으로 만들지 않는다** — §10 대로 머지·배포·승인 시점이 done 이다(acceptance 통과 ≠ 통합 완료. 미리 done 을 박으면 `/c` 가 통합 대기 작업을 종료된 것으로 보고 건너뛴다). **정식 커밋은 이 판정에서만.**
+- **DONE** — `# Acceptance` 전 항목이 증거로 충족. **여기서 plan `status` 를 done 으로 만들지 않는다** — §10 대로 머지·배포·승인 시점이 done 이다(acceptance 통과 ≠ 통합 완료. 미리 done 을 박으면 `/c` 가 통합 대기 작업을 종료된 것으로 보고 건너뛴다). **정식 완료 커밋(16단계 마지막 커밋)은 이 판정에서만** — 목적 단위 커밋은 아래 "커밋 단위" 절대로 중간에 만든다.
 - **BLOCKED** — 다음에 필요한 것이 **자원·사실의 제공**(권한·자격증명·미배포 API·타인 작업). `status: blocked` + `# Blockers` 에 *풀려면 필요한 것*.
 - **NEEDS-HUMAN** — 다음에 필요한 것이 **선택·승인**(대안 선택·리스크 감수·기각안 재개). `status: in_progress` 유지 + `# Next` 에 물어야 할 것을 선택지와 함께. `blocked` 로 접지 않는 이유: blocked 전이는 `plan-blocked` **failure** telemetry 로 집계돼(`dlc-signal.js`) 정상적인 결정 대기가 workflow 실패로 남는다. status 가 그대로 둘의 구분 키가 된다.
 - 둘 다처럼 보이면(자격증명도 없고 mock 으로 갈지도 정해야 한다) **다음 한 걸음**으로 가른다 — 받아야 하면 BLOCKED, 골라야 하면 NEEDS-HUMAN.
-- **BLOCKED·NEEDS-HUMAN 은 정식 커밋하지 않는다**(CLAUDE.md §8 — 검증 실패는 커밋 금지). 미완 변경 보존이 필요하면 `/e` 의 `wip:` 체크포인트.
+- **BLOCKED·NEEDS-HUMAN 은 정식 완료 커밋을 하지 않는다**(CLAUDE.md §8 — 검증 실패는 커밋 금지). 이미 만든 단위 커밋은 각자 targeted 검증을 통과한 상태라 되돌리지 않는다. 미완 변경 보존이 필요하면 `/e` 의 `wip:` 체크포인트.
 
 **no-progress 정지** — 검증 실패 수리는 무한하지 않다: **1회차 실패 뒤에는 가설·전략을 바꿔야 하고, 바꾸고도 관찰 가능한 개선이 없으면 2회차에서 멈추고** 위 판정으로 간다. 세는 것은 *코드 수정 실패*뿐 — 네트워크·인프라 등 transient 실패는 카운트하지 않는다. 어느 acceptance 항목·어떤 실패·무엇을 시도했고 무엇이 안 변했나를 `# Blockers`(NEEDS-HUMAN 이면 `# Next`)에 남긴다.
 - **카운터 리셋 금지**: 실패를 다른 이름으로 재분류하거나, 테스트를 약화시키거나, acceptance 문구·통과 기준·검증 명령을 바꿔 횟수를 되돌리지 않는다. 그 셋을 정말 바꿔야 하면 **사용자 승인 + `# Decisions` 기록**이 먼저다(CLAUDE.md §7 테스트 약화 금지의 연장).
@@ -85,32 +87,40 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 
 **알림** — terminal 전이는 `PushNotification` 의 **필요조건이지 충분조건이 아니다**. 사용자 주의가 실제로 필요할 때만, 전이당 **최대 1회**. BLOCKED/NEEDS-HUMAN 은 물어야 할 것을 한 줄로. DONE 은 **오래 걸려 사용자가 자리를 떴을 법할 때만** — 짧은 작업은 Report 가 이미 눈앞에 있어 중복이다. 도구가 attached 라 skip 하면 정상이며 재시도하지 않는다. trivial·즉답은 면제.
 
+## 커밋 단위 (medium 이상 · 목적 2개 이상)
+목적이 둘 이상인 medium 이상 작업은 **목적 단위로 중간 커밋**하고, 커밋한 단위의 후속 수정은 `fixup!` 으로 쌓아 마지막에 `commit-check` 가 합친다 — 목적이 한 파일 안에서 섞이기 전에 커밋해 두면 사후 hunk 분리(commit-check 미지원)가 필요 없다. small·trivial 은 16단계 1회 커밋 그대로.
+- **선언**(3단계 draft plan): `# Decisions` 에 `커밋 단위: 1) <고유 커밋 제목> — <경로/범위> 2) …`. 목적이 1개면 `커밋 단위: 1개 — <근거>`. 제목은 단위끼리 겹치거나 한쪽이 다른 쪽의 접두가 되지 않게 — `fixup! <제목>` 매칭과 compaction 뒤 sha 재발견(`git log --format='%h %s' $(git merge-base HEAD <default 브랜치>)..HEAD`)이 제목에 기댄다. 구현 중 목적이 늘면: 섞인 변경이 경로로 떼어지면 앞 목적을 먼저 단위로 커밋하고, 같은 파일 안에서 섞였으면 한 단위로 두고 사유를 `# Decisions` 에.
+- **단위 커밋**(10단계 뒤): 한 단위의 구현과 그 단위의 targeted 검증(Green)이 통과하면 그 단위 경로만 stage 해 선언한 제목으로 커밋한다. **plan 파일은 넣지 않는다**(매 단계 갱신돼 앞 단위에 넣으면 뒤 단위와 3-way 충돌 — 16단계 마지막 커밋에만). 두 단위가 함께 고치는 파일은 **앞 단위가 동작하는 데 필요한 변경까지** 앞 단위에 넣는다(빼면 그 커밋만 checkout 했을 때 깨진다). 한 파일 안에서 두 목적이 이미 섞여 경로로 떼어지지 않으면 두 단위를 하나로 합친다.
+- **후속 수정**(11~15단계 리뷰 반영·simplify·검증 수리): 커밋된 단위를 고치면 그 단위 경로만 `git commit --fixup=<단위 sha>` — 역시 targeted 검증 통과 뒤에만. 두 단위에 걸치면 단위별 fixup 으로 나눈다. 단 앞 단위 대상 수정이 **뒤 단위도 고친 파일**을 건드리면 앞 단위로 합칠 때 3-way 충돌하므로 그 수정은 뒤 단위 fixup 으로 보내고 Report 에 귀속 예외로 적는다. 새 목적이면 선언에 추가하고 새 단위로.
+- **리뷰·simplify 범위**: 단위 커밋이 있으면 기본 `git diff` 가 비므로 code-reviewer·architecture-reviewer·simplify 체크에 `git diff <작업 base>...HEAD` + 작업트리 변경을 범위로 명시해 넘긴다.
+- **마무리**(16단계): 남은 **코드** 변경은 위 후속 수정 규칙대로 귀속 단위의 fixup 으로, plan 등 **기록 파일**만 마지막 단위의 fixup 으로 커밋한 뒤 `commit-check` 가 `fixup_of` 로 합치기를 제안한다(승인 후 적용). 충돌·보류로 `fixup!` 커밋이 남으면 DONE 은 되돌리지 않되 Report 리스크에 "남은 fixup! 커밋 — push·`/e merge` 전에 commit-check 재실행 또는 정리"를 적는다(push 되면 commit-check 범위 밖이 돼 정리할 수 없다).
+
 ## 조사 프로토콜 (디버깅·장애)
-버그·장애는 추측 수정 전에(CLAUDE.md §1 근본 원인·3 Whys 구체화): **재현**(재현 없이 "고쳤다" 금지) → **가설 경쟁 3+**(첫 가설 안주 금지) → **인과 사슬**(증상→직접원인→근본원인 증거 확정, 증상만 누르는 수정 금지). 가능하면 재현 테스트 먼저(TDD Red) — green 이 acceptance 증거. 각 스텝 elaboration 은 `docs/dlc-details.md` §B.
+버그·장애는 추측 수정 전에(CLAUDE.md §1 근본 원인·3 Whys 구체화): **재현**(재현 없이 "고쳤다" 금지) → **인과 사슬**(증상→직접원인→근본원인 증거 확정 — 원인이 불확실하면 다른 원인 후보를 반증한 근거 포함, 증상만 누르는 수정 금지). 가능하면 재현 테스트 먼저(TDD Red) — green 이 acceptance 증거. 각 스텝 elaboration 은 `docs/dlc-details.md` §B.
 
 ## structural 전체 파이프라인 (상태 전이)
 ```
 0  Setup            git status · 규모 판정 · plan 파일
 1  Explore
 2  researcher       [조건부 · 격리]
-3  draft plan       테스트전략 · rollback · 영향범위 · 구조의도 · # Acceptance 항목화 · ⚠️ self-flag(해당 시)
+3  draft plan       테스트전략 · rollback · 영향범위 · 구조의도 · # Acceptance 항목화 · ⚠️ self-flag(해당 시) · `intent:` 링크(묶음이면) · 커밋 단위 선언
 4  arch planning    [격리 · structural 만 · codex off]
 5  plan 수정
 6  plan-reviewer    [격리 · codex owner]
 7  지적 반영         ⚠️ self-flag 를 리뷰 지적과 함께 먼저 처분 · 구조 바뀌면 4~6 재실행
 8  TDD Red          새 테스트가 의도한 이유로 실패하는지 확인
 9  구현
-10 Green            test/build/typecheck 최소
-11 arch(정밀) + code-reviewer   [격리 · 병렬 · codex owner 1개 · 입력에 plan **경로**]
-12 fix loop         관련 reviewer 만 · ≤2회 · disposition
+10 Green            test/build/typecheck 최소 → 끝난 단위는 단위 커밋(목적 2+ 일 때)
+11 arch(정밀) + code-reviewer   [격리 · 병렬 · codex owner 1개 · 입력에 plan **경로** · 단위 커밋이 있으면 범위 `<base>...HEAD`+작업트리]
+12 fix loop         관련 reviewer 만 · ≤2회 · disposition · 커밋된 단위 수정은 fixup
 13 simplify 체크    [메인 직접 · blocker 없을 때만]
 14 재리뷰           simplify 체크의 substantive edit 시 targeted
 15 최종 검증         lint / typecheck / test / build   [격리 runner · 실행만]
-16 마무리           evidence gate(# Acceptance 전 항목 대조 · 통과 후에만 완료) → 판정(DONE/BLOCKED/NEEDS-HUMAN) → plan 업데이트 → 커밋(DONE 만) → 알림(필요할 때 최대 1회) → Report
+16 마무리           evidence gate(# Acceptance 전 항목 대조 · 통과 후에만 완료) → 판정(DONE/BLOCKED/NEEDS-HUMAN) → plan 업데이트 → 정식 완료 커밋(DONE 만) → commit-check → 알림(필요할 때 최대 1회) → Report
 ```
 
 ## wiki 연계 (CLAUDE.md §11)
-조건부·opt-in, 16단계 표 안 늘림, wiki 없으면 no-op. **16 Report 두 판정 누락 금지**: ① 재사용 지식(비자명 결정·교훈·확정 외부사실)이면 `/wiki ingest` 제안(자동 아님, trivial·일회성 제외) ② 작업 중 **사용자 교정·리뷰 지적**이 있었으면 §12 feedback memory 저장 판정(대상이면 memory 파일 + `MEMORY.md` 인덱스 **둘 다**, 비대상이면 사유 1줄). Explore wiki read·plan→wiki 일방향 승격 메커닉은 `docs/dlc-details.md` §C.
+조건부·opt-in, 16단계 표 안 늘림. wiki 는 두 계층(현재 repo 의 `wiki/`, 공용 `~/.claude/wiki/` — 배치 규칙은 §11)이라 현재 repo 에 wiki 가 없어도 공용 조회는 한다. **16 Report 두 판정 누락 금지**: ① 재사용 지식(비자명 결정·교훈·확정 외부사실)이면 **대상 계층까지** 판정해 `/wiki ingest` 제안(자동 아님, trivial·일회성 제외) — 다른 repo 에서 공용 대상이면 `~/.claude 에서 /wt → /wiki ingest <요약 · 공개 근거 · 출처(공개/비공개)>` 제안을 Report 와 plan `# Deferred` 에 남긴다(§11 공개 점검) ② 작업 중 **사용자 교정·리뷰 지적**이 있었으면 §12 feedback memory 저장 판정(대상이면 memory 파일 + `MEMORY.md` 인덱스 **둘 다**, 비대상이면 사유 1줄). Explore wiki read·plan→wiki 일방향 승격 메커닉은 `docs/dlc-details.md` §C.
 
 ## 격리 경계 (hub-and-spoke)
 - **메인(hub)**: Setup, Explore(얇게 — 광범위 검색만 Explore agent 위임), draft plan, TDD Red, 구현, Green(구현 직후 최소 스모크), 통합, 검증 명령 식별·결과 판단·실패 fix, Report, 최종 판단.
@@ -123,8 +133,8 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 - subagent 끼리 context 미공유. 입력은 메인이 번들 전달, 결과는 각 agent 의 "plan 반영용 요약"으로 수신.
 
 ## codex phase owner
-- 규약 `docs/codex-review.md`. 한 phase 에 reviewer 여럿이면 codex owner 1개만 지정, 나머지 `CLAUDE_REVIEW_CODEX_MODE=external`.
-- 계획 단계: `plan-reviewer`(arch planning 은 codex off). 구현 후: 버그/보안 위주면 `code-reviewer`, 구조 위주면 `architecture-reviewer`.
+- 규약 `docs/codex-review.md`. 한 phase 에 reviewer 여럿이면 codex owner 1개만 지정, 나머지에는 프롬프트에 §7 문구("Codex review is already running externally. Do not invoke Codex.").
+- 계획 단계: `plan-reviewer`(arch planning 은 codex off). 요구사항 명확화의 묶음 분할 리뷰(plan-reviewer 묶음 모드)는 **codex off** — 한 phase 에 owner 는 6단계 하나이고, codex 프롬프트는 구현 계획용이라 경계 검토에 맞지 않는다. 구현 후: 버그/보안 위주면 `code-reviewer`, 구조 위주면 `architecture-reviewer`.
 - **한도 캐시**: reviewer 를 띄우기 전에 `<scratch>/codex-unavailable`(규약 §1)이 있으면 owner 에게도 §7 의 "Codex is unavailable in this session" 문구를 넣어 시도 자체를 건너뛴다. reviewer 보고의 `Codex 미가용: … out of credits` 를 봤는데 마커가 없으면 메인이 만든다(subagent 가 못 썼을 수 있다).
 
 ## fix loop / disposition
@@ -132,25 +142,24 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 - 2회 후 같은 class 잔존 시 `status: blocked` 또는 명시적 risk accept. (여기 2회는 **리뷰 finding 처분** 상한 — 검증 실패 수리의 상한은 판정 섹션의 no-progress 정지로 별개 축이다.)
 
 ## 자기 진단
-새 단계가 아니라 **plan write 시점**(single writer re-read 강제)에 기생하는 메타 점검 — "지금 행동이 `# Next`·규모표와 맞나". silent self-check 에 기대지 않는다(이탈 중엔 자기점검도 안 돈다). **trivial 면제**.
-- **점검**(plan write + 구현 전·리뷰 전·실패 재시도 전·Report 전): ① 현재 행동이 `# Next` 와 어긋나나 ② 규모표상 건너뛴 필수 단계 있나 ③ 아래 중대 신호 해당하나.
+plan 을 쓸 때(single writer re-read 시점) 지금 행동이 `# Next`·규모표와 맞는지, 아래 중대 신호에 해당하는지 본다. 중대 신호면 멈추고 `AskUserQuestion` 으로 결정을 받는다(승인 전 수정 금지 — CLAUDE.md §1). **trivial 면제**.
 - **중대(닫힌 목록)**: 방향/요구/설계 변경 · plan/리뷰/검증 건너뜀 · 스코프 밖 파일 수정 · single writer·격리 경계 위반 · 동일 실패에 동일 전략 2회 재현 · "검증 완료" 허위 위험. **모호하면 중대**(fail-safe).
-- **대응**: 사소(순서·산출물·검증결과 불변, 회복 가능한 누락 — 예: Progress 갱신 빠뜨림) → 바로 보강 + 한 줄 보고. 중대 → **멈춤 + `AskUserQuestion` + 결정 대기**(승인 전 수정 금지 — CLAUDE.md §1).
+- 사소한 누락(순서·산출물·검증결과 불변, 회복 가능 — 예: Progress 갱신 빠뜨림)은 바로 보강하고 한 줄 보고.
 - **기존과 연결**: 방향 오류는 CLAUDE.md §2, 반복 실패는 fix loop(≤2회→blocked), 단계 누락은 규모표·승급 — 새 로직 만들지 말고 참조.
 - **상한**: 발동→대응 후 재진단 ≤1회. 잔존 시 `status: blocked` + 알림.
 
 ## Workflow Findings (증거기반 자기개선)
 작업 중 **확인된 workflow 실패**(dlc/규약 자체 문제로 작업이 샌 경우)만 기록 — 매 작업 회고 아님(빈 의례 방지). 자동 수정 안 함.
 - **기록 트리거**(확인된 것만): ① 중대 self-diagnosis 발동(스코프 이탈·단계 누락·격리 위반 등) ② 동일 유형 실패 2회 재현 ③ **사용자가 명시 지적한 workflow 마찰·오탐**(예: hook false positive). ③ 은 §12 feedback(작업방식 즉시 교정)과 달리 *운영 자산(dlc/hook/규약)*을 고칠 반복 마찰.
-- **기록(2곳)**: plan `# Workflow Findings` 한 줄 + wiki `decision/workflow-failures.md` 누적(같은 실패면 횟수만 ↑). 기록 형식·자동 hook 신호(`scripts/dlc-signal.js`→`/improve`)와의 상보 관계는 `docs/dlc-details.md` §D.
-- **반복 시 제안**: wiki 같은 finding 이 **2회+ 누적**되면 `AskUserQuestion` 으로 "N회 반복됐다 — `wt` 로 고칠까?" 제안. 승인 시 **wt → dlc**(운영 자산 변경은 파일 변경이라 wt 필수), 거부 시 보존만.
-- **자가수정 경계(§1)**: 승인 없이 운영 자산(dlc/CLAUDE.md 등)을 스스로 고치지 않는다. harness 는 발견·기록·제안까지, 수정은 사용자 승인 후. 완전 무인 자동화는 두지 않는다(`wiki/pages/decision/self-diagnosis-and-improvement-status.md`).
+- **기록(2곳)**: plan `# Workflow Findings` 한 줄 + **공용** wiki `decision/workflow-failures.md` 누적(같은 실패면 횟수만 ↑ — dlc 는 전역 자산이라 공용 계층. 다른 repo 세션이면 공용 기록은 §11 제안으로). 기록 형식·자동 hook 신호(`scripts/dlc-signal.js`→`/improve`)와의 상보 관계는 `docs/dlc-details.md` §D.
+- **반복 시 제안**: wiki 같은 finding 이 **2회+ 누적**되면 `AskUserQuestion` 으로 "N회 반복됐다 — `~/.claude` 에서 `wt` 로 고칠까?" 제안. 승인 시 **`~/.claude` 에서 wt → dlc**(운영 자산은 `~/.claude` 에 있고, 변경은 파일 변경이라 wt 필수), 거부 시 보존만.
+- **자가수정 경계(§1)**: 승인 없이 운영 자산(dlc/CLAUDE.md 등)을 스스로 고치지 않는다. harness 는 발견·기록·제안까지, 수정은 사용자 승인 후. 완전 무인 자동화는 두지 않는다(공용 wiki [[self-diagnosis-and-improvement-status]]).
 
 ## 필수 산출물 / 핵심 규칙
 - plan(CLAUDE.md §10): 매 턴 `Progress`/`Next` 갱신. **subagent 는 plan 안 씀** — 메인이 single writer, 쓰기 직전 re-read 후 외부 변경 merge.
-- **커밋(16단계 · 조건과 금지는 CLAUDE.md §8 단일 소스, 여기는 절차)**: evidence gate 통과 + plan 업데이트 **뒤에** 커밋한다 — 순서를 바꾸면 plan 갱신이 uncommitted 로 남아 §8 자동 정리가 막히고 `/e` WIP 이중 커밋이 생긴다. **경로 확정**: `git status --porcelain` 과 plan `# Key Files` 를 대조해 이번 작업이 건드린 경로를 열거(편집 이력이 compaction 으로 흐려졌을 때의 폴백 — 추측으로 `add -A` 회귀 금지). **메시지**: 그 repo 의 `git log` 관례(없으면 Conventional Commits `<type>(<scope>): <요약>`) + `Co-Authored-By` 트레일러, 본문에 *왜*(CLAUDE.md §6 — 경위는 주석이 아니라 커밋에). **커밋 sha 는 plan 이 아니라 Report 에 적는다**(plan 에 적으면 tree 가 다시 dirty 가 돼 순서 규칙이 무효화된다). fix loop 로 16 을 다시 돌아도 중복 커밋을 만들지 않는다. 커밋 명령이 worktree 격리 가드에 거부되면 체이닝·`git -C` 없이 단일 명령으로, 다른 도구 경로로 재시도(상세 wiki `worktree-isolation-bash-guard`). `/e` 의 `wip:` 체크포인트와 구분 — 여기 커밋은 **검증 통과한 정식 커밋**, `/e` WIP 는 미완·미검증 보존.
-- **16 Report — recap+선택지로 닫기(CLAUDE.md §3-6)**: 증거 게이트 통과 → plan 업데이트 → 커밋(위) 후, 보고는 **결론 요약(≤3줄, 무엇이 끝났고 status)을 먼저** 내고 이어서 **선택지를 AskUserQuestion** 으로(작업 확인 / 마무리·정리(push·PR·머지·worktree 정리 — 선택 시 `/e merge` 로 invoke) / 다른 작업 이어가기(`/wt` 신규 — §8) / 종료 — 큰·낯선 변경이면 "변경 이해 리포트+퀴즈" 옵션 추가). **merged·완료면 "마무리·정리" 선택지는 아래 정리 판정 제안 그 자체**(별도 2차 질문 아님 — 마무리 1회 원칙). 최신 사용자 메시지에 지금 실행할 명시 액션이 있으면 선택지 생략(중복 질문 금지). recap 은 보고 형식일 뿐 16단계 표에 새 단계를 더하지 않는다.
-- **정리 판정(CLAUDE.md §8, wiki 유무 무관·always)**: 작업이 main 에 merged 되고 완료면 Report 에서 worktree 정리(worktree+로컬·원격 브랜치)를 처리한다(방치·"선택사항" 언급만 금지). **내가 이 세션에서 직접 수행한 merge 직후 + §8(a) 안전조건 전부 충족이면 worktree + 로컬 브랜치는 확인 없이 자동 정리**(삭제한 로컬 tip sha 1줄 보고). **원격 브랜치 삭제는 항상 AskUserQuestion**(§8(b) — 자동 정리에 포함하지 않는다). 그 외(우연 머지·안전조건 미충족/불확실)는 **능동 제안(AskUserQuestion)** — §8(b). dlc 는 Report 가 종점이라 여기서 넘기거나 직접 실행 — **trivial·small 은 로컬 `git merge --ff-only <slug>` 후 정리**(§8, push·PR 없음), medium 이상·CI 검증·외부 공유가 필요하면 `/e merge`(push·PR·머지·정리까지). 미머지·미완이면 제안 안 함(정확한 조건은 §8·`/e` 7단계의 6조건).
+- **커밋(16단계 · 조건과 금지는 CLAUDE.md §8 단일 소스, 여기는 절차)**: 16단계의 정식 완료 커밋(목적 단위 커밋이 있으면 남은 변경을 담는 마지막 커밋 — 위 "커밋 단위" 절)은 evidence gate 통과 + plan 업데이트 **뒤에** 한다 — 순서를 바꾸면 plan 갱신이 uncommitted 로 남아 §8 자동 정리가 막히고 `/e` WIP 이중 커밋이 생긴다. **경로 확정**: `git status --porcelain` 과 plan `# Key Files` 를 대조해 이번 작업이 건드린 경로를 열거(편집 이력이 compaction 으로 흐려졌을 때의 폴백 — 추측으로 `add -A` 회귀 금지). **메시지**: 그 repo 의 `git log` 관례(없으면 Conventional Commits `<type>(<scope>): <요약>`) + `Co-Authored-By` 트레일러, 본문에 *왜*(CLAUDE.md §6 — 경위는 주석이 아니라 커밋에). **커밋 sha 는 plan 이 아니라 Report 에 적는다**(plan 에 적으면 tree 가 다시 dirty 가 돼 순서 규칙이 무효화된다). fix loop 로 16 을 다시 돌아도 중복 커밋을 만들지 않는다. 커밋 명령이 worktree 격리 가드에 거부되면 체이닝·`git -C` 없이 단일 명령으로, 다른 도구 경로로 재시도(상세 wiki `worktree-isolation-bash-guard`). `/e` 의 `wip:` 체크포인트와 구분 — 여기 커밋은 **검증 통과한 정식 커밋**, `/e` WIP 는 미완·미검증 보존. **커밋 뒤 `commit-check` 스킬로 브랜치 커밋 단위를 점검**한다(규모 무관 — 생략 판단·제안·승인·재구성 절차는 그 스킬이 단일 소스). 재구성했다면 Report 의 sha 는 재구성 뒤 값이고 백업 ref·되돌리기 명령도 Report 에 적는다(plan 에 쓰지 않는다). 거절·적용 실패는 DONE 을 되돌리지 않고 Report 리스크로 남긴다.
+- **16 Report — recap+선택지로 닫기(CLAUDE.md §3-6)**: 증거 게이트 통과 → plan 업데이트 → 커밋(위) 후, 보고는 상세(변경 요약·수정 파일·검증·영향·리스크)를 적고 **맨 끝을 `## 결론` 블록(§3-6 5항목: 문제/원인/조치/검증/남은 것)으로 닫은 뒤** 이어서 **선택지를 AskUserQuestion** 으로(작업 확인 / 마무리·정리(push·PR·머지·worktree 정리 — 선택 시 `/e merge` 로 invoke) / 다른 작업 이어가기(`/wt` 신규 — §8) / 종료). **merged·완료면 "마무리·정리" 선택지는 아래 정리 판정 제안 그 자체**(별도 2차 질문 아님 — 마무리 1회 원칙). 최신 사용자 메시지에 지금 실행할 명시 액션이 있으면 선택지 생략(중복 질문 금지). recap 은 보고 형식일 뿐 16단계 표에 새 단계를 더하지 않는다.
+- **정리 판정(CLAUDE.md §8, wiki 유무 무관·always)**: 작업이 default 브랜치에 merged 되고 완료면 Report 에서 worktree 정리를 처리한다(방치·"선택사항" 언급만 금지). **§8(a) 안전조건 전부 충족이면 누가 머지했든 worktree + 로컬 브랜치는 확인 없이 자동 정리**(삭제한 로컬 tip sha 1줄 보고). **원격 브랜치 삭제는 항상 AskUserQuestion**(§8(b) — 자동 정리에 포함하지 않는다). 안전조건 미충족/불확실(dirty·squash-merge·미보존 산출물)이면 **능동 제안(AskUserQuestion)** — §8(b). dlc 는 Report 가 종점이라 여기서 넘기거나 직접 실행 — **trivial·small 은 로컬 `git merge --ff-only <slug>` 후 정리**(§8, push·PR 없음), medium 이상·CI 검증·외부 공유가 필요하면 `/e merge`(push·PR·머지·정리까지). 미머지·미완이면 제안 안 함(정확한 조건은 §8·`/e` 7단계의 6조건).
 - 검증 명령 미식별: README/package/pyproject/Makefile/CI 확인해도 없으면 "미식별" 기록 + 추측 실행 금지. 이 상태에서 "검증 완료" 금지. 식별한 명령은 runner 에 **문자열·worktree cwd 그대로** 전달(runner 는 재탐색·수리 안 함).
 - researcher 재진입: 어느 단계든 외부 사실(버전/API/CVE) 의문 시 호출.
 - TDD Red: 새 테스트가 의도한 이유로 실패하는지 확인(기존 baseline failure 와 분리).

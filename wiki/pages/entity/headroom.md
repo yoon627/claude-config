@@ -2,7 +2,7 @@
 title: headroom
 category: entity
 created: 2026-06-21
-updated: 2026-09-02
+updated: 2026-09-15
 sources:
   - headroom-ai 0.25.0 (headroom --help, 2026-06 확인)
   - docs/headroom-proxy-session-lifecycle.md
@@ -14,7 +14,7 @@ sources:
 > [!note] Retired (2026-09-02)
 > 이 머신과 bootstrap의 현재 runtime 경로에서는 headroom을 사용하지 않는다. 아래 proxy·MCP·번들 rtk 내용은 과거 운영 기록으로 보존한다.
 
-과거 사용한 LLM 컨텍스트 최적화 레이어. 세 역할은 ① HTTP proxy(`ANTHROPIC_BASE_URL` 경유 토큰 압축·캐시) ② MCP 서버(compress/retrieve/stats) ③ rtk 번들이었다. 현재 [[codegraph]]는 headroom과 독립적으로 사용한다.
+과거 사용한 LLM 컨텍스트 최적화 레이어. 세 역할은 ① HTTP proxy(`ANTHROPIC_BASE_URL` 경유 토큰 압축·캐시) ② MCP 서버(compress/retrieve/stats) ③ rtk 번들이었다. [[codegraph]]는 headroom과 독립적으로 운영됐다(2026-09-15 retired).
 
 ## proxy (historical)
 - `headroom install apply --preset persistent-service --mode token` → launchd service `com.headroom.default` 상시 기동 + `~/.zshrc` 에 `ANTHROPIC_BASE_URL`·`HEADROOM_MODE=token` 등 routing env 를 심는다.
@@ -40,4 +40,4 @@ sources:
 
 ## 과거 설치 경로
 - 과거 설치: `uv tool install headroom-ai` (PyPI 패키지명 `headroom-ai`, 0.25.0 — 명령은 `headroom`).
-- 현재 새 머신 bootstrap은 headroom을 설치·등록·기동하지 않고, [[codegraph]] 및 선택적 standalone `rtk`만 처리한다.
+- 현재 새 머신 bootstrap은 headroom을 설치·등록·기동하지 않고, 선택적 standalone `rtk`만 처리한다([[codegraph]] 설치·등록도 2026-09-15 제거).

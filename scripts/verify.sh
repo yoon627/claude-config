@@ -3,8 +3,9 @@
 #
 # 왜: 검증 명령이 lint.yml 에만 있어 로컬에서 재현하려면 워크플로를 읽어야 했고,
 # 테스트 목록이 수기라 새 테스트가 조용히 CI 밖에 남았다(2026-09-07 실측: 실존
-# 테스트 3개 누락, 그중 하나가 시크릿 유출 가드의 테스트). 여기서는 **glob 으로
-# 발견**해 목록을 없앤다 — 파일을 추가하면 자동으로 검증 대상이 된다.
+# 테스트 3개 누락, 그중 하나가 시크릿 유출 가드의 테스트). 여기서는 **git 이 아는
+# 파일 중 glob 에 맞는 것**을 발견해 목록을 없앤다 — 파일을 추가하면 자동으로 검증
+# 대상이 된다.
 #
 # 사용: bash scripts/verify.sh [축]
 #   축: syntax | node | bash | python | shell   (생략 시 전부)
@@ -15,6 +16,11 @@
 set -u
 
 cd "$(dirname "$0")/.." || exit 1
+# 검증 대상 목록을 git 에서 얻으므로, git 이 이 디렉토리를 모르면 0개를 돌고 통과해 버린다.
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo 'FAIL: git 작업트리가 아니라 검증 대상을 찾을 수 없다'
+  exit 1
+fi
 
 axis="${1:-all}"
 fail=0
@@ -32,27 +38,33 @@ run() { # run <label> <command...>
   fi
 }
 
-# worktree 사본을 검증 대상에서 뺀다 — 같은 파일을 두 번 돌고, 다른 브랜치의
-# 깨진 중간 상태가 이 브랜치 검증을 실패시킨다.
-find_repo() { find "$@" -not -path './.claude/*' -not -path './.git/*' | sort; }
+# 대상은 git 이 아는 파일(추적 + 아직 add 안 한 새 파일)만이다. find 로 훑으면
+# main checkout 의 ignored 런타임 산출물(shell-snapshots·plugins·backups)까지 돌아
+# CI·worktree 와 결과가 갈리고, 중첩 worktree(.claude/worktrees) 사본도 끌려온다.
+# 작업트리에서 지운 추적 파일은 존재 검사로 뺀다. -z 는 비ASCII·특수문자 경로의
+# quoting(core.quotePath)을 꺼 존재 검사에서 조용히 빠지는 것을 막는다.
+repo_files() { # repo_files <pathspec...>
+  git ls-files -z --cached --others --exclude-standard -- "$@" | tr '\0' '\n' | sort -u |
+    while IFS= read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done
+}
 
 if [ "$axis" = all ] || [ "$axis" = syntax ]; then
   echo '== syntax (node --check) =='
-  for f in $(find_repo . -maxdepth 1 -name '*.js') $(find_repo ./scripts -name '*.js'); do
+  for f in $(repo_files ':(glob)*.js' ':(glob)scripts/**/*.js'); do
     run "$f" node --check "$f"
   done
 fi
 
 if [ "$axis" = all ] || [ "$axis" = node ]; then
   echo '== node tests =='
-  for f in $(find_repo ./scripts -name '*.test.js'); do
+  for f in $(repo_files ':(glob)scripts/**/*.test.js'); do
     run "$f" node "$f"
   done
 fi
 
 if [ "$axis" = all ] || [ "$axis" = bash ]; then
   echo '== bash tests =='
-  for f in $(find_repo . -name '*.test.sh') $(find_repo . -name 'test_*.sh'); do
+  for f in $(repo_files ':(glob)**/*.test.sh' ':(glob)**/test_*.sh'); do
     run "$f" bash "$f"
   done
 fi
@@ -60,7 +72,7 @@ fi
 if [ "$axis" = all ] || [ "$axis" = python ]; then
   echo '== python tests =='
   if py=$(command -v python3 || command -v python); then
-    for f in $(find_repo . -name 'test_*.py'); do
+    for f in $(repo_files ':(glob)**/test_*.py'); do
       run "$f" "$py" "$f"
     done
   else
@@ -74,7 +86,7 @@ if [ "$axis" = all ] || [ "$axis" = shell ]; then
   if command -v shellcheck >/dev/null 2>&1; then
     # 파일 목록을 한 번에 넘겨야 exit code 가 합쳐진다(`# shellcheck` 로 시작하는
     # 주석은 디렉티브로 파싱되므로 문장을 그 단어로 시작하지 않는다).
-    sh_files=$(find_repo . -name '*.sh')
+    sh_files=$(repo_files ':(glob)**/*.sh')
     # shellcheck disable=SC2086
     run 'shellcheck' shellcheck $sh_files
   else

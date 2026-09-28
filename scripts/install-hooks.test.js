@@ -96,7 +96,7 @@ const hPush = fs.existsSync(prePush) ? sha(prePush) : 'y';
 install(work); // 재실행
 ok('P4 재실행: pre-commit sha 불변', fs.existsSync(preCommit) && sha(preCommit) === hPre);
 ok('P4 재실행: pre-push sha 불변', fs.existsSync(prePush) && sha(prePush) === hPush);
-ok('P4 재실행: .bak 미생성', !fs.existsSync(preCommit + '.bak') && !fs.existsSync(prePush + '.bak'));
+ok('P4 재실행: 백업 미생성', !fs.readdirSync(path.dirname(preCommit)).some((f) => f.includes('.bak')));
 
 // ---- ① feature→main checkout → 자동 ff ----
 syncWork();
@@ -179,6 +179,93 @@ syncWork();
 const at9 = advanceOrigin();
 runHook(head(work), head(work), '1');
 ok('⑨ 직접 호출 flag=1·main·clean → ff', head(work) === at9);
+
+// ---- 설치 위치·백업: sh, 그리고 pwsh 가 있으면 ps1 도 (PWSH=<path> 로 지정 가능) ----
+const INSTALL_PS1 = path.join(__dirname, 'install-hooks.ps1');
+const PWSH = process.env.PWSH || spawnSync('sh', ['-c', 'command -v pwsh'], { encoding: 'utf8' }).stdout.trim();
+fs.writeFileSync(path.join(HOME, '.claude', 'scripts', 'pre-commit-check.ps1'), 'param([string]$Mode)\nexit 0\n');
+const HOOKS = ['pre-commit', 'pre-push', 'post-checkout'];
+// system·XDG 설정의 core.hooksPath 가 끼어들지 않게 격리한다(global 은 가짜 HOME).
+const ISOLATED = { GIT_CONFIG_NOSYSTEM: '1', XDG_CONFIG_HOME: path.join(TMP, 'xdg') };
+function runInstall(engine, cwd, extraEnv) {
+  const [cmd, args] = engine === 'sh' ? ['bash', [INSTALL_SH]]
+    : [PWSH, ['-NoLogo', '-NoProfile', '-NonInteractive', '-File', INSTALL_PS1]];
+  const r = spawnSync(cmd, args, { cwd, env: { ...BASE_ENV, HOME, ...ISOLATED, ...(extraEnv || {}) }, encoding: 'utf8', timeout: 60000 });
+  return { status: r.status, out: (r.stdout || '') + (r.stderr || '') };
+}
+function freshRepo(tag) {
+  const d = fs.mkdtempSync(path.join(TMP, `${tag}-`));
+  git(d, ['init', '-q', '-b', 'main']);
+  git(d, ['-c', 'commit.gpgsign=false', 'commit', '-q', '--allow-empty', '-m', 'init']);
+  return d;
+}
+// git 2.30 이하처럼 모르는 --path-format 을 stdout 에 되풀이하고 나머지 인자는 그대로 처리하는 git shim
+const OLD_GIT = path.join(TMP, 'oldgit');
+fs.mkdirSync(OLD_GIT);
+const realGit = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+fs.writeFileSync(path.join(OLD_GIT, 'git'), `#!/bin/sh
+seen=
+for a in "$@"; do
+  shift
+  case "$a" in --path-format=*) seen="$a" ;; *) set -- "$@" "$a" ;; esac
+done
+[ -n "$seen" ] && printf '%s\\n' "$seen"
+exec '${realGit}' "$@"
+`);
+fs.chmodSync(path.join(OLD_GIT, 'git'), 0o755);
+const hooksOf = (d) => path.join(d, '.git', 'hooks');
+const backups = (d, hook) => fs.readdirSync(hooksOf(d)).filter((f) => f.startsWith(`${hook}.bak`));
+for (const e of ['sh', ...(PWSH ? ['ps1'] : [])]) {
+  const r0 = runInstall(e, fs.mkdtempSync(path.join(TMP, 'nogit-')));
+  ok(`[${e}] git 밖: exit 1 + 안내`, r0.status === 1 && /Not inside a git repo/.test(r0.out));
+
+  const main = freshRepo(`main-${e}`);
+  const wt = path.join(TMP, `wt-${e}`);
+  git(main, ['worktree', 'add', '-q', wt, '-b', `w-${e}`]);
+  const r1 = runInstall(e, wt);
+  ok(`[${e}] linked worktree: 공용 hooks 디렉토리에 설치`,
+    r1.status === 0 && HOOKS.every((h) => fs.existsSync(path.join(hooksOf(main), h))));
+
+  const hp = freshRepo(`hp-${e}`);
+  git(hp, ['config', 'core.hooksPath', '.husky/_']);
+  const r2 = runInstall(e, hp);
+  const globalCfg = path.join(TMP, `global-${e}.gitconfig`);
+  fs.writeFileSync(globalCfg, '[core]\n\thooksPath = /elsewhere/hooks\n');
+  const hg = freshRepo(`hg-${e}`);
+  const r2g = runInstall(e, hg, { GIT_CONFIG_GLOBAL: globalCfg });
+  ok(`[${e}] core.hooksPath(로컬·전역): 거부하고 아무것도 쓰지 않는다`, r2.status === 1 && /core\.hooksPath/.test(r2.out)
+    && !fs.existsSync(path.join(hp, '.husky')) && !HOOKS.some((h) => fs.existsSync(path.join(hooksOf(hp), h)))
+    && r2g.status === 1 && !HOOKS.some((h) => fs.existsSync(path.join(hooksOf(hg), h))));
+
+  const same = freshRepo(`same-${e}`);
+  git(same, ['config', 'core.hooksPath', '.git/hooks']);
+  const r3 = runInstall(e, same);
+  const linked = freshRepo(`link-${e}`);
+  fs.mkdirSync(hooksOf(linked), { recursive: true }); // init.templateDir may ship no hooks dir
+  fs.renameSync(hooksOf(linked), path.join(linked, 'githooks'));
+  fs.symlinkSync('../githooks', hooksOf(linked));
+  const r4 = runInstall(e, linked);
+  ok(`[${e}] 기본 디렉토리를 가리키는 hooksPath·symlink 된 .git/hooks 는 설치한다`,
+    r3.status === 0 && HOOKS.every((h) => fs.existsSync(path.join(hooksOf(same), h)))
+    && r4.status === 0 && HOOKS.every((h) => fs.existsSync(path.join(linked, 'githooks', h))));
+
+  const old = freshRepo(`old-${e}`);
+  const r5 = runInstall(e, old, { PATH: `${OLD_GIT}${path.delimiter}${process.env.PATH}` });
+  ok(`[${e}] --path-format 을 모르는 git(2.30 이하)은 설치하지 않고 버전을 알린다`,
+    r5.status === 1 && /2\.31/.test(r5.out) && !HOOKS.some((h) => fs.existsSync(path.join(hooksOf(old), h))));
+
+  const b = freshRepo(`bak-${e}`);
+  const pc = path.join(hooksOf(b), 'pre-commit');
+  fs.writeFileSync(pc, 'first\n');
+  runInstall(e, b);
+  fs.writeFileSync(pc, 'second\n');
+  runInstall(e, b);
+  const kept = backups(b, 'pre-commit');
+  ok(`[${e}] 다른 기존 훅은 매번 새 백업으로 — 앞 백업을 덮지 않는다`,
+    JSON.stringify(kept.map((f) => fs.readFileSync(path.join(hooksOf(b), f), 'utf8')).sort()) === '["first\\n","second\\n"]'
+    && kept.every((f) => /^pre-commit\.bak\.\d{8}T\d{6}Z(\.\d+)?$/.test(f)));
+}
+console.log(PWSH ? `ps1: ran (${PWSH})` : 'ps1: skipped (pwsh not found — set PWSH=<path>)');
 
 fs.rmSync(TMP, { recursive: true, force: true });
 console.log(fail === 0 ? 'ALL PASS' : `${fail} FAIL`);

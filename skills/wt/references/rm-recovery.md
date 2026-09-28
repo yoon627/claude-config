@@ -14,9 +14,10 @@
 새 cwd 에서 순서대로. 무엇이 실패해도 worktree 는 유지하고 에러를 그대로 보고(사용자가 수동 재실행 결정).
 1. **submodule self-heal init**: `uv run --no-project python "${CLAUDE_SKILL_DIR}/heal_submodules.py"`. 중단됐던 submodule clone(objects 불완전 → "Unable to find current revision")을 자동 복구한 뒤 init. `.gitmodules` 없는 레포는 no-op(무해).
    - **bootstrap 보다 먼저 실행하는 이유**: bootstrap 의 submodule update 가 중단 corrupt 로 죽으면 이후 단계(uv sync 등)가 안 도는 것을 방지.
+   - **자동 복구를 거부하고 exit 1 로 멈추는 경우**(어떤 deinit·삭제보다 먼저 판정): `.gitmodules` 의 path 를 읽을 수 없을 때(문법 오류·값 없는 path·항목 없음), submodule name 의 module dir 이 이 worktree 의 `modules` 디렉토리 밖을 가리킬 때(`..` 구성요소·절대경로 — linked worktree 에선 `<main>/.git/objects` 까지 닿는다), work tree 에 보존할 파일이 남았을 때(`.git` 은 `gitdir: ` 로 시작하는 gitlink 파일일 때만 빼고 센다 — 디렉토리이거나 다른 내용이면 보존할 파일로 본다). clone 한 repo 가 정하는 `.gitmodules` 를 삭제 경로로 믿지 않기 위해서다. 멈춘 뒤에는 원인을 확인하고 수동으로 복구한다.
 2. `tools/bootstrap/bootstrap.py` 있으면 `uv run tools/bootstrap/bootstrap.py`(없으면 skip — 다른 프로젝트 무영향).
-3. codegraph init(조건부·백그라운드) — `references/codegraph-worktree.md`.
 
-## C. rm 실패 stderr 분기 — 파일 점유 상세 (§6)
-`git worktree remove <path>` 실패 시 SKILL 본문 §6 이 stderr 로 분기한다. **안전 게이트·브랜치 삭제 순서(`--force`/`-D`/원격삭제 무확인 금지, remove 성공 후에만 branch 삭제)는 SKILL 본문(`## 주의`·rm §6)이 단일 소스** — 여기는 "파일 점유" 분기의 원인·대응 세부만:
-- **파일 점유 류**("Access is denied"·"being used by another process"·"Directory not empty" 등 OS 삭제 실패): 그 worktree 의 `.codegraph/` 를 codegraph daemon 이 잡고 있을 수 있다(그 worktree 에서 codegraph MCP 세션을 띄웠던 경우만 — `init`·`status` 로는 안 뜸). **자동 종료하지 않고 안내**: 그 세션을 닫거나 daemon idle 자동종료(~5분) 후 재시도, 급하면 수동으로 해당 node 프로세스 종료. (`--force` 는 git 레벨이라 OS 파일점유는 못 푼다.)
+## C. rm 실패 stderr 분기 — 파일 점유 (§6)
+`git worktree remove <path>` 실패 시 SKILL 본문 §6 이 stderr 로 분기한다. **안전 게이트·브랜치 삭제 순서(`--force`/`-D`/원격삭제 무확인 금지, remove 성공 후에만 branch 삭제)는 SKILL 본문(`## 주의`·rm §6)이 단일 소스** — 여기는 "파일 점유" 분기의 이유만:
+- **파일 점유 류**("Access is denied"·"being used by another process"·"Directory not empty"·Windows "Invalid argument" 등 OS 삭제 실패): 살아있는 프로세스가 worktree 파일(`.venv` 등)을 잡고 있다. `wt rm` 은 **자동 종료하지 않고 안내**한다 — 사용자가 직접 부르는 경로라 점유 프로세스를 띄운 세션이 이 세션인지 알 수 없고, 경로 필터만으로는 사용자 서버와 구분되지 않는다(`/e` 7단계는 같은 세션이 띄운 프로세스를 회수할 수 있다 — `docs/worktree-lifecycle.md` §C). (`--force` 는 git 레벨이라 OS 파일점유는 못 푼다.)
+- **부분 성공**(등록은 해제됐는데 디렉토리 잔존)은 점유와 별도 분기 — 확인·`prune` 절차는 `docs/worktree-lifecycle.md` §C.

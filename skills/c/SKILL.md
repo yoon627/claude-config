@@ -26,7 +26,7 @@ description: 현재 worktree/repo 의 진행 중인 plan(CLAUDE.md §10)을 찾�
 - **fallback (매칭 0개)**: 탐색 위치의 모든 plan(`*/*-plan.md` + 루트 직속 `*.md`) frontmatter 를 읽어 `status: in_progress|blocked` 인 것을 `updated` 내림차순으로 **목록 제시 → 사용자 선택**. 추측으로 자동 선택하지 않는다. 전부 done 이거나 없으면 "이어갈 plan 없음" 보고 후 종료.
 
 ### 2. 진단 (plan read 후)
-plan 을 read 하고 두 축을 본다.
+plan 을 read 하고 두 축을 본다. frontmatter `intent:` 가 있으면 그 `intent.md`(§10 묶음 intent)도 read 한다 — 공통 Constraints·Open questions·`# Plans`(형제 plan) 가 거기 있어 plan `# Intent` 의 델타만으로는 요구가 복원되지 않는다. 파일이 없으면 보고에 "intent 링크 끊김" 1줄(3단계 보정 대상).
 - **남은 작업**: `status` + `# Next` + `# Blockers`.
   - `done` → "이미 done" 안내 후 그래도 이어갈지 확인.
   - `blocked` → `# Blockers` 노출, 해소 가능 여부 판단.
@@ -60,6 +60,7 @@ plan 을 read 하고 두 축을 본다.
   - 실제와 다른 `status` → 정정(머지=done, 막힘=blocked + `# Blockers`). (머지=done 은 **객관적 사실 기록** — done 이 되면 아래 예외5 로 정지하므로 e 의 '세션종료 done 확인'과 구분되어 안전.)
   - 실효된 `# Next` → 실제 다음 액션으로 교체.
   - frontmatter `updated:` 오늘로.
+  - 끊긴 `intent:` 링크 → §10 한계대로 형제 worktree·선행 브랜치에서 `git show` 로 복원, 불가면 링크를 제거하고 보고.
   - 기존 `# Decisions` 는 지우지 말고 §10 방식(덮어쓰기/추가 + 이유).
 - **PR 리뷰 처분** (intake 수집분이 있으면):
   - (a) **코드 지적**(버그·수정 요청) → `# Next` 후보로 "PR#n 리뷰 반영: <요지>" 채택(미해결은 코멘트 상태·후속 커밋으로 추정, 불확실하면 그대로 노출).

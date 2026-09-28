@@ -8,7 +8,7 @@
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-# codegraph 인덱스·memory 복원 대상은 Claude Code 가 실제 읽는 ~/.claude 로 고정 —
+# memory 복원·Codex skill source 는 Claude Code 가 실제 읽는 ~/.claude 로 고정 —
 # 스크립트를 worktree/다른 경로에서 실행해도 엉뚱한 곳에 안 만들도록 REPO_ROOT 와 분리.
 CLAUDE_DIR="$HOME/.claude"
 LOCAL_BIN="$HOME/.local/bin"
@@ -55,7 +55,7 @@ have git || { warn "git 미설치"; prereq_ok=0; }
 mkdir -p "$LOCAL_BIN"
 case ":$PATH:" in *":$LOCAL_BIN:"*) : ;; *) export PATH="$LOCAL_BIN:$PATH" ;; esac
 
-# --- 2. brew: node (codegraph npm 전 선행) ---
+# --- 2. brew: node (hook 진입점 scripts/*.js 실행) ---
 if have node; then skip "node 있음 ($(node --version 2>/dev/null))"; else
   run "brew install node"; do_cmd brew install node && ok "node 설치"; fi
 
@@ -67,27 +67,37 @@ if have jq; then skip "jq 있음"; else
 if [ -x "$LOCAL_BIN/uv" ] || have uv; then skip "uv 있음"; else
   run "uv 설치 (astral)"; do_cmd sh -c 'curl -LsSf https://astral.sh/uv/install.sh | sh' && ok "uv 설치"; fi
 
-# --- 3b. Codex user-scope skill (stable source survives worktree removal) ---
-CODEX_SKILL_SOURCE="$CLAUDE_DIR/skills/jira-worklog"
-CODEX_SKILL_TARGET="$HOME/.agents/skills/jira-worklog"
-CODEX_SKILL_INSTALLER="$REPO_ROOT/scripts/bootstrap/install-codex-skill.sh"
-run "Codex jira-worklog skill 연결: $CODEX_SKILL_TARGET -> $CODEX_SKILL_SOURCE"
-if [ "$DRY_RUN" = 1 ]; then
-  if ! bash "$CODEX_SKILL_INSTALLER" --source "$CODEX_SKILL_SOURCE" --target "$CODEX_SKILL_TARGET" --dry-run; then
-    warn "Codex jira-worklog skill 연결 실패"
-    exit 1
+# --- 3b. Codex 연결: skill 심링크 + AGENTS.md → CLAUDE.md + agent 정의 생성 (stable source survives worktree removal) ---
+# 충돌은 건드리지 않고 모아 두었다가 마지막에 exit 1 — Codex 연결은 뒤 단계의 전제가 아니다.
+CODEX_SKILLS="c dlc e improve jira-worklog wiki wt"
+CODEX_LINKER="$REPO_ROOT/scripts/bootstrap/install-codex-skill.sh"
+dry_flag=""; [ "$DRY_RUN" = 1 ] && dry_flag="--dry-run"
+codex_failed=""
+for name in $CODEX_SKILLS; do
+  run "Codex skill 연결: $HOME/.agents/skills/$name -> $CLAUDE_DIR/skills/$name"
+  if bash "$CODEX_LINKER" --source "$CLAUDE_DIR/skills/$name" --target "$HOME/.agents/skills/$name" ${dry_flag:+"$dry_flag"}; then
+    ok "Codex skill $name"
+  else
+    warn "Codex skill $name 연결 실패"; codex_failed="$codex_failed skill:$name"
   fi
+done
+CODEX_AGENTS="${CODEX_HOME:-$HOME/.codex}/AGENTS.md"
+run "Codex AGENTS.md 연결: $CODEX_AGENTS -> $CLAUDE_DIR/CLAUDE.md"
+if bash "$CODEX_LINKER" --file --source "$CLAUDE_DIR/CLAUDE.md" --target "$CODEX_AGENTS" ${dry_flag:+"$dry_flag"}; then
+  ok "Codex AGENTS.md"
 else
-  if ! bash "$CODEX_SKILL_INSTALLER" --source "$CODEX_SKILL_SOURCE" --target "$CODEX_SKILL_TARGET"; then
-    warn "Codex jira-worklog skill 연결 실패"
-    exit 1
-  fi
+  warn "Codex AGENTS.md 연결 실패"; codex_failed="$codex_failed AGENTS.md"
 fi
-ok "Codex jira-worklog skill 연결"
-
-# --- 4. codegraph (npm -g) ---
-if have codegraph; then skip "codegraph 있음"; else
-  run "npm install -g @colbymchenry/codegraph"; do_cmd npm install -g @colbymchenry/codegraph && ok "codegraph 설치"; fi
+# agent 정의는 링크가 아니라 생성 사본이다 — 원본의 Codex 병행 절이 Codex 안에서 자기 자신을 부르므로 뺀다.
+CODEX_AGENT_DIR="${CODEX_HOME:-$HOME/.codex}/agents"
+run "Codex agent 정의 생성: $CODEX_AGENT_DIR <- $CLAUDE_DIR/agents"
+if ! have python3; then
+  warn "python3 없음 — Codex agent 정의 생성 건너뜀"; codex_failed="$codex_failed agents:python3"
+elif python3 "$REPO_ROOT/scripts/bootstrap/sync_codex_agents.py" --source "$CLAUDE_DIR/agents" --out "$CODEX_AGENT_DIR" ${dry_flag:+"$dry_flag"}; then
+  ok "Codex agent 정의"
+else
+  warn "Codex agent 정의 생성 실패"; codex_failed="$codex_failed agents"
+fi
 
 # --- 5. rtk (standalone 설치본 선택) ---
 if have rtk; then
@@ -100,15 +110,6 @@ if have rtk; then
 else
   skip "rtk 미설치(선택)"
 fi
-
-# --- 6. MCP 등록 (홈 ~/.claude.json) ---
-mcp_list="$(claude mcp list 2>/dev/null || true)"
-if printf '%s\n' "$mcp_list" | grep -qi '^codegraph'; then skip "codegraph MCP 등록됨"; else
-  run "codegraph install -y"; do_cmd codegraph install -y && ok "codegraph MCP 등록"; fi
-
-# --- 7. codegraph init (~/.claude 인덱스) ---
-if [ -d "$CLAUDE_DIR/.codegraph" ]; then skip "codegraph 인덱스 있음"; else
-  run "codegraph init $CLAUDE_DIR"; do_cmd codegraph init "$CLAUDE_DIR" && ok "codegraph init"; fi
 
 # --- 8. zshrc env (marker 블록 멱등 교체) ---
 ZSHRC="$HOME/.zshrc"; M_START="# >>> claude-bootstrap env >>>"; M_END="# <<< claude-bootstrap env <<<"
@@ -159,4 +160,8 @@ git config --global user.email >/dev/null 2>&1 || warn "git user.email 미설정
 if have gh; then gh auth status >/dev/null 2>&1 || warn "gh 미인증 — gh auth login"; else warn "gh 미설치 — brew install gh"; fi
 
 echo
+if [ -n "$codex_failed" ]; then
+  warn "Codex 연결 실패:$codex_failed — 원인은 위 installer·생성기 메시지(충돌·python3 부재·원본 형식). 충돌은 scripts/bootstrap/README.md 'Codex 연결 충돌' 절에 따라 정리한 뒤 재실행."
+  exit 1
+fi
 ok "부트스트랩 완료. 새 셸을 열거나 'source ~/.zshrc' 후 'claude' 실행."

@@ -2,7 +2,7 @@
 title: unknowns-discovery
 category: concept
 created: 2026-07-16
-updated: 2026-09-07
+updated: 2026-09-28
 sources:
   - [[fable-field-guide-unknowns]]
   - plans/2026-07-07-unknowns-pass (dlc 반영 설계)
@@ -19,7 +19,7 @@ sources:
 | References | Explore(기존 파일·같은 레이어 스타일 참조) + 사용자 제공 예시 | 기존 |
 | Blind spot scans | 명확화 절 "blind-spot pass"(낯선 영역 브리핑 후 질문 재구성) | 신규(이번) |
 | Mockups (프로토타입-우선) | 명확화 절 프로토타입-우선 + router `[dlc:grounding]` 주입(취향·시각은 구현 전 변형 2~4종) | 신규(이번) |
-| Explainer & Quiz | Report recap "변경 이해 리포트+퀴즈" 옵션(§3-6) | 기존(#79 finish-recap) |
+| Explainer & Quiz | 없음 — Report 선택지의 "변경 이해 리포트+퀴즈" 옵션(#79 finish-recap)을 제거했다. 2026-08-31~09-28 에 14회 제시·0회 선택(Windows 세션 로그 집계)이었고, AskUserQuestion 선택지 상한 4개를 기본 세트가 채워 넣을 때마다 기본 선택지 하나를 밀어냈다. 변경 설명이 필요하면 사용자가 요청한다 | 제거(2026-09-28) |
 | Implementation Notes (deviations 기록) | §10 [[plan-handoff|plan]] 진행 중 동기화(계획↔실제 어긋남 즉시 반영) | 기존 |
 
 ## 원칙

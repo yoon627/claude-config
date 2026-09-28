@@ -1,5 +1,8 @@
 #!/bin/sh
-# SessionStart 자동 pull — `~/.claude` 를 origin/main 으로 fast-forward 한다.
+# SessionStart 자동 pull — `~/.claude` 를 CI 가 통과시킨 origin/main 커밋까지 fast-forward 한다.
+# CI(lint.yml 의 record-verified)가 lint 를 통과한 main sha 를 ci/verified 브랜치의 기록 커밋
+# (파일 main-sha 하나)으로 남기고, 여기서는 그 sha 가 origin/main 위에 있을 때만 그 커밋까지 간다.
+# CLAUDE_AUTOPULL_VERIFY=0 이면 검증 없이 origin/main 까지 간다(판정 술어는 session-brief.js 와 같다).
 #
 # 계약: 어떤 경로에서도 exit 0. async 훅이라 세션 시작을 막지는 않지만, 비0 으로 새면 하니스가
 # 경고를 띄우고 이 훅은 매 세션 도는 자기 배포 경로라 그 잡음이 영구화된다.
@@ -26,6 +29,8 @@ main() {
 
   [ "$(git -C "$repo" rev-parse --abbrev-ref HEAD 2>/dev/null)" = main ] || exit 0
   before="$(git -C "$repo" rev-parse HEAD 2>/dev/null)" || exit 0
+  verify=1
+  [ "${CLAUDE_AUTOPULL_VERIFY:-}" = 0 ] && verify=
 
   # 상한을 먼저 정한다. 비숫자면 산술식이 0 으로 평가돼 deadline=now 가 되고, 자동 pull 이
   # 무음으로 매번 즉시 죽는다. 상한값이 하니스 timeout(15s)을 넘으면 하니스가 먼저 훅을 죽이는데
@@ -44,6 +49,21 @@ main() {
   # fetch 와 merge 를 쪼개는 이유: 워치독의 kill 이 ff-merge 도중에 떨어지면 `.git/index.lock`
   # 이 남고 워킹트리가 반만 갱신된다. 그 lock 은 이후 모든 pull 을 무음 실패시켜, 이 훅이
   # 없애려는 "조용히 안 도는" 상태를 스스로 만든다. kill 대상은 항상 네트워크 단계여야 한다.
+  #
+  # main 과 기록을 한 번에 받는다 — 같은 ref 광고 스냅샷이어야 둘의 관계를 판단할 수 있다.
+  # 기록 refspec 은 glob 이라 기록이 없어도 fetch 가 실패하지 않고, `+` 는 기록이 삭제 뒤 새 root 로
+  # 다시 생겼을 때 받기 위해, `--prune` 은 원격이 지운 기록의 옛 값으로 ff 하지 않기 위해(명령줄
+  # refspec 범위만 지운다) 있다. ff 는 추적 ref 로 하므로 사용자의 FETCH_HEAD 는 건드리지 않는다.
+  # 검증을 끄면 예전 명령(`fetch origin main`)으로 돌아간다 — 새 fetch 가 어떤 머신에서 깨졌을 때의
+  # 머신 단위 탈출구다. MSYS 경로 변환은 끄지 않는다: `MSYS_NO_PATHCONV`·`MSYS2_ARG_CONV_EXCL='*'` 는
+  # 이 명령의 인자 전부에 걸려 Git Bash 의 `-C /c/Users/...` 까지 native git 에 그대로 넘겨 fetch 가
+  # 매번 실패한다. refspec 은 `/` 로 시작하지 않아 변환 대상이 아니다.
+  if [ -n "$verify" ]; then
+    set -- --prune --no-write-fetch-head origin \
+      '+refs/heads/main:refs/remotes/origin/main' '+refs/heads/ci/*:refs/remotes/origin/ci/*'
+  else
+    set -- origin main
+  fi
   #
   # stdio 를 끊지 않으면 백그라운드 자식이 호출자의 파이프를 물고 있어, 이 스크립트를 파이프로
   # 읽는 쪽(테스트·CI)이 자식이 죽을 때까지 반환하지 못한다.
@@ -68,7 +88,7 @@ main() {
     -c credential.helper= \
     -c http.lowSpeedLimit=1000 \
     -c http.lowSpeedTime=10 \
-    fetch --quiet origin main >/dev/null 2>&1 </dev/null &
+    fetch --quiet "$@" >/dev/null 2>&1 </dev/null &
   _pid=$!
   [ -z "$_launch" ] && set +m
 
@@ -93,17 +113,29 @@ main() {
     fi
     sleep 0.2
   done
-  # fetch 가 kill 됐거나 실패했으면 여기서 끝낸다. 그냥 지나가면 **이전 세션이 남긴 stale
-  # FETCH_HEAD** 로 origin 과 한 번도 통신하지 않은 채 ff 하고 "updated" 까지 출력한다.
+  # fetch 가 kill 됐거나 실패했으면 여기서 끝낸다. 그냥 지나가면 **이전 세션이 남긴 추적 ref**
+  # 로 origin 과 한 번도 통신하지 않은 채 ff 하고 "updated" 까지 출력한다.
   wait "$_pid" 2>/dev/null || exit 0
 
-  git -C "$repo" merge --ff-only --quiet FETCH_HEAD >/dev/null 2>&1 || exit 0
+  target=refs/remotes/origin/main
+  if [ -n "$verify" ]; then
+    target="$(git -C "$repo" show refs/remotes/origin/ci/verified:main-sha 2>/dev/null)" || exit 0
+    # HEAD 와 같은 길이의 16진수만 받는다 — 그 밖의 문자열은 git 이 ref 이름으로 풀 수 있다.
+    # 범위(0-9a-f)가 아니라 문자 목록이다: macOS sh(bash 3.2)는 UTF-8 로케일에서 범위에 A-F·é 를 넣는다.
+    case "$target" in '' | *[!0123456789abcdef]*) exit 0 ;; esac
+    [ "${#target}" -eq "${#before}" ] || exit 0
+    # main 위의 커밋만 — 재작성 직후 기록 job 이 아직 돌지 않은 창에서 main 밖으로 가지 않는다.
+    git -C "$repo" merge-base --is-ancestor "$target" refs/remotes/origin/main 2>/dev/null || exit 0
+  fi
+  git -C "$repo" merge --ff-only --quiet "$target" >/dev/null 2>&1 || exit 0
 
   after="$(git -C "$repo" rev-parse HEAD 2>/dev/null)" || exit 0
   if [ "$before" != "$after" ]; then
+    _how=
+    [ -n "$verify" ] && _how='CI-verified, '
     # `~/.claude` 는 경로가 아니라 사용자에게 보여줄 이름이다 — 확장되면 안 된다.
     # shellcheck disable=SC2088
-    echo "~/.claude updated from origin/main ($before -> $after); review pulled changes before relying on scripts/hooks this session."
+    echo "~/.claude updated from origin/main (${_how}$before -> $after); review pulled changes before relying on scripts/hooks this session."
   fi
   exit 0
 }

@@ -1,8 +1,8 @@
 ---
 title: repo-audit-fixes — .claude 설정 레포 전반 감사 후 일괄 버그/개선 수정
-status: in_progress
+status: done
 started: 2026-06-11
-updated: 2026-06-11
+updated: 2026-09-25
 ---
 
 # Goal
@@ -12,8 +12,12 @@ updated: 2026-06-11
 # Progress
 
 - 2026-06-11: dlc structural 진입. 감사 5건 완료 — ①JS 4파일(statusline·subagent-statusline·codex-quota-refresh·notify-hook) ②scripts 9파일(gwl·install-*·pre-commit-check·notify*·prompt-gwl) ③wt python(heal_submodules+test) ④문서 정합성(README·CLAUDE.md·SKILL·agents·docs) ⑤settings.json 유효성. code-reviewer 3건은 codex 병행. worktree 생성·진입. **수정 0건** — 구현 직전 사용자가 `/e` 호출로 마무리. 감사 산출물을 본 plan 에 보존(아래 Next 가 구현 체크리스트). worktree clean → 임시 커밋 없음.
+- 2026-09-25: 전체 감사(workflow)에서 106일 방치 확인 — 가리키는 worktree·branch 없음. 항목별 재확인: G8 README:38·wt 절·agents 절대경로·codex-review.md:3 과 G9 python CI 만 해소(다른 PR), 나머지는 미수정. 사용자 선택 "닫고 미해소만 새 plan"으로 종료하고 미체크 항목을 `plans/2026-09-25-repo-audit-remaining/repo-audit-remaining-plan.md` 로 이관.
 
 # Next
+
+(종료 — 아래 체크리스트는 이력용. 미체크 항목은 `plans/2026-09-25-repo-audit-remaining/repo-audit-remaining-plan.md` 에서 이어간다.)
+
 
 **구현 시작 — G1(보안)부터 우선순위순. 각 그룹 1커밋.** 다음 세션은 `/wt repo-audit-fixes` 진입 후 `/c`. 구현 후 code-reviewer(보안 그룹은 codex 병행) → 검증(아래 Decisions 의 검증 명령).
 
@@ -55,15 +59,15 @@ updated: 2026-06-11
 - [ ] `[*.ps1] charset = utf-8-bom` 추가: 현재 `[*] charset=utf-8` 가 gwl.ps1/notify-hook.ps1 의 BOM(`→`·한글 깨짐 방지, 바이트 efbbbf 확인)과 충돌 — editorconfig 준수 저장 시 BOM 제거 회귀.
 
 ## G8 — 문서 drift
-- [ ] **README:38**: "SessionStart hook 이 pwsh 있으면 매 세션 자동 등록" — 제거됨(L345/355, settings.json 엔 git pull 만). → "수동 1회 실행 필요".
+- [x] (2026-09-25 해소 — 문구 없음) **README:38**: "SessionStart hook 이 pwsh 있으면 매 세션 자동 등록" — 제거됨(L345/355, settings.json 엔 git pull 만). → "수동 1회 실행 필요".
 - [ ] **README:444/449**: rollback 의 `git push --force-with-lease origin main` 이 자체 pre-push hook 에 차단됨 + 가드의 main/master push 차단 기능이 D섹션(107-109 등)에 미기재. → `--no-verify` 필요 명시 + 가드 기능에 "main/master 직접 push 차단" 추가.
-- [ ] **README wt 섹션(306-313)+Layout(494-495)**: `.env` 자동복사·heal_submodules self-heal·bootstrap 미반영, `heal_submodules.py`/`test_*.py` 미등재. → 추가.
-- [ ] **agents codex 참조 절대경로화**: `code-reviewer.md:51`, `plan-reviewer.md:39`, `architecture-reviewer.md:96,105` 의 `docs/codex-review.md`(상대) → `~/.claude/docs/codex-review.md`(codex-review.md:5 가 "절대경로 명시 참조" 규약, subagent 는 대상 repo cwd 라 상대 해석 불가).
+- [x] (2026-09-25 해소 — README:332-333) **README wt 섹션(306-313)+Layout(494-495)**: `.env` 자동복사·heal_submodules self-heal·bootstrap 미반영, `heal_submodules.py`/`test_*.py` 미등재. → 추가.
+- [x] (2026-09-25 해소 — code-reviewer.md:71·plan-reviewer.md:39·architecture-reviewer.md:96) **agents codex 참조 절대경로화**: `code-reviewer.md:51`, `plan-reviewer.md:39`, `architecture-reviewer.md:96,105` 의 `docs/codex-review.md`(상대) → `~/.claude/docs/codex-review.md`(codex-review.md:5 가 "절대경로 명시 참조" 규약, subagent 는 대상 repo cwd 라 상대 해석 불가).
 - [ ] **external codex 모드 비대칭**: `code-reviewer.md`/`plan-reviewer.md` 에 `CLAUDE_REVIEW_CODEX_MODE=external` 인지 문단 없음(arch:126 엔 있음). → 대칭 문단 추가.
-- [ ] **codex-review.md:3** "각 agent 의 흩어진 codex 호출 블록을 대체한다" — 실제 인라인 블록 잔존(code-reviewer.md:52-61 등)이라 거짓 + 사본 drift(Nit 등급 불일치). → "공통 규약 정의, agent 인라인 예시는 본 문서 우선"으로 정정하거나 인라인 블록 실제 제거.
+- [x] (2026-09-25 해소 — agents 에 인라인 `codex exec` 블록 0건, 각 agent 가 고유 트리거·프롬프트만 둔다) **codex-review.md:3** "각 agent 의 흩어진 codex 호출 블록을 대체한다" — 실제 인라인 블록 잔존(code-reviewer.md:52-61 등)이라 거짓 + 사본 drift(Nit 등급 불일치). → "공통 규약 정의, agent 인라인 예시는 본 문서 우선"으로 정정하거나 인라인 블록 실제 제거.
 
 ## G9 — CI lint.yml [py/ps1 전면 미커버 — 17개 test 가 CI 미실행]
-- [ ] python: `actions/setup-python` + `python -m unittest`(skills/wt, 로컬 17 OK) + `py_compile` 3파일(prompt-gwl·heal_submodules·test).
+- [x] (2026-09-25 해소 — lint.yml:35 `verify.sh python`) python: `actions/setup-python` + `python -m unittest`(skills/wt, 로컬 17 OK) + `py_compile` 3파일(prompt-gwl·heal_submodules·test).
 - [ ] secret-guard 서버측 백스톱: `bash scripts/pre-commit-check.sh pre-push` 상당(훅은 클론별 opt-in 이라 미설치 PR 토큰 무방비).
 - [ ] (선택) statusline 스모크(docs mock JSON + `{}`·`null` 파이프 → exit0), ps1 파싱 체크.
 
@@ -81,6 +85,8 @@ updated: 2026-06-11
 - **손대지 않음(사용자 진행분)**: main worktree 의 `settings.json` uncommitted `model`/`effortLevel` 키. effortLevel:xhigh 가 env CLAUDE_CODE_EFFORT_LEVEL=max 와 충돌(env override)하나 사용자 판단 영역 — 보고만.
 - **검증 명령**: `node --check {statusline,subagent-statusline,codex-quota-refresh,scripts/notify-hook}.js` / `node -e "JSON.parse(fs.readFileSync('settings.json'))"` / `python skills/wt/test_heal_submodules.py`(또는 `-m unittest`) / `python -m py_compile` 3파일 / shellcheck(로컬 미설치 가능 — CI 의존). lint.yml 이 CI 진실.
 - **그룹 우선순위**: G1(보안)→G2(보안)→G3·G4(라이브 버그)→G5·G6·G7→G8·G9(문서·CI). 보안 2그룹은 code-reviewer + codex 병행.
+
+- **종료 (2026-09-25)**: 사용자 선택 "닫고 미해소만 새 plan". 이유: 106일 방치로 가리키는 worktree·branch 가 없고, session-brief 가 매 세션 '닫히지 않은 plan' 으로 띄우는데 이어받으면 없는 worktree 로 안내한다. 미해소 항목은 현재 줄번호로 재확인해 새 plan 으로 옮겼다. 위 '작업 위치' 결정은 실효.
 
 # Key Files
 

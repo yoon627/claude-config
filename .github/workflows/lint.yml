@@ -6,11 +6,18 @@ on:
   pull_request:
     branches: [main]
 
+# lint 는 repo 코드를 돌리므로 읽기만. 쓰기는 아래 record-verified 가 job 단위로 받는다.
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # the secret scan below needs the base commit and everything after it
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -34,11 +41,24 @@ jobs:
       - name: Python tests
         run: bash scripts/verify.sh python
 
+      # 로컬 pre-push 훅의 서버측 백스톱(사후 탐지 — push 는 이미 공개됐다): 훅이 없거나
+      # --no-verify 로 건너뛴 PR·main push 도 같은 가드로 스캔한다. PR 은 checkout 된 merge 커밋이
+      # 아니라 PR head 를 그 merge 의 첫 부모(base tip) 기준으로 본다 — merge 를 보면 main 쪽
+      # 추가분까지 PR 탓이 되고, payload 의 base.sha 는 옛 값일 수 있다. push 는 push 전 tip
+      # 기준이고, 새 브랜치나 force push 로 사라진 base 는 전체 이력을 본다.
+      - name: Secret scan (pushed range, pre-push guard)
+        # also when a test step failed: a main push that skips this scan is never rescanned
+        if: ${{ !cancelled() }}
+        run: >-
+          bash scripts/ci-secret-scan.sh
+          "${{ github.event_name == 'pull_request' && 'HEAD^1' || github.event.before }}"
+          "${{ github.event.pull_request.head.sha || github.sha }}"
+
       - name: Plan integrity (changed plans, non-blocking)
         if: github.event_name == 'pull_request'
         continue-on-error: true
         run: |
-          git fetch --no-tags --depth=1 origin "+refs/heads/$GITHUB_BASE_REF:refs/remotes/origin/$GITHUB_BASE_REF" || true
+          git fetch --no-tags origin "+refs/heads/$GITHUB_BASE_REF:refs/remotes/origin/$GITHUB_BASE_REF" || true
           git diff --name-only "origin/$GITHUB_BASE_REF" HEAD -- 'plans/*/*-plan.md' \
             | xargs node scripts/plan-lint.js
 
@@ -55,3 +75,80 @@ jobs:
       # 이 환경에서 안 돈 점검을 요약에 명시한다.
       - name: Operational asset integrity
         run: bash skills/improve/improve.sh --ci
+
+  # main push 의 lint 가 통과하면 그 커밋을 ci/verified 브랜치에 기록한다 — SessionStart 자동 pull
+  # (scripts/session-start-pull.sh)은 여기 기록된 커밋까지만 ff 한다(CI 를 거치지 않은 훅 코드가 다음
+  # 세션에 바로 실행되는 것을 막는다). `main-sha` 파일이 그 스크립트·session-brief.js 와의 계약이다:
+  # repo 해시 길이의 소문자 16진수, 개행 없음. 기록은 main 커밋을 가리키는 ref 가 아니라 이 파일 하나만
+  # 든 커밋이다: GITHUB_TOKEN 은 workflows 권한을 받을 수 없어 workflow 파일이 바뀐 커밋으로 ref 를
+  # 옮기는 것이 거부될 수 있다. workflow 파일이 없는 트리는 REST 로도 기록된다(2026-09-26 첫 기록 확인).
+  # 쓰기 토큰을 가진 job 이라 checkout 도 repo 코드도 없이 REST API 만 쓴다 — 로직은 lint job 의
+  # scripts/record-verified.test.sh 가 이 run 블록을 그대로 꺼내 가짜 gh 로 검사한다. 기록 값은 늘
+  # "lint 통과 + 기록 시점에 main 에서 도달 가능" 이고 뒤로 가지 않는다.
+  record-verified:
+    needs: lint
+    # always()·!cancelled() 를 넣지 않는다 — 암묵 success() 가 lint 실패·취소 때 이 job 을 건너뛰게 한다.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    # job 단위다. workflow 단위면 lint run 이 취소돼 그 main push 의 비밀 스캔이 빠진다.
+    concurrency:
+      group: record-verified
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      SHA: ${{ github.sha }}
+    steps:
+      - name: Record this commit on ci/verified
+        run: |
+          set -euo pipefail
+          # main 이 아직 이 커밋을 담고 있나: compare/<sha>...main 이 ahead(main 이 더 나감)나
+          # identical 이면 담고 있다. behind·diverged 와 404(재작성으로 사라진 커밋, 공통 조상 없음)는
+          # main 밖이다. 그 밖의 API 오류는 판단할 수 없으니 job 을 실패시킨다 — 삼키면 green 인 채
+          # 기록이 멈추거나 뒤로 간다.
+          on_main() {
+            local status err="$RUNNER_TEMP/compare.err"
+            if status="$(gh api "repos/$REPO/compare/$1...main" --jq .status 2>"$err")"; then
+              [ "$status" = ahead ] || [ "$status" = identical ]
+              return
+            fi
+            grep -q '(HTTP 404)' "$err" && return 1
+            cat "$err" >&2
+            exit 1
+          }
+          if ! on_main "$SHA"; then
+            echo "$SHA is no longer on main; not recording it"
+            exit 0
+          fi
+          record="$(gh api "repos/$REPO/git/matching-refs/heads/ci/verified" \
+            --jq '.[] | select(.ref == "refs/heads/ci/verified") | .object.sha')"
+          if [ -n "$record" ]; then
+            recorded="$(gh api -H 'Accept: application/vnd.github.raw' "repos/$REPO/contents/main-sha?ref=$record" | tr -d '[:space:]')"
+            if [ "$recorded" = "$SHA" ]; then
+              echo "$SHA is already recorded"
+              exit 0
+            fi
+            # 먼저 push 된 커밋의 run 이 늦게 끝나도 기록을 뒤로 돌리지 않는다. 비교 결과는 변수로
+            # 받아야 API 실패가 set -e 에 걸린다([ ] 인자 안의 치환은 실패가 버려진다).
+            if on_main "$recorded"; then
+              relation="$(gh api "repos/$REPO/compare/$SHA...$recorded" --jq .status)"
+              if [ "$relation" = ahead ]; then
+                echo "$recorded is newer than $SHA; keeping it"
+                exit 0
+              fi
+            fi
+          fi
+          tree="$(jq -n --arg sha "$SHA" '{tree: [{path: "main-sha", mode: "100644", type: "blob", content: $sha}]}' |
+            gh api "repos/$REPO/git/trees" --input - --jq .sha)"
+          commit="$(jq -n --arg tree "$tree" --arg parent "$record" --arg msg "ci: verified $SHA" \
+            '{message: $msg, tree: $tree, parents: (if $parent == "" then [] else [$parent] end)}' |
+            gh api "repos/$REPO/git/commits" --input - --jq .sha)"
+          if [ -n "$record" ]; then
+            gh api -X PATCH "repos/$REPO/git/refs/heads/ci/verified" -f "sha=$commit" -F force=false >/dev/null
+          else
+            gh api "repos/$REPO/git/refs" -f ref=refs/heads/ci/verified -f "sha=$commit" >/dev/null
+          fi
+          echo "ci/verified -> $SHA (record commit $commit)"
