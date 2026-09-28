@@ -12,7 +12,7 @@
 - [[worktree-per-task]] — 작업마다 격리 worktree(wt skill·자동 bootstrap·삭제 조건).
 - [[claude-codex-collaboration]] — Claude(구현·통합)↔Codex(리뷰·검증) 병행(§9·리뷰 매트릭스).
 - [[feedback-memory]] — 사용자 교정의 영속화(§12·MEMORY.md 인덱스=행동지시문).
-- [[unknowns-discovery]] — 구현 전 unknowns(unknown unknowns) 능동 발굴 기법→dlc 매핑(blind-spot·질문우선순위·프로토타입-우선·퀴즈·deviations·Intent 기록).
+- [[unknowns-discovery]] — 구현 전 unknowns(unknown unknowns) 능동 발굴 기법→dlc 매핑(blind-spot·질문우선순위·프로토타입-우선·deviations·Intent 기록; 퀴즈 옵션은 사용 0회로 제거 2026-09-28).
 
 ## entity
 - [[anthropic-claude-models]] — 현재 라인업(2026-09-27): Fable 5.1 $10/$50·Opus 5.5 $4/$20(기본 effort medium)·Sonnet 5 $2/$10(인상 취소)·Haiku 4.5(은퇴 2026-10-15 이후), Opus 5·Fable 5 는 legacy. 공식 권장 "Opus 5.5 부터", Fable 주간 50% 캡, 모델별 기본 effort·Claude Code effort 해석, 안전 분류기 폴백. 2026-08 의 Opus5≥Fable5 구도는 역사 기록.
