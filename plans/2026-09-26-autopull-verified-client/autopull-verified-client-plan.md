@@ -2,7 +2,7 @@
 title: autopull-verified-client — SessionStart 자동 pull 이 ci/verified 에 기록된 커밋까지만 ff, 보류 사유는 세션 브리프가 알림
 status: in_progress
 started: 2026-09-26
-updated: 2026-09-26
+updated: 2026-09-28
 intent: plans/2026-09-25-repo-audit-followups/intent.md
 ---
 
@@ -57,10 +57,11 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 - 2026-09-26: plan-reviewer CONDITIONAL — 강 2(Windows 미검증인데 깨지면 무음·push 로 못 고침, rollback·가장 비싼 단계 없음 / 조상·형식·`+` 가 테스트로 안 잠김, "기록=tip" Red 주장 오류)·약 다수. probe 5개 실측(새 root 재기록·D/F·pruneTags·ff-only no-op·no-write-fetch-head). plan 보강.
 - 2026-09-26: 자동 pull — 테스트 먼저(Red: 옛 스크립트에서 (b)(c)(d)(e)(f)(g)(i)·FETCH_HEAD 8건 실패, (a)(h) 는 잠금으로 통과) → 구현 → 28/28. mutation 4종: `--prune`·조상·`+` 는 첫 시도에 잡힘, 형식 확인 제거는 **살아남음**(기록 내용이 24자라 길이 확인이 대신 막았다) → (f) fixture 를 40자 이름(`refs/remotes/origin/main~0…`)으로 바꿔 잡힘. 브리프 — **순서 이탈: 구현을 테스트보다 먼저 썼다.** 테스트를 쓴 뒤 HEAD 의 옛 브리프로 돌려 Red 확인(ⓝ15~ⓝ19·ⓝ21 실패, ⓝ20 잠금 통과) → 83/83. 문서: lint.yml 주석, README(N·CI·SessionStart·끄기·트리), wiki·index·log. check_links clean, shellcheck ok.
 - 2026-09-26: code-reviewer(Codex 미가용) REQUEST CHANGES — Critical 1(MSYS 변수가 `-C` 경로 변환까지 꺼 Windows 자동 pull 이 매번 무음 실패), Minor 5, 권고 1, Nit 6, refuted 7. fix: MSYS 변수 제거 + 재도입 방지 단언, VERIFY=0 은 예전 fetch(탈출구 — (i2)), 16진 판정 문자 목록, 브리프 끝 개행만 제거(ⓝ18b), 모든 기록 사유에 "마지막 fetch 기준", 길이 확인 테스트((f2)), 문서 정정. fetch 지속 실패 신호는 Deferred. 최종 검증(격리 runner): 자동 pull 31/31, 브리프 84/84, mutation 6/6 잡힘, 옛 브리프 RED 7(ⓝ15~19·18b·21), `verify.sh` `ALL PASS`(skip 없음), plan-lint·link clean. evidence gate: Acceptance 1~5 충족, [post-merge] 1건. 판정 DONE(통합 대기). targeted 재리뷰는 생략 — Critical 수정이 제거이고 mutation·테스트가 새 경로를 잠근다(Report 에 명시).
+- 2026-09-28: Windows 확인(Git Bash MINGW64, git 2.55.0.windows.5) — 이슈 #189 의 fetch 명령 rc=0(rtk 래퍼 없이 `/mingw64/bin/git.exe` 로 다시 돌려도 rc=0), `origin/ci/verified` 수신. 원격 브랜치로 worktree 를 만들어 `session-start-pull.test.js` 31/31·`session-brief.test.js` 84/84 Windows 통과. 전체 `verify.sh` 는 Windows 에서 기존 결함 5종으로 실패(Deferred — origin/main 재현으로 이 브랜치 무관 입증). Acceptance 5 의 `ALL PASS` 는 2026-09-26 macOS 실행 증거로 유지하고, 머지 전 CI(ubuntu)에서 다시 확인한다.
 
 # Next
 
-커밋 `cc4dd46` 완료. 사용자 선택 "Windows 한 줄 확인 후 머지" — 사용자가 Windows Git Bash 에서 `git --version; git -C ~/.claude fetch --quiet --prune --no-write-fetch-head origin '+refs/heads/main:refs/remotes/origin/main' '+refs/heads/ci/*:refs/remotes/origin/ci/*'; echo rc=$?` 결과(버전 ≥ 2.29, rc=0)를 알려 주면 `/e merge`. rc≠0 이면 원인부터 본다(머지 보류).
+Windows 확인 통과(2026-09-28). 다음은 `/e merge`(push·PR·CI·머지) — 사용자 승인 뒤 실행. 브랜치가 origin/main 보다 46커밋 뒤라 PR 전에 main 을 반영하고 테스트를 다시 돌린다.
 
 # Decisions
 
@@ -103,5 +104,8 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 # Blockers
 
 # Deferred
+
+- (높음, 이 브랜치 무관 — origin/main 재현) Windows 에서 `bash scripts/verify.sh` 가 `skills/commit-check/test_commit_units.py` 에서 무한 대기한다. 테스트의 `subprocess.run(..., input=…, text=True)` 가 encoding 을 지정하지 않아 cp1252 로 한글 메시지를 쓰다 writer 스레드가 `UnicodeEncodeError` 로 죽고, stdin 이 닫히지 않아 `git commit -F -` 가 끝나지 않는다. CI 는 ubuntu(UTF-8)라 안 드러남. `PYTHONUTF8=1` 이면 우회된다. 수정은 별도 작업(`encoding="utf-8"` 명시). `skills/commit-check/test_commit_units.py:48,72,132,775`.
+- (중간, 이 브랜치 무관 — origin/main `0f8d6f4` 에서 같은 결과로 재현) Windows 에서 `PYTHONUTF8=1 bash scripts/verify.sh` 는 `FAILED: 4`: `install-hooks.test.js` 의 `[ps1]` 6건, `pre-commit-check.test.sh` 의 `[ps1] HOME/.claude repo main/master push`(이슈 #190 항목 5 와 같은 증상), `record-verified.test.sh`(`jq` 미설치), `commit-check` 의 서명 위조 테스트 2건(`hash-object` rc 128). 이 브랜치 diff 는 이 파일들을 건드리지 않는다. 처리는 #190(windows-ps1-verify) 쪽.
 
 - (중간) 자동 pull 의 fetch 가 어떤 머신에서 계속 실패해도 브리프 N 은 침묵한다(캐시가 전진하지 않아 behind 가 0). 스크립트가 fetch 시도·성공 시각을 `.git` 에 남기고 N 이 "시도는 있는데 성공이 N일째 없음" 을 알리는 신호 — 성공 stamp 만으로는 새 스크립트가 처음부터 깨진 경우를 못 잡는다(stamp 가 영영 생기지 않는다). `scripts/session-start-pull.sh`, `scripts/session-brief.js`.
