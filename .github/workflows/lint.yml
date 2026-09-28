@@ -76,12 +76,12 @@ jobs:
       - name: Operational asset integrity
         run: bash skills/improve/improve.sh --ci
 
-  # main push 의 lint 가 통과하면 그 커밋을 ci/verified 브랜치에 기록한다 — 후속 단위
-  # (autopull-verified-client)에서 SessionStart 자동 pull 이 여기 기록된 커밋까지만 ff 하게 된다
-  # (CI 를 거치지 않은 훅 코드가 다음 세션에 바로 실행되는 것을 막으려고). 기록은 main 커밋을
-  # 가리키는 ref 가 아니라 `main-sha` 파일 하나만 든 커밋이다: GITHUB_TOKEN 은 workflows 권한을
-  # 받을 수 없어 workflow 파일이 바뀐 커밋으로 ref 를 옮기는 것이 거부될 수 있다. workflow 파일이
-  # 없는 트리는 gh-pages 배포가 git push 로 늘 올리는 형태다(REST 경로는 머지 후 첫 기록으로 확인).
+  # main push 의 lint 가 통과하면 그 커밋을 ci/verified 브랜치에 기록한다 — SessionStart 자동 pull
+  # (scripts/session-start-pull.sh)은 여기 기록된 커밋까지만 ff 한다(CI 를 거치지 않은 훅 코드가 다음
+  # 세션에 바로 실행되는 것을 막는다). `main-sha` 파일이 그 스크립트·session-brief.js 와의 계약이다:
+  # repo 해시 길이의 소문자 16진수, 개행 없음. 기록은 main 커밋을 가리키는 ref 가 아니라 이 파일 하나만
+  # 든 커밋이다: GITHUB_TOKEN 은 workflows 권한을 받을 수 없어 workflow 파일이 바뀐 커밋으로 ref 를
+  # 옮기는 것이 거부될 수 있다. workflow 파일이 없는 트리는 REST 로도 기록된다(2026-09-26 첫 기록 확인).
   # 쓰기 토큰을 가진 job 이라 checkout 도 repo 코드도 없이 REST API 만 쓴다 — 로직은 lint job 의
   # scripts/record-verified.test.sh 가 이 run 블록을 그대로 꺼내 가짜 gh 로 검사한다. 기록 값은 늘
   # "lint 통과 + 기록 시점에 main 에서 도달 가능" 이고 뒤로 가지 않는다.

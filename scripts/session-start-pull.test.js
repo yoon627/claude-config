@@ -20,6 +20,8 @@ const path = require('path');
 const { execFileSync, spawnSync } = require('child_process');
 
 for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE']) delete process.env[k];
+// 실행하는 셸의 자동 pull 스위치(CLAUDE_AUTOPULL_OFF·_VERIFY·_TIMEOUT)가 결과를 뒤집지 않게.
+for (const k of Object.keys(process.env)) if (k.startsWith('CLAUDE_AUTOPULL_')) delete process.env[k];
 
 let n = 0;
 const ok = (name, fn) => { fn(); n++; };
@@ -44,11 +46,26 @@ const COMMAND = ENTRY.command;
 function git(dir, args) {
   execFileSync('git', ['-C', dir, ...args], { stdio: 'ignore' });
 }
+function gitOut(dir, args, input) {
+  return execFileSync('git', ['-C', dir, ...args], { input, stdio: ['pipe', 'pipe', 'ignore'] }).toString().trim();
+}
 
-// fixture HOME 에 <home>/.claude 를 만들고, origin 이 1커밋 앞선 상태로 둔다.
+// CI(record-verified job)가 만드는 모양의 기록을 origin 의 ci/verified 에 올린다: 파일 main-sha 하나,
+// 부모 = 직전 기록(root 면 없음). 올리는 쪽은 other — client 의 추적 ref 를 건드리지 않아야 한다.
+function pushRecord(other, content, { root = false } = {}) {
+  const blob = gitOut(other, ['hash-object', '-w', '--stdin'], content);
+  const tree = gitOut(other, ['mktree'], `100644 blob ${blob}\tmain-sha\n`);
+  const parent = root ? '' : gitOut(other, ['ls-remote', 'origin', 'refs/heads/ci/verified']).split(/\s/)[0];
+  const rec = gitOut(other, ['commit-tree', tree, '-m', 'record', ...(parent ? ['-p', parent] : [])]);
+  git(other, ['push', '-q', '-f', 'origin', `${rec}:refs/heads/ci/verified`]);
+  return rec;
+}
+
+// fixture HOME 에 <home>/.claude 를 만들고, origin 이 remoteCommits 만큼 앞선 상태로 둔다.
+// record: 'tip'(기본 — CI 가 origin/main tip 을 통과시킨 상태) · 'none' · 원격 커밋 번호(0부터).
 // command 가 `~/.claude` 를 쓰므로 HOME 만 갈아끼우면 실 repo 를 건드리지 않고 검증된다.
 // 스크립트도 같은 상대경로에 복사해 둬야 command 가 실제로 찾아간다.
-function makeHome({ withScript = true } = {}) {
+function makeHome({ withScript = true, remoteCommits = 1, record = 'tip' } = {}) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ssp-home-'));
   const bare = path.join(home, 'origin.git');
   const repo = path.join(home, '.claude');
@@ -67,24 +84,35 @@ function makeHome({ withScript = true } = {}) {
     fs.mkdirSync(path.join(repo, 'scripts'), { recursive: true });
     fs.copyFileSync(SCRIPT_ABS, path.join(repo, SCRIPT_REL));
   }
-  // 원격을 1커밋 앞세운다(shared.txt 변경).
+  // 원격을 remoteCommits 만큼 앞세운다(매번 shared.txt 변경).
   const other = path.join(home, 'other');
   execFileSync('git', ['clone', '-q', bare, other], { stdio: 'ignore' });
   git(other, ['config', 'user.email', 't@t']);
   git(other, ['config', 'user.name', 't']);
   git(other, ['config', 'commit.gpgsign', 'false']);
-  fs.writeFileSync(path.join(other, 'shared.txt'), 'remote');
-  git(other, ['add', '-A']);
-  git(other, ['commit', '-m', 'remote']);
+  const commits = [];
+  for (let i = 0; i < remoteCommits; i++) {
+    fs.writeFileSync(path.join(other, 'shared.txt'), `remote${i}`);
+    git(other, ['add', '-A']);
+    git(other, ['commit', '-m', `remote${i}`]);
+    commits.push(gitOut(other, ['rev-parse', 'HEAD']));
+  }
   git(other, ['push', '-q', 'origin', 'HEAD:main']);
-  return { home, repo };
+  if (record === 'tip') pushRecord(other, commits[commits.length - 1]);
+  else if (typeof record === 'number') pushRecord(other, commits[record]);
+  return { home, repo, other, commits };
 }
 
 // timeout 은 필수다. 스크립트가 fetch 를 백그라운드로 돌리므로, stdio 를 제대로 끊지 못한 회귀가
 // 들어오면 spawnSync 가 영원히 반환하지 않고 CI 가 통째로 멈춘다.
 function runChain(home, extraEnv, opts = {}) {
+  // 사용자 git 설정(이 Mac 의 전역 fetch.prune=true 등)이 새면 --prune 을 빼는 회귀가 초록이 된다.
+  // HOME 을 바꿔 ~/.gitconfig 는 막히고, system·XDG 설정은 여기서 막는다.
+  const env = { ...process.env, HOME: home, GIT_CONFIG_NOSYSTEM: '1', XDG_CONFIG_HOME: path.join(home, '.xdg'),
+    GIT_CONFIG_GLOBAL: path.join(home, '.gitconfig'), ...extraEnv };
+  for (const k of ['GIT_CONFIG_PARAMETERS', 'GIT_CONFIG_COUNT']) delete env[k];
   const r = spawnSync('sh', ['-c', COMMAND], {
-    env: { ...process.env, HOME: home, ...extraEnv },
+    env,
     encoding: 'utf8',
     timeout: opts.timeout || 30000,
   });
@@ -262,6 +290,128 @@ ok('⑩ 스크립트 파일이 없어도 세션을 막지 않는다 (배포 순�
   assert.strictEqual(code, 0);
 });
 
+// ---------- CI 검증 기록(origin/ci/verified)까지만 ff ----------
+ok('(b) 검증 기록이 없으면 ff 하지 않는다 — origin/main 추적 ref 는 갱신(브리프가 밀림을 잰다)', () => {
+  const { home, repo, commits } = makeHome({ record: 'none' });
+  const before = head(repo);
+  const { out, code } = runChain(home);
+  assert.strictEqual(code, 0);
+  assert.strictEqual(out, '');
+  assert.strictEqual(head(repo), before);
+  assert.strictEqual(gitOut(repo, ['rev-parse', 'refs/remotes/origin/main']), commits[0]);
+});
+
+ok('(c) 기록이 tip 보다 뒤면(CI 진행 중) 기록까지만 ff 한다', () => {
+  const { home, repo, commits } = makeHome({ remoteCommits: 2, record: 0 });
+  const { out, code } = runChain(home);
+  assert.strictEqual(code, 0);
+  assert.match(out, /updated from origin\/main/);
+  assert.strictEqual(head(repo), commits[0]);
+});
+
+ok('(d) 원격이 지운 기록의 옛 추적 ref 로 ff 하지 않는다(--prune)', () => {
+  const { home, repo, other } = makeHome();
+  git(repo, ['fetch', '-q', 'origin', '+refs/heads/ci/*:refs/remotes/origin/ci/*']); // 옛 기록을 받아 둔다
+  const before = head(repo);
+  // 다른 clone 에서 지운다 — 같은 clone 에서 지우면 push 가 추적 ref 를 직접 지워 prune 없이도 통과한다.
+  git(other, ['push', '-q', 'origin', '--delete', 'ci/verified']);
+  const { out, code } = runChain(home);
+  assert.strictEqual(code, 0);
+  assert.strictEqual(out, '');
+  assert.strictEqual(head(repo), before);
+});
+
+ok('(e) 기록이 origin/main 밖을 가리키면(재작성 직후) ff 하지 않는다', () => {
+  const { home, repo, other } = makeHome();
+  // 기록된 커밋을 client 가 이미 받아 둔 상태 — 그래야 조상 확인이 없을 때 merge 가 실제로 된다.
+  git(repo, ['fetch', '-q', 'origin', '+refs/heads/main:refs/remotes/origin/main', '+refs/heads/ci/*:refs/remotes/origin/ci/*']);
+  const before = head(repo);
+  // other 가 main 을 기록된 커밋의 형제로 재작성한다(기록 job 은 아직 돌지 않아 기록은 그대로).
+  git(other, ['reset', '-q', '--hard', 'HEAD~1']);
+  fs.writeFileSync(path.join(other, 'shared.txt'), 'rewritten');
+  git(other, ['commit', '-qam', 'rewritten']);
+  git(other, ['push', '-q', '-f', 'origin', 'HEAD:main']);
+  const { out, code } = runChain(home);
+  assert.strictEqual(code, 0);
+  assert.strictEqual(out, '');
+  assert.strictEqual(head(repo), before);
+});
+
+ok('(f) 기록 내용이 sha 가 아니면(git 이 푸는 이름이라도) ff 하지 않는다', () => {
+  const { home, repo, other } = makeHome({ record: 'none' });
+  // sha 와 같은 40자이면서 git 이 origin/main tip 으로 푸는 이름 — 길이 확인만으로는 막히지 않는다.
+  pushRecord(other, 'refs/remotes/origin/main~0~0~0~0~0~0~0~0');
+  const before = head(repo);
+  const { out, code } = runChain(home);
+  assert.strictEqual(code, 0);
+  assert.strictEqual(out, '');
+  assert.strictEqual(head(repo), before);
+});
+
+ok('(f2) 기록이 짧은 16진수(축약 sha)면 ff 하지 않는다 — 길이도 HEAD 와 같아야 한다', () => {
+  const { home, repo, other, commits } = makeHome({ record: 'none' });
+  pushRecord(other, commits[0].slice(0, 12)); // git 은 이 축약을 그 커밋으로 풀어 버린다
+  const before = head(repo);
+  runChain(home);
+  assert.strictEqual(head(repo), before);
+});
+
+ok('(g) 기록이 새 root 로 다시 만들어져도(정지 뒤 재기록) 받아서 따라간다', () => {
+  const { home, repo, other, commits } = makeHome({ remoteCommits: 2, record: 0 });
+  runChain(home);
+  assert.strictEqual(head(repo), commits[0]);
+  pushRecord(other, commits[1], { root: true });
+  runChain(home);
+  assert.strictEqual(head(repo), commits[1]);
+});
+
+ok('(h) HEAD 가 이미 기록보다 앞서면 되감지 않고 무음', () => {
+  const { home, repo, commits } = makeHome({ remoteCommits: 2, record: 0 });
+  git(repo, ['fetch', '-q', 'origin', 'main']);
+  git(repo, ['merge', '-q', '--ff-only', 'FETCH_HEAD']); // /e·post-checkout 이 검증 없이 당겨 온 상태
+  const { out, code } = runChain(home);
+  assert.strictEqual(code, 0);
+  assert.strictEqual(out, '');
+  assert.strictEqual(head(repo), commits[1]);
+});
+
+ok('(i) CLAUDE_AUTOPULL_VERIFY=0 이면 기록 없이 origin/main 으로 ff — 0 이 아닌 값은 검증 켜짐', () => {
+  const off = makeHome({ record: 'none' });
+  runChain(off.home, { CLAUDE_AUTOPULL_VERIFY: '0' });
+  assert.strictEqual(head(off.repo), off.commits[0]);
+  for (const value of ['off', 'false']) {
+    const on = makeHome({ record: 'none' });
+    const before = head(on.repo);
+    runChain(on.home, { CLAUDE_AUTOPULL_VERIFY: value });
+    assert.strictEqual(head(on.repo), before, `CLAUDE_AUTOPULL_VERIFY=${value}`);
+  }
+});
+
+ok('(i2) 새 fetch 가 깨진 머신에서도 CLAUDE_AUTOPULL_VERIFY=0 은 예전 fetch 로 따라간다', () => {
+  // 로컬 refs/remotes/origin/ci 가 기록 refspec 과 D/F 충돌 → 새 fetch 는 rc 1 로 매번 실패한다.
+  const { home, repo, commits } = makeHome();
+  git(repo, ['update-ref', 'refs/remotes/origin/ci', 'HEAD']);
+  const before = head(repo);
+  runChain(home);
+  assert.strictEqual(head(repo), before, '검증 켜짐이면 fetch 실패로 보류');
+  runChain(home, { CLAUDE_AUTOPULL_VERIFY: '0' });
+  assert.strictEqual(head(repo), commits[0], 'VERIFY=0 은 기록 refspec 없이 main 만 받는다');
+});
+
+ok('Git Bash 의 경로 변환을 끄지 않는다 — 끄면 -C /c/Users/... 가 native git 에 그대로 가 fetch 가 매번 실패한다', () => {
+  const code = fs.readFileSync(SCRIPT_ABS, 'utf8').split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
+  assert.doesNotMatch(code, /MSYS_NO_PATHCONV|MSYS2_ARG_CONV_EXCL/);
+});
+
+ok('사용자 FETCH_HEAD 를 덮지 않는다', () => {
+  const { home, repo, commits } = makeHome();
+  const fetchHead = path.join(repo, '.git', 'FETCH_HEAD');
+  fs.writeFileSync(fetchHead, 'user-owned\n');
+  runChain(home);
+  assert.strictEqual(head(repo), commits[0]);
+  assert.strictEqual(fs.readFileSync(fetchHead, 'utf8'), 'user-owned\n');
+});
+
 ok('⑪ 워치독이 매달린 fetch 를 상한 안에 죽인다', () => {
   const { home, repo } = makeHome();
   const before = head(repo);
@@ -287,19 +437,19 @@ ok('⑪ 워치독이 매달린 fetch 를 상한 안에 죽인다', () => {
   assert.strictEqual(head(repo), before);
 });
 
-ok('⑪-b 워치독이 죽인 뒤 stale FETCH_HEAD 로 머지하지 않는다', () => {
-  // 앞선 세션이 fetch 는 성공했는데 merge 가 거부되면 FETCH_HEAD 가 남는다. 그 상태에서
+ok('⑪-b 워치독이 죽인 뒤 이전 세션의 fetch 결과로 머지하지 않는다', () => {
+  // 앞선 세션이 fetch 는 성공했는데 merge 가 거부되면 그 결과(추적 ref)가 남는다. 그 상태에서
   // 네트워크가 죽어 fetch 가 kill 되면, 가드가 없는 구현은 **origin 과 한 번도 통신하지 않고**
-  // 옛 FETCH_HEAD 로 ff 한 뒤 "updated" 알림까지 낸다 — 사용자는 최신화됐다고 믿는다.
-  const { home, repo } = makeHome();
+  // 옛 결과로 ff 한 뒤 "updated" 알림까지 낸다 — 사용자는 최신화됐다고 믿는다.
+  const { home, repo, commits } = makeHome();
   const shared = path.join(repo, 'shared.txt');
 
-  // 1) 충돌 dirty 로 merge 를 거부시켜 stale FETCH_HEAD 를 남긴다.
+  // 1) 충돌 dirty 로 merge 를 거부시켜 fetch 결과만 남긴다.
   fs.writeFileSync(shared, 'local-dirty');
   const stale = runChain(home);
   assert.strictEqual(stale.out, '', 'merge 가 거부돼 무음이어야 한다');
   const before = head(repo);
-  assert.ok(fs.existsSync(path.join(repo, '.git', 'FETCH_HEAD')), 'fetch 는 성공했어야 한다');
+  assert.strictEqual(gitOut(repo, ['rev-parse', 'refs/remotes/origin/main']), commits[0], 'fetch 는 성공했어야 한다');
 
   // 2) dirty 를 걷어내 이제는 ff 가 가능한 상태로 만든다.
   git(repo, ['checkout', '--', 'shared.txt']);
@@ -312,7 +462,7 @@ ok('⑪-b 워치독이 죽인 뒤 stale FETCH_HEAD 로 머지하지 않는다', 
   });
 
   assert.strictEqual(code, 0);
-  assert.strictEqual(head(repo), before, 'stale FETCH_HEAD 로 ff 하면 안 된다');
+  assert.strictEqual(head(repo), before, '이전 fetch 결과로 ff 하면 안 된다');
   assert.strictEqual(out, '', '통신하지 않았는데 "updated" 를 알리면 안 된다');
 });
 

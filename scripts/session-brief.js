@@ -283,13 +283,64 @@ function stalePlanLine(repoDir, env, now) {
 
 // N: ~/.claude 가 origin/main 보다 뒤처졌을 때 **왜 자동 pull 이 못 따라잡았는지** 한 줄.
 // SessionStart 의 pull 훅은 async 라 그 stdout 이 첫 턴 뒤에야 도달한다 → 사용자가 세션 시작에
-// 보려면 동기인 이 브리프가 말해야 한다. 네트워크는 쓰지 않는다(캐시된 origin/main 으로 판정).
-// 판정이 성립하는 근거: `git pull` 은 fetch 를 먼저 하고 merge 만 거부하므로, pull 이 로컬 변경과
-// 충돌해 실패해도 origin/main ref 는 갱신된다(실측 확인).
+// 보려면 동기인 이 브리프가 말해야 한다. 네트워크는 쓰지 않는다(캐시된 추적 ref 로 판정 — 이번
+// 세션의 pull 보다 먼저 돌므로 **마지막 fetch 시점** 기준이다).
+// 판정이 성립하는 근거: 자동 pull(session-start-pull.sh)은 fetch 와 merge 를 나눠 하므로, merge 가
+// 로컬 변경과 충돌해 거부돼도 추적 ref(origin/main·origin/ci/verified)는 갱신된다.
 // 파일명은 `-z`(NUL 구분)로 받는다. 기본 core.quotePath 는 비ASCII 를 `"\355\225\234…"` 로
 // 이스케이프해 표시가 깨지고, quotePath=false 만 끄면 개행 포함 경로가 줄 분리를 깨뜨린다.
 function gitPaths(repoDir, args) {
   return git(repoDir, [...args, '-z']).split('\0').filter(Boolean);
+}
+
+const RECORD_REF = 'refs/remotes/origin/ci/verified';
+
+function gitOk(repoDir, args) {
+  try {
+    git(repoDir, args);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// 자동 pull 이 ff 할 수 있는 CI 검증 커밋: { sha } 또는 보류 사유 { hold }. 판정은
+// session-start-pull.sh 와 같다(기록의 main-sha 가 HEAD 와 같은 길이의 16진수이고 origin/main 의 조상).
+// 기록 내용은 출력하지 않는다 — 브리프 출력은 모델 컨텍스트로 들어가고 ci/verified 는 보호 브랜치가 아니다.
+function verifiedTarget(repoDir, label) {
+  // 처방의 경로 — ~/.claude 는 그 이름으로, CLAUDE_BRIEF_REPO 로 겨눈 다른 repo 는 실제 경로로.
+  const where = label === '~/.claude' ? label : repoDir;
+  const check = '확인: gh run list -w Lint -b main -L 3';
+  const once = `급하면 1회 \`git -C ${where} pull --ff-only\``;
+  if (!gitOk(repoDir, ['rev-parse', '--verify', '--quiet', RECORD_REF])) {
+    if (gitOk(repoDir, ['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/ci'])) {
+      return { hold: `로컬 추적 ref refs/remotes/origin/ci 가 ci/verified 와 경로가 겹쳐 fetch 가 CI 검증 기록을 못 받는다(\`git -C ${where} update-ref -d refs/remotes/origin/ci\` 로 풀린다)` };
+    }
+    return {
+      hold: `마지막 fetch 기준 CI 검증 기록(origin/ci/verified)이 없어 자동 pull 이 보류된다 — main push 의 CI 가 통과하면 생긴다(${check}). 원격에서 지웠다면 의도된 정지다. fork·CI 없는 clone 은 CLAUDE_AUTOPULL_VERIFY=0 으로 검증을 끈다`,
+    };
+  }
+  let sha = '';
+  let headLen = 0;
+  try {
+    // 끝 개행만 뗀다 — 스크립트의 `$(...)` 와 같은 판정이어야 한다(공백·CR 이 붙은 기록은 둘 다 거부).
+    sha = git(repoDir, ['show', `${RECORD_REF}:main-sha`]).replace(/\n+$/, '');
+    headLen = git(repoDir, ['rev-parse', 'HEAD']).trim().length;
+  } catch {
+    // 아래 형식 판정으로 떨어진다.
+  }
+  if (!/^[0-9a-f]+$/.test(sha) || sha.length !== headLen) {
+    return { hold: '마지막 fetch 기준 CI 검증 기록의 내용이 커밋 이름 형식이 아니어서 자동 pull 이 보류된다(origin/ci/verified 를 확인)' };
+  }
+  if (!gitOk(repoDir, ['merge-base', '--is-ancestor', sha, 'refs/remotes/origin/main'])) {
+    return { hold: `마지막 fetch 기준 CI 검증 기록이 origin/main 밖을 가리켜(이력 재작성 직후) 자동 pull 이 보류된다 — 다음 main push 의 CI 가 새로 기록한다. ${once}` };
+  }
+  if (gitOk(repoDir, ['merge-base', '--is-ancestor', sha, 'HEAD'])) {
+    return {
+      hold: `마지막 fetch 기준 CI 검증 기록이 HEAD 까지라 그 뒤 커밋은 보류 중이다 — CI 진행 중·실패·[skip ci] 중 하나(${check}), 이번 세션 pull 이 따라잡을 수도 있다. ${once}`,
+    };
+  }
+  return { sha };
 }
 
 function autopullStalledLine(repoDir, env) {
@@ -329,6 +380,14 @@ function autopullStalledLine(repoDir, env) {
     return `${head}·로컬 ${ahead}커밋 앞섬 — 갈라져서 ff-only pull 이 불가능하다(rebase 나 push 필요)`;
   }
 
+  // 자동 pull 이 실제로 ff 하는 대상. 검증이 켜져 있으면(session-start-pull.sh 와 같은 술어) CI 검증 기록.
+  let target = 'refs/remotes/origin/main';
+  if (env.CLAUDE_AUTOPULL_VERIFY !== '0') {
+    const v = verifiedTarget(repoDir, label);
+    if (v.hold) return `${head} — ${v.hold}`;
+    target = v.sha;
+  }
+
   // 원격이 바꾼 파일을 로컬에서도 건드렸으면 ff 가 거부된다 — 그 파일이 곧 원인이다.
   // untracked 도 포함해야 한다: 원격이 *새로 추가*하는 파일과 이름이 겹치면 git 이
   // "Please move or remove them before you merge" 로 거부하는데, 이건 diff 에 안 잡힌다.
@@ -337,11 +396,7 @@ function autopullStalledLine(repoDir, env) {
     ...gitPaths(repoDir, ['diff', '--cached', '--name-only']),
     ...gitPaths(repoDir, ['ls-files', '--others', '--exclude-standard']),
   ]);
-  const blocking = gitPaths(repoDir, [
-    'diff',
-    '--name-only',
-    'HEAD..refs/remotes/origin/main',
-  ]).filter((f) => dirty.has(f));
+  const blocking = gitPaths(repoDir, ['diff', '--name-only', `HEAD..${target}`]).filter((f) => dirty.has(f));
   if (blocking.length) {
     const shown = blocking.slice(0, LIST_CAP).join(', ');
     const more = blocking.length > LIST_CAP ? ` +${blocking.length - LIST_CAP}` : '';
