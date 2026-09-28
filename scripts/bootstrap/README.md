@@ -79,6 +79,7 @@ agent 정의(`Codex 연결 실패: … agents`)도 같은 규칙이다 — `agen
 |---|---|
 | node | `brew install node` / `winget install OpenJS.NodeJS` |
 | jq | `brew install jq` / `winget install jqlang.jq` — rtk hook이 stdin JSON 파싱에 의존 |
+| ripgrep | `brew install ripgrep`(macOS 만 — `setup.ps1` 미반영) — rtk hook 이 Bash `rg` 를 `rtk rg` 로 바꾸고 `rtk rg` 는 독립 `rg` 실행 파일을 부른다. 독립 `rg` 가 없을 때 세션 셸의 `rg` 는 Claude Code 내장 ripgrep 을 부르는 셸 함수라 rtk 자식 프로세스에서 보이지 않는다(CLAUDE.md §2 재귀 검색 규칙) |
 | uv | astral 설치 스크립트 (비-conda) |
 | **rtk** | 이미 설치된 standalone `rtk`가 있을 때만 `rtk verify`/`rtk init -g --hook-only --no-patch` 실행. 없으면 건너뜀. **hook 파일 직접편집 금지**(sha256 무결성). |
 | Codex skill·AGENTS.md·agent 정의 | macOS: skill 7종을 `$HOME/.agents/skills/` 에, `${CODEX_HOME:-$HOME/.codex}/AGENTS.md` 를 `$HOME/.claude/CLAUDE.md` 에 symlink, agent 정의를 `agents/*.md` 마다 `${CODEX_HOME:-$HOME/.codex}/agents/` 에 생성(`sync_codex_agents.py`). Windows: `jira-worklog` 하나만 junction |

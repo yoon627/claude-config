@@ -37,6 +37,7 @@
 - 코드베이스 조사·리서치는 **subagent 가용+이득 클 때** 위임(Agent 도구). 미지원·단순 조회면 직접 수행하되 읽는 파일 수 제한.
 - 잘못된 방향 감지 시 즉시 중단, `Esc`/`/rewind` 제안.
 - 여러 줄·명령치환·체인이 많은 셸 명령은 `Write` 로 스크립트 파일에 적고 한 줄로 실행한다(인용 오류와 권한 프롬프트가 줄고 재실행이 쉽다).
+- **Bash 재귀 텍스트 검색은 `grep -r` 대신 `rg`**(Grep 도구도 가능). 단순 명령의 `grep` 은 rtk 훅이 `rtk grep`(=시스템 grep)으로 바꿔 `.gitignore` 를 무시하므로 gitignored 대용량(`projects/` transcript 등)까지 뒤져 느리고 잡음 매치가 결과 상한을 채운다(파이프·루프 안은 내장 ugrep 이라 따른다 — 같은 명령이 모양에 따라 결과가 달라진다, [[claude-code-bash-tool-shims]]). `rg` 는 `rtk rg` 로 바뀌어 `.gitignore` 를 따르고 출력도 압축된다(독립 `rg` 실행 파일 필요 — macOS bootstrap 이 설치, Windows 는 수동). ignored 파일까지 찾을 때만 `rg -uu`.
 
 ---
 

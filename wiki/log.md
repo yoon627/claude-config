@@ -355,3 +355,6 @@
 
 ## [2026-09-28] ingest | python-subprocess-text-stdin-windows (신규)
 - 공용 wiki 적립(사용자 요청): Windows 의 `subprocess.run(input=str, text=True)` 가 `encoding` 없이 로캘 코드페이지로 인코딩하다 writer 스레드가 `UnicodeEncodeError` 로 죽으면 `stdin.close()` 에 닿지 못해 자식이 무한 대기한다. 근거는 CPython 3.13.15 `Lib/subprocess.py`(`_stdin_write` 는 BrokenPipe·EINVAL 만 처리, POSIX 는 `_save_input` 이 메인 스레드에서 인코딩)와 Windows 최소 재현(`text=True` 만 → timeout, `encoding="utf-8"`·`PYTHONUTF8=1` → 즉시 종료). 발견 경로는 commit-check 테스트가 Windows verify.sh 를 1시간+ 멈춘 것. POSIX 동작은 코드 읽기(⚠️ 미실행).
+
+## [2026-09-28] update | claude-code-bash-tool-shims (rg 경로)
+- `rtk grep` 은 rg 가 PATH 에 있어도 시스템 grep 을 써 단순 명령 `grep -r` 이 `.gitignore` 를 무시(12.3초·292,500 매치 vs `rtk rg` 0.04초·1,465), `rtk rg` 는 독립 rg 실행 파일이 필요(없으면 실패) — 실측 추가. CLAUDE.md §2 재귀 검색 규칙·bootstrap ripgrep 설치와 같은 브랜치(plan bash-search-use-rg).

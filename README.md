@@ -233,7 +233,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 14개 섹션 (0~13):
 0. 응답 언어 — 한국어, 인사말 없이 내용부터(착수 한 문장·진행 업데이트·결론 요약은 쓴다), 수사 대신 직설
 1. 핵심 규칙 — 추측 금지, 코드 read 기반 답변, 근본 원인, 검증 후 "완료", 사용자 변경사항 보호, 승인은 위험기반(가역·로컬은 무확인 실행+보고 / 비가역·외부공개는 확인), 운영 자산 자가 수정 금지
-2. 컨텍스트 관리 — `/clear`, `/rewind`, subagent 위임 기준
+2. 컨텍스트 관리 — `/clear`, `/rewind`, subagent 위임 기준, Bash 재귀 검색은 `grep -r` 대신 `rg`(`.gitignore` 준수)
 3. 작업 흐름 — Setup → Explore → Plan → Implement → Verify → Report
 4. 웹 검색 능동 사용 — 지식 컷오프 이후 정보, 라이브러리 버전별 동작, 이름 인지 ≠ 현재 상태 등
 5. Sub-agent — 표준 순서 (plan-reviewer → 구현 → code-reviewer → simplify 체크(메인 직접)), Workflow(ultracode) subagent 는 단계별 effort 명시
@@ -393,7 +393,7 @@ preview 결과를 확인하고 `/e`에서 사용자 승인 후 동일 명령에 
 settings.json 에 등록돼 후크가 호출하는 진입점은 notify(`notify-hook.js`), 세션 브리프(`session-brief.js`), worktree 가드(`guard-worktree-edit.js`), 콜론 refspec 원격 삭제 가드(`guard-push-delete.js`), dlc evidence 3종(`dlc-task-router.js` / `dlc-evidence-ledger.js` / `dlc-early-stop.js`). 모두 fail-open (실패해도 throw 안 함). 나머지(`bootstrap/`, `*.ps1`, `install-*`, `prompt-gwl.py`)는 위 진입점이 위임하거나 수동/프로젝트별로 쓰는 보조 스크립트.
 
 #### `bootstrap/` (setup.sh · setup.ps1 · sync_codex_agents.py · README.md)
-새 머신에서 한 번 실행해 이 환경(도구 + 설정 + 선택적 memory)을 재현하는 **idempotent** 부트스트랩. macOS `setup.sh`(zsh/비-conda), Windows `setup.ps1`(레지스트리 — ⚠️ 전체 실행 미검증). 도구(node/uv/선택적 standalone rtk)·셸 env 를 각 단계 guard 로 `[SKIP]`. Codex 연결은 macOS 가 skill 7종(`$HOME/.agents/skills/`)과 `${CODEX_HOME:-$HOME/.codex}/AGENTS.md` → `CLAUDE.md` 를 symlink 로 만들고 agent 정의(`…/agents/*.toml`)를 생성하며, Windows 는 아직 `jira-worklog` 하나만 junction 으로 만든다 — 자리에 다른 것이 있으면 건드리지 않는다(macOS 는 나머지 연결·뒤 단계를 마치고 요약과 함께 exit 1, Windows 는 첫 충돌에서 중단). effort 환경변수는 해제해 `/effort`가 동작하게 한다. `--dry-run`/`--memory-from` 지원. 상세·전제·한계는 `scripts/bootstrap/README.md`.
+새 머신에서 한 번 실행해 이 환경(도구 + 설정 + 선택적 memory)을 재현하는 **idempotent** 부트스트랩. macOS `setup.sh`(zsh/비-conda), Windows `setup.ps1`(레지스트리 — ⚠️ 전체 실행 미검증). 도구(node/uv/ripgrep(macOS)/선택적 standalone rtk)·셸 env 를 각 단계 guard 로 `[SKIP]`. Codex 연결은 macOS 가 skill 7종(`$HOME/.agents/skills/`)과 `${CODEX_HOME:-$HOME/.codex}/AGENTS.md` → `CLAUDE.md` 를 symlink 로 만들고 agent 정의(`…/agents/*.toml`)를 생성하며, Windows 는 아직 `jira-worklog` 하나만 junction 으로 만든다 — 자리에 다른 것이 있으면 건드리지 않는다(macOS 는 나머지 연결·뒤 단계를 마치고 요약과 함께 exit 1, Windows 는 첫 충돌에서 중단). effort 환경변수는 해제해 `/effort`가 동작하게 한다. `--dry-run`/`--memory-from` 지원. 상세·전제·한계는 `scripts/bootstrap/README.md`.
 
 **Codex 쪽 연결**: `~/.codex/AGENTS.md` 는 `~/.claude/CLAUDE.md` 로의 심링크다(단일 소스 — 2026-06-10 사용자 결정 `a3d7bdc`). `~/.agents/skills/{c,dlc,e,improve,jira-worklog,wiki,wt}` 도 `~/.claude/skills/*` 심링크다(`scripts/bootstrap/install-codex-skill.sh --source … --target …` 로 설치). Codex 앱의 Claude 설정 import(2026-08-01)가 이 연결을 단어 치환한 실파일 사본으로 덮어써 규칙이 8월 초 상태에 멈췄던 것을 2026-09-25 에 되돌렸다(백업 `backups/codex-resync-20260925/`, 이 repo 의 `AGENTS.md` 미러도 치움). macOS bootstrap(`setup.sh`)은 이 8개 연결을 모두 재현하고(`install-codex-skill.sh --file` 이 AGENTS.md 담당), Windows(`setup.ps1`)는 아직 jira-worklog 하나만 재현한다(Windows 실행 검증과 함께 맞출 예정). Codex agent 정의 `~/.codex/agents/*.toml` 은 링크가 아니라 `agents/*.md` 에서 만든 사본이다 — `scripts/bootstrap/sync_codex_agents.py` 가 `## Codex 병행…` 절(Codex 안의 리뷰어가 자기 자신을 부르게 되는 병행 검토)을 빼고 첫 줄에 생성 표식을 단다. setup.sh 가 부르고, `agents/*.md` 를 고친 커밋이 main 에 들어오면 손으로 다시 돌린다(자동 감지 없음, 상세·충돌 처리는 `scripts/bootstrap/README.md`). **import 를 다시 실행하면 같은 일이 생기므로** 실행 뒤 `readlink ~/.codex/AGENTS.md`, `ls -la ~/.agents/skills`(7개가 링크인지), `ls ~/.claude/AGENTS.md`(미러가 다시 생겼는지), `head -1 ~/.codex/agents/*.toml`(생성 표식)로 확인한다.
 

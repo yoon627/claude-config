@@ -63,6 +63,11 @@ if have node; then skip "node 있음 ($(node --version 2>/dev/null))"; else
 if have jq; then skip "jq 있음"; else
   run "brew install jq"; do_cmd brew install jq && ok "jq 설치"; fi
 
+# --- 2c. ripgrep (rtk 훅이 Bash 의 rg 를 rtk rg 로 바꾸고, rtk rg 는 독립 rg 실행 파일을 부른다) ---
+# have(command -v) 는 셸 함수에도 참이라 PATH 의 실행 파일만 본다 — rtk 자식 프로세스는 함수를 못 본다.
+if type -P rg >/dev/null; then skip "rg 있음"; else
+  run "brew install ripgrep"; do_cmd brew install ripgrep && ok "ripgrep 설치"; fi
+
 # --- 3. uv (astral, 비-conda) ---
 if [ -x "$LOCAL_BIN/uv" ] || have uv; then skip "uv 있음"; else
   run "uv 설치 (astral)"; do_cmd sh -c 'curl -LsSf https://astral.sh/uv/install.sh | sh' && ok "uv 설치"; fi
