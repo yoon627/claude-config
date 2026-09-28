@@ -1,6 +1,6 @@
 ---
 title: autopull-verified-client — SessionStart 자동 pull 이 ci/verified 에 기록된 커밋까지만 ff, 보류 사유는 세션 브리프가 알림
-status: in_progress
+status: done
 started: 2026-09-26
 updated: 2026-09-28
 intent: plans/2026-09-25-repo-audit-followups/intent.md
@@ -58,10 +58,10 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 - 2026-09-26: 자동 pull — 테스트 먼저(Red: 옛 스크립트에서 (b)(c)(d)(e)(f)(g)(i)·FETCH_HEAD 8건 실패, (a)(h) 는 잠금으로 통과) → 구현 → 28/28. mutation 4종: `--prune`·조상·`+` 는 첫 시도에 잡힘, 형식 확인 제거는 **살아남음**(기록 내용이 24자라 길이 확인이 대신 막았다) → (f) fixture 를 40자 이름(`refs/remotes/origin/main~0…`)으로 바꿔 잡힘. 브리프 — **순서 이탈: 구현을 테스트보다 먼저 썼다.** 테스트를 쓴 뒤 HEAD 의 옛 브리프로 돌려 Red 확인(ⓝ15~ⓝ19·ⓝ21 실패, ⓝ20 잠금 통과) → 83/83. 문서: lint.yml 주석, README(N·CI·SessionStart·끄기·트리), wiki·index·log. check_links clean, shellcheck ok.
 - 2026-09-26: code-reviewer(Codex 미가용) REQUEST CHANGES — Critical 1(MSYS 변수가 `-C` 경로 변환까지 꺼 Windows 자동 pull 이 매번 무음 실패), Minor 5, 권고 1, Nit 6, refuted 7. fix: MSYS 변수 제거 + 재도입 방지 단언, VERIFY=0 은 예전 fetch(탈출구 — (i2)), 16진 판정 문자 목록, 브리프 끝 개행만 제거(ⓝ18b), 모든 기록 사유에 "마지막 fetch 기준", 길이 확인 테스트((f2)), 문서 정정. fetch 지속 실패 신호는 Deferred. 최종 검증(격리 runner): 자동 pull 31/31, 브리프 84/84, mutation 6/6 잡힘, 옛 브리프 RED 7(ⓝ15~19·18b·21), `verify.sh` `ALL PASS`(skip 없음), plan-lint·link clean. evidence gate: Acceptance 1~5 충족, [post-merge] 1건. 판정 DONE(통합 대기). targeted 재리뷰는 생략 — Critical 수정이 제거이고 mutation·테스트가 새 경로를 잠근다(Report 에 명시).
 - 2026-09-28: Windows 확인(Git Bash MINGW64, git 2.55.0.windows.5) — 이슈 #189 의 fetch 명령 rc=0(rtk 래퍼 없이 `/mingw64/bin/git.exe` 로 다시 돌려도 rc=0), `origin/ci/verified` 수신. 원격 브랜치로 worktree 를 만들어 `session-start-pull.test.js` 31/31·`session-brief.test.js` 84/84 Windows 통과. 전체 `verify.sh` 는 Windows 에서 기존 결함 5종으로 실패(Deferred — origin/main 재현으로 이 브랜치 무관 입증). Acceptance 5 의 `ALL PASS` 는 2026-09-26 macOS 실행 증거로 유지하고, 머지 전 CI(ubuntu)에서 다시 확인한다.
+- 2026-09-28: `/e merge` — origin/main(46커밋) 병합 `92c719d`, 충돌 3곳(README·wiki index·log)은 줄마다 한쪽만 바뀐 것이라 그쪽 버전으로(결과가 base→branch 변경과 같음을 대조), 병합 트리에서 자동 pull 31/31·브리프 84/84·plan-lint·링크 통과. PR #193. 묶음 intent 는 windows-ps1-verify 미착수라 open 유지.
 
 # Next
 
-Windows 확인 통과(2026-09-28). 다음은 `/e merge`(push·PR·CI·머지) — 사용자 승인 뒤 실행. 브랜치가 origin/main 보다 46커밋 뒤라 PR 전에 main 을 반영하고 테스트를 다시 돌린다.
 
 # Decisions
 
