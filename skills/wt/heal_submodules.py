@@ -10,8 +10,8 @@
 재clone 해 자동 복구한다. `deinit -f` 는 module dir(objects)를 보존하므로 corrupt
 를 비우려면 module dir 직접 삭제가 필요하다(gitsubmodules(7)).
 
-데이터 손실 방지: work tree 에 (`.git` 파일 외) 파일이 남은 submodule 은 리셋하지
-않고 중단한다. corrupt 상태에선 `git status` 가 rc=128 로 죽어 dirty 를 못 잡지만
+데이터 손실 방지: work tree 에 (`gitdir: ` gitlink `.git` 파일 외) 파일이 남은 submodule 은
+리셋하지 않고 중단한다. corrupt 상태에선 `git status` 가 rc=128 로 죽어 dirty 를 못 잡지만
 사용자 파일은 디스크에 남으므로, status 가 아니라 실제 파일 존재로 판정한다.
 
 `.gitmodules` 없는 레포에서는 no-op 이라 어느 프로젝트에서 돌려도 무해하다.
@@ -128,12 +128,26 @@ def _submodule_worktree_has_files(worktree: Path) -> bool:
     파일은 디스크에 멀쩡히 남으므로, status 가 아니라 실제 파일 존재로 판정해야
     deinit 이 사용자 파일을 말없이 날리는 사고를 막을 수 있다.
     `.git` 은 gitlink 파일일 때만 제외한다 — `.git` 이 디렉터리(미흡수 submodule,
-    objects 내장)면 고유 데이터일 수 있어 '파일 있음'으로 보아 리셋을 거부한다."""
+    objects 내장)이거나 `gitdir:` 로 시작하지 않는 파일이면 고유 데이터일 수 있어
+    '파일 있음'으로 보아 리셋을 거부한다."""
     if not worktree.is_dir():
         return False
     return any(
-        not (child.name == ".git" and child.is_file()) for child in worktree.iterdir()
+        not (child.name == ".git" and _is_gitlink(child)) for child in worktree.iterdir()
     )
+
+
+def _is_gitlink(path: Path) -> bool:
+    """git 이 gitlink 로 읽는 형식(`gitdir: <경로>` — git 과 같은 접두어, BOM 불허)인가.
+    읽지 못하면 아니라고 본다(리셋 거부 쪽)."""
+    if not path.is_file():
+        return False
+    try:
+        with path.open("rb") as f:
+            head = f.read(8)
+    except OSError:
+        return False
+    return head == b"gitdir: "
 
 
 # POSIX 의 unlink 는 파일 모드와 무관하다. 그런데 chmod 는 링크를 따라가므로 트리
@@ -171,8 +185,9 @@ def _reset_submodule(name: str, path: str) -> None:
         sys.exit(1)
     # deinit 은 빈 work tree+config 정리용. 미초기화 submodule 등에서 실패해도
     # 이어지는 module dir 삭제+재clone 으로 복구되므로 best-effort 로 무시한다.
+    # path 는 pathspec 으로 해석된다 — `sub*` 같은 값이 다른 submodule 까지 해제하지 않게 literal 로.
     try:
-        run(["git", "submodule", "deinit", "-f", "--", path])
+        run(["git", "--literal-pathspecs", "submodule", "deinit", "-f", "--", path])
     except subprocess.CalledProcessError:
         log(f"deinit 실패(미초기화 가능) — module dir 삭제로 진행: {path}")
     try:
@@ -224,8 +239,8 @@ def init_submodules(repo_root: Path) -> None:
     if unsafe:
         log(f"work tree 에 보존할 파일이 있어 자동 복구를 중단: {', '.join(unsafe)}")
         log(
-            "수동 복구(필요한 파일 백업 후): git submodule deinit -f <path> && "
-            "rm -rf <module dir> && git submodule update --init --recursive"
+            "수동 복구(필요한 파일 백업 후): git --literal-pathspecs submodule deinit -f -- <path>, "
+            "<module dir> 폴더 삭제, git submodule update --init --recursive 순서로 실행"
         )
         sys.exit(1)
 
@@ -241,6 +256,9 @@ def init_submodules(repo_root: Path) -> None:
 
 
 def main() -> int:
+    # deinit 의 `--literal-pathspecs` 는 다른 전역 pathspec 설정과 함께 쓰면 git 이 fatal 로 끝난다.
+    for name in ("GIT_LITERAL_PATHSPECS", "GIT_GLOB_PATHSPECS", "GIT_NOGLOB_PATHSPECS", "GIT_ICASE_PATHSPECS"):
+        os.environ.pop(name, None)
     repo_root_str = try_capture(["git", "rev-parse", "--show-toplevel"])
     if not repo_root_str:
         log("git 저장소가 아님 — skip")

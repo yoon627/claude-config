@@ -160,8 +160,38 @@ class WorktreeHasFilesTest(unittest.TestCase):
         (sub / ".git").mkdir(parents=True)
         self.assertTrue(bootstrap._submodule_worktree_has_files(sub))
 
+    def test_dotgit_file_counts_only_as_gitlink(self) -> None:
+        """`.git` 파일은 git 이 읽는 형식(`gitdir: `)일 때만 gitlink 로 빼고, 나머지는 사용자 파일로 본다."""
+        sub = self.d / "sub"
+        sub.mkdir()
+        (sub / ".git").write_bytes(b"gitdir: ../.git/modules/sub\r\n")
+        self.assertFalse(bootstrap._submodule_worktree_has_files(sub))
+        for other in (b"notes kept in a file named .git\n", b"", b"gitdir:x", b"\xef\xbb\xbfgitdir: x"):
+            (sub / ".git").write_bytes(other)
+            self.assertTrue(bootstrap._submodule_worktree_has_files(sub), other)
+
 
 class ResetSubmoduleTest(unittest.TestCase):
+    def test_main_drops_pathspec_env(self) -> None:
+        """`--literal-pathspecs` 는 다른 전역 pathspec 설정과 함께 쓰면 git 이 fatal 로 끝난다."""
+        names = ("GIT_LITERAL_PATHSPECS", "GIT_GLOB_PATHSPECS", "GIT_NOGLOB_PATHSPECS", "GIT_ICASE_PATHSPECS")
+        with (
+            mock.patch.dict(os.environ, {n: "1" for n in names}),
+            mock.patch.object(bootstrap, "try_capture", return_value=None),
+        ):
+            bootstrap.main()
+            self.assertEqual([n for n in names if n in os.environ], [])
+
+    def test_deinit_takes_the_path_literally(self) -> None:
+        """`.gitmodules` path 의 glob 문자가 다른 submodule 로 번지지 않게 literal pathspec 으로 부른다."""
+        with (
+            mock.patch.object(bootstrap, "_module_dir", return_value=Path("some/modules/x")),
+            mock.patch.object(bootstrap, "run") as run,
+            mock.patch.object(bootstrap, "_force_rmtree"),
+        ):
+            bootstrap._reset_submodule("x", "sub*")
+        run.assert_called_once_with(["git", "--literal-pathspecs", "submodule", "deinit", "-f", "--", "sub*"])
+
     def test_deinit_failure_tolerated(self) -> None:
         """미초기화 등으로 deinit 이 실패해도 module dir 삭제로 진행한다(best-effort)."""
         with (
