@@ -103,7 +103,7 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 0  Setup            git status · 규모 판정 · plan 파일
 1  Explore
 2  researcher       [조건부 · 격리]
-3  draft plan       테스트전략 · rollback · 영향범위 · 구조의도 · # Acceptance 항목화 · ⚠️ self-flag(해당 시) · `intent:` 링크(묶음이면) · 커밋 단위 선언
+3  draft plan       관련 decision 조회(먼저 — 아래 wiki 연계) · 테스트전략 · rollback · 영향범위 · 구조의도 · # Acceptance 항목화 · ⚠️ self-flag(해당 시) · `intent:` 링크(묶음이면) · 커밋 단위 선언
 4  arch planning    [격리 · structural 만 · codex off]
 5  plan 수정
 6  plan-reviewer    [격리 · codex owner]
@@ -120,7 +120,7 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 ```
 
 ## wiki 연계 (CLAUDE.md §11)
-조건부·opt-in, 16단계 표 안 늘림. wiki 는 두 계층(현재 repo 의 `wiki/`, 공용 `~/.claude/wiki/` — 배치 규칙은 §11)이라 현재 repo 에 wiki 가 없어도 공용 조회는 한다. **16 Report 두 판정 누락 금지**: ① 재사용 지식(비자명 결정·교훈·확정 외부사실)이면 **대상 계층까지** 판정해 `/wiki ingest` 제안(자동 아님, trivial·일회성 제외) — 다른 repo 에서 공용 대상이면 `~/.claude 에서 /wt → /wiki ingest <요약 · 공개 근거 · 출처(공개/비공개)>` 제안을 Report 와 plan `# Deferred` 에 남긴다(§11 공개 점검) ② 작업 중 **사용자 교정·리뷰 지적**이 있었으면 §12 feedback memory 저장 판정(대상이면 memory 파일 + `MEMORY.md` 인덱스 **둘 다**, 비대상이면 사유 1줄). Explore wiki read·plan→wiki 일방향 승격 메커닉은 `docs/dlc-details.md` §C.
+ingest 제안은 조건부·opt-in, 16단계 표 안 늘림. **단 계획 전 decision 조회는 필수다** — draft plan(3단계, plan 없이 가는 small 은 구현 착수) 전에 두 index 를 이 작업의 **대상 자산 이름과 작업 종류**(slim·압축·이관·재구성·제거·설정 변경 등)로 조회해 걸린 decision·lesson 을 읽는다. 같은 세션의 분석·조사에서 이어진 계획이라 1단계 조회를 거치지 않았어도 한다. 걸린 decision 이 있으면 따를지 뒤집을지를 plan `# Decisions` 첫 줄에 적고, 뒤집으면 근거와 사용자 승인을 붙인다([[lesson-verify-scaffold-purpose-before-removal]] 사례 4). wiki 는 두 계층(현재 repo 의 `wiki/`, 공용 `~/.claude/wiki/` — 배치 규칙은 §11)이라 현재 repo 에 wiki 가 없어도 공용 조회는 한다. **16 Report 두 판정 누락 금지**: ① 재사용 지식(비자명 결정·교훈·확정 외부사실)이면 **대상 계층까지** 판정해 `/wiki ingest` 제안(자동 아님, trivial·일회성 제외) — 다른 repo 에서 공용 대상이면 `~/.claude 에서 /wt → /wiki ingest <요약 · 공개 근거 · 출처(공개/비공개)>` 제안을 Report 와 plan `# Deferred` 에 남긴다(§11 공개 점검) ② 작업 중 **사용자 교정·리뷰 지적**이 있었으면 §12 feedback memory 저장 판정(대상이면 memory 파일 + `MEMORY.md` 인덱스 **둘 다**, 비대상이면 사유 1줄). Explore wiki read·plan→wiki 일방향 승격 메커닉은 `docs/dlc-details.md` §C.
 
 ## 격리 경계 (hub-and-spoke)
 - **메인(hub)**: Setup, Explore(얇게 — 광범위 검색만 Explore agent 위임), draft plan, TDD Red, 구현, Green(구현 직후 최소 스모크), 통합, 검증 명령 식별·결과 판단·실패 fix, Report, 최종 판단.

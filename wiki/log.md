@@ -364,3 +364,6 @@
 - ops-doc-slimming: 2026-09-28 재검토 절 — CLAUDE.md 몫 3.6~6.6%(계산값), 규칙 보존 압축 기대 약 0.4~2%(압축률 가정 11~30%), 이관·영어 번역안 기각 권고, auto-compact 300K 적용·슬림화 보류.
 - lesson-grep-absence-not-proof 사례 7(집계 단위 중복·단가 가정·비대표 표본, 3 Whys), lesson-verify-scaffold-purpose-before-removal 사례 4(운영 자산 변경 계획 전 decision 미조회 — 원인은 분석 → 계획 전환에 조회 트리거가 없는 것) — 적용 범위를 "운영 자산을 바꾸는 계획"으로 넓힘. 사용자 승인(§13) 후 적립.
 - 2026-09-29 code-reviewer(+Codex) 반영: `autoCompactWindow` scope(Any file)·env 는 정수만(`300k`→100K)·managed 우선, `/effort` 는 대부분 모델에서 무효화(공식)·세션 간 디렉토리별 캐시, TTL 1시간은 구독 포함 사용량 안의 본 대화만, 재작성 정의(60K·50%)와 신호별 n, 표본 한정 표현, 절대 합계 삭제(개인 사용 규모 역산 방지), 측정 스크립트를 plans/2026-09-28-wiki-context-cost-lessons/analysis/ 로 보존.
+
+## [2026-09-29] update | lesson-verify-scaffold-purpose-before-removal (사례 4 후속)
+- 사례 4 의 트리거 공백(분석 → 운영 자산 변경 계획으로 넘어갈 때 wiki 조회가 걸리지 않음)을 사용자 승인으로 dlc 에 반영: 3단계(draft plan) 앞 필수 decision 조회 — 대상 자산 이름·작업 종류로 두 index 조회, 걸린 결정은 `# Decisions` 첫 줄에서 따르거나 뒤집음(skills/dlc/SKILL.md wiki 연계, docs/dlc-details.md §C, README). 페이지의 "제안으로만 남긴다" 문장을 반영 사실로 갱신.

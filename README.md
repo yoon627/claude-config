@@ -300,6 +300,7 @@ background task 표시(`✻ N bg`)는 2026-09-25 제거했다 — tasks 디렉�
 `/dlc` 명시 호출 또는 비자명한 코드 변경 시 적용하는 개발 사이클 오케스트레이션. 규모 (trivial / small / medium / structural) 를 판정해 단계를 gate — 오타 1줄은 *절차*를 즉시 통과(worktree 는 규모 불문 경유), structural 변경은 explore → plan → 리뷰 → TDD → 구현 → 리뷰 → simplify → 검증 전체를 돈다.
 - 메인이 hub, 리뷰/검토(plan-reviewer, architecture-reviewer, code-reviewer)와 **최종 검증**(격리 runner·general-purpose, 실행만 — 메인이 명령·worktree cwd 지정)은 격리 subagent. 구현·통합·검증 판단·실패 fix·최종 판단은 메인.
 - **⚠️ self-flag**(3단계, 조건부): 계획을 쓰는 메인이 우려를 직접 신고한다 — 닫힌 트리거 3종(제약 동시 미충족·동급 규약 상충·⚠️추정 의존 설계)일 때만 `# Decisions` 에 한 줄, 아니면 침묵("우려 없음"은 쓰지 않는다). 이 repo 의 우려 장치가 전부 격리 리뷰어 쪽에 있어 메인의 낮은 확신 지점이 드러나지 않던 구멍을 메운다. 7단계에서 리뷰 지적과 함께 먼저 처분(`resolved`/`accepted-risk`/`deferred`).
+- **계획 전 decision 조회**(3단계 앞, 필수): 두 wiki index 를 대상 자산 이름·작업 종류로 조회해 걸린 결정을 plan `# Decisions` 첫 줄에서 따르거나 뒤집는다(뒤집으면 근거·사용자 승인). 같은 세션의 분석에서 이어진 계획이 Explore 조회를 건너뛰어 기존 결정과 충돌한 사례(2026-09-28) 대응.
 - simplify 체크(13단계)는 메인이 직접 수행 — 모든 격리 spoke 는 read-only. substantive 수정 시 targeted 재검증.
 - `<ROOT>/plans/<YYYY-MM-DD>-<slug>/<slug>-plan.md` 가 subagent 간 단일 공유 채널 (메인만 write). 경로 규약은 CLAUDE.md §10.
 - codex 병행 검토 호출 규약은 `docs/codex-review.md` (phase 당 codex owner 1개 지정으로 중복 호출 방지, Windows/PowerShell fallback 포함), 한도 오류는 세션 스크래치 마커 `codex-unavailable` 로 캐시해 같은 세션의 다음 reviewer 가 재시도하지 않음). 정본 명령은 프롬프트를 스크래치 파일로 넘기고 `--skip-git-repo-check` 를 쓰지 않는다(사유는 §3 — worktree 격리 가드).

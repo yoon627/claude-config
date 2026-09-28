@@ -58,7 +58,7 @@ updated: 2026-09-29
 - wiki/index.md · wiki/log.md — 동기화
 
 # Deferred
-- wiki/log.md 과거 줄(81·171·173·238·245)에 개인 repo 이름과 회사 티켓 키로 보이는 문자열이 있다 — 공개 점검(§11) 위반 후보 — Major — 이미 push 된 이력이라 파일 수정만으로는 이력에서 사라지지 않는다. 정리 범위(파일만/이력 재작성) 사용자 결정 필요 — 별도 작업.
-- wiki 조회 트리거 공백: §11 의 조회 시점은 "작업 시작 시" 뿐이고 dlc Explore 의 wiki 조회는 조건부(절차는 자동 로드 안 되는 docs/dlc-details.md §C) — 같은 세션에서 분석 → 운영 자산 변경 계획으로 넘어갈 때 조회가 걸리지 않는다(lesson-verify-scaffold-purpose-before-removal 사례 4) — Minor~Major — 운영 자산(CLAUDE.md §11·skills/dlc) 변경이라 제안만(§1): "draft plan 전 wiki index 를 대상 자산명·작업 종류로 조회" 를 dlc 3단계 체크에 넣는 안.
+- wiki/log.md 과거 줄(81·171·173·238·245)에 개인 repo 이름과 회사 티켓 키로 보이는 문자열이 있다 — 공개 점검(§11) 위반 후보 — Major — 이미 push 된 이력이라 파일 수정만으로는 이력에서 사라지지 않는다. 정리 범위(파일만/이력 재작성) 사용자 결정 필요 — 별도 작업. (2026-09-29 처분: 이력은 그대로 두기로 결정. wiki 밖 파일의 회사 식별자는 `0db7fde` 로 정리, wiki 속 식별자는 wiki 보관 방식 결정과 함께 — 사용자 로컬 memory 에 기록)
+- wiki 조회 트리거 공백: §11 의 조회 시점은 "작업 시작 시" 뿐이고 dlc Explore 의 wiki 조회는 조건부(절차는 자동 로드 안 되는 docs/dlc-details.md §C) — 같은 세션에서 분석 → 운영 자산 변경 계획으로 넘어갈 때 조회가 걸리지 않는다(lesson-verify-scaffold-purpose-before-removal 사례 4) — Minor~Major — 운영 자산(CLAUDE.md §11·skills/dlc) 변경이라 제안만(§1): "draft plan 전 wiki index 를 대상 자산명·작업 종류로 조회" 를 dlc 3단계 체크에 넣는 안. (반영 2026-09-29: 사용자 승인, skills/dlc/SKILL.md 3단계·wiki 연계 + docs/dlc-details.md §C + README)
 
 # Blockers
