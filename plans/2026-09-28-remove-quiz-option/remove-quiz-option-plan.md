@@ -1,6 +1,6 @@
 ---
 title: remove-quiz-option — Report 선택지에서 "변경 이해 리포트+퀴즈" 옵션 제거
-status: in_progress
+status: done
 started: 2026-09-28
 updated: 2026-09-28
 ---
@@ -26,10 +26,10 @@ updated: 2026-09-28
 - 2026-09-28: 착수. 참조 전수 grep(origin/main `1d3b99a` 기준) — 대상 4곳(CLAUDE.md:50, skills/dlc/SKILL.md:161, wiki concept 표, wiki index 요약).
 - 2026-09-28: 4곳 편집 + wiki log. Acceptance 1(`git grep` 0건)·2(링크 검사 clean) 충족. code-reviewer·simplify 는 생략 — 코드 변경 없이 규칙 문장에서 구절 하나를 뺀 것이라 볼 로직이 없다(앞뒤 문장 연결은 직접 확인).
 - 2026-09-28: `PYTHONUTF8=1 bash scripts/verify.sh`(Windows) → `FAILED: 4`. 실패는 install-hooks·pre-commit-check(ps1)·record-verified(jq)·commit-check 로, origin/main `0f8d6f4` 에서 같은 4개가 재현된 기존 결함이다(이 브랜치 미변경 파일). 새 실패 없음. Acceptance 3 의 CI 는 PR 에서 확인.
+- 2026-09-28: `/e merge` — PR #194.
 
 # Next
 
-커밋 → `/e merge`(PR CI 가 Acceptance 3 의 나머지).
 
 # Decisions
 
