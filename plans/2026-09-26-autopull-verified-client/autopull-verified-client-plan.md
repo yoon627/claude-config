@@ -60,7 +60,7 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 
 # Next
 
-커밋 → 머지 확인(Windows 실측 여부 포함).
+커밋 `cc4dd46` 완료. 사용자 선택 "Windows 한 줄 확인 후 머지" — 사용자가 Windows Git Bash 에서 `git --version; git -C ~/.claude fetch --quiet --prune --no-write-fetch-head origin '+refs/heads/main:refs/remotes/origin/main' '+refs/heads/ci/*:refs/remotes/origin/ci/*'; echo rc=$?` 결과(버전 ≥ 2.29, rc=0)를 알려 주면 `/e merge`. rc≠0 이면 원인부터 본다(머지 보류).
 
 # Decisions
 
