@@ -1,6 +1,6 @@
 ---
 title: audit-leftovers — 감사 저우선 잔여(pre-push stdin·heal 3건·statusline 쿼터 헬퍼)
-status: in_progress
+status: done
 started: 2026-09-28
 updated: 2026-09-28
 intent: plans/2026-09-25-repo-audit-followups/intent.md
@@ -36,9 +36,9 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 - 2026-09-28: plan-reviewer CONDITIONAL(Review Disposition `[plan]`, Codex 는 크레딧 소진으로 생략 — pre-push 는 보안 영향이 있어 원래 병행 대상). pre-push: 테스트 보강 → `de0de8c`(sort 판)에서 Red 1(dedupe 가 빈 출력·exit 0 → 통과) → `rev_input` 을 awk·변수·빈 입력 차단으로 → 69 passed, shellcheck 통과, README 커버리지 51·stdin 서술, fixup. heal: Red 2(환경변수·gitlink 기준) → `main()` 의 `GIT_*_PATHSPECS` 제거·`gitdir: ` 기준·docstring·rm-recovery 거부 조건 → 35 OK(3.13·3.9), fixup. 기록(intent 두 줄·audit plan 처분·이 plan) fixup.
 - 2026-09-28: code-reviewer REQUEST CHANGES(`[code 1]`, Codex 생략 — 크레딧). shim 테스트 입력 조립 수정·stdin 기록 단언 → 69 passed, 제외를 argv 로 되돌린 변이본에서 FAIL. 가드 주석 분리, statusline 테스트 헬퍼 통합(5 passed). fixup 2개.
 - 2026-09-28: simplify — 변경 없음. 격리 runner: `bash scripts/verify.sh` 마지막 줄 `ALL PASS`(skip 없음), pre-commit 69 passed/0 failed(`ps1: skipped (no pwsh)` — A1 에 명시), heal 35 OK(3.13·3.9), statusline 5 passed, shellcheck 0건. heal·rm-recovery 의 `rm -rf` 0건(grep). evidence gate: Acceptance 1~8 충족 → DONE.
+- 2026-09-28: commit-check 적용(사용자 승인) — 10개 → 목적 단위 3개, heal·pre-push 메시지를 현재 동작(`gitdir: ` 기준·환경변수 제거, awk dedupe·빈 입력 차단)으로 갱신. 최종 트리 동일. `/e merge` — PR #188(브랜치 push 때 새 sh 가드가 stdin 경로로 통과).
 
 # Next
-commit-check 로 fixup 합치기(승인) → `/e merge`(push·PR·머지 — 사용자 지시 시). pre-push 가드는 모든 repo 에 퍼지므로 PR 경로(CI)로 머지한다.
 
 # Review Disposition
 - [plan] CONDITIONAL. 강 pre-push fail-closed 구멍(`git log --stdin` 빈 입력 HEAD 대체 + 파이프라인이 dedupe 실패를 못 봄) — fix(awk·변수·빈 입력 차단, 케이스 (c)·(d)). 강 notify.ps1 "닫음" 근거를 거꾸로 읽음(원 감사는 `Start-Sleep 5`+`Dispose()` 추가 제안) — fix(닫음에서 빼고 이관 문구 정정). 강 README 커버리지·stdin 서술 누락 — fix. 약 heal `--literal-pathspecs` 와 `GIT_*_PATHSPECS` 충돌 — fix(`main()` 에서 제거, 테스트). 약 기각 전제 범위 — fix(wt 생성 경로 기준·수동 재실행 예외·`cat-file` 구조 검사 보류 기록). 약 shim 이 제외 쪽을 안 봄 — fix(제외 sha 포함, `^?` 정규식). 약 ps1·skip 관찰 불가 — fix(Acceptance 에 명시). 약 최고 위험 단계 미지목 — fix(Decisions). 약 intent audit-leftovers 줄이 원래 범위 — fix. 약 절차 순서·커밋 순서 — fix(Decisions 에 실제 순서·fixup 대상). 약 `--not` 기각 사유 보강 — fix. Nit docstring — fix. Nit `_is_gitlink` 기준 — fix(git 과 같게). Nit 복구 안내에 실제 경로 — wontfix(게이트가 멈춘 경로가 여러 개일 수 있어 일반 안내 유지). Nit rm-recovery 거부 조건 — fix. Nit Out of scope 사유 — fix.
