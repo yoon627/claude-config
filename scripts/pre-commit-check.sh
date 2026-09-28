@@ -94,6 +94,18 @@ scan_keys() {
   done
 }
 
+# rev_input — the revisions for `git log --stdin`: pushed commits, then exclusions marked
+# with `^`, deduplicated in order. They go on stdin because as arguments a new remote with
+# hundreds of refs exceeds the Windows command-line limit. `git log --stdin` falls back to
+# HEAD on empty input or a leading blank line, so added_lines builds this first and blocks
+# when it is empty.
+rev_input() {
+  {
+    printf '%s\n' "${push_commits[@]}"
+    if [ ${#published[@]} -gt 0 ]; then printf '^%s\n' "${published[@]}"; fi
+  } | awk 'NF && !seen[$0]++'
+}
+
 # added_lines <pathspec> — lines added under <pathspec> by the pushed commits that the
 # destination refs do not already have. Every option guards a way the scan could go blind:
 # --full-history keeps side branches that net to no change; -m with log.diffMerges=separate
@@ -104,12 +116,12 @@ scan_keys() {
 # Each pathspec is scanned in its own call, so a file renamed into it from outside shows
 # its lines as added.
 added_lines() {
-  local out
-  out="$(git --no-replace-objects -c core.quotePath=false -c log.diffMerges=separate \
-    -c log.showRoot=true -c log.follow=false \
-    log -p --text --no-color --no-ext-diff --no-textconv \
-    --full-history -m -U0 --src-prefix=a/ --dst-prefix=b/ --format= \
-    "${push_commits[@]}" --not ${published[@]+"${published[@]}"} -- "$1")" || return 1
+  local out revs
+  revs="$(rev_input)" && [ -n "$revs" ] || return 1
+  out="$(printf '%s\n' "$revs" | git --no-replace-objects -c core.quotePath=false \
+    -c log.diffMerges=separate -c log.showRoot=true -c log.follow=false \
+    log --stdin -p --text --no-color --no-ext-diff --no-textconv \
+    --full-history -m -U0 --src-prefix=a/ --dst-prefix=b/ --format= -- "$1")" || return 1
   # Header lines run from "diff --git" to the first "@@"; a body line starting with "++"
   # appears as "+++" and must not be mistaken for a header.
   printf '%s\n' "$out" | awk '/^diff --git /{h=1; next} /^@@/{h=0; next} !h && /^\+/{print substr($0, 2)}'

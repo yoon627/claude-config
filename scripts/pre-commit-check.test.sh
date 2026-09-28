@@ -134,6 +134,42 @@ GUARD_ENV=GIT_GLOB_PATHSPECS=1
 both block 'Anthropic key' 'GIT_GLOB_PATHSPECS=1 in the environment' pre-push "$(line feat "$s")"
 unset GUARD_ENV
 
+# Pushed commits reach git log on stdin, not argv: a new remote with hundreds of refs must not
+# hit the Windows command-line limit (32,767 chars). The shim records every git log argv (sh engine).
+newrepo; b=$(commit plans/a/a-plan.md clean); s=$(commit plans/a/a-plan.md "$TOKEN")
+many="$(for i in $(seq 1 50); do line "b$i" "$s"; done)"
+both block 'Anthropic key' 'fifty ref lines for one commit' pre-push "$many"
+SHIM="$T/shim"; mkdir -p "$SHIM"; REAL_GIT="$(command -v git)"
+cat > "$SHIM/git" <<EOF
+#!/usr/bin/env bash
+case " \$* " in
+  *" log "*) printf '%s\n' "\$@" >> "$SHIM/log-args"
+             tee -a "$SHIM/log-stdin" | "$REAL_GIT" "\$@"; exit "\${PIPESTATUS[1]}" ;;
+esac
+exec "$REAL_GIT" "\$@"
+EOF
+chmod +x "$SHIM/git"
+GUARD_ENV="PATH=$SHIM:$PATH"
+shim_in="$(for i in $(seq 1 50); do line "b$i" "$s"; done; line feat "$s" "$b")"
+check sh block 'Anthropic key' 'scan through a git shim' pre-push "$shim_in"
+unset GUARD_ENV
+if [ -s "$SHIM/log-args" ] && ! grep -Eq '^\^?[0-9a-f]{40}$' "$SHIM/log-args" \
+  && grep -Fqx "^$b" "$SHIM/log-stdin"; then
+  pass=$((pass+1))
+else
+  fail=$((fail+1)); printf '✗ [sh] commits and the exclusion must reach git log on stdin, not argv\n'
+fi
+
+# git log --stdin falls back to HEAD on empty input, so a failed input build must block — the
+# token here is only on a branch that is not checked out.
+newrepo; commit README.md clean >/dev/null; g checkout -q -b other
+s=$(commit plans/a/a-plan.md "$TOKEN"); g checkout -q feat
+both block 'Anthropic key' 'token only on a pushed ref that is not HEAD' pre-push "$(line other "$s")"
+for tool in awk sort; do printf '#!/bin/sh\ncat >/dev/null\nexit 0\n' > "$SHIM/$tool"; chmod +x "$SHIM/$tool"; done
+GUARD_ENV="PATH=$SHIM:$PATH"
+check sh block 'fail-closed' 'dedupe prints nothing and exits 0' pre-push "$(line other "$s")"
+unset GUARD_ENV; rm -f "$SHIM/awk" "$SHIM/sort"
+
 newrepo; mkdir -p "$REPO/plans/a"; printf 'leak %s\000tail\n' "$TOKEN" > "$REPO/plans/a/a-plan.md"; g add -f plans/a/a-plan.md; g commit -q -m nul
 s=$(git -C "$REPO" rev-parse HEAD)
 both block 'Anthropic key' 'plan with a NUL byte (binary)' pre-push "$(line feat "$s")"
