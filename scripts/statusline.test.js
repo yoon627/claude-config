@@ -18,10 +18,10 @@ const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'statusline-test-'));
 fs.mkdirSync(path.join(HOME, '.claude', 'cache'), { recursive: true });
 fs.writeFileSync(path.join(HOME, '.claude', 'cache', 'codex-quota.json'), JSON.stringify({ fetchedAt: Date.now() }));
 
-function run(script, input) {
+function run(script, input, env = {}) {
   const r = spawnSync(process.execPath, [script], {
     input: typeof input === 'string' ? input : JSON.stringify(input),
-    env: { ...process.env, HOME, USERPROFILE: HOME },
+    env: { ...process.env, HOME, USERPROFILE: HOME, ...env },
     encoding: 'utf8',
     timeout: 10000,
   });
@@ -65,6 +65,33 @@ ok('subagent: columns 를 넘으면 description 부터 줄인다 — 한글은 2
       startTime: now - 192100, tokenCount: 48200 }] });
     assert.ok(width(row.content) <= 60, `${width(row.content)}: ${row.content}`);
     assert.ok(row.content.startsWith('code-reviewer · ') && /… · running · 48\.2k tok · 3m 1[23]s$/.test(row.content), row.content);
+  }
+});
+
+// 쿼터 조각: TZ 를 고정해 리셋 시각 표기를 결정적으로 본다.
+const at2030 = Date.UTC(2026, 0, 1, 20, 30) / 1000;
+const runStatus = (input, home = HOME) => run(STATUS, input, { HOME: home, USERPROFILE: home, TZ: 'UTC' });
+
+ok('claude 쿼터: 남은 % 와 리셋 시각, 둘 중 하나만 있으면 그것만', () => {
+  const model = { display_name: 'Opus' };
+  assert.ok(runStatus({ model, rate_limits: { five_hour: { used_percentage: 47.4, resets_at: at2030 } } }).includes('Opus 53%(20:30)'));
+  assert.ok(runStatus({ model, rate_limits: { five_hour: { used_percentage: 110 } } }).includes('Opus 0%'));
+  assert.ok(runStatus({ rate_limits: { five_hour: { resets_at: at2030 } } }).includes('claude (20:30)'));
+  assert.ok(!runStatus({ model, rate_limits: { five_hour: {} } }).includes('Opus'));
+});
+
+ok('codex 쿼터: 신선한 캐시의 primary 를 같은 형식으로', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'statusline-codex-'));
+  try {
+    fs.mkdirSync(path.join(home, '.claude', 'cache'), { recursive: true });
+    fs.writeFileSync(path.join(home, '.claude', 'cache', 'codex-quota.json'),
+      JSON.stringify({ fetchedAt: Date.now(), primary: { usedPercent: 20, resetsAt: at2030 } }));
+    assert.ok(runStatus({}, home).includes('codex 80%(20:30)'));
+    fs.writeFileSync(path.join(home, '.claude', 'cache', 'codex-quota.json'),
+      JSON.stringify({ fetchedAt: Date.now(), primary: { resetsAt: at2030 } }));
+    assert.ok(runStatus({}, home).includes('codex (20:30)'));
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
   }
 });
 
