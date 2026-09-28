@@ -231,6 +231,7 @@ intent `repo-audit-followups` 의 `(미착수)` 단위가 참조하는 상세 �
 - (선택) statusline 스모크(`{}`·`null` stdin → exit 0).
 
 ## 저우선
+> 2026-09-28 처분(audit-leftovers — `plans/2026-09-28-audit-leftovers/`): pre-push 한 명령줄 — sh 고침(`--stdin`), ps1 → windows-ps1-verify · heal deinit pathspec — 고침 · ps1 symlink — windows-ps1-verify · notify.ps1 balloon — windows-ps1-verify(2026-06 감사 제안 `Start-Sleep 5`+`Dispose()` 추가 — 미적용) · statusline 쿼터 표시 중복 — 고침, cache/lock 상수 — 결합 주석만(공유 모듈 기각), readdir — 닫음(`32f0787`) · heal `gitdir:` 검증·`rm -rf` 안내 — 고침, corrupt 시그니처 확인 후 reset — 기각, `_force_rmtree` symlink — 닫음(audit-install-fixes) · CP949 — windows-ps1-verify(기존 배정).
 - pre-push 스캔이 push 커밋 전부를 한 명령줄로 넘긴다 — 790개 넘는 ref 를 새 원격으로 한 번에 push 하면 Windows 명령줄 32,767자 한계로 예외(차단 쪽). 커밋 중복 제거 + `git log --stdin`.
 - heal 의 `git submodule deinit -f -- <path>` 는 `.gitmodules` path 를 pathspec 으로 받는다(`path = *` 면 전 submodule deinit). 데이터 게이트는 문자 그대로의 경로를 본다 — `--literal-pathspecs` 검토. 변경 전부터 있던 문제.
 - ps1 `~/.claude` 면제 판정이 symlink 를 풀지 못한다(`pre-commit-check.ps1` `$resolve` 의 `Resolve-Path`): HOME 경로가 symlink(`/var`→`/private/var`)를 거치면 sh 는 면제(rc 0), ps1 은 main push 차단(rc 1) — 2026-09-25 pwsh 7 실측, 이번 변경 이전부터 있던 동작. 주석 "resolved because either side can be a link" 도 ps1 에선 사실이 아니다. 하네스는 FAKE_HOME 을 `pwd -P` 로 정규화해 이 문제와 분리했다.

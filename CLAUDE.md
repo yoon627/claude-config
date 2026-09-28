@@ -47,7 +47,7 @@
 3. **Plan** — 큰 변경(50줄 초과, 다중 파일, public API, DB schema, migration, 아키텍처/보안 영향)은 계획 먼저 제시·승인 후 진행. 작은 변경(오타, 로그 한 줄)은 즉시.
 4. **Implement** — 작은 단계로. 요청 범위 밖 "지나가는 김에" 수정 금지. 단, 빌드/테스트를 깨는 직접 원인이면 수정하고 이유 명시. **범위 밖 발견은 유실도 금지** — 고치지 말고(§1 자가수정·스코프 경계 → 별도 작업) active plan `# Deferred`(§10, plan 없으면 Report)에 한 줄(내용·심각도·파일) 기록 후 진행.
 5. **Verify** — lint/typecheck/test 실행. 변경 함수/클래스 호출부를 `rg`(없으면 `grep -R`)로 확인. 미실행은 "미검증" 명시. **이번 변경이 깨뜨린 것만 수정** — 작업 전부터 깨진 baseline failure 는 pre-change 실행·base 재현으로 **입증된 것만** `# Deferred` 기록, 입증 안 되거나 완료를 막는 실패는 Deferred 금지 → 수정하거나 `status: blocked`/"미검증"(§1 에러 무시 금지). **주석·docstring·commit message 가 변경된 코드의 현재 동작과 어긋나지 않는지 항상 확인**(옛 설명·식별자·동작 서술 잔존 금지 — 특히 리팩토링·rename·fixup 흡수 후). **비trivial 은 plan `# Acceptance`(§10) 항목을 증거(실행·관찰·통과)로 대조한 뒤에만 완료** — 미충족·미검증이면 완료 금지. 실행 산출물(render/CLI/서버)은 정적 점검이 아니라 실제 실행·관찰로 검증.
-6. **Report** — 변경 요약 / 수정 파일 / 검증 결과 / 영향 범위 / 남은 리스크. **작업·세션 마무리 답변은 맨 끝을 `## 결론` 블록으로 닫는다** — 상세는 위, 결론은 아래(사용자는 마지막 블록만 보고 판단하고 더 알고 싶으면 위를 본다. §0 인사말 금지와 무관 — 결론은 내용이지 의례가 아니다). 형식 고정: `## 결론` 아래 `- 문제:` `- 원인:` `- 조치:` `- 검증:`(명령·결과 / 미검증) `- 남은 것:` 5줄, 해당 없으면 `해당 없음`. **마지막 `## ` heading 이 `## 결론`** 이어야 한다 — 파일을 편집한 턴은 Stop hook(`dlc-early-stop` ④ 축, `CLAUDE_DLC_CONCLUSION_OFF=1` 로 해제)이 capped 1회 경고하고, 파일 변경 없는 비trivial 답변(질문·조사)도 같은 블록으로 닫는다(hook 은 안 걸린다). **hook 은 턴의 마지막 텍스트 블록만 본다**(실측 2.1.272) — 아래 선택지 응답 뒤 곧바로 턴을 끝낼 땐 "종료합니다" 류 한 줄이 아니라 그 마감 텍스트 자체를 `## 결론` 블록으로 쓴다. 이어서 **선택지를 AskUserQuestion 으로**: 작업 확인 / 마무리·정리(코드작업이면 push·PR·머지 — **`/e merge`**, 체크포인트만이면 `/e`)는 **`/e` 스킬로 수행**(plan 동기화·worklog 기록·worktree 정리를 수동 대체하지 말 것) / 다른 작업 이어가기(현재 worktree 에 얹지 말고 `/wt` 신규 — §8) / 종료 — 큰·낯선 변경이면 "변경 이해 리포트+퀴즈" 옵션 추가. 단 **최신 사용자 메시지에 지금 실행할 명시적 다음 액션이 있으면** 선택지 생략(중복 질문 금지). **Stop hook 경고·오탐 대응은 결론 1줄**("오탐 — <무엇>, 조치 불필요")로 제한(이 턴은 `## 결론` 블록 면제 — 재종료는 hook 이 통과시킨다), 판단 과정 서술 금지 — 근거는 채팅이 아니라 plan `# Workflow Findings`(누적 시 wiki `workflow-failures.md`)에.
+6. **Report** — 변경 요약 / 수정 파일 / 검증 결과 / 영향 범위 / 남은 리스크. **작업·세션 마무리 답변은 맨 끝을 `## 결론` 블록으로 닫는다** — 상세는 위, 결론은 아래(사용자는 마지막 블록만 보고 판단하고 더 알고 싶으면 위를 본다. §0 인사말 금지와 무관 — 결론은 내용이지 의례가 아니다). 형식 고정: `## 결론` 아래 `- 문제:` `- 원인:` `- 조치:` `- 검증:`(명령·결과 / 미검증) `- 남은 것:` 5줄, 해당 없으면 `해당 없음`. **마지막 `## ` heading 이 `## 결론`** 이어야 한다 — 파일을 편집한 턴은 Stop hook(`dlc-early-stop` ④ 축, `CLAUDE_DLC_CONCLUSION_OFF=1` 로 해제)이 capped 1회 경고하고, 파일 변경 없는 비trivial 답변(질문·조사)도 같은 블록으로 닫는다(hook 은 안 걸린다). **hook 은 턴의 마지막 텍스트 블록만 본다**(실측 2.1.272) — 아래 선택지 응답 뒤 곧바로 턴을 끝낼 땐 "종료합니다" 류 한 줄이 아니라 그 마감 텍스트 자체를 `## 결론` 블록으로 쓴다. 이어서 **선택지를 AskUserQuestion 으로**: 작업 확인 / 마무리·정리(코드작업이면 push·PR·머지 — **`/e merge`**, 체크포인트만이면 `/e`)는 **`/e` 스킬로 수행**(plan 동기화·worklog 기록·worktree 정리를 수동 대체하지 말 것) / 다른 작업 이어가기(현재 worktree 에 얹지 말고 `/wt` 신규 — §8) / 종료 — 큰·낯선 변경이면 "변경 이해 리포트+퀴즈" 옵션 추가. 단 **최신 사용자 메시지에 지금 실행할 명시적 다음 액션이 있으면** 선택지 생략(중복 질문 금지). **Stop hook 경고·오탐 대응은 결론 1줄**("오탐 — <무엇>, 조치 불필요")로 제한(이 턴은 `## 결론` 블록 면제 — 재종료는 hook 이 통과시킨다), 판단 과정 서술 금지 — 근거는 채팅이 아니라 plan `# Workflow Findings`(누적 시 공용 wiki `workflow-failures.md` — 다른 repo 세션이면 §11 제안)에.
 
 > **문서 동기화** (evidence gate 항목): 변경이 README 문서화 컴포넌트(스크립트·설정·skill·agent·CLAUDE.md 섹션)에 영향 주면 README 도 **같은 브랜치에서 갱신**(비trivial 의 acceptance 항목, 검증과 동급). `wiki/pages/` 변경은 `wiki/index.md` 동기화 동반. 잊으면 `dlc-early-stop`(Stop hook)이 drift 를 capped 경고(보조망 — 단일 소스는 이 규약). plan 은 §10 동기화 규약.
 
@@ -140,7 +140,7 @@ Workflow 스크립트의 `agent()` 는 `model` 을 생략하고(세션 모델 �
 - **머지/완료 후 정리 — merged 면 묻지 말고 정리**: 작업 브랜치가 merged·정리해도 안전하면 worktree 정리를 방치·"선택사항" 언급만 하지 않고, **선택지로 올리지도 않는다**. **분기**:
   - **(a) merged + 안전조건 충족 → 확인 없이 worktree + 로컬 브랜치 자동 정리**. 조건 — ①대상 ≠ `main`/`master`/`origin/HEAD` ②**default 브랜치에 merged**(`git branch --merged <default>` 에 있음 — **로컬 main 머지도 포함**한다. push 하지 않는 워크플로우가 있어 `origin/<default>` 기준만 보면 영영 미머지로 오판한다. squash-merge 는 미감지 → (b)) ③working tree clean(untracked 포함) ④미보존 `.env`/ignored/미커밋 plan 없음. **누가 머지했는지는 묻지 않는다**(내 merge 든 우연히 merged 든 동일). 실행은 worktree → `git branch -d` 순, 삭제한 브랜치 tip sha 를 보고(merged 라 `git branch <name> <sha>` 로 복구 가능).
   - **(b) 확인 필요(AskUserQuestion)** — **원격 브랜치 삭제**(`git push origin --delete`)는 (a) 에 **포함되지 않는다: 항상 확인**. 그 외 안전조건 하나라도 미충족/불확실(dirty·squash-merge·미보존 산출물), `/wt rm <이름>` 직접 호출(오타로 엉뚱한 대상을 지울 수 있다) 도 확인. 이 경로에서 원격 삭제·`git branch -D` 는 명시 확인 없이 금지(데이터 유실 방지).
-  - 조건·실행 세부는 `/e` step7·worktree 정리 규칙. `gh pr merge --delete-branch` 는 **명령으로 쓰지 않는다**(로컬·원격 삭제를 묶어 §8(b) 분리 승인을 우회하고, worktree 가 main 을 점유한 환경에선 로컬 삭제가 실패/스킵되어 정리만 조용히 누락 — 사례는 wiki `workflow-failures`). 사용자가 그 플래그로 머지를 지시했다면 원격 삭제 승인으로 간주하고, 실행은 `/e merge` 경로(`--merge` 후 정리)로 하되 7단계 뒤 원격 삭제 재확인은 그 승인으로 갈음한다. **main/master worktree 는 자동 정리 대상 아님.**
+  - 조건·실행 세부는 `/e` step7·worktree 정리 규칙. `gh pr merge --delete-branch` 는 **명령으로 쓰지 않는다**(로컬·원격 삭제를 묶어 §8(b) 분리 승인을 우회하고, worktree 가 main 을 점유한 환경에선 로컬 삭제가 실패/스킵되어 정리만 조용히 누락 — 사례는 공용 wiki `workflow-failures`). 사용자가 그 플래그로 머지를 지시했다면 원격 삭제 승인으로 간주하고, 실행은 `/e merge` 경로(`--merge` 후 정리)로 하되 7단계 뒤 원격 삭제 재확인은 그 승인으로 갈음한다. **main/master worktree 는 자동 정리 대상 아님.**
 - generated/lock file 변경은 필요할 때만 포함, 이유 설명.
 - `.env`/private key/token/password/인증서 원문을 답변·로그·테스트 fixture·snapshot 에 출력 금지.
 - 인증/인가/암호화 코드는 기존 보안 패턴 먼저 확인. 임시 우회·hardcoded credential·TLS 검증 비활성화 금지.
@@ -220,11 +220,16 @@ updated: YYYY-MM-DD
 
 ## 11. 영속 프로젝트 메모리 (LLM Wiki)
 
-이 repo·워크플로우의 누적 지식(아키텍처 결정·교훈·검증된 외부 사실)은 `wiki/`(스키마 `wiki/WIKI.md`)에 영속 적립 — `plans/`(일시적 핸드오프, 종료 시 닫힘)와 달리 작업을 가로질러 누적.
+누적 지식(아키텍처 결정·교훈·검증된 외부 사실)은 wiki 에 영속 적립 — `plans/`(일시적 핸드오프, 종료 시 닫힘)와 달리 작업을 가로질러 누적. **두 계층**:
+- **repo wiki** `<ROOT>/wiki/` — 그 repo 의 결정·교훈(코드와 같은 브랜치에서 갱신).
+- **공용 wiki** `~/.claude/wiki/` — 여러 repo 에 쓸모 있는 **공개 가능한** 사실(도구·플랫폼·라이브러리 동작)과 전역 자산(dlc·hook·skill)의 결정·교훈. 이 문서·skill 이 가리키는 `[[…]]` 페이지는 여기 있다.
+- **공개 점검** — `~/.claude` 는 공개 repo 다. 공용 적립 작업이 커밋·push 하는 **모든 것**(페이지·`sources`·index·log·plan·브랜치/worktree 이름·커밋 메시지·PR 제목/본문)에 회사·조직명, 내부 도메인·호스트·IP, 고객·제품 코드명·티켓 키, 비공개 repo 의 이름·경로·내부 도구명을 넣지 않는다(비공개 repo 는 "회사 repo" 로만). 비공개 출처(또는 출처 불명)를 적립할 때는 커밋 전 diff 를 보이고 확인받는다.
+- 현재 repo 가 `~/.claude` 인지: `[ "$(git rev-parse --path-format=absolute --git-common-dir)" -ef "$HOME/.claude/.git" ]`(worktree 포함, 경로 표기 차이에 무관). 맞으면 두 계층이 같은 wiki 다(worktree 세션에서는 그 worktree 의 `wiki/`).
 
-- 작업 시작 시 `wiki/index.md` 에서 관련 페이지 조회(있을 때만 — 없으면 무비용).
-- 재사용 가능한 지식(비자명한 결정·교훈·확정한 외부 사실)은 **wiki 대상 여부 판정 필수** — 대상이면 `/wiki ingest` 제안(자동 아님), 비대상이면 사유. 강제는 아니되 *판정*은 빠뜨리지 않는다.
-- raw 원문은 읽기 전용·gitignored. 페이지 write 규약은 `wiki/WIKI.md` 단일 소스.
+- 작업 시작 시 두 `index.md` 에서 관련 페이지 조회(있는 것만, 키워드로 먼저 거른다).
+- 재사용 가능한 지식(비자명한 결정·교훈·확정한 외부 사실)은 **대상 계층까지 판정 필수** — repo wiki / 공용 wiki / 비대상(사유). 대상이면 `/wiki ingest` 제안(자동 아님). 애매하면 repo wiki. repo wiki 대상인데 repo wiki 가 없거나 비-git 이면 비대상 + 사유(공용 대상은 여전히 제안).
+- **다른 repo 세션의 공용 대상은 적립하지 않는다** — Report 와 출처 plan `# Deferred`(없으면 Report 만)에 `~/.claude 에서 /wt → /wiki ingest <요약 · 공개 근거 · 출처(공개/비공개)>` 를 남긴다. 출처 칸에는 `공개`/`비공개` 만 쓴다(비공개 repo 이름은 적지 않는다). 요약·근거는 이미 공개 점검을 통과한 문장이어야 하고, 근거는 공개 검증 가능한 것(공식 문서·공개 이슈·비공개 코드 없는 재현)만 — 없으면 공용 대상이 아니다.
+- 어느 wiki 에 둘지는 이 절, 페이지 형식은 대상 wiki 의 `WIKI.md` 가 정한다. raw 원문은 읽기 전용·gitignored. 절차 세부는 `skills/wiki/SKILL.md`.
 
 ---
 
@@ -245,8 +250,8 @@ updated: YYYY-MM-DD
 작업 중 저지른 실수(내 오판·누락) 또는 사용자가 지적한 실패는, 같은 실수를 다음 작업에서 반복하지 않도록 적립 **대상으로 판정**한다. 목표는 기록이 아니라 **다음 구현에서의 회피**. wiki(상세)와 memory(자동 상기)를 **결합**한다 — wiki 만으로는 능동 조회라 자동으로 안 떠오르고, 인덱스 한 줄만으로는 원인·교훈이 묻힌다.
 - **무승인 자동 적립 금지 (§1).** 실수 발견은 자동 저장/수정이 아니라 **제안** — Report 또는 plan `# Workflow Findings`/`# Deferred`에 올리고, 승인·판정 후 적립한다([[self-diagnosis-and-improvement-status]]의 "자발적 무승인 기록 트리거 미채택"·§11 wiki ingest "제안 아님"과 동일 게이트). §13 은 *적립할 때의 형식*을 정하지, 무인 자동화를 도입하지 않는다.
 
-- **상세 = wiki `pages/decision/lesson-<주제>.md`.** 원인(최소 3 Whys)·재현 조건·잘못된 방법·올바른 방법. 기존 [[workflow-failures]] 와 같은 ADR-lite 형식(§11). `index.md`·`log.md` 동기화 동반.
-- **자동 상기 = `MEMORY.md` feedback 인덱스 한 줄(명령형 + lesson 링크).** wiki 는 자동 주입 안 되고, 매 세션 주입되는 유일한 경로는 이 인덱스 줄이다. *정보 요약이 아니라 회피 행동 지시*로 쓴다(§12): `마이그레이션 down 스크립트 먼저 작성 (롤백 불가 실수 → lesson-migration)`.
+- **상세 = 대상 계층(§11) wiki 의 교훈 페이지** — 공용 wiki 는 `pages/decision/lesson-<주제>.md`, 다른 repo wiki 는 그 `WIKI.md` 형식. 전역 워크플로우 교훈은 공용 wiki. 원인(최소 3 Whys)·재현 조건·잘못된 방법·올바른 방법. 기존 [[workflow-failures]] 와 같은 ADR-lite 형식(§11). `index.md`·`log.md` 동기화 동반.
+- **자동 상기 = `MEMORY.md` feedback 인덱스 한 줄(명령형 + lesson 링크).** wiki 는 자동 주입 안 되고, 매 세션 주입되는 유일한 경로는 이 인덱스 줄이다. `MEMORY.md` 는 git repo 별(worktree 는 공유)이라 `~/.claude` 에서 적은 줄은 다른 repo 세션에 주입되지 않는다 — 거기서의 상기는 작업 시작의 공용 index 조회가 맡는다. 다른 repo 에서 찾은 전역 교훈의 memory 줄은 공용 적립을 마치고 `~/.claude` main 으로 복귀한 세션에서 적는다(worktree 안에서는 못 쓴다 — §3-1). *정보 요약이 아니라 회피 행동 지시*로 쓴다(§12): `마이그레이션 down 스크립트 먼저 작성 (롤백 불가 실수 → lesson-migration)`.
 - **메커니즘은 §11·§12 그대로** (저장 2단계·승격·재참고를 재서술하지 않는다). **§13 의 순증분은 대상 확대뿐** — §12 가 "사용자 교정 지시"라면 §13 은 **내가 능동 발견한 실수(사용자 지시 없이도)** 까지 (위 무승인 게이트 하에서) 포함. **적립은 매 실수마다 의무가 아니라 판정·제안**(위 무승인 금지) — 반면 *승인되어 만들어진* 인덱스 줄은 §12 대로 매 세션 주입("적립 의무"와 "인덱스 주입"은 별개). 회피를 hook 으로 강제할 만큼 반복되면 게이트(Stop/UserPromptSubmit)로 승격.
 
 @RTK.md

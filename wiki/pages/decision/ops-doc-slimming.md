@@ -3,7 +3,7 @@ title: ops-doc-slimming
 category: decision
 created: 2026-07-14
 updated: 2026-07-17
-sources: [PR #73, 커밋 6b81a1a, plans/2026-07-04-doc-slim/doc-slim-plan.md, PR #89, PR #90, PR #91, PR #92, plans/giggly-petting-moonbeam.md]
+sources: [PR #73, 커밋 6b81a1a, plans/2026-07-04-doc-slim/doc-slim-plan.md, PR #89, PR #90, PR #91, PR #92, 커밋 7d5efcc 의 plans/giggly-petting-moonbeam.md(이후 삭제)]
 ---
 
 # ops-doc-slimming — 항상 주입 운영 문서 토큰 최적화 규약

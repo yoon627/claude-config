@@ -189,7 +189,7 @@
 - 동반 README 정정 2건: 이 키를 여기 두지 않는 이유 명시 + `pyright-lsp` 서술이 `false` 로 stale 했던 것(`80dbb3c` 가 `true` 로 되돌림)을 실제 상태로 동기화.
 
 ## [2026-09-07] ingest | lesson-tracked-config-machine-paths 재발 2회 → settings.json 추적 중단
-- 세 번째 사례는 `/auto-mode-setup` 이 쓴 `autoMode` 블록이다. 머신 절대경로에 더해 **사내 IP(`192.168.62.48`)·도메인(`aigw.autocrypt.co.kr`)·조직명·Bitbucket URL** 이 담겼고 이 레포는 **public** 이라 유출 표면이 앞선 두 사례보다 넓다. 증상은 동일 — `git pull --rebase` 거부.
+- 세 번째 사례는 `/auto-mode-setup` 이 쓴 `autoMode` 블록이다. 머신 절대경로에 더해 **사내 IP·사내 도메인·조직명·Bitbucket URL** 이 담겼고 이 레포는 **public** 이라 유출 표면이 앞선 두 사례보다 넓다. 증상은 동일 — `git pull --rebase` 거부.
 - **표준 remedy 가 처음으로 통하지 않았다**: `autoMode` 는 `settings.local.json` 에서 읽히지 않는다(공식 문서 *Where the classifier reads configuration*). 유효 스코프는 `~/.claude/settings.json`·managed settings·`--settings` 뿐이고, 옮기면 에러 없이 **조용히 무시**된다. managed settings 는 `C:\Program Files\ClaudeCode\` 라 관리자 권한이 필요해 이 머신에선 불가.
 - 그래서 키가 아니라 **파일을 뺐다**(`.gitignore` 화이트리스트에서 제거 + `git rm --cached`). 키 단위 대응이 3회 반복된 것이 근거 — 뺄 키를 고를 때마다 Claude Code 는 다음 기능으로 또 쓴다. 증상 억제 대신 원인 제거.
 - 추적 전제에 의존하던 것 동반 수정: CI JSON validation 제거, `session-start-pull.test.js` 이원화(settings 있으면 실제 배선까지 검증 / 없으면 CANONICAL 로 스크립트 동작 고정 — 19 tests 양쪽 통과 실측), `guard-worktree-edit.js` main 허용목록에 추가, `dlc-doc-drift.js` trigger 에서 제외.
@@ -297,3 +297,55 @@
 
 ## [2026-09-26] update | autopull-verified-ff
 - 2단계(client) 반영: 자동 pull 이 기록 sha 가 origin/main 조상일 때만 ff, `+`·`--prune`·`--no-write-fetch-head`, `CLAUDE_AUTOPULL_VERIFY=0` 은 예전 fetch(탈출구), MSYS 경로 변환은 끄지 않음(끄면 Windows 에서 `-C` 경로가 깨진다 — code-reviewer), 게이트는 SessionStart 경로만, 머신·원격 레버와 수동 복구, D/F·Windows·fork 한계. REST root 기록 생성 ❌→✅(PR #179 첫 기록).
+
+## [2026-09-26] update | wiki-shared-layer · project-memory · ingest-operation
+- 두 계층 구현(CLAUDE.md §11·§13, wiki·dlc skill): 모든 repo 가 두 index 조회, 다른 repo 세션은 공용 적립 제안만, 공개 repo 기밀 게이트(사용자 결정 — 비공개 repo 이름까지 금지), 계층 간 참조·filed·교훈·Workflow Findings 규칙. 회사 repo 표 줄 일반화, project-memory 의 `plans/` gitignored 낡은 서술 정정.
+- 리뷰 반영: 공개 점검 표면을 적립 작업이 공개하는 모든 것(plan·브랜치/worktree 이름·PR·티켓 키 포함)으로, 제안 형식에 출처(공개/비공개), 판정은 `-ef`. ingest-operation 절차에 계층 판정 단계, 남은 것에 가드 공백·제안 수집 경로·기존 이름 처분.
+
+## [2026-09-26] ingest | lesson-no-speculative-platform-switch (신규)
+- §13 교훈(사용자 승인): autopull client 에 Windows 경로 변환 방어로 `MSYS_NO_PATHCONV`·`MSYS2_ARG_CONV_EXCL` 을 넣었으나 두 변수는 명령의 모든 인자에서 변환을 꺼 `-C` 경로까지 native git 에 그대로 넘긴다 — Windows 자동 pull 무음 정지 위험(code-reviewer Critical). 근거는 MSYS2 문서·Git for Windows msys2-runtime PR #11·변환 코드(`msys2_path_conv.cc`)·같은 증상 공개 이슈(Windows 미실행). 영향 범위와 위험의 실재를 문서로 확인하지 못하면 넣지 않고 미검증으로 보고, 넣을 땐 가장 좁게·대상 플랫폼 확인은 머지 전, 제거 후 재도입 단언. memory 인덱스 줄은 main 세션에서 함께 적었다.
+
+## [2026-09-27] ingest | link-following-file-ops (신규)
+- 공용 wiki 적립(사용자 결정): POSIX 에서 파일 모드는 삭제를 막지 않고(sticky 디렉토리는 XBD 4.5), `os.chmod` 는 심링크를 따라가며(Windows 는 기본 `follow_symlinks=False`) hardlink 는 모드를 공유하고, git 로컬 clone 은 objects 를 hardlink 한다 — 삭제 전 일괄 chmod 가 트리 밖 파일을 `0o200` 으로 만든 heal 결함과 rmtree 실패 핸들러(Windows·비심링크만) 해법·Windows 잔여 한계, `cd` 의 `..` 글자 처리 대 `cd -P`(설치 도구의 링크 오판). 근거는 POSIX unlink·XBD 4.5·link·cd, Python os·shutil, git-clone 문서, PR #181. code-reviewer 가 Windows chmod 기본값 누락을 잡아 정정. lesson-no-speculative-platform-switch 에서 inbound.
+
+## [2026-09-27] update | rtk-rewrite-permission-rules
+- 남은 한계 절을 규칙 문자열 대조 + `rtk rewrite` 실측(rtk 0.44.2)으로 갱신: 인자 없는 `git push` 는 정확 일치 규칙에 걸림, `git push origin`·`-u origin HEAD` 는 안 걸림(⚠️ 대조 기준), `git <전역 옵션> push`(`-C`·`-c`·`--git-dir`·`--no-pager`)는 `rtk git <옵션> push` 로 재작성돼 규칙 밖, `--mirror`·`--all`·`--prune` ask 없음, 백스톱은 pre-push 가드(설치 repo·`~/.claude` 면제)와 관리자 bypass 인 `main-guard`. README `permissions.ask` 항목과 같은 내용(audit-docs-drift).
+
+## [2026-09-27] update | anthropic-claude-models · claude-code-model-selection · model-stage-tiering · effort-global-xhigh
+- 모델 사실을 Opus 5.5(2026-09-22)·Fable 5.1(2026-09-01) 라인업으로 갱신: 가격·legacy·Sonnet 5 인상 취소·Haiku 4.5 은퇴 하한·모델별 기본 effort(Opus 5.5 medium)·Claude Code effort 해석(`effortLevel` 은 Opus 5.5 에 미적용)·폴백·Fable advisor 가능·subagent 모델 순위(v2.1.251 부터 env 는 frontmatter 뒤, 비상 레버 `…_FORCE=1`)·subagent effort 는 세션 상속. Fable 5.1 최소 버전 불일치는 `[!conflict]`. decision 페이지는 당시 근거를 보존하고 인접 `[!note] 이후 변경` 으로, `effort-global-xhigh` 의 현재 상태 callout 은 제자리 갱신. 근거는 공식 models overview·pricing·effort·model-config·sub-agents·advisor 원문(2026-09-27)과 workflow 교차 검증(wf_83e9d53b-c4e). README 비상 레버도 같은 사실로(audit-docs-drift). 리뷰 정정: 리뷰어 effort 는 미결 회귀가 아니라 2026-09-24 M12 결정(user settings `modelSettings` — Opus 5.5 `medium`)이고, 남은 미확인은 세션 모델과 다른 고정 subagent 의 레벨뿐이다. 원문에 없는 인용 1건을 실제 문구로 바꾸고 과장 표현(다른 모델 `high`, FORCE 단독, 조직 기본값, effort 순서의 ultracode 전제)을 좁혔다.
+
+## [2026-09-27] update | lesson-verify-scaffold-purpose-before-removal (사례 2)
+- §13 교훈(사용자 승인): audit-docs-drift 에서 Opus 5.5 기본 effort `medium` 을 보고 opus 리뷰어 effort 를 복원 여부가 사용자 결정을 기다리는 상태로 적었으나 실제로는 2026-09-24 M12 결정(user settings `modelSettings`)이었다 — code-reviewer 가 settings·plan 을 읽어 잡음. 교훈 범위를 "장치 제거"에서 "설정값을 회귀·미결로 적거나 바꾸는 제안"까지 넓힘. memory 인덱스 줄도 같은 내용으로 갱신(main 세션).
+
+## [2026-09-27] update | native-overlap-ledger · workflow-failures · claude-code-hook-notification-turns
+- `/improve deep`(사용자 승인 초안) 적립. 대장: 창 v2.1.223~283 재판정 — GitHub `CHANGELOG.md` 원문을 받아 2,326줄 전수(처음 WebFetch 조회는 잘리고 귀속이 흔들려 리뷰가 누락을 잡음 → 운영 규칙에 "원문을 로컬로 읽는다" 추가), 날짜는 npm 게시 시각. 대체 0, 기존 판정 유지(1b `retire` 미이행 표기, memory 쓰기 콜아웃은 v2.1.283 의 다른 경로 수정이라 재실측 필요), 신규 행 7개(commit-check·SessionStart pull/brief·plans 핸드오프·router·pre-commit/pre-push·notify/statusline `keep`, `/improve` `watch` — `/doctor prompt-audit`·`/skill-doctor`). router 행은 대체가 아니라 파손: v2.1.271 auto mode hand-back 호출. `checked` 2026-09-27·`checked_version` 2.1.283. workflow-failures: 라우터 알림 턴 행에 새 경로(hand-back 턴 — 2026-09-15 부터 14개 세션 130건, 4→134, fixed 유지 + 새 경로 proposed), 중간 턴 오탐 행 +1(5). hook-notification 페이지에 hand-back 턴 raw 형태(평문 접두어·개행·태그, 래퍼 없음 — transcript 210건, 런타임 2.1.271~2.1.281 auto mode)와 v2.1.234·271 관련 사실 추가. 새 개선 3개는 감사 묶음의 Out of scope 라 새 묶음 `plans/2026-09-27-improve-followups/intent.md` 로.
+
+## [2026-09-27] update | lesson-grep-absence-not-proof (사례 5·6)
+- §13 교훈(사용자 승인): native-overlap-recheck 에서 리뷰가 잡은 실수 두 건 — WebFetch 요약을 근거로 "UserPromptSubmit 관련 변경이 창에 없다"고 적어 v2.1.271·280 을 놓침(사례 5), 라우터 오발동을 표본으로 세어 두 번 과소(1 → 41 → 14개 세션 130건, 사례 6). 올바른 방법에 "외부 문서는 원문을 받아 끝까지 읽는다"·"빈도는 전체 데이터로, 표본은 표본이라고 적는다" 추가. memory 인덱스 줄은 main 세션에서.
+
+## [2026-09-27] update | workflow-failures · claude-code-hook-notification-turns (router-agent-message)
+- 라우터 hand-back 경로 fixed: reminder·notification 을 걷어낸 뒤 `<agent-message` 로 시작하는 턴(접두어 선택적)을 통째로 건너뛴다(라우팅·장부 리셋 모두). 태그만 걷어내면 뒤 하네스 안내 문단이 남는다(transcript 213/213). 판별식은 hand-back 213/213 을 잡고 다른 user 텍스트 턴 1,888건은 0건. 실제 hook stdin 실측은 머지 뒤(plan Acceptance 6).
+
+## [2026-09-27] update | workflow-failures (router-agent-message 머지 뒤 실측)
+- 라우터 hand-back 경로 fix 를 머지 뒤 실제 hand-back 턴으로 확인: 수정 전이면 라우팅됐을 턴에서 hook 주입·`router-investigation` 신호 없음, evidence 장부 유지.
+
+## [2026-09-27] update | workflow-failures (ledger-bash-edits)
+- "Bash 경유 편집" 행: plan·README·index 편집 부분 fixed — PostToolUse `tool_response.bashEditDiff`(v2.1.269)의 이 브랜치 plan·README·index 경로를 HEAD 와 다를 때만 `planTouched`·drift target 으로(경고 끄기만). 대칭 처리는 새 오탐 3부류(git 동기화 diff·경로 순서·veto)로 기각. verify 부분(이름이 안 맞는 검증 스크립트)은 tracking. "중간 턴" 행 fixed — Stop `background_tasks` 에 subagent·workflow 가 있으면(teammate 는 idle 도 running 으로 남아 제외) early-stop 이 장부를 건드리지 않고 통과.
+
+## [2026-09-27] update | claude-code-agents-md-loading (worktree CLAUDE.md 이중 주입)
+- `~/.claude` worktree 세션이 전역 `CLAUDE.md`(user 지침)와 worktree `CLAUDE.md`(프로젝트 지침)를 둘 다 싣는 것을 headless 실측(62,827 → 44,300 토큰, main 44,097). user `settings.json` `claudeMdExcludes` 에 `**/.claude/.claude/worktrees/*/CLAUDE.md` 와 `*/AGENTS.md`(CLAUDE.md 를 빼면 AGENTS.md 폴백이 켜짐 — 실측) 추가(plan claude-md-dedupe) — worktree 세션은 main checkout 의 CLAUDE.md 로 돌고 branch 변경은 main 반영 뒤 새 세션부터.
+
+## [2026-09-27] update | native-overlap-ledger (1b 정정)
+- 1b(guard ② worktree 밖 편집 deny) `retire` → `keep`. 2.1.283 표적 재실측: EnterWorktree 세션은 네이티브가 Write·Edit·NotebookEdit 로 main checkout 을 고치는 시도를 전부 hook 보다 먼저 거부(memory 쓰기 포함 — 1b 콜아웃 유지), worktree 디렉토리에서 바로 시작한 세션은 격리가 없어 ② 가 유일한 보호. ② 발동 이력(09-27 이전 7건) = 오탐 4(전부 gitignored 경로)·08-12 hook 직접 호출 3, 09-27 1행은 측정 행. ② 를 main checkout 의 추적 파일 편집·새 not-ignored 파일 생성만 막게 좁혔다(plan guard-deny-removal). 표적 실측이라 `checked` 는 유지. `worktree-per-task`·`dlc-wt-autoflow` 의 해당 서술에 정정·범위(EnterWorktree 한정)를 달았다.
+
+## [2026-09-28] update | lesson-verify-scaffold-purpose-before-removal (사례 3)
+- 사례 3: 2026-08-12 EnterWorktree 세션에서만 잰 "네이티브 ⊇ guard ②" 로 `retire` 했다가 2026-09-27 재실측에서 worktree 디렉토리에서 시작한 세션이 격리되지 않아 뒤집힘(plan guard-deny-removal). 같은 작업에서 오탐 4건(전부 gitignored)을 "untracked" 로 뭉쳐 없는 상충을 적은 self-flag 도 같은 축. 올바른 방법에 두 항목 추가 — 대체 판정은 장치가 발동하는 조건마다 잰다, 트레이드오프 전 관측 표본 속성을 가장 좁은 범주로 적는다.
+
+## [2026-09-28] ingest | codex-cli-agents-and-hooks
+- 새 entity: Codex CLI 0.154.0 의 custom agent toml(필수 키, tools 제한 키 없음 → `sandbox_mode`, 이름 호출 #15250, `max_depth` 가 셸 `codex exec` 재귀를 못 막음 #46704·#32027)과 hooks(로컬 로드 형태 `{"hooks": {...}}`, 이벤트·출력 필드는 Claude Code 와 같음, 편집이 `apply_patch` 라 경로가 patch 본문 안, `bashEditDiff`·`background_tasks` 없음, PostToolUse 출력 누락 보고 #34289·#46455), worktree 가 편집 경계가 아님. codex-agents-hooks(PR #186)의 결정 근거. `claude-codex-collaboration` 에서 링크.
+
+## [2026-09-28] ingest | git-literal-pathspecs · git-gitfile-format · git-log-added-lines-hardening (stdin 절)
+- audit-leftovers(PR #188)에서 확인한 git 사실을 공용 wiki 로 옮겼다. 네 가지 사실(`git log --stdin`, submodule pathspec, 전역 pathspec 설정 충돌·check-ignore, `.git` 파일 형식)을 scratch repo 에서 다시 재현하고, 반례를 찾는 별도 재실행으로 성립 조건을 좁혔다(git 2.54.0, 2026-09-28). 외부 인용은 원문으로 대조했다: RelNotes 2.42.0·2.43.0·2.56.0, 커밋 c40f0b78771e(v2.42.0 에 처음)·1dd27bfbfd(v2.54.0·v2.55.0 포함)·54a441bcea(v2.55.0 미포함).
+- `git-log-added-lines-hardening` 에 `git log --stdin` 절 추가: 빈 입력·첫 빈 줄이면 HEAD 를 스캔(`git log` 만, argv 리비전이 없을 때), 중간 빈 줄 뒤는 조용히 버림, `^<sha>` 제외, pseudo-option 2.42+·`--not` 범위 2.43.
+- 새 entity `git-literal-pathspecs`: submodule 경로 인자=pathspec, `--literal-pathspecs` 는 glob·magic 해석만 끔(앞 디렉토리 매칭은 남음), 전역 literal + GLOB/ICASE 는 pathspec 인자가 있을 때만 fatal(noglob 허용), check-ignore 는 `top` 외 magic 거부.
+- 새 entity `git-gitfile-format`: `gitdir: ` 8바이트 접두어, `\r`/`\n` 만 제거, 대상 오류 메시지의 2.54 `(null)` 회귀와 수정 경과.

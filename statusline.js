@@ -21,6 +21,17 @@ function readCodexModel() {
   }
 }
 
+// "<label> 53%(20:30)" — 남은 %(100 - used)와 리셋 시각(epoch 초, 로컬 시각). 없는 쪽은 빼고, 둘 다 없으면 ''.
+function quotaPiece(label, usedPct, resetsAt) {
+  const pct = usedPct != null ? Math.round(Math.max(0, 100 - usedPct)) + '%' : '';
+  let tm = '';
+  if (resetsAt != null) {
+    const d = new Date(resetsAt * 1000);
+    tm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+  return pct && tm ? `${label} ${pct}(${tm})` : pct ? `${label} ${pct}` : tm ? `${label} (${tm})` : '';
+}
+
 const chunks = [];
 process.stdin.on('data', d => chunks.push(d));
 process.stdin.on('end', () => {
@@ -33,28 +44,9 @@ process.stdin.on('end', () => {
   // 1. 5-hour rate limit: remaining % and reset clock as "53%(20:30)"
   const fiveHour = input.rate_limits && input.rate_limits.five_hour;
   if (fiveHour) {
-    const usedFivePct = fiveHour.used_percentage;
-    const resetsAt = fiveHour.resets_at;
-
-    let pctStr = '';
-    let timeStr = '';
-    if (usedFivePct != null) {
-      const remainingPct = Math.max(0, 100 - usedFivePct);
-      pctStr = Math.round(remainingPct) + '%';
-    }
-    if (resetsAt != null) {
-      const d = new Date(resetsAt * 1000);
-      const hh = String(d.getHours()).padStart(2, '0');
-      const mm = String(d.getMinutes()).padStart(2, '0');
-      timeStr = hh + ':' + mm;
-    }
-
     // 레이블 'claude' 대신 현재 모델명(stdin 의 model.display_name). 없으면 'claude' 폴백.
     const label = (input.model && input.model.display_name) || 'claude';
-    const piece = pctStr && timeStr ? label + ' ' + pctStr + '(' + timeStr + ')'
-                : pctStr ? label + ' ' + pctStr
-                : timeStr ? label + ' (' + timeStr + ')'
-                : '';
+    const piece = quotaPiece(label, fiveHour.used_percentage, fiveHour.resets_at);
     if (piece) parts.push(piece);
   }
 
@@ -65,6 +57,7 @@ process.stdin.on('end', () => {
     const CDX_REFRESH = path.join(os.homedir(), '.claude', 'codex-quota-refresh.js');
     const CDX_LOCK = path.join(os.homedir(), '.claude', 'cache', 'codex-quota.lock');
     const CDX_TTL_MS = 5 * 60 * 1000;
+    // codex-quota-refresh.js 의 TIMEOUT_MS(20초)보다 길어야 한다 — refresh 가 도는 동안 다시 띄우지 않는다.
     const CDX_LOCK_MAX_MS = 25 * 1000;
 
     let cdx = null;
@@ -95,22 +88,8 @@ process.stdin.on('end', () => {
     }
 
     if (cdx && cdx.primary) {
-      const usedPct = cdx.primary.usedPercent;
-      const resetsAt = cdx.primary.resetsAt;
-      let pct = '', tm = '';
-      if (usedPct != null) {
-        pct = Math.round(Math.max(0, 100 - usedPct)) + '%';
-      }
-      if (resetsAt != null) {
-        const d = new Date(resetsAt * 1000);
-        tm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-      }
       // 레이블 'codex' 대신 codex 설정 모델명. 못 읽으면 'codex' 폴백.
-      const label = readCodexModel() || 'codex';
-      const piece = pct && tm ? label + ' ' + pct + '(' + tm + ')'
-                  : pct ? label + ' ' + pct
-                  : tm ? label + ' (' + tm + ')'
-                  : '';
+      const piece = quotaPiece(readCodexModel() || 'codex', cdx.primary.usedPercent, cdx.primary.resetsAt);
       if (piece) parts.push(piece);
     }
   } catch (_) { /* never break statusline */ }

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// branch → §10 plan 매칭 — 순수 모듈(hook 아님). session-brief·dlc-early-stop 이 require.
+// branch → §10 plan 매칭 — 순수 모듈(hook 아님). session-brief·dlc-early-stop·dlc-evidence-ledger 가 require.
 //
 // 왜 모듈인가: 같은 매칭 규칙이 여러 곳에 재서술되면 한쪽만 고쳐져 어긋난다(이 repo 의
 // 반복 실패 유형). 규칙의 단일 소스는 CLAUDE.md §10 이고, 코드 쪽 단일 소스는 여기다.
