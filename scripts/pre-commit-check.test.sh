@@ -21,6 +21,11 @@ trap 'rm -rf "$T"' EXIT
 
 pass=0; fail=0; ps1_ran=0
 ENGINES=(sh); [ -n "$PWSH" ] && ENGINES+=(ps1)
+# Installed hooks run the guard with Windows PowerShell 5.1, and a UTF-8 console input code page
+# (the default here; "Beta: UTF-8" or chcp 65001) makes .NET Framework prefix redirected stdin
+# with a BOM — so 5.1 runs as its own engine with that console encoding.
+PS51="$(command -v powershell.exe 2>/dev/null || true)"
+[ -n "$PS51" ] && [ "$PS51" != "$PWSH" ] && ENGINES+=(ps51)
 
 g() { git -C "$REPO" -c user.email=t@t -c user.name=t -c commit.gpgsign=false -c tag.gpgsign=false "$@"; }
 
@@ -29,6 +34,11 @@ run_guard() { # <engine> <mode> <stdin>; GUARD_ENV (one NAME=value) is exported 
   [ -n "${GUARD_ENV-}" ] && extra=("$GUARD_ENV")
   if [ "$1" = sh ]; then
     ( cd "$REPO" && printf '%s' "$3" | env ${extra[@]+"${extra[@]}"} HOME="$home" bash "$GUARD_SH" "$2" 2>&1 )
+  elif [ "$1" = ps51 ]; then
+    local profile guard
+    profile="$(cygpath -w "$home")"; guard="$(cygpath -w "$GUARD_PS1")"
+    ( cd "$REPO" && printf '%s' "$3" | env ${extra[@]+"${extra[@]}"} HOME="$home" USERPROFILE="$profile" "$PS51" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass \
+      -Command "[Console]::InputEncoding = New-Object System.Text.UTF8Encoding \$true; & '$guard' -Mode $2; exit \$LASTEXITCODE" 2>&1 )
   else
     # Windows 의 PowerShell $HOME 은 HOME 이 아니라 USERPROFILE 을 따른다.
     local profile="$home"; command -v cygpath >/dev/null && profile="$(cygpath -w "$home")"
@@ -39,7 +49,7 @@ run_guard() { # <engine> <mode> <stdin>; GUARD_ENV (one NAME=value) is exported 
 check() { # <engine> <block|allow|clean> <reason substring or -> <desc> <mode> [stdin]; clean = allow with no output
   local engine="$1" expect="$2" reason="$3" desc="$4" mode="$5" input="${6-}" out rc ok=0
   out="$(run_guard "$engine" "$mode" "$input")"; rc=$?
-  [ "$engine" = ps1 ] && ps1_ran=$((ps1_ran+1))
+  [ "$engine" != sh ] && ps1_ran=$((ps1_ran+1))
   if [ "$expect" = allow ]; then
     [ $rc -eq 0 ] && ok=1
   elif [ "$expect" = clean ]; then
@@ -161,6 +171,21 @@ if [ -s "$SHIM/log-args" ] && ! grep -Eq '^\^?[0-9a-f]{40}$' "$SHIM/log-args" \
 else
   fail=$((fail+1)); printf '✗ [sh] commits and the exclusion must reach git log on stdin, not argv\n'
 fi
+
+# The shim above only works for the sh engine (Windows ps1 starts git.exe directly), so both
+# engines also get a push of 800 distinct commits: as git log arguments that is ~33,000 chars,
+# over the Windows command-line limit, and the guard would fail closed on a clean push.
+newrepo; b=$(commit plans/m/m-plan.md clean)
+{ for i in $(seq 1 800); do
+    printf 'commit refs/heads/m%d\ncommitter t <t@t> 1700000000 +0000\ndata 2\nm\nfrom %s\n' "$i" "$b"
+    printf 'M 644 inline plans/m/m-plan.md\ndata %d\nclean %d\n\n' "$(( ${#i} + 7 ))" "$i"
+  done; } | git -C "$REPO" fast-import --quiet
+wide="$(git -C "$REPO" for-each-ref --format='%(refname) %(objectname) %(refname)' 'refs/heads/m*' | sed "s/\$/ $ZERO/")"
+both allow - 'eight hundred distinct pushed commits (clean)' pre-push "$wide"
+# the token is only in the last of 801 ref lines — a truncated stdin would miss it
+tok=$(commit plans/m/m-plan.md "$TOKEN")
+both block 'Anthropic key' 'token on the last of 801 pushed commits' pre-push "$wide
+$(line feat "$tok")"
 
 # git log --stdin falls back to HEAD on empty input, so a failed input build must block — the
 # token here is only on a branch that is not checked out.

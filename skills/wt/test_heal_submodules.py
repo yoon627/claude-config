@@ -266,6 +266,38 @@ class ForceRmtreeTest(unittest.TestCase):
             for f in files:
                 self.assertEqual(stat.S_IMODE(f.stat().st_mode), 0o444, f.name)
 
+    @unittest.skipUnless(os.name == "nt", "directory junction 은 Windows 에만 있다")
+    def test_junction_inside_tree_leaves_outside_alone(self) -> None:
+        """트리 안 junction 이 밖의 디렉토리를 가리켜도 밖의 파일은 남고 read-only 도 그대로다.
+
+        os.path.islink 는 junction 을 보지 못해 핸들러가 junction 에 chmod 할 수 있으므로,
+        junction 자체를 read-only 로 만들어 삭제 실패 → 핸들러 경로도 지나게 한다.
+        """
+        import _winapi
+
+        for readonly_junction in (False, True):
+            with self.subTest(readonly_junction=readonly_junction), TemporaryDirectory() as tmp:
+                outside = Path(tmp) / "outside"
+                outside.mkdir()
+                kept = outside / "keep.pack"
+                kept.write_text("data")
+                os.chmod(kept, stat.S_IREAD)
+                target = Path(tmp) / "modules" / "x"
+                target.mkdir(parents=True)
+                junction = target / "via-junction"
+                _winapi.CreateJunction(str(outside), str(junction))
+                if readonly_junction:
+                    subprocess.run(["attrib", "+R", str(junction), "/L"], check=True, capture_output=True)
+                try:
+                    with mock.patch.object(bootstrap, "_retry_readonly", wraps=bootstrap._retry_readonly) as handler:
+                        bootstrap._force_rmtree(target)
+                    self.assertEqual(readonly_junction, handler.called, "핸들러 경로를 지났는지")
+                    self.assertFalse(target.exists())
+                    self.assertTrue(kept.exists())
+                    self.assertFalse(kept.stat().st_mode & stat.S_IWRITE, "밖의 파일 read-only 가 풀렸다")
+                finally:
+                    os.chmod(kept, stat.S_IWRITE)
+
     @unittest.skipIf(os.name == "nt" or os.geteuid() == 0, "POSIX 비-root 에서만 쓰기 금지 디렉토리로 삭제 실패를 만든다")
     def test_rmtree_failures_reach_the_readonly_handler(self) -> None:
         """삭제 실패가 핸들러로 전달된다 — 3.12+ onexc, 그 전 onerror 분기 모두."""

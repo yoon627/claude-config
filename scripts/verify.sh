@@ -77,6 +77,19 @@ if [ "$axis" = all ] || [ "$axis" = bash ]; then
   for f in $(repo_files ':(glob)**/*.test.sh' ':(glob)**/test_*.sh'); do
     run "$f" bash "$f"
   done
+  # ps1 tests run on every PowerShell present — Windows PowerShell 5.1 (what the hooks and most
+  # users run) and pwsh differ in .NET behaviour. Windows-only tests end with 77 elsewhere.
+  engines=''
+  for e in pwsh powershell.exe; do command -v "$e" >/dev/null 2>&1 && engines="$engines $e"; done
+  for f in $(repo_files ':(glob)**/*.test.ps1'); do
+    if [ -z "$engines" ]; then
+      echo "[skip] $f — PowerShell 미설치"
+      skipped="$skipped $(basename "$f")"
+    fi
+    for e in $engines; do
+      run "$f ($e)" "$e" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$f"
+    done
+  done
 fi
 
 if [ "$axis" = all ] || [ "$axis" = python ]; then

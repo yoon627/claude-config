@@ -1,4 +1,4 @@
-param([string]$Mode = 'pre-commit')
+﻿param([string]$Mode = 'pre-commit')
 
 $ErrorActionPreference = 'Stop'
 
@@ -24,7 +24,12 @@ $env:GIT_NO_REPLACE_OBJECTS = '1'
 # turns redirected native stderr into terminating errors under EAP=Stop and decodes stdout
 # with the console code page; a Process with UTF-8 stdout avoids both. stderr is left
 # attached to the hook's stderr unless -DropStderr. Arguments must not contain spaces (joined as-is).
-function Invoke-Git([string[]]$GitArgs, [switch]$DropStderr) {
+# -Stdin (object names, ASCII) is written to git's stdin. .NET Framework (5.1) builds that
+# writer from [Console]::InputEncoding and writes its preamble at once, so a UTF-8 console
+# input code page (chcp 65001, "Beta: UTF-8") would put a BOM before the first object name
+# and git log would fail; the console encoding is BOM-less UTF-8 while the process starts.
+function Invoke-Git([string[]]$GitArgs, [switch]$DropStderr, [string]$Stdin) {
+    $withStdin = $PSBoundParameters.ContainsKey('Stdin')
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = $script:gitExe
     $psi.Arguments = ($GitArgs -join ' ')
@@ -32,7 +37,23 @@ function Invoke-Git([string[]]$GitArgs, [switch]$DropStderr) {
     $psi.RedirectStandardOutput = $true
     $psi.StandardOutputEncoding = New-Object System.Text.UTF8Encoding($false)
     $psi.RedirectStandardError = [bool]$DropStderr
-    $proc = [System.Diagnostics.Process]::Start($psi)
+    $psi.RedirectStandardInput = $withStdin
+    $consoleIn = $null
+    if ($withStdin) {
+        try {
+            $consoleIn = [Console]::InputEncoding
+            [Console]::InputEncoding = New-Object System.Text.UTF8Encoding($false)
+        } catch { $consoleIn = $null }  # no console: the default writer encoding has no preamble
+    }
+    try {
+        $proc = [System.Diagnostics.Process]::Start($psi)
+    } finally {
+        if ($consoleIn) { [Console]::InputEncoding = $consoleIn }
+    }
+    if ($withStdin) {
+        $proc.StandardInput.Write($Stdin)
+        $proc.StandardInput.Close()
+    }
     $err = $null
     if ($DropStderr) { $err = $proc.StandardError.ReadToEndAsync() }
     $out = $proc.StandardOutput.ReadToEnd()
@@ -116,15 +137,30 @@ function Scan-Keys([string]$Content) {
     }
 }
 
+# Get-RevInput: the revisions for `git log --stdin` — pushed commits, then exclusions marked
+# with `^`, deduplicated in order. They go on stdin because as arguments a new remote with
+# hundreds of refs exceeds the Windows command-line limit (32,767 chars). Mirrors
+# pre-commit-check.sh rev_input.
+function Get-RevInput {
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    $revs = New-Object System.Collections.Generic.List[string]
+    foreach ($r in @($script:pushCommits) + @($script:published | ForEach-Object { "^$_" })) {
+        if ($r -and $seen.Add($r)) { $revs.Add($r) }
+    }
+    return ($revs -join "`n")
+}
+
 # Get-AddedLines: lines added under $Pathspec by the pushed commits that the destination refs
 # do not already have, or $null when git fails. Options mirror pre-commit-check.sh added_lines.
 function Get-AddedLines([string]$Pathspec) {
+    # `git log --stdin` falls back to HEAD on empty input or a leading blank line: block instead.
+    $revs = Get-RevInput
+    if (-not $revs) { return $null }
     $gitArgs = @('--no-replace-objects', '-c', 'core.quotePath=false', '-c', 'log.diffMerges=separate',
         '-c', 'log.showRoot=true', '-c', 'log.follow=false',
-        'log', '-p', '--text', '--no-color', '--no-ext-diff', '--no-textconv',
-        '--full-history', '-m', '-U0', '--src-prefix=a/', '--dst-prefix=b/', '--format=') +
-        $script:pushCommits + @('--not') + $script:published + @('--', $Pathspec)
-    $r = Invoke-Git $gitArgs
+        'log', '--stdin', '-p', '--text', '--no-color', '--no-ext-diff', '--no-textconv',
+        '--full-history', '-m', '-U0', '--src-prefix=a/', '--dst-prefix=b/', '--format=', '--', $Pathspec)
+    $r = Invoke-Git $gitArgs -Stdin ($revs + "`n")
     if ($r.Code -ne 0) { return $null }
     $added = New-Object System.Collections.Generic.List[string]
     $header = $false

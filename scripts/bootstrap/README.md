@@ -32,15 +32,15 @@ Codex 가 이 환경의 규칙과 skill 을 그대로 쓰도록 macOS bootstrap(
 
 링크와 별도로 **Codex agent 정의**(`${CODEX_HOME:-$HOME/.codex}/agents/<name>.toml`)를 `$HOME/.claude/agents/*.md` 에서 생성한다(`sync_codex_agents.py`). 링크가 아니라 사본인 이유: 원본의 `## Codex 병행…` 절(Codex 를 셸로 다시 부르는 병행 검토)을 그대로 두면 Codex 안의 리뷰어가 자기 자신을 부르므로 그 절을 빼야 한다. 원본 `tools` 에 편집 도구도 `Bash` 도 없으면(지금은 researcher) `sandbox_mode = "read-only"` 를 넣는다 — `Bash` 가 있는 reviewer 는 테스트를 돌려야 해서 Codex 설정을 상속한다. `model` 은 넣지 않는다(Codex 설정 상속). **`agents/*.md` 를 고친 커밋이 main 에 들어오면 다시 돌린다** — 자동 감지는 없다: `python3 ~/.claude/scripts/bootstrap/sync_codex_agents.py --source ~/.claude/agents --out "${CODEX_HOME:-$HOME/.codex}/agents"`. `--check` 는 쓰지 않고 확인만 한다. 종료 코드는 0 = 맞음, 1 = 바뀔 것 있음(또는 충돌), 2 = 원본을 읽지 못함.
 
-Windows(`setup.ps1`)는 아직 `jira-worklog` 하나만 연결하고 `AGENTS.md` 는 만들지 않는다 — pwsh·Windows 실행 검증이 필요해 따로 다룬다.
+Windows(`setup.ps1`)도 같은 목록을 연결한다 — skill 은 junction(권한 불필요), `AGENTS.md` 는 파일 symlink 라 **개발자 모드 또는 관리자 셸**이 필요하다. Windows PowerShell 5.1 의 `New-Item` 은 개발자 모드에서도 관리자를 요구해 `cmd /c mklink` 로 다시 시도한다. agent 정의 생성은 `python`(Microsoft Store 별칭 제외)이 있을 때만.
 
 설치 후 Codex를 재시작해야 새 skill 목록을 읽는다. 연결만 되돌릴 때는 target이 이 source를 가리키는지
 확인한 뒤 junction/symlink 자체만 제거한다. 실제 디렉터리나 다른 target은 삭제하지 않는다.
 
 ```powershell
 # Windows: target 확인 후 junction 자체만 제거
-Get-Item -Force "$HOME\.agents\skills\jira-worklog" | Format-List LinkType,Target,ResolvedTarget
-Remove-Item -LiteralPath "$HOME\.agents\skills\jira-worklog"
+Get-Item -Force "$HOME\.agents\skills\<name>" | Format-List LinkType,Target,ResolvedTarget
+Remove-Item -LiteralPath "$HOME\.agents\skills\<name>"
 ```
 
 ```sh
@@ -56,7 +56,7 @@ rm "${CODEX_HOME:-$HOME/.codex}/agents/code-reviewer.toml"
 
 ### Codex 연결 충돌
 
-연결할 자리에 실제 디렉터리·실제 파일·다른 곳을 가리키는 링크가 있으면 bootstrap 은 그것을 건드리지 않고 실패로 남긴다. macOS(`setup.sh`)는 나머지 연결과 뒤 단계를 계속하고, 마지막에 `Codex 연결 실패: skill:<name> AGENTS.md` 처럼 요약한 뒤 exit 1 로 끝난다. Windows(`setup.ps1`)는 첫 실패에서 멈춘다. 흔한 원인은 Codex 앱의 Claude 설정 import 가 링크를 단어 치환한 실파일 사본으로 바꿔 놓은 경우다(루트 README "Codex 쪽 연결"). 정리 순서:
+연결할 자리에 실제 디렉터리·실제 파일·다른 곳을 가리키는 링크가 있으면 bootstrap 은 그것을 건드리지 않고 실패로 남긴다. `setup.sh`·`setup.ps1` 모두 나머지 연결과 뒤 단계를 계속하고, 마지막에 `Codex 연결 실패: skill:<name> AGENTS.md` 처럼 요약한 뒤 exit 1 로 끝난다. 흔한 원인은 Codex 앱의 Claude 설정 import 가 링크를 단어 치환한 실파일 사본으로 바꿔 놓은 경우다(루트 README "Codex 쪽 연결"). 정리 순서:
 
 1. 원인을 본다 — 각 `[WARN] … 연결 실패` 줄 바로 위에 installer 메시지가 있다. `ls -la "$HOME/.agents/skills/<name>"`, `readlink` 또는 `head` 로 자리에 무엇이 있는지 확인.
 2. 필요하면 백업한다 — **`~/.agents/skills` 밖으로** 옮긴다. 예: `mkdir -p "$HOME/.agents/skills-backup" && mv "$HOME/.agents/skills/dlc" "$HOME/.agents/skills-backup/"`, `mv "$HOME/.codex/AGENTS.md" "$HOME/.codex/AGENTS.md.bak"`. skills 폴더 안에 `dlc.bak` 처럼 남기면 Codex 가 그 사본도 skill 로 읽을 수 있다.
@@ -82,7 +82,7 @@ agent 정의(`Codex 연결 실패: … agents`)도 같은 규칙이다 — `agen
 | ripgrep | `brew install ripgrep`(macOS 만 — `setup.ps1` 미반영) — rtk hook 이 Bash `rg` 를 `rtk rg` 로 바꾸고 `rtk rg` 는 독립 `rg` 실행 파일을 부른다. 독립 `rg` 가 없을 때 세션 셸의 `rg` 는 Claude Code 내장 ripgrep 을 부르는 셸 함수라 rtk 자식 프로세스에서 보이지 않는다(CLAUDE.md §2 재귀 검색 규칙) |
 | uv | astral 설치 스크립트 (비-conda) |
 | **rtk** | 이미 설치된 standalone `rtk`가 있을 때만 `rtk verify`/`rtk init -g --hook-only --no-patch` 실행. 없으면 건너뜀. **hook 파일 직접편집 금지**(sha256 무결성). |
-| Codex skill·AGENTS.md·agent 정의 | macOS: skill 7종을 `$HOME/.agents/skills/` 에, `${CODEX_HOME:-$HOME/.codex}/AGENTS.md` 를 `$HOME/.claude/CLAUDE.md` 에 symlink, agent 정의를 `agents/*.md` 마다 `${CODEX_HOME:-$HOME/.codex}/agents/` 에 생성(`sync_codex_agents.py`). Windows: `jira-worklog` 하나만 junction |
+| Codex skill·AGENTS.md·agent 정의 | macOS: skill 7종을 `$HOME/.agents/skills/` 에, `${CODEX_HOME:-$HOME/.codex}/AGENTS.md` 를 `$HOME/.claude/CLAUDE.md` 에 symlink, agent 정의를 `agents/*.md` 마다 `${CODEX_HOME:-$HOME/.codex}/agents/` 에 생성(`sync_codex_agents.py`). Windows: 같은 목록 — skill 은 junction, AGENTS.md 는 symlink(개발자 모드·관리자), agent 정의는 `python` 있을 때 |
 | 셸 env | marker 블록(mac `~/.zshrc`) / User 레지스트리(win): `ANTHROPIC_MODEL`, PATH. `CLAUDE_CODE_EFFORT_LEVEL`은 제거/해제해 `/effort`가 동작하게 함. |
 | settings.json | **재현 안 함** — untracked(2026-09-07~)라 `git clone` 으로 오지 않는다. 기존 머신에서 직접 복사한다(루트 README Install A 의 settings.json 배치 단계 — Windows 5번, macOS 2번). 부트스트랩은 rtk hook 등록만. |
 | memory | `--memory-from`/`-MemoryFrom` 으로 기존 머신 경로 줄 때만 복원(아래 한계). |
@@ -96,14 +96,14 @@ agent 정의(`Codex 연결 실패: … agents`)도 같은 규칙이다 — `agen
 - **effort env 해제** — marker 블록에 `unset CLAUDE_CODE_EFFORT_LEVEL`을 넣어 부모 셸의 stale 환경변수 상속을 끊음. Windows는 User/Process 환경변수에서 제거.
 - **Codex link** — skill 은 source 에 `SKILL.md` 가 있을 때, `AGENTS.md` 는 source(`CLAUDE.md`)가 파일일 때(`install-codex-skill.sh --file`), target 이 비어 있으면 생성. 같은 source 를 가리키는 link 는 "already points to source", 실제 파일·directory·다른 target·dangling/unknown link 는 기존 경로를 보존하고 실패한다(위 "Codex 연결 충돌").
 - **Codex agent 정의** — 생성 표식이 있는 파일만 다시 쓰고(내용이 같으면 그대로), 표식 없는 파일·링크는 보존하고 실패, 표식이 있는데 원본이 사라진 파일은 지운다. 원본 하나라도 읽지 못하면(frontmatter 형식·닫히지 않은 코드 블록·name 중복·UTF-8 아님) 아무것도 쓰지 않는다. 절 제목이 바뀌어 제거를 빠져나간 경우는 빠져야 할 절에만 있는 문자열(`Codex 병행`·`codex --version`·`preflight`)이나 codex 가 든 헤딩(본문 헤딩, 코드 블록 안 템플릿의 `## ` 소절)이 남는 것으로 잡아 역시 쓰지 않는다 — 그 문자열도 codex 헤딩도 없이 바뀐 절은 잡지 못한다. 쓰기 단계의 읽기·쓰기 오류도 2 로 끝난다. 테스트는 `python3 scripts/bootstrap/test_sync_codex_agents.py`(TOML 파싱 검사는 python 3.11+ 또는 `tomli` 가 있을 때만 — 없으면 이유를 밝히고 skip).
-- Unix helper 상태 행렬은 CI에서 `bash scripts/bootstrap/install-codex-skill.test.sh`로 실행하고, Windows junction helper는 Windows에서 `pwsh -File scripts\bootstrap\install-codex-skill.test.ps1`로 실행한다.
+- Unix helper 상태 행렬은 CI에서 `bash scripts/bootstrap/install-codex-skill.test.sh`로 실행하고, Windows helper(junction·`-File` symlink 행렬, setup.ps1↔setup.sh skill 목록 일치)는 `scripts/verify.sh` 의 bash 축이 PowerShell 로 실행한다(Windows 가 아니면 테스트가 77 로 skip, PowerShell 이 없으면 verify 가 skip).
 
 ## 한계 (반드시 인지)
 
 - **Windows `setup.ps1` 은 실행 검증되지 않았다.** macOS 세션에서 로직·문서 기반으로 작성. 특히 검증 필요:
   - standalone `rtk` 설치 경로·PATH 노출 방식
   - Codex skill junction 단계는 Windows에서 별도 helper 상태 행렬로 검증한다. 전체 bootstrap이 검증됐다는 뜻은 아니다.
-  - macOS 와 달리 Codex skill 은 `jira-worklog` 하나만, `AGENTS.md`·agent 정의는 만들지 않는다(macOS 는 연결 8개 + agent 정의). Windows 실행 검증과 함께 맞출 예정이다.
+  - Codex 연결 단계는 2026-09-29 Windows 11 에서 `setup.ps1 -DryRun`(PowerShell 5.1)으로 관찰했다: skill 7종 계획·기존 링크 인식·AGENTS.md·agent 정의 dry-run. 실제 생성은 helper 테스트 행렬(pwsh 7·5.1)로 검증했다.
 - **Codex 가 생성한 agent 정의를 실제로 읽는지는 확인하지 못했다**(2026-09-28, Codex 크레딧 소진). 형식은 Codex 앱 import 사본과 같은 키(`name`·`description`·`developer_instructions`)이고 researcher 에만 문서화된 `sandbox_mode` 를 더했다. `sandbox_mode = "read-only"` 가 researcher 의 웹 검색을 막는지도 미확인.
 - **headroom은 더 이상 bootstrap 대상이 아니다.** 기존 설치·proxy·MCP 상태는 자동으로 관리하거나 복구하지 않는다. 과거 운영 기록은 `docs/headroom-proxy-session-lifecycle.md`에 보존한다.
 - **memory 는 git 미추적** — `projects/*/memory/` 는 repo 에 안 들어간다(public repo 노출 방지). 따라서 새 머신 단독 실행 시 memory 는 비어있다. 기존 머신의 `~/.claude` 경로를 `--memory-from`/`-MemoryFrom` 으로 줘야 복원된다. 복원은 **overwrite**(소스에 없는 파일은 대상에 보존 — 순수 미러 아님).

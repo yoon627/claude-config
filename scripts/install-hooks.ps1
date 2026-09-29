@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 # git runs through a Process, as in pre-commit-check.ps1: Windows PowerShell 5.1 turns redirected
 # native stderr into a terminating error under EAP=Stop and decodes native stdout with the console
