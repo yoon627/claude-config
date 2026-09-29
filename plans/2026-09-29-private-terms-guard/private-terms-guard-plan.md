@@ -1,6 +1,6 @@
 ---
 title: private-terms-guard — 공개 repo(~/.claude)에 비공개 식별자가 다시 커밋·push 되지 않게 규칙·기계 차단
-status: in_progress
+status: done
 started: 2026-09-29
 updated: 2026-09-29
 ---
@@ -28,9 +28,10 @@ updated: 2026-09-29
 - 2026-09-29: 사용자 승인. TDD — 새 케이스 Red(20건 실패, 기존 71 통과) → sh 구현 → Green, ps1 쌍둥이 작성(로컬 pwsh 없음 — 미실행). 변이 검사 3건(최상위 목록 staging·origin/main 제외·단어 경계)이 각각 해당 케이스로 잡힘. `verify.sh` ALL PASS(skip: install-codex-skill.test.ps1 — pwsh 미설치). 단위 1 커밋. 구현 리뷰 workflow(`wf_c2c52ba4-1d5`) 진행. 단위 2 문서(`improve.sh --ci` error 0) 커밋. E2E(임시 HOME·install-hooks·bare 원격·합성 목록) 10/10 — commit·push·메시지·ref·목록 파일·linked worktree 차단, origin/main 이력 위 새 브랜치 push·다른 repo 통과, 출력에 용어 없음.
 - 2026-09-29: 구현 리뷰 21 agent 완료(Codex 크레딧 소진으로 미가용) — major 2·minor 4·nit 4 확정, 3건 반박. # Review Disposition 대로 수정: 테스트 먼저(sh Red 3 — gitfile·경로 숨김·목록 오류 안내; 실제 훅 케이스는 ps1 에서만 실패하는 결함이라 CI 에서 Red→Green), sh·ps1 수정 → sh 118/118, 이스케이프 제거 변이를 잡음, 1MB 병적 줄 9.4s→0.13s, `verify.sh` ALL PASS(skip: install-codex-skill.test.ps1). simplify 점검 — 변경 없음. README 기술 절 갱신. 수정분 targeted 재리뷰 APPROVE(Minor 5·Nit 3) — 전부 반영: 테스트 먼저(구버전 git shim 은 scratch 재현으로 fail-open 확인, 안내 2건 Red) → sh·ps1 수정 → 123/123, 이스케이프 변이 3종 잡힘, `verify.sh` ALL PASS(skip: install-codex-skill.test.ps1). fixup 2건 커밋. E2E 재실행(커밋된 상태) 13/13 — 다른 repo linked worktree commit·push 통과, `~/.claude` linked worktree `commit -a` 차단 추가. `improve.sh --ci` error 0.
 - 2026-09-29 evidence gate: Acceptance 1~7·9·10 충족(sh 엔진·로컬 증거). 8(ps1)은 로컬 미검증 — 실제 훅 케이스를 포함한 CI(ubuntu pwsh 7) 실행이 남아 있다. 판정 NEEDS-HUMAN — 다음 단계가 push·PR(외부 공개)이라 사용자 승인이 필요하다.
+- 2026-09-29: 사용자 `/e merge` 승인. commit-check 로 fixup 3건을 두 단위 커밋에 합침(최종 tree 동일). push, PR #213. Acceptance 8(ps1)은 이 PR 의 CI(ubuntu pwsh 7)가 확인한다 — 실패하면 머지하지 않고 in_progress 로 되돌린다.
 
 # Next
-사용자 승인 후 `/e merge` — commit-check 로 fixup 2건 정리 → push → PR → CI 에서 ps1(test.sh ps1 엔진 + 실제 훅 케이스) 통과 확인 → 머지. CI 에서 ps1 이 실패하면 머지하지 않고 고친다. 머지 뒤 issue #206 에 진행 댓글(외부 쓰기 — 승인 후).
+
 
 # Decisions
 - 관련 decision: [[git-hook-network-safety]]·[[ci-secret-scan-backstop]] 을 따른다(네트워크 없음, CI 무동작·목록 미주입). `plans/2026-09-26-push-remote-scope` 의 "추적 ref 기준 제외 기각"과의 관계는 아래 "private push 범위".
@@ -121,6 +122,7 @@ updated: 2026-09-29
 - 목록에 잘못된 UTF-8·NUL 이 든 항목의 sh·ps1 판정 차이(sh 는 바이트 수, ps1 은 U+FFFD 치환 뒤 수) — low — pre-commit-check.ps1 목록 디코드.
 - ps1 범위 대체 판정(git 이 답하지 못할 때)이 심볼릭 링크·junction 을 풀지 않은 경로로 비교 — low(git 실패 + 링크 낀 경로에서만 fail-open) — pre-commit-check.ps1.
 - Windows PowerShell 5.1(실제 Windows 훅 엔진)로 test.sh 를 도는 것 — Windows 머신에서 수동 1회 — scripts/pre-commit-check.test.sh(ps51 엔진).
+- issue #206 에 3번 항목 진행 댓글(PR #213) — 외부 쓰기라 사용자 승인 후.
 
 # Key Files
 - scripts/pre-commit-check.sh · scripts/pre-commit-check.ps1 — 가드
