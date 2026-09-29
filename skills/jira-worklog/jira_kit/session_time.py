@@ -260,6 +260,8 @@ def _is_work_gap(prev: _Event, cur: _Event, max_gap: float) -> bool:
     """인접 두 이벤트 사이가 'AI 작업 구간'인지.
 
     제외 대상 셋: max_gap 초과(중단), 진짜 사용자 입력 직전(대기), 대화형 도구의 응답 대기.
+    Codex 파서는 turn 시작·종료도 같은 role(``user``/``await_user``)로 번역해 여기에 태운다
+    (``codex_session``).
     입력 직전 판정에 prev 를 보지 않는 것이 중요하다 — ``prev == "assistant"`` 를 요구하면
     사용자가 연달아 입력한 사이(user→user)가 작업시간으로 샌다(실측 132분).
     """

@@ -8,10 +8,16 @@ Claude 와 달리 cwd 별 폴더가 아니라 날짜 폴더에 여러 worktree �
 여기 두면 Claude 경로(최장 prefix)와 규칙이 갈려, worktree **하위** 디렉토리에서 시작한
 세션이 어느 버킷에도 못 가고 사라진다(실측 26건).
 
-시간: timestamp 가 있는 모든 ``response_item`` 을 AI 작업 흐름(assistant)으로 쓰고, **진짜
-사용자 입력은 ``event_msg``(``type=user_message``)로만 판별한다**(user). Codex 는
-``<environment_context>``·``# AGENTS.md``·``[system instructions]`` 등 시스템 컨텍스트를
-``response_item`` role=user 로 주입하므로 role/텍스트로는 진짜 입력을 가릴 수 없다.
+시간: timestamp 가 있는 모든 ``response_item`` 을 AI 작업 흐름(assistant)으로 쓰고, **사용자
+대기는 turn lifecycle 로 판정한다**. Codex 는 ``<environment_context>``·``# AGENTS.md`` 등
+시스템 컨텍스트도 ``response_item`` role=user 로 주입해 role/텍스트로는 진짜 입력을 가릴 수
+없고, ``event_msg`` ``user_message`` 도 2026-08 을 지나며 사라져(사용자 입력이 response_item
+으로만 남는다) 그 이벤트만 보면 turn 사이 대기가 통째로 작업으로 잡힌다(실측 합계의 절반).
+그래서 ``task_started`` 를 ``user``, ``task_complete``/``turn_aborted`` 를 ``await_user`` 로
+번역해 ``_is_work_gap`` 의 기존 필터에 태운다 — 여기서 ``user`` 는 "진짜 사용자 입력"이 아니라
+**"직전 gap 을 대기로 판정하라"는 표시**다(Claude 파서와 어휘는 같고 의미는 넓다).
+``user_message`` 도 그대로 ``user`` 로 둔다 — 이 코퍼스에선 lifecycle 과 항상 함께 나와 결과를
+바꾸지 않지만, 진짜 입력 직전 gap 을 대기로 보는 것은 형식과 무관하게 옳고 비용이 없다.
 """
 
 from __future__ import annotations
@@ -80,24 +86,61 @@ def _iter_lines(path: Path, tz: tzinfo) -> Iterator[tuple[dict, datetime]]:
     yield from iter_jsonl_timestamped(text, tz)
 
 
-def codex_events(files: list[Path], tz: tzinfo) -> list[_Event]:
-    """Codex 세션들의 (시각, role) 이벤트를 시간순으로 뽑는다.
+# 사용자가 답하기 전에는 output 이 오지 않는 도구 — Claude 의 ``_AWAIT_USER_TOOLS`` 대응.
+_AWAIT_USER_CALLS = frozenset({"request_user_input"})
+# 직전 gap 이 대기인 이벤트(turn 시작·진짜 입력) / 직후 gap 이 대기인 이벤트(turn 종료·중단).
+_GAP_BEFORE_IS_WAIT = frozenset({"task_started", "user_message"})
+_GAP_AFTER_IS_WAIT = frozenset({"task_complete", "turn_aborted"})
 
-    진짜 사용자 입력은 ``event_msg``(``type=user_message``)로만 판별한다(user). 그 외 모든
-    ``response_item``(message·reasoning·tool 등)은 AI 작업 흐름(assistant)으로 본다. Codex 는
-    시스템 컨텍스트(``<environment_context>``·``# AGENTS.md``·``[system instructions]`` 등)도
-    ``response_item`` role=user 로 주입하므로 role/텍스트는 진짜 입력의 신호가 못 된다.
+
+def _rollout_events(path: Path, tz: tzinfo) -> Iterator[_Event]:
+    """rollout 한 파일의 (시각, role). 파일 = 세션이라 대기 상태(pending)도 파일 안에서만 산다.
+
+    ``pending`` 은 답을 기다리는 ``request_user_input`` 의 call_id 들이다. 비어 있지 않은 동안
+    오는 response_item 은 전부 대기다(사이에 reasoning 이 끼어도 새지 않게). turn 경계에서
+    비운다 — output 없이 끊긴 call 이 실존해서, 안 비우면 그 뒤 세션 전체가 대기로 0 이 된다.
+    """
+    pending: set[str] = set()
+    for obj, moment in _iter_lines(path, tz):
+        kind = obj.get("type")
+        payload = obj.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        if kind == "response_item":
+            item = payload.get("type")
+            call_id = payload.get("call_id")
+            # call_id 없는 call 을 넣으면 None 이 pending 에 남아 그 turn 전체가 대기로 사라진다.
+            if (
+                item == "function_call"
+                and payload.get("name") in _AWAIT_USER_CALLS
+                and isinstance(call_id, str)
+            ):
+                pending.add(call_id)
+                yield moment, "await_user"
+            elif item == "function_call_output" and call_id in pending:
+                pending.discard(call_id)
+                yield moment, "assistant"
+            else:
+                yield moment, "await_user" if pending else "assistant"
+        elif kind == "event_msg":
+            event = payload.get("type")
+            if event in _GAP_BEFORE_IS_WAIT:
+                pending.clear()
+                yield moment, "user"
+            elif event in _GAP_AFTER_IS_WAIT:
+                pending.clear()
+                yield moment, "await_user"
+
+
+def codex_events(files: list[Path], tz: tzinfo) -> list[_Event]:
+    """Codex 세션들의 (시각, role) 이벤트를 시간순으로 뽑는다(안정 정렬 — 같은 시각은 파일 순서).
+
+    role 은 ``_is_work_gap`` 의 어휘다: ``user`` = 직전 gap 이 대기(turn 시작·진짜 입력),
+    ``await_user`` = 직후 gap 이 대기(turn 종료·중단, ``request_user_input`` 대기 중),
+    ``assistant`` = 그 외 모든 response_item.
     """
     events: list[_Event] = []
     for path in files:
-        for obj, moment in _iter_lines(path, tz):
-            kind = obj.get("type")
-            if kind == "response_item":
-                if isinstance(obj.get("payload"), dict):
-                    events.append((moment, "assistant"))
-            elif kind == "event_msg":
-                payload = obj.get("payload")
-                if isinstance(payload, dict) and payload.get("type") == "user_message":
-                    events.append((moment, "user"))
+        events.extend(_rollout_events(path, tz))
     events.sort(key=lambda e: e[0])
     return events
