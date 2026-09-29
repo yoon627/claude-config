@@ -182,7 +182,9 @@ ok('⑨ 직접 호출 flag=1·main·clean → ff', head(work) === at9);
 
 // ---- 설치 위치·백업: sh, 그리고 pwsh 가 있으면 ps1 도 (PWSH=<path> 로 지정 가능) ----
 const INSTALL_PS1 = path.join(__dirname, 'install-hooks.ps1');
-const PWSH = process.env.PWSH || spawnSync('sh', ['-c', 'command -v pwsh'], { encoding: 'utf8' }).stdout.trim();
+// Git Bash 의 `command -v` 는 /c/... 경로를 주는데 Windows 의 node spawn 은 그 경로로 실행하지 못한다(ENOENT).
+const PWSH = process.env.PWSH || spawnSync('sh', ['-c', process.platform === 'win32'
+  ? 'p=$(command -v pwsh) && cygpath -w "$p"' : 'command -v pwsh'], { encoding: 'utf8' }).stdout.trim();
 fs.writeFileSync(path.join(HOME, '.claude', 'scripts', 'pre-commit-check.ps1'), 'param([string]$Mode)\nexit 0\n');
 const HOOKS = ['pre-commit', 'pre-push', 'post-checkout'];
 // system·XDG 설정의 core.hooksPath 가 끼어들지 않게 격리한다(global 은 가짜 HOME).
@@ -190,7 +192,8 @@ const ISOLATED = { GIT_CONFIG_NOSYSTEM: '1', XDG_CONFIG_HOME: path.join(TMP, 'xd
 function runInstall(engine, cwd, extraEnv) {
   const [cmd, args] = engine === 'sh' ? ['bash', [INSTALL_SH]]
     : [PWSH, ['-NoLogo', '-NoProfile', '-NonInteractive', '-File', INSTALL_PS1]];
-  const r = spawnSync(cmd, args, { cwd, env: { ...BASE_ENV, HOME, ...ISOLATED, ...(extraEnv || {}) }, encoding: 'utf8', timeout: 60000 });
+  // Windows 의 PowerShell $HOME 은 USERPROFILE 을 따른다 — 없으면 ps1 이 실제 사용자 홈의 가드를 쓴다.
+  const r = spawnSync(cmd, args, { cwd, env: { ...BASE_ENV, HOME, USERPROFILE: HOME, ...ISOLATED, ...(extraEnv || {}) }, encoding: 'utf8', timeout: 60000 });
   return { status: r.status, out: (r.stdout || '') + (r.stderr || '') };
 }
 function freshRepo(tag) {
@@ -225,6 +228,9 @@ for (const e of ['sh', ...(PWSH ? ['ps1'] : [])]) {
   const r1 = runInstall(e, wt);
   ok(`[${e}] linked worktree: 공용 hooks 디렉토리에 설치`,
     r1.status === 0 && HOOKS.every((h) => fs.existsSync(path.join(hooksOf(main), h))));
+  const fakeGuard = `${path.basename(TMP)}/home/.claude/scripts/pre-commit-check`;
+  ok(`[${e}] 훅이 가짜 HOME 의 가드를 부른다(실제 사용자 홈에 기대지 않음)`,
+    fs.readFileSync(path.join(hooksOf(main), 'pre-commit'), 'utf8').replace(/\\/g, '/').includes(fakeGuard));
 
   const hp = freshRepo(`hp-${e}`);
   git(hp, ['config', 'core.hooksPath', '.husky/_']);
@@ -249,10 +255,16 @@ for (const e of ['sh', ...(PWSH ? ['ps1'] : [])]) {
     r3.status === 0 && HOOKS.every((h) => fs.existsSync(path.join(hooksOf(same), h)))
     && r4.status === 0 && HOOKS.every((h) => fs.existsSync(path.join(linked, 'githooks', h))));
 
-  const old = freshRepo(`old-${e}`);
-  const r5 = runInstall(e, old, { PATH: `${OLD_GIT}${path.delimiter}${process.env.PATH}` });
-  ok(`[${e}] --path-format 을 모르는 git(2.30 이하)은 설치하지 않고 버전을 알린다`,
-    r5.status === 1 && /2\.31/.test(r5.out) && !HOOKS.some((h) => fs.existsSync(path.join(hooksOf(old), h))));
+  // ps1 은 git 을 .NET Process.Start 로 띄우는데, Windows 에서는 PE 실행 파일만 띄워 sh shim 으로 옛 git 을 흉내 낼 수 없다.
+  if (e === 'ps1' && process.platform === 'win32') {
+    console.log(`SKIP [${e}] --path-format 을 모르는 git(2.30 이하) — Windows 에서는 sh shim 을 실행할 수 없음`);
+  } else {
+    const old = freshRepo(`old-${e}`);
+    const r5 = runInstall(e, old, { PATH: `${OLD_GIT}${path.delimiter}${process.env.PATH}` });
+    const r5ok = r5.status === 1 && /2\.31/.test(r5.out) && !HOOKS.some((h) => fs.existsSync(path.join(hooksOf(old), h)));
+    ok(`[${e}] --path-format 을 모르는 git(2.30 이하)은 설치하지 않고 버전을 알린다`
+      + (r5ok ? '' : ` (status=${r5.status} out=${JSON.stringify(r5.out.replace(/\x1b\[[0-9;]*m/g, '').slice(0, 900))})`), r5ok);
+  }
 
   const b = freshRepo(`bak-${e}`);
   const pc = path.join(hooksOf(b), 'pre-commit');

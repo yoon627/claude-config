@@ -9,7 +9,7 @@
 #
 # 사용: bash scripts/verify.sh [축]
 #   축: syntax | node | bash | python | shell   (생략 시 전부)
-# 종료코드: 실패 1건이라도 있으면 1.
+# 종료코드: 실패 1건이라도 있으면 1. 테스트가 77 로 끝나면 필요한 도구가 없다는 뜻이라 skip 으로 센다.
 #
 # 미설치 도구는 **조용히 건너뛰지 않는다** — `[skip]` 을 찍고 마지막 줄 요약에
 # 남긴다. 스킵을 통과로 오인하면 로컬 초록이 CI 실패를 못 잡는다.
@@ -26,11 +26,21 @@ axis="${1:-all}"
 fail=0
 skipped=''
 
-run() { # run <label> <command...>
+run() { # run <label> <command...> — 종료 코드 77 은 "필요한 도구 없음"(automake 관례)으로 skip 에 남긴다
   label="$1"
   shift
-  if out=$("$@" 2>&1); then
+  out=$("$@" 2>&1)
+  rc=$?
+  if [ "$rc" -eq 0 ]; then
     printf 'ok   %s\n' "$label"
+    # 통과한 테스트 안의 케이스 단위 skip(`SKIP ` 줄)도 요약에 남긴다.
+    if printf '%s\n' "$out" | grep -q '^SKIP '; then
+      printf '%s\n' "$out" | grep '^SKIP ' | sed 's/^/       /'
+      skipped="$skipped $(basename "$label")(case)"
+    fi
+  elif [ "$rc" -eq 77 ]; then
+    printf '[skip] %s — %s\n' "$label" "$(printf '%s\n' "$out" | tail -1)"
+    skipped="$skipped $(basename "$label")"
   else
     fail=$((fail + 1))
     printf 'FAIL %s\n' "$label"
