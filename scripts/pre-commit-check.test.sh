@@ -30,7 +30,9 @@ run_guard() { # <engine> <mode> <stdin>; GUARD_ENV (one NAME=value) is exported 
   if [ "$1" = sh ]; then
     ( cd "$REPO" && printf '%s' "$3" | env ${extra[@]+"${extra[@]}"} HOME="$home" bash "$GUARD_SH" "$2" 2>&1 )
   else
-    ( cd "$REPO" && printf '%s' "$3" | env ${extra[@]+"${extra[@]}"} HOME="$home" "$PWSH" -NoLogo -NoProfile -NonInteractive -File "$GUARD_PS1" -Mode "$2" 2>&1 )
+    # Windows 의 PowerShell $HOME 은 HOME 이 아니라 USERPROFILE 을 따른다.
+    local profile="$home"; command -v cygpath >/dev/null && profile="$(cygpath -w "$home")"
+    ( cd "$REPO" && printf '%s' "$3" | env ${extra[@]+"${extra[@]}"} HOME="$home" USERPROFILE="$profile" "$PWSH" -NoLogo -NoProfile -NonInteractive -File "$GUARD_PS1" -Mode "$2" 2>&1 )
   fi
 }
 
