@@ -32,7 +32,7 @@ updated: 2026-08-18
    | `smoke.sh`·`deploy.sh`·`pre-push` (7월) | `shellcheck` | MISS |
    | `.kt` ×14 (7월) | `./gradlew test` | **MATCH** |
 
-   `.kt` 클러스터는 MATCH 라 **이 class 가 아니다**(진짜 미검증이거나 IDE 실행). 8월 5건은 전부 타 repo(`knowledge_base`).
+   `.kt` 클러스터는 MATCH 라 **이 class 가 아니다**(진짜 미검증이거나 IDE 실행). 8월 5건은 전부 타 repo(회사 repo).
 3. **[해법] `VERIFY` 2분할.** `VERIFY_TOOLS`(그 자체가 검증: pytest·eslint·`shellcheck`·`stylelint`·`yamllint`·`hadolint`·`rspec`·`phpunit` 등) + `VERIFY_SUBCMD`(서브커맨드·플래그 필요: `docker compose … config`·`make (test|lint|check|verify|typecheck)`·`dotnet test`·`swift test`·`terraform validate`·`(prettier|black) … --check`).
    - 나눈 이유: `docker compose up`·`terraform apply`·`prettier --write`·`black .`·`make install`·`dotnet build` 는 **실행·적용이지 검증이 아니다**. 도구 이름만 보고 verified 로 치면 gate 가 헐거워진다(모듈 주석 "verified 오탐은 gate 를 헐겁게 하므로 보수적"). 음성 11케이스를 테스트로 락.
 4. **[안 한 것] `.yaml`/`.json`/`.css` 를 `.md` 처럼 changed 게이트에서 빼지 않는다** — 깨진 compose·settings 는 실제 결함이라 미탐을 만든다. 인식을 넓히는 방향만 택했다.

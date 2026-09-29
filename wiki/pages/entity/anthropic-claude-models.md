@@ -2,45 +2,52 @@
 title: anthropic-claude-models
 category: entity
 created: 2026-06-19
-updated: 2026-08-05
+updated: 2026-09-27
 sources:
-  - claude-api skill (models.md, shared/model-migration.md)
-  - https://support.claude.com/en/articles/15424964-claude-fable-5-on-your-plan
-  - https://x.com/claudeai/status/2072402639644766602 (Fable 50% 정책)
-  - https://www.vals.ai/benchmarks/swebench (Opus 5 vs Fable 5)
-  - researcher 조사 2026-08-05 (본 세션)
+  - https://platform.claude.com/docs/en/about-claude/models/overview (현재·legacy 목록, 권장 시작 모델, 기본 effort, 은퇴 하한 — 2026-09-27 조회)
+  - https://platform.claude.com/docs/en/about-claude/pricing (가격·캐시 배율·Sonnet 5 가격 각주 — 2026-09-27 조회)
+  - https://platform.claude.com/docs/en/build-with-claude/effort (모델별 기본·권장 effort — 2026-09-27 조회)
+  - https://code.claude.com/docs/en/model-config (Claude Code 최소 버전·effort 해석·안전 분류기 폴백 — 2026-09-27 조회)
+  - https://support.claude.com/en/articles/15424964-claude-fable-5-on-your-plan (플랜별 Fable 포함 범위·최소 버전)
+  - https://www.anthropic.com/claude-opus-5-5 (Opus 5.5 발표 — 벤치 수치는 vendor 발표)
+  - https://www.vals.ai/benchmarks/swebench (2026-08 당시 Opus 5 대 Fable 5)
+  - researcher 조사 2026-08-05, workflow 교차 검증 2026-09-27(wf_83e9d53b-c4e)
 ---
 
 # anthropic-claude-models
 
-이 워크플로우가 model/effort 차등에 쓰는 Claude 모델들의 가격·능력·한도 사실. **기준: 2026-08-05** (가격·정책은 변할 수 있음 — 갱신은 `claude-api` skill로 재검증).
+이 워크플로우가 model/effort 차등에 쓰는 Claude 모델들의 가격·능력·한도 사실. **기준: 2026-09-27** (가격·정책은 변할 수 있음 — 갱신은 공식 models overview·pricing 으로 재검증). Sonnet 5.5·Haiku 5.5 는 Opus 5.5 발표에서 "coming weeks" 로 예고만 됐고 2026-09-27 에는 목록에 없다 — 출시되면 이 페이지는 다시 낡는다.
 
-## 가격 (per 1M tokens, input/output) — Claude 5 세대
-- **Fable 5** — $10 / $50. 1M context 기본. thinking 비활성화 불가.
-- **Opus 5** (2026-07-24 출시) — $5 / $25 (Fable의 절반).
-- **Sonnet 5** (2026-06-30 출시) — 인트로 $2 / $10 (2026-08-31까지), 이후 $3 / $15. **신규 tokenizer로 동일 텍스트가 ~1.3배 토큰** — 실효 격차는 표시가보다 작다.
-- **Haiku 4.5** — $1 / $5.
+## 현재 라인업 (per 1M tokens, input/output)
+- **Fable 5.1** (`claude-fable-5-1`, 2026-09-01) — $10 / $50, 캐시 읽기 $0.25(0.025x). 1M context, 최대 출력 128K. adaptive thinking 항상 켜짐. 기본 effort `high`.
+- **Opus 5.5** (`claude-opus-5-5`, 2026-09-22) — $4 / $20, 캐시 읽기 $0.20(0.05x). 1M context, 최대 출력 128K. adaptive thinking 항상 켜짐(끌 수 없음 — 400). **기본 effort `medium`**(effort 를 지원하는 다른 현재 모델은 `high`).
+- **Sonnet 5** (`claude-sonnet-5`, 2026-06-30) — $2 / $10. 출시 때 2026-08-31 까지의 인트로 가격이라 했으나 **표준 가격이 됐고 9-01 의 $3/$15 인상은 "will not occur"**(pricing 각주). 1M context. 기본 effort `high`. 4.7 이후 tokenizer 라 같은 텍스트가 ~30% 더 많은 토큰.
+- **Haiku 4.5** (`claude-haiku-4-5-20251001`) — $1 / $5. 200K context. effort 미지원(extended thinking). **은퇴 "Not sooner than October 15, 2026"** — 이 repo 에 haiku 고정은 없다(2026-09-27 확인).
 
-구세대: Opus 4.8 $5/$25 · Sonnet 4.6 $3/$15 (참고용).
+공식 권장: *"If you're unsure which model to use, start with Claude Opus 5.5 for most workloads. Use Claude Fable 5.1 for demanding reasoning and long-horizon agentic work, or when your evals on Claude Opus 5.5 at higher effort still fall short."*(models overview)
 
-## Fable 5 구독 한도 (2026-07-20 확정)
-- Max·Team Premium: **주간 한도의 최대 50%까지만 Fable 사용 가능** — 별도 버킷이 아니라 공유 풀에서 차감. Opus 대비 ~2배 가중 차감이라는 서술은 2차 출처만 확인(⚠️추정). 50% 소진 후 나머지는 Opus/Sonnet으로.
-- Pro·Team Standard: 포함 접근 없음, usage credit($10/$50 per MTok) 종량제.
-- Claude Code v2.1.170+ 필요. `/usage`에 "Fable covered by plan (50% weekly limit)" 표기.
+Legacy(still available): Fable 5 $10/$50(캐시 읽기 $1) · Opus 5 $5/$25 · Opus 4.8·4.7·4.6·4.5 $5/$25 · Sonnet 4.6·4.5 $3/$15.
 
-## 벤치마크 구도 (Opus 5 출시 이후)
-- **닫힌 단발 코딩: Opus 5 ≥ Fable 5** — SWE-bench Verified Opus 5 97.0% > Fable 5 95.0% (Vals). ARC-AGI-3 등 다수 벤치에서 Opus 5 우위.
-- **Fable 5 순수 우위 = 장기·자율·모호 작업** — DeepSWE·Legal Agent 등. 공식 표현: "the longer and more complex the task, the larger its lead". 공식 구도: "Fable=스페셜리스트, Opus=엑스퍼트, Sonnet=제너럴리스트".
-- Sonnet 5 "Opus급" 평가는 조건부 — 대부분 코딩에서 근접하나 백엔드·장기 자율 작업은 Opus 우위 보고 잔존.
-- Fable 5 safety classifier: cyber flag→Opus 4.8, bio flag→Opus 5로 **자동 모델 전환**(v2.1.219+) — 장기 Fable 세션은 `/status`로 실제 모델 확인 가치.
+## Fable 구독 한도
+- Max·Team/Enterprise premium: Fable 5 와 5.1 모두 포함, **주간 한도의 최대 50% 까지**(공유 풀에서 차감). Pro·Team standard: 포함 접근 없음, usage credit 종량제(support 문서).
+- Claude Code 최소 버전: Fable 5 는 v2.1.170+.
 
-## effort 지원
-- Opus·Sonnet·Fable: `effort` 파라미터 지원(`low`~`xhigh`·`max`).
-- **Haiku 4.5: effort 파라미터 미지원** — 상속 시 무시되어 안전([[claude-code-subagent-config]]).
+> [!conflict] Fable 5.1 의 Claude Code 최소 버전 — model-config·advisor 문서는 *"Fable 5.1 requires Claude Code v2.1.257 or later"*, support 문서는 v2.1.255+ 로 적는다(2026-09-27). 높은 쪽(v2.1.257)을 기준으로 삼는다. Opus 5.5 는 v2.1.280+(model-config).
+
+## 성능 구도
+- **현재(Opus 5.5 출시 이후)**: 공식 문서는 Opus 5.5 를 기본 출발점, Fable 5.1 을 "demanding reasoning and long-horizon agentic work" 용으로 둔다. Opus 5.5 발표(vendor)는 Opus 5.5 가 대부분의 작업에서 Fable 5.1 수준이고 발표에 실린 코딩 벤치(Terminal-Bench 4.0 66.4 대 55.8, CursorBench 4.0 57.8 대 51.8 등)에서 앞선다고 적는다 — 독립 측정(Vals 등)은 아직 확인하지 않았다.
+- **2026-08 당시(Opus 5 대 Fable 5, 역사 기록)**: 닫힌 단발 코딩은 Opus 5 ≥ Fable 5(SWE-bench Verified 97.0% 대 95.0%, Vals), Fable 5 우위는 장기·자율·모호 작업("the longer and more complex the task, the larger its lead"). 이 구도가 [[model-stage-tiering]] 결정(2026-08-05)의 근거였다.
+- Sonnet 5 "Opus급" 평가는 조건부 — 대부분 코딩에서 근접하나 백엔드·장기 자율 작업은 Opus 우위 보고 잔존(2026-08 조사).
+- 안전 분류기 폴백(Claude Code, model-config): Fable 5.1·Fable 5·Opus 5.5 는 biology 플래그 → Opus 5, cybersecurity 플래그 → Opus 4.8 로 재실행. Opus 5 는 cybersecurity → Opus 4.8, biology 는 거절. `switchModelsOnFlag: false` 면 자동 전환 대신 세션이 멈추고 선택지를 준다(이 환경의 user settings 는 `false`). 장기 세션은 `/status` 로 실제 모델 확인.
+
+## effort
+- 지원: Fable·Opus·Sonnet 5/4.6 은 `effort` 지원(`low`~`max`, `xhigh` 는 모델 한정). **Haiku 4.5 는 미지원** — 상속 시 무시되어 안전([[claude-code-subagent-config]]).
+- 모델별 기본값(API): Opus 5.5 `medium`, 나머지 지원 모델 `high`. Opus 5.5 는 *"a request that omits `effort` runs one level lower than it did on Claude Opus 5"* 이고 이전 모델 설정을 옮기지 말고 effort sweep 을 하라고 권한다. Fable 5.1·Fable 5·Opus 5 는 "Start with `high`, the default", Opus 4.7·4.8 은 "Start with `xhigh` for coding and agentic use cases".
+- Claude Code(ultracode 설정이 꺼져 있을 때 — 켜면 `xhigh` 를 보낸다): 명시 선택(`CLAUDE_CODE_EFFORT_LEVEL`·`--effort`·`/effort`) > settings(모델별 `modelSettings` 또는 최상위 `effortLevel`) > 모델 기본값(Claude Code 에서는 `high`, Opus 5.5 `medium`, Opus 4.7 `xhigh`). 단 *"Opus 5.5 starts at `medium` unless one of the sources above sets a level for it, and a top-level `effortLevel` in your user settings file doesn't count for Opus 5.5."* subagent 는 세션 레벨을 물려받고, frontmatter `effort` 가 세션 레벨을 덮는다(env 는 못 이기고 상한 설정에 묶인다 — [[claude-code-model-selection]]).
 
 ## 정정 (재논의 방지)
-- `opus[1m]`/`fable[1m]`(1M long-context)에 **long-context 프리미엄 가격은 없다**.
-- Anthropic 권장 effort: 코딩·에이전트는 `xhigh`(기본값은 high), `max`는 "extremely hard, latency-insensitive" 한정.
+- `opus[1m]`/`fable[1m]`(1M long-context)에 **long-context 프리미엄 가격은 없다** — 4.6 이후 모델은 1M 전체가 표준 가격(pricing).
+- `max` effort 는 "Absolute maximum capability with no constraints on token spending" 이고, Opus 4.7 표는 "Reserve for frontier problems" 라고 적는다(2026-08 이 페이지의 "extremely hard, latency-insensitive" 인용은 현 문서에 없다).
 
 ## 연계
 이 사실에 기반한 단계별 모델 배치는 [[model-stage-tiering]], Claude Code 쪽 선택 메커니즘은 [[claude-code-model-selection]], 과거 티어 결정은 [[subagent-model-effort-tiering]]→[[effort-global-xhigh]].

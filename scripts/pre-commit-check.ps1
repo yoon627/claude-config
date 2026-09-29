@@ -1,18 +1,88 @@
-param([string]$Mode = 'pre-commit')
+﻿param([string]$Mode = 'pre-commit')
 
 $ErrorActionPreference = 'Stop'
 
-# Block direct push to protected branches first (pre-push). pre-push receives
-# "<local ref> <local sha> <remote ref> <remote sha>" lines on stdin.
+# Resolve git from PATH up front: Process.Start with a bare 'git' lets Windows CreateProcess
+# pick a git.exe from the current directory (the repo root) before PATH. Prefer a real
+# executable over a .cmd/.bat shim, which would run through cmd.exe and eat the '^' in '^{commit}'.
+$gitExe = (Get-Command git -CommandType Application -ErrorAction Stop |
+    Where-Object { $_.Extension -eq '.exe' -or $_.Extension -eq '' } | Select-Object -First 1).Path
+if (-not $gitExe) { throw 'git executable not found on PATH' }
+
+# Pathspec magic variables would change what 'plans/*.md' matches in the push scan; drop them
+# from this process so every git child inherits the cleaned environment. (Editing
+# ProcessStartInfo.EnvironmentVariables instead throws on Windows PowerShell 5.1 when two
+# variables differ only by case, e.g. tmp/TMP under MSYS2.)
+foreach ($v in @('GIT_LITERAL_PATHSPECS', 'GIT_GLOB_PATHSPECS', 'GIT_NOGLOB_PATHSPECS', 'GIT_ICASE_PATHSPECS')) {
+    Remove-Item -Path "Env:$v" -ErrorAction SilentlyContinue
+}
+# A replace ref would let every git call below read a substitute object — a tag peeled to a
+# commit the remote does not have, or a staged blob other than the one being committed.
+$env:GIT_NO_REPLACE_OBJECTS = '1'
+
+# Invoke-Git: run git without the PowerShell native-command pipeline. Windows PowerShell 5.1
+# turns redirected native stderr into terminating errors under EAP=Stop and decodes stdout
+# with the console code page; a Process with UTF-8 stdout avoids both. stderr is left
+# attached to the hook's stderr unless -DropStderr. Arguments must not contain spaces (joined as-is).
+# -Stdin (object names, ASCII) is written to git's stdin. .NET Framework (5.1) builds that
+# writer from [Console]::InputEncoding and writes its preamble at once, so a UTF-8 console
+# input code page (chcp 65001, "Beta: UTF-8") would put a BOM before the first object name
+# and git log would fail; the console encoding is BOM-less UTF-8 while the process starts.
+function Invoke-Git([string[]]$GitArgs, [switch]$DropStderr, [string]$Stdin) {
+    $withStdin = $PSBoundParameters.ContainsKey('Stdin')
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $script:gitExe
+    $psi.Arguments = ($GitArgs -join ' ')
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.StandardOutputEncoding = New-Object System.Text.UTF8Encoding($false)
+    $psi.RedirectStandardError = [bool]$DropStderr
+    $psi.RedirectStandardInput = $withStdin
+    $consoleIn = $null
+    if ($withStdin) {
+        try {
+            $consoleIn = [Console]::InputEncoding
+            [Console]::InputEncoding = New-Object System.Text.UTF8Encoding($false)
+        } catch { $consoleIn = $null }  # no console: the default writer encoding has no preamble
+    }
+    try {
+        $proc = [System.Diagnostics.Process]::Start($psi)
+    } finally {
+        if ($consoleIn) { [Console]::InputEncoding = $consoleIn }
+    }
+    if ($withStdin) {
+        $proc.StandardInput.Write($Stdin)
+        $proc.StandardInput.Close()
+    }
+    $err = $null
+    if ($DropStderr) { $err = $proc.StandardError.ReadToEndAsync() }
+    $out = $proc.StandardOutput.ReadToEnd()
+    $proc.WaitForExit()
+    if ($err) { [void]$err.Result }
+    return @{ Code = $proc.ExitCode; Out = $out }
+}
+
+# pre-push receives "<local ref> <local sha> <remote ref> <remote sha>" lines on stdin;
+# read them once because both the protected-branch block and the scan need them.
+# Read as UTF-8: [Console]::In would decode with the console code page (CP949 on Korean Windows).
+$pushLines = @()
+if ($Mode -eq 'pre-push') {
+    $stdin = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), (New-Object System.Text.UTF8Encoding($false)))
+    $pushLines = @($stdin.ReadToEnd() -split "`n" | ForEach-Object { $_.TrimEnd("`r") } | Where-Object { $_.Trim() -ne '' })
+}
+
+# Block direct push to protected branches first (pre-push).
 # ~/.claude is exempt (user-authorized 2026-08-05, CLAUDE.md §8): this guard is
 # shared by every repo that ran install-hooks, so the exemption is scoped by repo
 # root rather than removed. Paths are resolved because either side can be a link.
 if ($Mode -eq 'pre-push') {
     $resolve = { param($p) if ($p -and (Test-Path $p)) { (Resolve-Path $p).Path.TrimEnd('\', '/') } else { $p } }
-    $repoRoot = (git rev-parse --show-toplevel 2>$null)
+    $top = Invoke-Git @('rev-parse', '--show-toplevel')
+    $repoRoot = $null
+    if ($top.Code -eq 0) { $repoRoot = $top.Out.Trim() }
     $isClaudeRepo = $repoRoot -and ((& $resolve $repoRoot) -eq (& $resolve (Join-Path $HOME '.claude')))
     if (-not $isClaudeRepo) {
-        foreach ($line in ([Console]::In.ReadToEnd() -split "`n")) {
+        foreach ($line in $pushLines) {
             $rref = ($line.Trim() -split '\s+')[2]
             if ($rref -eq 'refs/heads/main' -or $rref -eq 'refs/heads/master') {
                 Write-Host ""
@@ -67,6 +137,52 @@ function Scan-Keys([string]$Content) {
     }
 }
 
+# Get-RevInput: the revisions for `git log --stdin` — pushed commits, then exclusions marked
+# with `^`, deduplicated in order. They go on stdin because as arguments a new remote with
+# hundreds of refs exceeds the Windows command-line limit (32,767 chars). Mirrors
+# pre-commit-check.sh rev_input.
+function Get-RevInput {
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    $revs = New-Object System.Collections.Generic.List[string]
+    foreach ($r in @($script:pushCommits) + @($script:published | ForEach-Object { "^$_" })) {
+        if ($r -and $seen.Add($r)) { $revs.Add($r) }
+    }
+    return ($revs -join "`n")
+}
+
+# Get-AddedLines: lines added under $Pathspec by the pushed commits that the destination refs
+# do not already have, or $null when git fails. Options mirror pre-commit-check.sh added_lines.
+function Get-AddedLines([string]$Pathspec) {
+    # `git log --stdin` falls back to HEAD on empty input or a leading blank line: block instead.
+    $revs = Get-RevInput
+    if (-not $revs) { return $null }
+    $gitArgs = @('--no-replace-objects', '-c', 'core.quotePath=false', '-c', 'log.diffMerges=separate',
+        '-c', 'log.showRoot=true', '-c', 'log.follow=false',
+        'log', '--stdin', '-p', '--text', '--no-color', '--no-ext-diff', '--no-textconv',
+        '--full-history', '-m', '-U0', '--src-prefix=a/', '--dst-prefix=b/', '--format=', '--', $Pathspec)
+    $r = Invoke-Git $gitArgs -Stdin ($revs + "`n")
+    if ($r.Code -ne 0) { return $null }
+    $added = New-Object System.Collections.Generic.List[string]
+    $header = $false
+    foreach ($l in ($r.Out -split "`n")) {
+        if ($l.StartsWith('diff --git ', [System.StringComparison]::Ordinal)) { $header = $true; continue }
+        if ($l.StartsWith('@@', [System.StringComparison]::Ordinal)) { $header = $false; continue }
+        if (-not $header -and $l.StartsWith('+', [System.StringComparison]::Ordinal)) { $added.Add($l.Substring(1).TrimEnd("`r")) }
+    }
+    return ($added -join "`n")
+}
+
+# Scan-Pushed: scan added lines for $Pathspec; git failure blocks (fail-closed).
+function Scan-Pushed([string]$Pathspec, [string]$Label, [bool]$Keys) {
+    $added = Get-AddedLines $Pathspec
+    if ($null -eq $added) {
+        $script:violations += "pre-push: git log failed while scanning $Pathspec (fail-closed)"
+        return
+    }
+    if ($Keys) { Scan-Keys $added }
+    Scan-Tokens $added $Label
+}
+
 if ($Mode -eq 'pre-commit') {
     $staged = git diff --cached --name-only --diff-filter=ACMR
     if ($staged -contains 'settings.json') {
@@ -80,11 +196,41 @@ if ($Mode -eq 'pre-commit') {
         Scan-Tokens $pc $f
     }
 } else {
-    $tracked = git ls-tree --name-only HEAD 2>$null
-    if ($LASTEXITCODE -eq 0 -and $tracked -contains 'settings.json') {
-        $sj = (git show HEAD:settings.json) -join "`n"
-        Scan-Keys $sj
-        Scan-Tokens $sj 'settings.json'
+    # Anything the guard cannot interpret is blocked: a real pre-push always passes four fields
+    # with object names exactly as long as this repo's hash, and pushes local objects, so a
+    # mismatch means the scan cannot be trusted. (Any other hex string could resolve to a ref of
+    # the same name instead.)
+    # "Already published" is what the destination refs hold right now: the remote sha of every
+    # line, deletions included, comes from the remote itself — unlike tracking refs, which can
+    # be stale, belong to another remote, or not match a pushurl. git sends at most the commits
+    # none of the remote's refs have, so excluding only these keeps the scan a superset of it.
+    $pushCommits = @()
+    $published = @()
+    $oid = '^[0-9a-fA-F]{40}$'
+    if ((Invoke-Git @('rev-parse', '--show-object-format') -DropStderr).Out.Trim() -eq 'sha256') { $oid = '^[0-9a-fA-F]{64}$' }
+    foreach ($line in $pushLines) {
+        $f = @($line.Trim() -split '\s+')
+        if ($f.Count -ne 4 -or $f[1] -notmatch $oid -or $f[3] -notmatch $oid) {
+            $violations += "pre-push: malformed ref line: $line"
+            continue
+        }
+        # A remote value that is not a commit here (not fetched, a blob or tree) excludes nothing.
+        # stderr is dropped because peeling a blob or tree prints an error even with --quiet.
+        if ($f[3] -notmatch '^0+$') {
+            $r = Invoke-Git @('rev-parse', '--verify', '--quiet', "$($f[3])^{commit}") -DropStderr
+            if ($r.Code -eq 0) { $published += $r.Out.Trim() }
+        }
+        if ($f[1] -match '^0+$') { continue }
+        $r = Invoke-Git @('rev-parse', '--verify', '--quiet', "$($f[1])^{commit}")
+        if ($r.Code -ne 0) {
+            $violations += "$($f[0]): pushed object $($f[1]) is not a resolvable commit"
+            continue
+        }
+        $pushCommits += $r.Out.Trim()
+    }
+    if ($pushCommits.Count -gt 0) {
+        Scan-Pushed 'settings.json' 'settings.json (pushed)' $true
+        Scan-Pushed 'plans/*.md' 'plans/*.md (pushed)' $false
     }
 }
 
@@ -97,7 +243,9 @@ if ($violations.Count -gt 0) {
     Write-Host "Move secrets/machine-specific values out of tracked files (settings.local.json is gitignored)." -ForegroundColor Cyan
     Write-Host "MCP servers belong in ~/.claude.json (managed by 'claude mcp add'), never in settings.json." -ForegroundColor Cyan
     Write-Host "Plans are committed under approach A — never paste raw tokens/credentials into plan files." -ForegroundColor Cyan
-    Write-Host "To bypass once (NOT recommended): git $Mode --no-verify" -ForegroundColor DarkGray
+    $cmd = 'commit'
+    if ($Mode -eq 'pre-push') { $cmd = 'push' }
+    Write-Host "To bypass once (NOT recommended): git $cmd --no-verify" -ForegroundColor DarkGray
     exit 1
 }
 

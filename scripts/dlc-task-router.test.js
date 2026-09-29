@@ -32,6 +32,12 @@ const TASK_NOTIFICATION =
   '</task-notification>';
 // system-reminder 래퍼가 붙는 형태(다른 하네스 이벤트)도 같은 규칙으로 걷어낸다.
 const REMINDER = '<system-reminder>\n[NOT USER INPUT]\n' + TASK_NOTIFICATION + '\n</system-reminder>';
+// auto mode subagent 보고(v2.1.271~) 의 transcript 실측 형태: 평문 접두어 + 개행 + 태그, 닫는 태그 뒤에 하니스 안내 문단.
+const HANDBACK_BLOCK =
+  '<agent-message from="a1b2c3d4e5f6">\n[Subagent hand-back] The text below is the final report of a subagent this session delegated to.\n' +
+  '  ## 종합 판단\n  재현 테스트가 failing — 회귀 버그 의심. 렌더링 결과도 확인 필요\n</agent-message>\n\n' +
+  'That "other Claude session" is an agent working inside this same session — a subagent or teammate spawned on your user\'s behalf.';
+const HANDBACK = 'Another Claude session sent a message:\n' + HANDBACK_BLOCK;
 
 try {
   ok('user debugging prompt → investigation', () =>
@@ -50,6 +56,19 @@ try {
   ok('upper-case tag is stripped too', () =>
     assert.strictEqual(run(TASK_NOTIFICATION.toUpperCase()), ''));
   ok('empty prompt → silent', () => assert.strictEqual(run(''), ''));
+  ok('subagent hand-back turn → silent', () => assert.strictEqual(run(HANDBACK), ''));
+  ok('hand-back without the plain prefix → silent', () => assert.strictEqual(run(HANDBACK_BLOCK), ''));
+  ok('reminder-prefixed hand-back → silent', () => assert.strictEqual(run(REMINDER + '\n' + HANDBACK), ''));
+  ok('user prompt quoting a hand-back mid-text → routed', () =>
+    assert.ok(run('이 보고 좀 봐줘, 버그가 재현돼요\n' + HANDBACK).includes('[dlc:investigation]')));
+
+  ok('hand-back turn keeps evidence ledger (no reset)', () => {
+    ledger.write(SESSION, { ...ledger.DEFAULT, changed: true, readmeDirty: true });
+    run(HANDBACK);
+    const d = ledger.read(SESSION);
+    assert.strictEqual(d.changed, true);
+    assert.strictEqual(d.readmeDirty, true);
+  });
 
   ok('notification turn keeps evidence ledger (no reset)', () => {
     ledger.write(SESSION, { ...ledger.DEFAULT, changed: true, readmeDirty: true });

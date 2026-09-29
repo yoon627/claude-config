@@ -26,7 +26,6 @@ def parse_porcelain(out: str, cwd_norm: str):
             return
         path_norm = normalize(wt)
         name = os.path.basename(path_norm) or path_norm
-        is_current = cwd_norm == path_norm or cwd_norm.startswith(path_norm + "/")
         if "bare" in rec:
             sha, label = "", "(bare)"
         elif "detached" in rec:
@@ -40,7 +39,7 @@ def parse_porcelain(out: str, cwd_norm: str):
         for ann in ("locked", "prunable"):
             if ann in rec:
                 label += f" ({ann})"
-        parsed.append((is_current, name, sha, label))
+        parsed.append((path_norm, name, sha, label))
 
     for raw in out.splitlines():
         if not raw:
@@ -53,7 +52,10 @@ def parse_porcelain(out: str, cwd_norm: str):
         elif key in ("bare", "detached", "locked", "prunable"):
             rec[key] = True
     flush()
-    return parsed
+    # Worktrees can nest under the main checkout (.claude/worktrees/<n>); only the longest matching path is current.
+    matches = [p for p, *_ in parsed if cwd_norm == p or cwd_norm.startswith(p + "/")]
+    current = max(matches, key=len) if matches else None
+    return [(p == current, name, sha, label) for p, name, sha, label in parsed]
 
 
 def main() -> int:
@@ -67,6 +69,14 @@ def main() -> int:
 
     cwd = data.get("cwd") or os.getcwd()
     cwd_norm = normalize(cwd)
+    # git's own toplevel, like gwl.zsh: `git worktree list` prints the same physical path, so a
+    # symlinked cwd still matches. Outside a work tree the raw cwd is kept (the list call reports why).
+    try:
+        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=cwd, capture_output=True, text=True, check=False)
+        if top.returncode == 0 and top.stdout.strip():
+            cwd_norm = normalize(top.stdout.strip())
+    except (FileNotFoundError, NotADirectoryError):
+        pass
 
     try:
         proc = subprocess.run(
@@ -76,8 +86,9 @@ def main() -> int:
             text=True,
             check=False,
         )
-    except FileNotFoundError:
-        reason = "git: command not found"
+    except (FileNotFoundError, NotADirectoryError) as exc:
+        # On Windows a missing executable reports filename=None; only a missing cwd names the cwd.
+        reason = str(exc) if exc.filename == cwd else "git: command not found"
     else:
         if proc.returncode != 0:
             reason = (proc.stderr or proc.stdout).strip() or f"git exited {proc.returncode}"

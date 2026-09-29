@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 # gwl is wired to the documented clone location, ~/.claude, so the $PROFILE line
 # stays portable and picks up `git pull` updates to gwl.ps1. Verify and reference

@@ -24,7 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from jira_kit.codex_session import find_codex_sessions  # noqa: E402
+from jira_kit.codex_session import codex_events, find_codex_sessions  # noqa: E402
 from jira_kit.session_time import (  # noqa: E402
     DEFAULT_MAX_GAP_MINUTES,
     Bucket,
@@ -219,11 +219,10 @@ class WaitExclusionTest(unittest.TestCase):
         )), 10 * 60)
 
     def test_long_tool_run_survives_default_backstop(self):
-        # 대기를 정면으로 걸러낸 대가로 백스톱을 완화했다 — 2시간짜리 빌드가 살아난다.
         self.assertEqual(seconds(self.intervals(
             tool_use(0, "Bash", LIVE_WT),
-            tool_result(120, LIVE_WT),
-        )), 120 * 60)
+            tool_result(1440, LIVE_WT),
+        )), 1440 * 60)
 
     def test_backstop_still_cuts_absurd_gaps(self):
         # 백스톱은 남긴다 — 앞으로 추가될 대화형 도구가 같은 구멍을 내면 여기서 막힌다.
@@ -645,6 +644,132 @@ class SessionSplitTest(unittest.TestCase):
         ]}}
         merged = merge_session_buckets(first, second)
         self.assertEqual(seconds(merged[self.LIVE_BUCKET]["claude:aaaaaaaa"]), 12 * 60)
+
+
+def codex_line(minutes: int, kind: str, **payload) -> str:
+    """Codex rollout 한 줄. ``kind`` 는 최상위 type(response_item / event_msg), payload 는 그대로."""
+    return json.dumps({
+        "type": kind,
+        "payload": payload,
+        "timestamp": (T0 + timedelta(minutes=minutes)).isoformat().replace("+00:00", "Z"),
+    })
+
+
+def ri(minutes: int, **payload) -> str:
+    return codex_line(minutes, "response_item", **(payload or {"type": "message", "role": "assistant"}))
+
+
+def em(minutes: int, event: str) -> str:
+    return codex_line(minutes, "event_msg", type=event)
+
+
+class CodexWaitExclusionTest(unittest.TestCase):
+    """Codex 의 사용자 대기는 turn lifecycle 로 판정한다.
+
+    2026-08 부터 Codex 는 ``user_message`` 이벤트를 남기지 않아 사용자 입력이 response_item
+    role=user 로만 기록된다. 그 role 은 시스템 컨텍스트 주입과 구분되지 않으므로, 대기는
+    ``task_complete``/``turn_aborted`` 뒤·``task_started`` 앞 gap 으로 잡는다.
+    """
+
+    def total(self, *texts: str) -> float:
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = []
+            for i, text in enumerate(texts):
+                path = Path(tmp) / f"rollout-{i}.jsonl"
+                path.write_text(text, encoding="utf-8")
+                paths.append(path)
+            return seconds(ai_intervals(codex_events(paths, TZ)))
+
+    def test_gap_between_task_complete_and_next_task_started_is_waiting(self):
+        # complete → 120분 공백 → started. 사이는 대기, 앞뒤 turn 안쪽만 작업이다.
+        total = self.total(jsonl(
+            em(0, "task_started"), ri(1), ri(3), em(3, "task_complete"),
+            em(123, "task_started"), ri(124), ri(130), em(130, "task_complete"),
+        ))
+        self.assertEqual(total, (3 + 7) * 60)
+
+    def test_gap_after_turn_aborted_is_waiting(self):
+        total = self.total(jsonl(
+            em(0, "task_started"), ri(1), em(2, "turn_aborted"),
+            em(62, "task_started"), ri(63), em(63, "task_complete"),
+        ))
+        self.assertEqual(total, (2 + 1) * 60)
+
+    def test_task_started_alone_closes_a_gap_when_complete_was_never_logged(self):
+        # 끊긴 turn(complete 없음) 뒤에도 다음 turn 시작 직전은 대기다.
+        total = self.total(jsonl(
+            em(0, "task_started"), ri(1), ri(5),
+            em(305, "task_started"), ri(306),
+        ))
+        self.assertEqual(total, (5 + 1) * 60)
+
+    def test_request_user_input_without_call_id_is_not_a_wait(self):
+        # None 이 pending 에 들어가면 그 turn 의 나머지가 통째로 대기로 사라진다.
+        total = self.total(jsonl(
+            em(0, "task_started"), ri(1),
+            ri(2, type="function_call", name="request_user_input"),
+            ri(3), ri(12), em(12, "task_complete"),
+        ))
+        self.assertEqual(total, 12 * 60)
+
+    def test_request_user_input_wait_is_excluded_until_its_output(self):
+        # call → (끼어든 reasoning) → 120분 뒤 output. call_id 로 묶어 사이 전부 대기.
+        total = self.total(jsonl(
+            em(0, "task_started"), ri(1),
+            ri(2, type="function_call", name="request_user_input", call_id="c1"),
+            ri(3, type="reasoning"),
+            ri(122, type="function_call_output", call_id="c1"),
+            ri(125), em(125, "task_complete"),
+        ))
+        self.assertEqual(total, (2 + 3) * 60)
+
+    def test_other_function_calls_are_work(self):
+        total = self.total(jsonl(
+            em(0, "task_started"),
+            ri(1, type="function_call", name="exec", call_id="c1"),
+            ri(11, type="function_call_output", call_id="c1"),
+            em(11, "task_complete"),
+        ))
+        self.assertEqual(total, 11 * 60)
+
+    def test_pending_request_is_dropped_at_turn_boundary(self):
+        # output 없이 turn 이 끊겨도 다음 turn 시간은 계상돼야 한다(안 비우면 이후 전부 0).
+        total = self.total(jsonl(
+            em(0, "task_started"),
+            ri(1, type="function_call", name="request_user_input", call_id="c1"),
+            em(2, "turn_aborted"),
+            em(62, "task_started"), ri(63), ri(70), em(70, "task_complete"),
+        ))
+        self.assertEqual(total, (1 + 8) * 60)
+
+    def test_pending_request_does_not_leak_into_the_next_file(self):
+        first = jsonl(ri(0), ri(1, type="function_call", name="request_user_input", call_id="c1"))
+        second = jsonl(ri(100), ri(110))
+        self.assertEqual(self.total(first, second), (1 + 10) * 60)
+
+    def test_user_message_only_rollout_is_unchanged(self):
+        # lifecycle 없이 user_message 만 있는 형태: 입력 직전 gap 제외, 나머지는 작업 — 변경 전과 같다.
+        total = self.total(jsonl(
+            ri(0), ri(5),
+            codex_line(65, "event_msg", type="user_message", message="hi"),
+            ri(66), ri(70),
+        ))
+        self.assertEqual(total, (5 + 5) * 60)
+
+    def test_same_timestamp_task_complete_stays_after_the_response(self):
+        # 같은 시각이면 파일 순서다. 뒤집혀 complete 가 response 앞으로 가면 직후 gap(10분)이
+        # 작업으로 계상돼 20분이 된다.
+        total = self.total(jsonl(ri(0), ri(10), em(10, "task_complete"), ri(20)))
+        self.assertEqual(total, 10 * 60)
+
+    def test_two_counted_events_between_complete_and_started_are_still_work(self):
+        # 경계 고정: complete 와 started 사이에 response_item 이 둘 이상이면 그 사이는 제외되지 않는다.
+        total = self.total(jsonl(
+            em(0, "task_started"), ri(1), em(1, "task_complete"),
+            ri(2), ri(12),
+            em(72, "task_started"), ri(73), em(73, "task_complete"),
+        ))
+        self.assertEqual(total, (1 + 10 + 1) * 60)
 
 
 if __name__ == "__main__":

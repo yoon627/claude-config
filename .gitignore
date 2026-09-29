@@ -46,6 +46,8 @@ tmp_*
 
 # Orca 앱이 설치·갱신하는 skill(심볼릭 링크 — 뒤에 / 를 붙이면 안 맞는다) — 머신 로컬, 추적하지 않는다
 /skills/orca-cli
+# Claude Code 가 claude.ai 에서 켠 skill 을 내려받는 예약 경로(v2.1.273+, 라이선스 파일 포함) — 머신 로컬, PUBLIC repo 에 올리지 않는다
+/skills/synced/
 
 # Python bytecode cache inside whitelisted dirs (e.g. scripts/)
 __pycache__/

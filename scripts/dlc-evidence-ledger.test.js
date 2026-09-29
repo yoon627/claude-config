@@ -115,6 +115,18 @@ ok('③ 같은 repo 비-ignored 실소스 편집 → changed=true (비회귀)', 
 ok('③b 비-plan .md 문서 편집 → changed=false (verify 게이트 밖 — doc-only 오탐 방지)', () => {
   assert.strictEqual(edit(path.join(repoMain, 'doc.md'), repoMain, sid()).changed, false);
 });
+ok('③d .md 편집 → edited=true (결론 축은 문서 편집도 대상), changed 는 그대로 false', () => {
+  const d = edit(path.join(repoMain, 'doc.md'), repoMain, sid());
+  assert.strictEqual(d.edited, true);
+  assert.strictEqual(d.conclusionBlocks, 0);
+  assert.strictEqual(d.changed, false);
+});
+ok('③d plans/ 편집 → edited 불변 (plan 만 고친 턴은 결론 불요)', () => {
+  assert.strictEqual(edit(path.join(repoTracked, 'plans/z-plan.md'), repoTracked, sid()).edited, false);
+});
+ok('③d gitignored(*.log) 편집 → edited 불변 (changed 와 같은 게이트)', () => {
+  assert.strictEqual(edit(path.join(repoMain, 'a.log'), repoMain, sid()).edited, false);
+});
 ok('③c changed 파일은 changedTrigger 에 basename 기록 (신호 detail 용)', () => {
   assert.strictEqual(edit(path.join(repoMain, 'src.js'), repoMain, sid()).changedTrigger, 'src.js');
 });
@@ -262,5 +274,106 @@ ok('black . → verified 불변 (--check 없으면 적용)', () => assert.strict
 ok('dotnet build → verified 불변', () => assert.strictEqual(V('dotnet build'), false));
 ok('cat Makefile → verified 불변 (NONVERIFY veto)', () => assert.strictEqual(V('cat Makefile'), false));
 ok('echo make test → verified 불변 (NONVERIFY veto)', () => assert.strictEqual(V('echo make test'), false));
+
+// ---- Bash 편집(tool_response.bashEditDiff): 이 브랜치의 plan·README·index 편집은 경고를 끄는 쪽으로만 반영 ----
+// 형태는 transcript 실측(v2.1.272~): files[{filePath(절대),hunks,deleted}]·moreFiles·changedFiles(문자열)·unavailable.
+// 브랜치 x → plans/…-x/x-plan.md 가 이 브랜치의 plan(plan-match), y-plan 은 다른 작업의 plan.
+const bashHome = fs.mkdtempSync(path.join(os.tmpdir(), 'dlc-led-bashhome-'));
+const bashRepo = path.join(bashHome, '.claude');
+fs.mkdirSync(bashRepo);
+execFileSync('git', ['init', '-b', 'x', bashRepo], { stdio: 'ignore' });
+git(bashRepo, 'config', 'user.email', 't@t');
+git(bashRepo, 'config', 'user.name', 't');
+git(bashRepo, 'config', 'commit.gpgsign', 'false');
+const bPlan = W(bashRepo, 'plans/2026-01-01-x/x-plan.md', '# plan\n');
+const bClean = W(bashRepo, 'plans/2026-01-01-y/y-plan.md', '# plan\n');
+const bReadme = W(bashRepo, 'README.md', '# r\n');
+const bIndex = W(bashRepo, 'wiki/index.md', '# i\n');
+const bPage = W(bashRepo, 'wiki/pages/p.md', '# p\n');
+const bTool = W(bashRepo, 'scripts/tool.js', 'x\n');
+git(bashRepo, 'add', '-A');
+git(bashRepo, 'commit', '-m', 'init');
+
+function diffOf(paths, extra) {
+  return { files: paths.map((p) => ({ filePath: p, hunks: [], deleted: false })), moreFiles: 0, changedFiles: paths, ...extra };
+}
+function bashEdit(command, bashEditDiff, s) {
+  const input = JSON.stringify({
+    session_id: s, cwd: bashRepo, tool_name: 'Bash', tool_input: { command },
+    tool_response: { stdout: '', stderr: '', interrupted: false, isImage: false, bashEditDiff },
+  });
+  execFileSync('node', [HOOK], { input, env: { ...process.env, HOME: bashHome, USERPROFILE: bashHome, CLAUDE_DLC_SIGNAL_OFF: '1' } });
+  return ledger.read(s);
+}
+const editB = (fp, s) => editInClaude(fp, bashRepo, s, bashHome);
+
+ok('HEAD 와 같은 plan(끝까지 간 git pull·merge 결과) → planTouched 불변', () => {
+  assert.strictEqual(bashEdit('git fetch origin && git merge origin/main', diffOf([bPlan]), sid()).planTouched, false);
+});
+ok('Bash 로 고친 이 브랜치 plan(HEAD 와 다름) → planTouched=true, changed·edited 는 안 켜짐', () => {
+  fs.appendFileSync(bPlan, 'progress\n');
+  const d = bashEdit('python3 /tmp/edit_plan.py', diffOf([bPlan]), sid());
+  assert.strictEqual(d.planTouched, true);
+  assert.strictEqual(d.changed, false);
+  assert.strictEqual(d.edited, false);
+});
+ok('다른 작업의 plan 이 HEAD 와 달라도(충돌로 멈춘 merge) planTouched 불변', () => {
+  fs.appendFileSync(bClean, 'from main\n');
+  assert.strictEqual(bashEdit('git fetch origin && git merge origin/main', diffOf([bClean]), sid()).planTouched, false);
+  git(bashRepo, 'checkout', '--', 'plans/2026-01-01-y/y-plan.md');
+});
+ok('changedFiles 없이 files 만 있어도 반영', () => {
+  const d = bashEdit('python3 /tmp/p.py', { files: [{ filePath: bPlan, hunks: [], deleted: false }], moreFiles: 0 }, sid());
+  assert.strictEqual(d.planTouched, true);
+});
+ok('세션 root 밖 repo 의 plan·README 는 무변경', () => {
+  const other = initRepo('x');
+  const oPlan = W(other, 'plans/2026-01-01-x/x-plan.md', '# p\n');
+  const oReadme = W(other, 'README.md', '# r\n');
+  git(other, 'add', '-A');
+  git(other, 'commit', '-m', 'init');
+  fs.appendFileSync(oPlan, 'x\n');
+  fs.appendFileSync(oReadme, 'x\n');
+  const s = sid();
+  editB(bTool, s); // 세션 root 의 readmeDirty=true
+  const d = bashEdit('python3 /tmp/o.py', diffOf([oPlan, oReadme]), s);
+  assert.strictEqual(d.planTouched, false);
+  assert.strictEqual(d.readmeDirty, true);
+});
+ok('changedFiles 만 있고 files 가 잘림(moreFiles>0) → 나열된 plan 반영', () => {
+  const d = bashEdit('python3 /tmp/many.py', { files: [], moreFiles: 3, changedFiles: [bPlan] }, sid());
+  assert.strictEqual(d.planTouched, true);
+});
+ok('unavailable 이어도 나열된 경로는 반영, 경로 없으면 무변경', () => {
+  assert.strictEqual(bashEdit('x', diffOf([bPlan], { unavailable: true }), sid()).planTouched, true);
+  assert.strictEqual(bashEdit('x', { files: [], moreFiles: 0, unavailable: true }, sid()).planTouched, false);
+});
+ok('Edit 로 스크립트 → readmeDirty, 이어 Bash 로 README 수정 → readmeDirty 해소', () => {
+  const s = sid();
+  assert.strictEqual(editB(bTool, s).readmeDirty, true);
+  fs.appendFileSync(bReadme, 'doc\n');
+  assert.strictEqual(bashEdit("sed -i '' 's/a/b/' README.md", diffOf([bReadme]), s).readmeDirty, false);
+});
+ok('HEAD 와 같은 README 가 나열돼도 readmeDirty 유지', () => {
+  const s = sid();
+  git(bashRepo, 'checkout', '--', 'README.md');
+  editB(bTool, s);
+  assert.strictEqual(bashEdit('git fetch origin && git pull --ff-only origin main', diffOf([bReadme]), s).readmeDirty, true);
+});
+ok('Edit 로 wiki 페이지 → indexDirty, 이어 Bash 로 index 수정 → indexDirty 해소', () => {
+  const s = sid();
+  assert.strictEqual(editB(bPage, s).indexDirty, true);
+  fs.appendFileSync(bIndex, 'line\n');
+  assert.strictEqual(bashEdit('python3 /tmp/idx.py', diffOf([bIndex]), s).indexDirty, false);
+});
+ok('Bash 로 고친 스크립트는 경고를 켜지 않는다(changed·readmeDirty 불변)', () => {
+  const d = bashEdit("sed -i '' 's/x/y/' scripts/tool.js", diffOf([bTool]), sid());
+  assert.strictEqual(d.changed, false);
+  assert.strictEqual(d.readmeDirty, false);
+});
+ok('bashEditDiff 형태 불량이어도 같은 명령의 검증 인식은 산다', () => {
+  assert.strictEqual(bashEdit('bash scripts/verify.sh', 'not-an-object', sid()).verified, true);
+  assert.strictEqual(bashEdit('bash scripts/verify.sh', { files: 'x', changedFiles: 7 }, sid()).verified, true);
+});
 
 console.log(`dlc-evidence-ledger.test.js: ${n} tests passed`);

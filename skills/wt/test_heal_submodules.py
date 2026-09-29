@@ -59,6 +59,9 @@ class InitSubmodulesTest(unittest.TestCase):
             mock.patch.object(
                 bootstrap, "_submodule_entries", return_value=[("x", "sub")]
             ),
+            mock.patch.object(
+                bootstrap, "_module_dir", return_value=Path("modules/x")
+            ),
             mock.patch.object(bootstrap, "_reset_submodule") as reset,
         ):
             bootstrap.init_submodules(self.root)
@@ -75,6 +78,9 @@ class InitSubmodulesTest(unittest.TestCase):
             mock.patch.object(bootstrap, "run", run),
             mock.patch.object(
                 bootstrap, "_submodule_entries", return_value=[("x", "sub")]
+            ),
+            mock.patch.object(
+                bootstrap, "_module_dir", return_value=Path("modules/x")
             ),
             mock.patch.object(bootstrap, "_reset_submodule") as reset,
         ):
@@ -97,6 +103,9 @@ class InitSubmodulesTest(unittest.TestCase):
             mock.patch.object(
                 bootstrap, "_submodule_entries", return_value=[("x", "sub")]
             ),
+            mock.patch.object(
+                bootstrap, "_module_dir", return_value=Path("modules/x")
+            ),
             mock.patch.object(bootstrap, "_reset_submodule") as reset,
         ):
             bootstrap.init_submodules(self.root)
@@ -109,6 +118,9 @@ class InitSubmodulesTest(unittest.TestCase):
             mock.patch.object(bootstrap, "run", run),
             mock.patch.object(
                 bootstrap, "_submodule_entries", return_value=[("x", "sub")]
+            ),
+            mock.patch.object(
+                bootstrap, "_module_dir", return_value=Path("modules/x")
             ),
             mock.patch.object(bootstrap, "_reset_submodule"),
         ):
@@ -148,22 +160,67 @@ class WorktreeHasFilesTest(unittest.TestCase):
         (sub / ".git").mkdir(parents=True)
         self.assertTrue(bootstrap._submodule_worktree_has_files(sub))
 
+    def test_dotgit_file_counts_only_as_gitlink(self) -> None:
+        """`.git` 파일은 git 이 읽는 형식(`gitdir: `)일 때만 gitlink 로 빼고, 나머지는 사용자 파일로 본다."""
+        sub = self.d / "sub"
+        sub.mkdir()
+        (sub / ".git").write_bytes(b"gitdir: ../.git/modules/sub\r\n")
+        self.assertFalse(bootstrap._submodule_worktree_has_files(sub))
+        for other in (b"notes kept in a file named .git\n", b"", b"gitdir:x", b"\xef\xbb\xbfgitdir: x"):
+            (sub / ".git").write_bytes(other)
+            self.assertTrue(bootstrap._submodule_worktree_has_files(sub), other)
+
 
 class ResetSubmoduleTest(unittest.TestCase):
+    def test_main_drops_pathspec_env(self) -> None:
+        """`--literal-pathspecs` 는 다른 전역 pathspec 설정과 함께 쓰면 git 이 fatal 로 끝난다."""
+        names = ("GIT_LITERAL_PATHSPECS", "GIT_GLOB_PATHSPECS", "GIT_NOGLOB_PATHSPECS", "GIT_ICASE_PATHSPECS")
+        with (
+            mock.patch.dict(os.environ, {n: "1" for n in names}),
+            mock.patch.object(bootstrap, "try_capture", return_value=None),
+        ):
+            bootstrap.main()
+            self.assertEqual([n for n in names if n in os.environ], [])
+
+    def test_deinit_takes_the_path_literally(self) -> None:
+        """`.gitmodules` path 의 glob 문자가 다른 submodule 로 번지지 않게 literal pathspec 으로 부른다."""
+        with (
+            mock.patch.object(bootstrap, "_module_dir", return_value=Path("some/modules/x")),
+            mock.patch.object(bootstrap, "run") as run,
+            mock.patch.object(bootstrap, "_force_rmtree"),
+        ):
+            bootstrap._reset_submodule("x", "sub*")
+        run.assert_called_once_with(["git", "--literal-pathspecs", "submodule", "deinit", "-f", "--", "sub*"])
+
     def test_deinit_failure_tolerated(self) -> None:
         """미초기화 등으로 deinit 이 실패해도 module dir 삭제로 진행한다(best-effort)."""
         with (
-            mock.patch.object(bootstrap, "try_capture", return_value="some/modules/x"),
+            mock.patch.object(
+                bootstrap, "_module_dir", return_value=Path("some/modules/x")
+            ),
             mock.patch.object(bootstrap, "run", side_effect=_err()),
             mock.patch.object(bootstrap, "_force_rmtree") as rmtree,
         ):
             bootstrap._reset_submodule("x", "sub")  # raise 없이 통과
         rmtree.assert_called_once()
 
+    def test_escaping_module_dir_stops_before_any_delete(self) -> None:
+        with (
+            mock.patch.object(bootstrap, "_module_dir", return_value=None),
+            mock.patch.object(bootstrap, "run") as run,
+            mock.patch.object(bootstrap, "_force_rmtree") as rmtree,
+        ):
+            with self.assertRaises(SystemExit):
+                bootstrap._reset_submodule("x", "sub")
+        run.assert_not_called()
+        rmtree.assert_not_called()
+
     def test_rmtree_failure_is_surfaced(self) -> None:
         """module dir 삭제가 파일 점유로 실패하면 bare traceback 대신 OSError 를 surface."""
         with (
-            mock.patch.object(bootstrap, "try_capture", return_value="some/modules/x"),
+            mock.patch.object(
+                bootstrap, "_module_dir", return_value=Path("some/modules/x")
+            ),
             mock.patch.object(bootstrap, "run"),
             mock.patch.object(
                 bootstrap, "_force_rmtree", side_effect=OSError("locked")
@@ -175,7 +232,7 @@ class ResetSubmoduleTest(unittest.TestCase):
 
 class ForceRmtreeTest(unittest.TestCase):
     def test_removes_readonly_tree(self) -> None:
-        """Windows: git pack 파일이 read-only 라 일반 rmtree 가 실패 → 사전 chmod 로 제거."""
+        """read-only pack 파일 트리도 지운다 — Windows 는 실패 시 핸들러가 read-only 를 풀고 재시도, POSIX 는 모드와 무관."""
         with TemporaryDirectory() as tmp:
             target = Path(tmp) / "modules" / "x"
             (target / "objects").mkdir(parents=True)
@@ -188,6 +245,121 @@ class ForceRmtreeTest(unittest.TestCase):
     def test_missing_path_noop(self) -> None:
         with TemporaryDirectory() as tmp:
             bootstrap._force_rmtree(Path(tmp) / "absent")  # raise 없이 통과
+
+    @unittest.skipIf(os.name == "nt", "Windows 는 hardlink 가 read-only 속성을 공유해 삭제 시 풀린다")
+    def test_links_inside_tree_leave_outside_modes_alone(self) -> None:
+        """트리 안 파일 symlink·hardlink·디렉토리 symlink 가 밖을 가리켜도 밖의 파일 모드는 그대로다."""
+        with TemporaryDirectory() as tmp:
+            outside = Path(tmp) / "outside"
+            (outside / "dir").mkdir(parents=True)
+            files = [outside / "linked.pack", outside / "hard.pack", outside / "dir" / "inner.pack"]
+            for f in files:
+                f.write_text("data")
+                os.chmod(f, 0o444)
+            target = Path(tmp) / "modules" / "x"
+            target.mkdir(parents=True)
+            (target / "via-symlink").symlink_to(files[0])
+            os.link(files[1], target / "via-hardlink")
+            (target / "via-dir-symlink").symlink_to(outside / "dir")
+            bootstrap._force_rmtree(target)
+            self.assertFalse(target.exists())
+            for f in files:
+                self.assertEqual(stat.S_IMODE(f.stat().st_mode), 0o444, f.name)
+
+    @unittest.skipUnless(os.name == "nt", "directory junction 은 Windows 에만 있다")
+    def test_junction_inside_tree_leaves_outside_alone(self) -> None:
+        """트리 안 junction 이 밖의 디렉토리를 가리켜도 밖의 파일은 남고 read-only 도 그대로다.
+
+        os.path.islink 는 junction 을 보지 못해 핸들러가 junction 에 chmod 할 수 있으므로,
+        junction 자체를 read-only 로 만들어 삭제 실패 → 핸들러 경로도 지나게 한다.
+        """
+        import _winapi
+
+        for readonly_junction in (False, True):
+            with self.subTest(readonly_junction=readonly_junction), TemporaryDirectory() as tmp:
+                outside = Path(tmp) / "outside"
+                outside.mkdir()
+                kept = outside / "keep.pack"
+                kept.write_text("data")
+                os.chmod(kept, stat.S_IREAD)
+                target = Path(tmp) / "modules" / "x"
+                target.mkdir(parents=True)
+                junction = target / "via-junction"
+                _winapi.CreateJunction(str(outside), str(junction))
+                if readonly_junction:
+                    subprocess.run(["attrib", "+R", str(junction), "/L"], check=True, capture_output=True)
+                try:
+                    with mock.patch.object(bootstrap, "_retry_readonly", wraps=bootstrap._retry_readonly) as handler:
+                        bootstrap._force_rmtree(target)
+                    self.assertEqual(readonly_junction, handler.called, "핸들러 경로를 지났는지")
+                    self.assertFalse(target.exists())
+                    self.assertTrue(kept.exists())
+                    self.assertFalse(kept.stat().st_mode & stat.S_IWRITE, "밖의 파일 read-only 가 풀렸다")
+                finally:
+                    os.chmod(kept, stat.S_IWRITE)
+
+    @unittest.skipIf(os.name == "nt" or os.geteuid() == 0, "POSIX 비-root 에서만 쓰기 금지 디렉토리로 삭제 실패를 만든다")
+    def test_rmtree_failures_reach_the_readonly_handler(self) -> None:
+        """삭제 실패가 핸들러로 전달된다 — 3.12+ onexc, 그 전 onerror 분기 모두."""
+        versions = [(3, 11)] + ([(3, 13)] if sys.version_info >= (3, 12) else [])
+        for version in versions:
+            with self.subTest(version=version), TemporaryDirectory() as tmp:
+                target = Path(tmp) / "modules" / "x"
+                locked = target / "objects"
+                locked.mkdir(parents=True)
+                (locked / "pack.idx").write_text("data")
+                os.chmod(locked, stat.S_IREAD | stat.S_IEXEC)
+                seen: list[BaseException] = []
+
+                def spy(func, path, exc):
+                    seen.append(exc)
+                    raise exc
+
+                try:
+                    with (
+                        mock.patch.object(bootstrap, "sys", mock.Mock(version_info=version)),
+                        mock.patch.object(bootstrap, "_retry_readonly", side_effect=spy),
+                    ):
+                        with self.assertRaises(PermissionError):
+                            bootstrap._force_rmtree(target)
+                finally:
+                    os.chmod(locked, stat.S_IRWXU)
+                self.assertTrue(seen)
+                self.assertIsInstance(seen[0], PermissionError)
+
+    def test_readonly_retry_is_windows_only_and_skips_symlinks(self) -> None:
+        """삭제 실패 시 read-only 해제·재시도는 게이트(Windows)가 켜져 있고 symlink 가 아닐 때만."""
+        with TemporaryDirectory() as tmp:
+            regular = Path(tmp) / "pack.idx"
+            regular.write_text("data")
+            link = Path(tmp) / "link.idx"
+            try:
+                link.symlink_to(regular)
+            except OSError as exc:
+                self.skipTest(f"symlink 생성 불가: {exc}")
+            err = PermissionError("read-only")
+            func = mock.Mock()
+            with (
+                mock.patch.object(bootstrap, "_CLEAR_READONLY", True),
+                mock.patch.object(bootstrap.os, "chmod") as chmod,
+            ):
+                bootstrap._retry_readonly(func, str(regular), err)
+                chmod.assert_called_once_with(str(regular), stat.S_IWRITE)
+                func.assert_called_once_with(str(regular))
+                chmod.reset_mock()
+                func.reset_mock()
+                with self.assertRaises(PermissionError):
+                    bootstrap._retry_readonly(func, str(link), err)
+                chmod.assert_not_called()
+                func.assert_not_called()
+            with (
+                mock.patch.object(bootstrap, "_CLEAR_READONLY", False),
+                mock.patch.object(bootstrap.os, "chmod") as chmod,
+            ):
+                with self.assertRaises(PermissionError):
+                    bootstrap._retry_readonly(func, str(regular), err)
+                chmod.assert_not_called()
+                func.assert_not_called()
 
 
 class SubmoduleEntriesTest(unittest.TestCase):
@@ -210,6 +382,158 @@ class SubmoduleEntriesTest(unittest.TestCase):
     def test_no_gitmodules(self) -> None:
         with TemporaryDirectory() as tmp:
             self.assertEqual(bootstrap._submodule_entries(Path(tmp)), [])
+
+    def test_name_and_path_with_spaces(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".gitmodules").write_text(
+                '[submodule "my sub"]\n\tpath = my sub dir\n'
+            )
+            self.assertEqual(
+                bootstrap._submodule_entries(root), [("my sub", "my sub dir")]
+            )
+
+    def test_carriage_return_in_name_is_kept(self) -> None:
+        """text 모드는 `\\r` 을 `\\n` 으로 바꿔 name `x\\r` 을 `x` 로 잘라 버린다."""
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".gitmodules").write_bytes(b'[submodule "x\r"]\n\tpath = sub\n')
+            self.assertEqual(bootstrap._submodule_entries(root), [("x\r", "sub")])
+
+
+_ISOLATED_GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+
+
+def _git(cwd: Path, *args: str) -> str:
+    env = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_WORK_TREE")}
+    env.update(_ISOLATED_GIT_ENV)
+    return subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+        cwd=cwd, env=env, check=True, capture_output=True, text=True,
+    ).stdout.strip()
+
+
+class UnsafeModuleNameTest(unittest.TestCase):
+    """악성 `.gitmodules` name 이 heal 의 module dir 삭제를 repo·.git 밖으로 돌리지 못해야 한다.
+    victim 은 TemporaryDirectory 안에만 두고, 실행 전에 삭제 대상 경로가 정말 victim 인지
+    단언한다 — 배치가 틀리면 테스트가 엉뚱한 곳을 지울 수 있다."""
+
+    def setUp(self) -> None:
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.base = Path(tmp.name).resolve()
+        cwd = os.getcwd()
+        self.addCleanup(os.chdir, cwd)
+        env = mock.patch.dict(os.environ, _ISOLATED_GIT_ENV)
+        env.start()
+        self.addCleanup(env.stop)
+        for var in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
+            os.environ.pop(var, None)
+
+    def _plant(self, target: Path) -> Path:
+        target.mkdir(parents=True)
+        keep = target / "keep.txt"
+        keep.write_text("must survive")
+        return keep
+
+    def _assert_heal_refuses(self, repo: Path, name: str, target: Path) -> None:
+        (repo / ".gitmodules").write_text(f'[submodule "{name}"]\n\tpath = sub\n')
+        git_path = _git(repo, "rev-parse", "--git-path", f"modules/{name}")
+        self.assertEqual((repo / git_path).resolve(), target.resolve())  # 배치 사전 단언
+        keep = self._plant(target)
+        os.chdir(repo)
+        with mock.patch.object(bootstrap, "run", side_effect=_err()):
+            with self.assertRaises(SystemExit):
+                bootstrap.init_submodules(repo)
+        self.assertEqual(keep.read_text(), "must survive")
+
+    def test_refuses_name_escaping_repo(self) -> None:
+        repo = self.base / "repo"
+        repo.mkdir()
+        _git(repo, "init", "-q")
+        self._assert_heal_refuses(repo, "../../../victim", self.base / "victim")
+
+    def test_refuses_name_escaping_into_main_git_dir_from_linked_worktree(self) -> None:
+        """/wt 실사용 배치: linked worktree 의 modules/<name> 은 <main>/.git/worktrees/<wt>/
+        modules 아래라, ../../../ 가 <main>/.git 안(objects 등)을 가리킨다."""
+        main = self.base / "main"
+        main.mkdir()
+        _git(main, "init", "-q")
+        _git(main, "commit", "-q", "--allow-empty", "-m", "init")
+        wt = self.base / "wt1"
+        _git(main, "worktree", "add", "-q", "-b", "wt1", str(wt))
+        self._assert_heal_refuses(wt, "../../../sentinel", main / ".git" / "sentinel")
+
+    def test_nested_name_is_allowed(self) -> None:
+        repo = self.base / "repo"
+        repo.mkdir()
+        _git(repo, "init", "-q")
+        target = bootstrap._module_dir("manager/app/resources/templates", repo)
+        self.assertIsNotNone(target)
+
+    def test_symlinked_module_dir_escaping_is_refused(self) -> None:
+        """name 에 `..` 가 없어도 modules 아래 symlink 가 밖을 가리키면 containment 로 거부."""
+        repo = self.base / "repo"
+        repo.mkdir()
+        _git(repo, "init", "-q")
+        outside = self.base / "outside"
+        outside.mkdir()
+        (repo / ".git" / "modules").mkdir()
+        (repo / ".git" / "modules" / "evil").symlink_to(outside)
+        self.assertIsNone(bootstrap._module_dir("evil", repo))
+
+    def test_trailing_space_name_is_not_trimmed_into_a_sibling(self) -> None:
+        repo = self.base / "repo"
+        repo.mkdir()
+        _git(repo, "init", "-q")
+        self.assertNotEqual(
+            bootstrap._module_dir("sub ", repo), bootstrap._module_dir("sub", repo)
+        )
+        self.assertNotEqual(
+            bootstrap._module_dir("sub\r", repo), bootstrap._module_dir("sub", repo)
+        )
+
+    def test_overlapping_module_dirs_are_refused(self) -> None:
+        """name `a/objects` 는 submodule a 의 object DB 를 가리킨다 — 형제 module dir 을 지울 수 있다."""
+        repo = self.base / "repo"
+        repo.mkdir()
+        _git(repo, "init", "-q")
+        (repo / ".gitmodules").write_text(
+            '[submodule "a"]\n\tpath = a\n[submodule "a/objects"]\n\tpath = b\n'
+        )
+        os.chdir(repo)
+        with (
+            mock.patch.object(bootstrap, "run", side_effect=_err()),
+            mock.patch.object(bootstrap, "_reset_submodule") as reset,
+        ):
+            with self.assertRaises(SystemExit):
+                bootstrap.init_submodules(repo)
+        reset.assert_not_called()
+
+
+class EntriesFailClosedTest(unittest.TestCase):
+    """update 실패 뒤 `.gitmodules` 를 믿을 수 없으면 아무것도 리셋하지 않고 멈춘다."""
+
+    def _assert_stops(self, gitmodules: str) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".gitmodules").write_text(gitmodules)
+            with (
+                mock.patch.object(bootstrap, "run", side_effect=_err()),
+                mock.patch.object(bootstrap, "_reset_submodule") as reset,
+            ):
+                with self.assertRaises(SystemExit):
+                    bootstrap.init_submodules(root)
+            reset.assert_not_called()
+
+    def test_no_path_entries(self) -> None:
+        self._assert_stops('[submodule "x"]\n\turl = ./nowhere\n')
+
+    def test_valueless_path(self) -> None:
+        self._assert_stops('[submodule "x"]\n\tpath\n')
+
+    def test_config_syntax_error(self) -> None:
+        self._assert_stops('[submodule "x"\n\tpath = sub\n')
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 const s = require('./dlc-signal.js');
 
 let n = 0;
@@ -29,7 +29,8 @@ ok('KINDS: failure/activity 축이 계획대로 고정된다', () => {
   assert.strictEqual(s.KINDS['router-grounding'], 'activity');
   assert.strictEqual(s.KINDS['review-disposition'], 'activity');
   assert.strictEqual(s.KINDS['early-stop-plan-drift'], 'failure');
-  assert.strictEqual(Object.keys(s.KINDS).length, 10);
+  assert.strictEqual(s.KINDS['early-stop-conclusion'], 'failure');
+  assert.strictEqual(Object.keys(s.KINDS).length, 11);
 });
 
 // ---- 경로 해석 (env 채널) ----
@@ -211,9 +212,15 @@ ok('summarize: kind 별 raw/unique-session/기간 집계, 불량 라인·미정�
 // ---- hook 통합 (spawn — 실제 emit 경로 관찰, OFF 자기격리와 동일 채널) ----
 ok('통합(guard): deny 시 guard-worktree-deny 신호가 지정 DIR 에 기록된다', () => {
   const d = tmp();
+  // guard 는 main checkout 의 추적 파일만 deny 하므로 실 repo 에 추적 파일을 둔다.
+  const repo = tmp();
+  execFileSync('git', ['init', '-q', repo], { stdio: 'ignore' });
+  fs.mkdirSync(path.join(repo, 'scripts'));
+  fs.writeFileSync(path.join(repo, 'scripts', 'x.js'), 'x');
+  execFileSync('git', ['-C', repo, 'add', 'scripts/x.js'], { stdio: 'ignore' });
   const inp = JSON.stringify({
-    cwd: '/Users/u/repo/.claude/worktrees/wt1/sub',
-    tool_input: { file_path: '/Users/u/repo/scripts/x.js' },
+    cwd: path.join(repo, '.claude/worktrees/wt1/sub'),
+    tool_input: { file_path: path.join(repo, 'scripts', 'x.js') },
     session_id: 'g1',
   });
   const out = execFileSync('node', [path.join(__dirname, 'guard-worktree-edit.js')], {
@@ -267,6 +274,33 @@ ok('CLI summary: 회전분(.1)도 함께 집계한다', () => {
   }).toString();
   assert.ok(out.includes('guard-worktree-deny: sessions=2 raw=2'));
   assert.ok(out.includes('first=2026-06-01'));
+});
+
+ok('CLI mark: 디렉토리를 만들고 마커 mtime 을 지금으로 올린다', () => {
+  const d = path.join(tmp(), 'nested');
+  const env = { ...process.env, CLAUDE_DLC_SIGNAL_DIR: d };
+  const cli = () => execFileSync('node', [path.join(__dirname, 'dlc-signal.js'), 'mark'], { env }).toString();
+  const marker = s.improveMarkerPath({ CLAUDE_DLC_SIGNAL_DIR: d });
+  assert.strictEqual(path.dirname(marker), d);
+  cli();
+  assert.ok(fs.existsSync(marker));
+  const past = new Date('2026-01-01T00:00:00Z');
+  fs.utimesSync(marker, past, past);
+  const before = Date.now();
+  assert.ok(cli().includes('last-improve'));
+  assert.ok(fs.statSync(marker).mtimeMs >= before - 1000);
+});
+
+ok('CLI: 마커 쓰기 실패·모르는 subcommand 는 비0 종료', () => {
+  const file = path.join(tmp(), 'not-a-dir');
+  fs.writeFileSync(file, '');
+  const cli = (arg, dir) => spawnSync('node', [path.join(__dirname, 'dlc-signal.js'), arg], {
+    env: { ...process.env, CLAUDE_DLC_SIGNAL_DIR: dir },
+  });
+  const failed = cli('mark', path.join(file, 'sub'));
+  assert.strictEqual(failed.status, 1);
+  assert.match(failed.stderr.toString(), /^last-improve 마커 갱신 실패: .*\n$/);
+  assert.notStrictEqual(cli('marks', tmp()).status, 0);
 });
 
 console.log(`dlc-signal.test.js: ${n} tests passed`);

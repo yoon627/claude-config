@@ -65,7 +65,7 @@ Orca 가 주입하는 관측 훅 11개가 `settings.json` 에 **주입된 머신
 
 ## 재발 2회 — autoMode, 그리고 추적 자체를 끊다 (2026-09-07)
 
-세 번째 사례. `/auto-mode-setup` 이 `settings.json` 에 `autoMode` 블록을 썼다. 안에 머신 절대경로(`C:\Users\yoon627\Repos\knowledge_base`)뿐 아니라 **사내 IP(`192.168.62.48`)·도메인(`aigw.autocrypt.co.kr`)·조직명·Bitbucket 레포 URL**이 들어 있었다. 이 레포는 **public** 이라 유출 표면이 이전 두 사례보다 넓다. 증상은 동일 — `git pull --rebase` 가 `You have unstaged changes` 로 거부.
+세 번째 사례. `/auto-mode-setup` 이 `settings.json` 에 `autoMode` 블록을 썼다. 안에 머신 절대경로(`C:\Users\yoon627\Repos\knowledge_base`)뿐 아니라 **사내 IP·사내 도메인·조직명·Bitbucket 레포 URL**이 들어 있었다(값은 이 공개 repo 에 옮기지 않는다). 이 레포는 **public** 이라 유출 표면이 이전 두 사례보다 넓다. 증상은 동일 — `git pull --rebase` 가 `You have unstaged changes` 로 거부.
 
 **이번엔 표준 remedy 가 통하지 않았다.** 위 "올바른 방법"의 1번(`settings.local.json` 으로 빼기)이 `autoMode` 에는 적용 불가다:
 

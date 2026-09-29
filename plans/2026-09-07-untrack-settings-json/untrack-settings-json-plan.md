@@ -11,7 +11,7 @@ updated: 2026-09-07
 
 # Progress
 
-- 2026-09-07: `git pull --rebase` 가 `M settings.json` 으로 거부됨 → 원인이 `/auto-mode-setup` 이 쓴 `autoMode` 블록임을 확인. 그 블록에 사내 IP(`192.168.62.48`)·도메인(`aigw.autocrypt.co.kr`)·조직명(`autocrypt`)·머신 절대경로가 포함되고 이 repo 는 **public**.
+- 2026-09-07: `git pull --rebase` 가 `M settings.json` 으로 거부됨 → 원인이 `/auto-mode-setup` 이 쓴 `autoMode` 블록임을 확인. 그 블록에 사내 IP·사내 도메인·조직명·머신 절대경로가 포함되고 이 repo 는 **public**.
 - 2026-09-07: 공식 문서로 `autoMode` 의 유효 스코프가 `~/.claude/settings.json` / managed settings / `--settings` 뿐임을 확인 — `settings.local.json` 이관은 조용히 무시되므로 불가.
 - 2026-09-07: managed settings 경로(`C:\Program Files\ClaudeCode\`)는 사용자가 Administrators 그룹이 아니라 쓰기 불가 → 탈락.
 - 2026-09-07: Explore 로 영향 범위 확정 — CI 2곳·가드 1곳이 "settings.json 이 tracked" 전제에 의존.

@@ -19,7 +19,7 @@ CONFIG = JiraConfig(
     email="email-placeholder",
     token="<redacted>",
 )
-MARKER = "[jira-task] ticket=CSTP1-1234 date=2026-08-13 worktree=demo session=manual"
+MARKER = "[jira-task] ticket=ABC1-1234 date=2026-08-13 worktree=demo session=manual"
 SUMMARY = "Jira task 본문 기록을 추가했다."
 
 
@@ -47,7 +47,7 @@ class FormattingTests(unittest.TestCase):
 
     def test_summary_rejects_secret_like_text(self) -> None:
         args = jira_task.parse_args(
-            ["--ticket", "CSTP1-1234", "--summary", "JIRA_API_TOKEN ="]
+            ["--ticket", "ABC1-1234", "--summary", "JIRA_API_TOKEN ="]
         )
 
         with self.assertRaisesRegex(JiraTaskError, "credential"):
@@ -56,11 +56,11 @@ class FormattingTests(unittest.TestCase):
     def test_ticket_inference_prefers_worktree_prefix(self) -> None:
         self.assertEqual(
             jira_task.infer_ticket(
-                "CSTP1-1234-summary",
-                "feature/CSTP1-9999",
+                "ABC1-1234-summary",
+                "feature/ABC1-9999",
                 jira_task.DEFAULT_TICKET_PATTERN,
             ),
-            "CSTP1-1234",
+            "ABC1-1234",
         )
 
 
@@ -121,11 +121,11 @@ class ApiTests(unittest.TestCase):
         description = jira_task.adf_from_text("기존")
         request.return_value = {"fields": {"description": description}}
 
-        result = jira_task.get_issue_description(CONFIG, "CSTP1-1234")
+        result = jira_task.get_issue_description(CONFIG, "ABC1-1234")
 
         self.assertEqual(result, description)
         self.assertEqual(request.call_args.args[1], "GET")
-        self.assertIn("/issue/CSTP1-1234?fields=description", request.call_args.args[2])
+        self.assertIn("/issue/ABC1-1234?fields=description", request.call_args.args[2])
 
     @mock.patch.object(jira_task, "_request")
     def test_update_issue_description_sends_adf_fields_and_accepts_204(
@@ -134,11 +134,11 @@ class ApiTests(unittest.TestCase):
         request.return_value = {}
         description = jira_task.adf_from_text("본문")
 
-        result = jira_task.update_issue_description(CONFIG, "CSTP1-1234", description)
+        result = jira_task.update_issue_description(CONFIG, "ABC1-1234", description)
 
         self.assertEqual(result, {})
         self.assertEqual(request.call_args.args[1], "PUT")
-        self.assertIn("/issue/CSTP1-1234", request.call_args.args[2])
+        self.assertIn("/issue/ABC1-1234", request.call_args.args[2])
         self.assertEqual(
             request.call_args.args[3], {"fields": {"description": description}}
         )
@@ -148,7 +148,7 @@ class ApiTests(unittest.TestCase):
     @mock.patch.object(jira_task.urllib.request, "urlopen")
     def test_http_error_redacts_credentials(self, urlopen: mock.Mock) -> None:
         urlopen.side_effect = urllib.error.HTTPError(
-            "https://example.atlassian.net/rest/api/3/issue/CSTP1-1234",
+            "https://example.atlassian.net/rest/api/3/issue/ABC1-1234",
             401,
             "Unauthorized",
             {},
@@ -156,7 +156,7 @@ class ApiTests(unittest.TestCase):
         )
 
         with self.assertRaises(JiraTaskError) as raised:
-            jira_task.get_issue_description(CONFIG, "CSTP1-1234")
+            jira_task.get_issue_description(CONFIG, "ABC1-1234")
         self.assertNotIn("<redacted>", str(raised.exception))
         self.assertNotIn("email-placeholder", str(raised.exception))
 
@@ -172,12 +172,12 @@ class UpsertTests(unittest.TestCase):
         get_description.side_effect = [current, planned]
 
         action, saved = jira_task.upsert_description(
-            CONFIG, "CSTP1-1234", SUMMARY, MARKER
+            CONFIG, "ABC1-1234", SUMMARY, MARKER
         )
 
         self.assertEqual(action, "added")
         self.assertEqual(saved, planned)
-        update.assert_called_once_with(CONFIG, "CSTP1-1234", planned, timeout=15.0)
+        update.assert_called_once_with(CONFIG, "ABC1-1234", planned, timeout=15.0)
 
     @mock.patch.object(jira_task, "update_issue_description")
     @mock.patch.object(jira_task, "get_issue_description")
@@ -188,7 +188,7 @@ class UpsertTests(unittest.TestCase):
         get_description.return_value = current
 
         action, saved = jira_task.upsert_description(
-            CONFIG, "CSTP1-1234", SUMMARY, MARKER
+            CONFIG, "ABC1-1234", SUMMARY, MARKER
         )
 
         self.assertEqual(action, "unchanged")
@@ -207,7 +207,7 @@ class UpsertTests(unittest.TestCase):
         ]
 
         with self.assertRaisesRegex(JiraTaskError, "저장값 확인 불일치"):
-            jira_task.upsert_description(CONFIG, "CSTP1-1234", SUMMARY, MARKER)
+            jira_task.upsert_description(CONFIG, "ABC1-1234", SUMMARY, MARKER)
 
         update.assert_called_once()
 
@@ -262,7 +262,7 @@ class CliTests(unittest.TestCase):
             result = jira_task.main(
                 [
                     "--ticket",
-                    "CSTP1-1234",
+                    "ABC1-1234",
                     "--worktree",
                     "demo",
                     "--date",
@@ -291,7 +291,7 @@ class CliTests(unittest.TestCase):
             result = jira_task.main(
                 [
                     "--ticket",
-                    "CSTP1-1234",
+                    "ABC1-1234",
                     "--worktree",
                     "demo",
                     "--summary",

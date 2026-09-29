@@ -189,7 +189,7 @@
 - 동반 README 정정 2건: 이 키를 여기 두지 않는 이유 명시 + `pyright-lsp` 서술이 `false` 로 stale 했던 것(`80dbb3c` 가 `true` 로 되돌림)을 실제 상태로 동기화.
 
 ## [2026-09-07] ingest | lesson-tracked-config-machine-paths 재발 2회 → settings.json 추적 중단
-- 세 번째 사례는 `/auto-mode-setup` 이 쓴 `autoMode` 블록이다. 머신 절대경로에 더해 **사내 IP(`192.168.62.48`)·도메인(`aigw.autocrypt.co.kr`)·조직명·Bitbucket URL** 이 담겼고 이 레포는 **public** 이라 유출 표면이 앞선 두 사례보다 넓다. 증상은 동일 — `git pull --rebase` 거부.
+- 세 번째 사례는 `/auto-mode-setup` 이 쓴 `autoMode` 블록이다. 머신 절대경로에 더해 **사내 IP·사내 도메인·조직명·Bitbucket URL** 이 담겼고 이 레포는 **public** 이라 유출 표면이 앞선 두 사례보다 넓다. 증상은 동일 — `git pull --rebase` 거부.
 - **표준 remedy 가 처음으로 통하지 않았다**: `autoMode` 는 `settings.local.json` 에서 읽히지 않는다(공식 문서 *Where the classifier reads configuration*). 유효 스코프는 `~/.claude/settings.json`·managed settings·`--settings` 뿐이고, 옮기면 에러 없이 **조용히 무시**된다. managed settings 는 `C:\Program Files\ClaudeCode\` 라 관리자 권한이 필요해 이 머신에선 불가.
 - 그래서 키가 아니라 **파일을 뺐다**(`.gitignore` 화이트리스트에서 제거 + `git rm --cached`). 키 단위 대응이 3회 반복된 것이 근거 — 뺄 키를 고를 때마다 Claude Code 는 다음 기능으로 또 쓴다. 증상 억제 대신 원인 제거.
 - 추적 전제에 의존하던 것 동반 수정: CI JSON validation 제거, `session-start-pull.test.js` 이원화(settings 있으면 실제 배선까지 검증 / 없으면 CANONICAL 로 스크립트 동작 고정 — 19 tests 양쪽 통과 실측), `guard-worktree-edit.js` main 허용목록에 추가, `dlc-doc-drift.js` trigger 에서 제외.
@@ -220,3 +220,153 @@
 - [[plan-handoff]]·[[dlc-development-cycle]] 갱신: 2026-09-07 도입 시 "요구사항 명확화에서 공백을 발견했을 때만" 채우던 `# Intent` 를 **dlc 규모 medium 이상은 항상** 채우도록 변경. 형식(`없음 — <근거>` 필수·Open questions 조건부·모델 추론분 ⚠️)과 예외(small 은 plan 있고 공백 시만·trivial 제외·기존 plan 소급 안 함)는 `skills/dlc/SKILL.md` 요구사항 명확화 절이 정본. `agents/plan-reviewer.md` 에 Intent 반박 항목 14 추가.
 - 근거: 도입 계기(2026-09-07 `settings.json` 건)의 실패는 공백을 못 본 것이 아니라 제약이 어디에도 적히지 않은 것이어서, 공백-트리거로는 재발을 막지 못한다. 병행 리뷰(plan-reviewer + codex)가 초안의 "plan 존재" 재해석(사용자 선택 "medium 이상"을 다른 축으로 치환)과 done plan 소급 수정을 잡아 되돌렸다.
 - 출처 plan: plans/2026-09-09-intent-default-medium.
+
+## [2026-09-15] ingest | 묶음 intent.md (한 요구 → plan 여럿)
+- 계기: knowledge_base 2026-09-14 실측 — 한 요구가 하루에 plan 3~4개로 갈라지고(`proxy-peer-address` → `home-banner-*` 2개 + `login-session-400d`; `worker-default-options-dkms` → `security-workflow-redesign` → `wifi-bt-protocols`) Problem 재작성·계보 산문·공통 제약 복제가 반복됐다. 2026-09-07 "plan `# Intent` 만" 의 전제(요구:plan = 1:1)가 깨진 것.
+- 채택: `plans/<YYYY-MM-DD>-<intent-slug>/intent.md` 하나 + 각 plan frontmatter `intent:` 링크. plan 은 자기 dir 유지(코드 변경 0 — `plan-match`·`session-brief`·`plan-lint` 는 `*-plan.md` 만 본다). 생성 트리거 3(닫힌 목록)·`# Plans` status 복제 금지·closed = 모든 plan done + Open questions 처분(Out of scope 제외)·소유권·미머지 브랜치 한계. 정본 CLAUDE.md §10, 절차 dlc(발견·생성)·c(read)·e(closed 판정)·plan-reviewer(위임 1줄).
+- 미채택 유지: 별도 `intent/` 홈·조직 장치·`Affected` 항목. intent.md 스키마 lint·`intent:` 참조 무결성 검사는 첫 사용례 뒤 판단(Open question).
+- 첫 사용례: `plans/2026-09-15-intent-bundles/intent.md`(dogfood). plan-reviewer+codex 가 초안의 closed 판정 불능(Out of scope 를 조건에 넣음)·status 복제·발견 경로 부재를 잡아 구현 전에 고쳤다.
+- 동기화: [[plan-handoff]]·[[ai-native-sdlc-playbook-intent]]·[[dlc-development-cycle]] + index.
+
+## [2026-09-16] update | 분할 판정 (묶음 intent 트리거 2 를 능동 판정으로)
+- 계기: 사용자 "intent 하위 여러 plan 이 생겨야 plan 단위가 작아져 일을 더 잘하지 않을까" — 현행 트리거 2 는 "2개 이상 예상됨"이라 수동이고, 분할이 작업 중간에 사후적으로 일어난다(⚠️ 사전 판정 부재가 원인이라는 것은 가설 — intent.md Problem 의 체인이 직접 입증하지 않는다).
+- 채택: dlc 요구사항 명확화(medium 이상)에 분할 판정 bullet — 기준 "각 단위가 순서대로 혼자 default 에 머지돼도 빌드·규약 무모순"(크기 아님 — plan 마다 worktree·파이프라인·머지 고정비), 나뉘면 intent.md + `# Plans` + plan-reviewer 묶음 모드(15항) 1회, 안 나뉘면 `# Intent` 에 `분할: 없음 — <어떤 결합 때문에>`. 예비 판정 → Explore 후 확정. 분할은 규모 판정을 면제하지 않는다. `/e` 보고가 `(미착수)` 형제를 `/wt` 착수 경로와 함께 열거.
+- 기각: intent.md 상시화(사용례 1건 — 5회 후 재판단) · "각 plan ≤ medium"(규모를 규범값으로 바꿈) · 묶음 arch 1회(architecture-reviewer 적용 범위 충돌·미확인 → deferred). plan-reviewer+codex 가 초안의 이 셋과 형제 재개 경로 부재·`분할:` 필드 §10 미정의를 잡아 구현 전에 고쳤다.
+- 동기화: [[plan-handoff]]·[[dlc-development-cycle]] + index. 출처 plan: plans/2026-09-16-intent-split-check.
+
+## [2026-09-15] update | codegraph retire (전역 MCP 해제)
+- [[codegraph]] 를 retired 로 전환하고 "Retire (2026-09-15)" 절 추가. 2026-08-03 의 "전역 MCP 유지"(coin-trading-bot 실사용 보호)를 뒤집었다 — 보존 로그상 실제 호출이 Claude 7회 전부 `not initialized` 에러, Codex 38회 중 결과 21건 전부 `user cancelled`(17건 미기록)로 **성공 0회**이고, 보호 대상이던 coin-trading-bot 을 포함해 홈 depth 5 이내 탐색에서 `.codegraph/` 가 하나도 없었다.
+- 한계 명시: "성공 0회"는 보존 기간(Claude 2026-08-06~, Codex 2026-06~07) 한정 — 08-03 감사 기간 원본은 사라져 재집계 불가. 토큰 절감량은 codegraph 에 통계 기능이 없어 측정 불가.
+- 조치: wt 자동 init(`skills/wt/references/codegraph-worktree.md` 삭제)·bootstrap 설치/MCP/init 단계 제거, wt rm 파일점유 분기는 codegraph daemon 전제를 빼고 일반 점유로 재서술하되 "자동 종료 안 함·안내"는 유지(사용자가 직접 부르는 경로라 점유 프로세스 소유를 알 수 없음 — 경로 필터만으로 회수하면 사용자 서버를 죽일 수 있다는 code-reviewer 지적). memory `codegraph-projectpath-explicit` 의 실측 수치는 retired 본문으로 이관(삭제와 전역 MCP 해제는 머지 후 전역 단계).
+- [[headroom]] 의 `[[codegraph]]` 링크는 historical 문장으로 유지 — 유일한 inbound 라 지우면 orphan([[headroom]] retire 때와 같은 처리).
+- 출처 plan: plans/2026-09-15-remove-codegraph-mcp.
+
+## [2026-09-22] ingest | lesson-zip-reproducibility-os (신규)
+- cstp_compliance AI skill 패키지 빌더 리뷰에서 실측된 zip 비결정성(`create_system` OS 기본값·`sorted(Path)` case-fold)을 decision lesson 으로 적립. index 등재. 출처 커밋 a66bb98cf(CSTP1-3043-ai-agent-worker).
+
+## [2026-09-24] update | fablize-adopted-disciplines
+- investigation protocol 에서 후보 개수 지정(세 개 이상)을 빼고 "원인이 불확실하면 다른 원인 후보 반증" 원칙으로 갱신. 근거: prompt-audit(Opus 5.5 기준) M7, plan `prompt-audit-apply`.
+
+## [2026-09-24] ingest | lesson-verify-scaffold-purpose-before-removal (신규)
+- prompt-audit 가 도입 목적 확인 없이 제거를 제안한 3건(검증 runner·적용 범위 날짜·가설 규율)과 전후 비교 방법(transcript 전수 스캔·headless A/B)을 decision lesson 으로 적립. index 등재. 출처 plan `prompt-audit-apply`.
+
+## [2026-09-24] ingest | commit-restructure-plumbing-cas (신규)
+- commit-check 스킬의 재구성 방식 결정(plumbing + 트랜잭션 CAS)과 리뷰어 실측 근거·함정 4건을 decision 으로 적립. dlc-development-cycle 에 inbound 링크, index 등재. 출처 plan `commit-check-skill`.
+
+## [2026-09-24] update | dlc-development-cycle
+- dlc 목적 단위 중간 커밋·fixup·commit-check 합치기 규칙 반영(plan `dlc-unit-commits`).
+
+## [2026-09-24] ingest | git-autosquash-target-selection (신규)
+- git 2.54 autosquash 대상 선택 규칙을 todo 실측 2회·sequencer.c 대조로 entity 적립. commit-restructure-plumbing-cas 에서 inbound 링크, index 등재. 출처 plan `dlc-unit-commits`.
+
+## [2026-09-25] ingest | rtk-rewrite-permission-rules (신규)
+- rtk 훅 재작성 뒤 권한 규칙이 재작성된 명령으로 평가되어 ask 가 무력화됐던 것을 hooks·permission-modes 문서와 headless 실측으로 적립. ask 72건(원래+`rtk ` 형태)·gh allow 읽기 전용 축소 결정, 남은 한계(`bash <script>`·브랜치 이름 없는 push). README `permissions.ask` 동기화.
+
+## [2026-09-25] ingest | claude-code-agents-md-loading (신규)
+- v2.1.277+ AGENTS.md 로딩 규칙(memory 문서)과 `~/.claude` 세션 주입·`claudeMdExcludes` 대응을 entity 로 적립. README `claudeMdExcludes` 항목 추가.
+
+## [2026-09-25] update | lesson-parallel-duplicate-implementation
+- 두 번째 사례(origin/commit-split vs #171·#172) 추가, 3회째면 착수 시점 기계적 점검으로 승격 조건 명시.
+
+## [2026-09-25] ingest | git-log-added-lines-hardening (신규)
+- pre-push 가드(repo-audit-remaining G2) 리뷰에서 실측한 `git log -p` 추가 줄 은닉 경로·대응 옵션·영향 없음 확인 목록, Windows PowerShell 함정을 entity 로 적립. git-hook-network-safety 에서 inbound 링크.
+
+## [2026-09-25] update | claude-code-agents-md-loading · claude-codex-collaboration
+- Codex 쪽 재정렬 결과 반영: `~/.codex/AGENTS.md` CLAUDE.md 심링크 복원(2026-06-10 결정), `~/.agents/skills` 심링크, repo `AGENTS.md` 미러 제거. [!open] 해소.
+
+## [2026-09-26] update | claude-codex-collaboration
+- codex owner 가 아닌 reviewer 를 끄는 방식을 프롬프트 문구 하나로 정리(`CLAUDE_REVIEW_CODEX_MODE` 폐기 — 전달 경로·읽는 코드 없음, 사용자 결정).
+
+## [2026-09-26] ingest | claude-code-statusline-input · github-sensitive-data-removal · ci-secret-scan-backstop (신규)
+- repo-audit 후속(PR #175·#177)에서 확인한 statusline 입력 스키마·임시 디렉토리 규칙, GitHub 민감정보 제거 절차의 근거(filter-repo 2.47.0 실측), CI 비밀 스캔 설계 결정·한계를 적립. 절차 원문은 README 를 가리킨다. 출처 plan `repo-audit-g3-g4-live-bugs`·`repo-audit-g8-g9-docs-ci`.
+
+## [2026-09-26] ingest | claude-code-bash-tool-shims (신규) · lesson-grep-absence-not-proof (사례 4)
+- "BOM 없는 ps1 은 모두 ASCII" 오판을 재현해 원인을 확정: Bash 도구의 `grep` 이 셸 함수(내장 ugrep 7.8.4)나 rtk 훅(`rtk grep`, 비UTF-8 인자에서 panic)으로 바뀐다. 처음 추정("grep 바이트 범위식 결함")은 재현으로 뒤집혔다.
+
+## [2026-09-26] update | workflow-failures
+- early-stop 오탐 두 class 를 tracking 으로 추가: Bash 경유 편집·검증 미추적 17회, subagent 대기 중간 턴 4회(한 세션 오탐 응답 24회 분류).
+
+## [2026-09-26] ingest | wiki-shared-layer (신규)
+- 여러 repo wiki 를 단일 repo + submodule 로 합치는 안 기각(공개 범위 혼합, worktree 에서 init 필요·DETACHED HEAD, 상위 repo 는 gitlink 만 봄 — git 2.54 실측), repo 결정은 각 repo·공용 사실은 `~/.claude/wiki` 로 결정(사용자, 2026-09-26). 구현(skill 2단 조회)은 별도 plan.
+
+## [2026-09-26] update | ci-secret-scan-backstop · git-log-added-lines-hardening
+- pre-push 가드가 "이미 공개됨" 을 추적 ref 대신 stdin remote sha 로 정하게 바뀜(push-remote-scope). CI 스크립트의 임시 bare repo 결정을 대체 기록으로 남기고 shallow 거부 추가, hardening 페이지에 remote sha 해석 예외·replace peel·pushurl 실측·전체 길이 sha 원칙 추가.
+
+## [2026-09-26] ingest | autopull-verified-ff (신규)
+- SessionStart 자동 pull 검증 게이트 1단계 결정: CI 가 `ci/verified` 에 기록 커밋을 쌓는 방식, GITHUB_TOKEN `workflows` 권한 제약(researcher — 공식 권한 목록·반복 거부 사례), 기록 값 불변식, CI 먼저 분할, rollback 순서, 기각안. prune 범위 오측정 정정. git-hook-network-safety 에서 inbound 링크.
+
+## [2026-09-26] update | autopull-verified-ff
+- 2단계(client) 반영: 자동 pull 이 기록 sha 가 origin/main 조상일 때만 ff, `+`·`--prune`·`--no-write-fetch-head`, `CLAUDE_AUTOPULL_VERIFY=0` 은 예전 fetch(탈출구), MSYS 경로 변환은 끄지 않음(끄면 Windows 에서 `-C` 경로가 깨진다 — code-reviewer), 게이트는 SessionStart 경로만, 머신·원격 레버와 수동 복구, D/F·Windows·fork 한계. REST root 기록 생성 ❌→✅(PR #179 첫 기록).
+
+## [2026-09-26] update | wiki-shared-layer · project-memory · ingest-operation
+- 두 계층 구현(CLAUDE.md §11·§13, wiki·dlc skill): 모든 repo 가 두 index 조회, 다른 repo 세션은 공용 적립 제안만, 공개 repo 기밀 게이트(사용자 결정 — 비공개 repo 이름까지 금지), 계층 간 참조·filed·교훈·Workflow Findings 규칙. 회사 repo 표 줄 일반화, project-memory 의 `plans/` gitignored 낡은 서술 정정.
+- 리뷰 반영: 공개 점검 표면을 적립 작업이 공개하는 모든 것(plan·브랜치/worktree 이름·PR·티켓 키 포함)으로, 제안 형식에 출처(공개/비공개), 판정은 `-ef`. ingest-operation 절차에 계층 판정 단계, 남은 것에 가드 공백·제안 수집 경로·기존 이름 처분.
+
+## [2026-09-26] ingest | lesson-no-speculative-platform-switch (신규)
+- §13 교훈(사용자 승인): autopull client 에 Windows 경로 변환 방어로 `MSYS_NO_PATHCONV`·`MSYS2_ARG_CONV_EXCL` 을 넣었으나 두 변수는 명령의 모든 인자에서 변환을 꺼 `-C` 경로까지 native git 에 그대로 넘긴다 — Windows 자동 pull 무음 정지 위험(code-reviewer Critical). 근거는 MSYS2 문서·Git for Windows msys2-runtime PR #11·변환 코드(`msys2_path_conv.cc`)·같은 증상 공개 이슈(Windows 미실행). 영향 범위와 위험의 실재를 문서로 확인하지 못하면 넣지 않고 미검증으로 보고, 넣을 땐 가장 좁게·대상 플랫폼 확인은 머지 전, 제거 후 재도입 단언. memory 인덱스 줄은 main 세션에서 함께 적었다.
+
+## [2026-09-27] ingest | link-following-file-ops (신규)
+- 공용 wiki 적립(사용자 결정): POSIX 에서 파일 모드는 삭제를 막지 않고(sticky 디렉토리는 XBD 4.5), `os.chmod` 는 심링크를 따라가며(Windows 는 기본 `follow_symlinks=False`) hardlink 는 모드를 공유하고, git 로컬 clone 은 objects 를 hardlink 한다 — 삭제 전 일괄 chmod 가 트리 밖 파일을 `0o200` 으로 만든 heal 결함과 rmtree 실패 핸들러(Windows·비심링크만) 해법·Windows 잔여 한계, `cd` 의 `..` 글자 처리 대 `cd -P`(설치 도구의 링크 오판). 근거는 POSIX unlink·XBD 4.5·link·cd, Python os·shutil, git-clone 문서, PR #181. code-reviewer 가 Windows chmod 기본값 누락을 잡아 정정. lesson-no-speculative-platform-switch 에서 inbound.
+
+## [2026-09-27] update | rtk-rewrite-permission-rules
+- 남은 한계 절을 규칙 문자열 대조 + `rtk rewrite` 실측(rtk 0.44.2)으로 갱신: 인자 없는 `git push` 는 정확 일치 규칙에 걸림, `git push origin`·`-u origin HEAD` 는 안 걸림(⚠️ 대조 기준), `git <전역 옵션> push`(`-C`·`-c`·`--git-dir`·`--no-pager`)는 `rtk git <옵션> push` 로 재작성돼 규칙 밖, `--mirror`·`--all`·`--prune` ask 없음, 백스톱은 pre-push 가드(설치 repo·`~/.claude` 면제)와 관리자 bypass 인 `main-guard`. README `permissions.ask` 항목과 같은 내용(audit-docs-drift).
+
+## [2026-09-27] update | anthropic-claude-models · claude-code-model-selection · model-stage-tiering · effort-global-xhigh
+- 모델 사실을 Opus 5.5(2026-09-22)·Fable 5.1(2026-09-01) 라인업으로 갱신: 가격·legacy·Sonnet 5 인상 취소·Haiku 4.5 은퇴 하한·모델별 기본 effort(Opus 5.5 medium)·Claude Code effort 해석(`effortLevel` 은 Opus 5.5 에 미적용)·폴백·Fable advisor 가능·subagent 모델 순위(v2.1.251 부터 env 는 frontmatter 뒤, 비상 레버 `…_FORCE=1`)·subagent effort 는 세션 상속. Fable 5.1 최소 버전 불일치는 `[!conflict]`. decision 페이지는 당시 근거를 보존하고 인접 `[!note] 이후 변경` 으로, `effort-global-xhigh` 의 현재 상태 callout 은 제자리 갱신. 근거는 공식 models overview·pricing·effort·model-config·sub-agents·advisor 원문(2026-09-27)과 workflow 교차 검증(wf_83e9d53b-c4e). README 비상 레버도 같은 사실로(audit-docs-drift). 리뷰 정정: 리뷰어 effort 는 미결 회귀가 아니라 2026-09-24 M12 결정(user settings `modelSettings` — Opus 5.5 `medium`)이고, 남은 미확인은 세션 모델과 다른 고정 subagent 의 레벨뿐이다. 원문에 없는 인용 1건을 실제 문구로 바꾸고 과장 표현(다른 모델 `high`, FORCE 단독, 조직 기본값, effort 순서의 ultracode 전제)을 좁혔다.
+
+## [2026-09-27] update | lesson-verify-scaffold-purpose-before-removal (사례 2)
+- §13 교훈(사용자 승인): audit-docs-drift 에서 Opus 5.5 기본 effort `medium` 을 보고 opus 리뷰어 effort 를 복원 여부가 사용자 결정을 기다리는 상태로 적었으나 실제로는 2026-09-24 M12 결정(user settings `modelSettings`)이었다 — code-reviewer 가 settings·plan 을 읽어 잡음. 교훈 범위를 "장치 제거"에서 "설정값을 회귀·미결로 적거나 바꾸는 제안"까지 넓힘. memory 인덱스 줄도 같은 내용으로 갱신(main 세션).
+
+## [2026-09-27] update | native-overlap-ledger · workflow-failures · claude-code-hook-notification-turns
+- `/improve deep`(사용자 승인 초안) 적립. 대장: 창 v2.1.223~283 재판정 — GitHub `CHANGELOG.md` 원문을 받아 2,326줄 전수(처음 WebFetch 조회는 잘리고 귀속이 흔들려 리뷰가 누락을 잡음 → 운영 규칙에 "원문을 로컬로 읽는다" 추가), 날짜는 npm 게시 시각. 대체 0, 기존 판정 유지(1b `retire` 미이행 표기, memory 쓰기 콜아웃은 v2.1.283 의 다른 경로 수정이라 재실측 필요), 신규 행 7개(commit-check·SessionStart pull/brief·plans 핸드오프·router·pre-commit/pre-push·notify/statusline `keep`, `/improve` `watch` — `/doctor prompt-audit`·`/skill-doctor`). router 행은 대체가 아니라 파손: v2.1.271 auto mode hand-back 호출. `checked` 2026-09-27·`checked_version` 2.1.283. workflow-failures: 라우터 알림 턴 행에 새 경로(hand-back 턴 — 2026-09-15 부터 14개 세션 130건, 4→134, fixed 유지 + 새 경로 proposed), 중간 턴 오탐 행 +1(5). hook-notification 페이지에 hand-back 턴 raw 형태(평문 접두어·개행·태그, 래퍼 없음 — transcript 210건, 런타임 2.1.271~2.1.281 auto mode)와 v2.1.234·271 관련 사실 추가. 새 개선 3개는 감사 묶음의 Out of scope 라 새 묶음 `plans/2026-09-27-improve-followups/intent.md` 로.
+
+## [2026-09-27] update | lesson-grep-absence-not-proof (사례 5·6)
+- §13 교훈(사용자 승인): native-overlap-recheck 에서 리뷰가 잡은 실수 두 건 — WebFetch 요약을 근거로 "UserPromptSubmit 관련 변경이 창에 없다"고 적어 v2.1.271·280 을 놓침(사례 5), 라우터 오발동을 표본으로 세어 두 번 과소(1 → 41 → 14개 세션 130건, 사례 6). 올바른 방법에 "외부 문서는 원문을 받아 끝까지 읽는다"·"빈도는 전체 데이터로, 표본은 표본이라고 적는다" 추가. memory 인덱스 줄은 main 세션에서.
+
+## [2026-09-27] update | workflow-failures · claude-code-hook-notification-turns (router-agent-message)
+- 라우터 hand-back 경로 fixed: reminder·notification 을 걷어낸 뒤 `<agent-message` 로 시작하는 턴(접두어 선택적)을 통째로 건너뛴다(라우팅·장부 리셋 모두). 태그만 걷어내면 뒤 하네스 안내 문단이 남는다(transcript 213/213). 판별식은 hand-back 213/213 을 잡고 다른 user 텍스트 턴 1,888건은 0건. 실제 hook stdin 실측은 머지 뒤(plan Acceptance 6).
+
+## [2026-09-27] update | workflow-failures (router-agent-message 머지 뒤 실측)
+- 라우터 hand-back 경로 fix 를 머지 뒤 실제 hand-back 턴으로 확인: 수정 전이면 라우팅됐을 턴에서 hook 주입·`router-investigation` 신호 없음, evidence 장부 유지.
+
+## [2026-09-27] update | workflow-failures (ledger-bash-edits)
+- "Bash 경유 편집" 행: plan·README·index 편집 부분 fixed — PostToolUse `tool_response.bashEditDiff`(v2.1.269)의 이 브랜치 plan·README·index 경로를 HEAD 와 다를 때만 `planTouched`·drift target 으로(경고 끄기만). 대칭 처리는 새 오탐 3부류(git 동기화 diff·경로 순서·veto)로 기각. verify 부분(이름이 안 맞는 검증 스크립트)은 tracking. "중간 턴" 행 fixed — Stop `background_tasks` 에 subagent·workflow 가 있으면(teammate 는 idle 도 running 으로 남아 제외) early-stop 이 장부를 건드리지 않고 통과.
+
+## [2026-09-27] update | claude-code-agents-md-loading (worktree CLAUDE.md 이중 주입)
+- `~/.claude` worktree 세션이 전역 `CLAUDE.md`(user 지침)와 worktree `CLAUDE.md`(프로젝트 지침)를 둘 다 싣는 것을 headless 실측(62,827 → 44,300 토큰, main 44,097). user `settings.json` `claudeMdExcludes` 에 `**/.claude/.claude/worktrees/*/CLAUDE.md` 와 `*/AGENTS.md`(CLAUDE.md 를 빼면 AGENTS.md 폴백이 켜짐 — 실측) 추가(plan claude-md-dedupe) — worktree 세션은 main checkout 의 CLAUDE.md 로 돌고 branch 변경은 main 반영 뒤 새 세션부터.
+
+## [2026-09-27] update | native-overlap-ledger (1b 정정)
+- 1b(guard ② worktree 밖 편집 deny) `retire` → `keep`. 2.1.283 표적 재실측: EnterWorktree 세션은 네이티브가 Write·Edit·NotebookEdit 로 main checkout 을 고치는 시도를 전부 hook 보다 먼저 거부(memory 쓰기 포함 — 1b 콜아웃 유지), worktree 디렉토리에서 바로 시작한 세션은 격리가 없어 ② 가 유일한 보호. ② 발동 이력(09-27 이전 7건) = 오탐 4(전부 gitignored 경로)·08-12 hook 직접 호출 3, 09-27 1행은 측정 행. ② 를 main checkout 의 추적 파일 편집·새 not-ignored 파일 생성만 막게 좁혔다(plan guard-deny-removal). 표적 실측이라 `checked` 는 유지. `worktree-per-task`·`dlc-wt-autoflow` 의 해당 서술에 정정·범위(EnterWorktree 한정)를 달았다.
+
+## [2026-09-28] update | lesson-verify-scaffold-purpose-before-removal (사례 3)
+- 사례 3: 2026-08-12 EnterWorktree 세션에서만 잰 "네이티브 ⊇ guard ②" 로 `retire` 했다가 2026-09-27 재실측에서 worktree 디렉토리에서 시작한 세션이 격리되지 않아 뒤집힘(plan guard-deny-removal). 같은 작업에서 오탐 4건(전부 gitignored)을 "untracked" 로 뭉쳐 없는 상충을 적은 self-flag 도 같은 축. 올바른 방법에 두 항목 추가 — 대체 판정은 장치가 발동하는 조건마다 잰다, 트레이드오프 전 관측 표본 속성을 가장 좁은 범주로 적는다.
+
+## [2026-09-28] ingest | codex-cli-agents-and-hooks
+- 새 entity: Codex CLI 0.154.0 의 custom agent toml(필수 키, tools 제한 키 없음 → `sandbox_mode`, 이름 호출 #15250, `max_depth` 가 셸 `codex exec` 재귀를 못 막음 #46704·#32027)과 hooks(로컬 로드 형태 `{"hooks": {...}}`, 이벤트·출력 필드는 Claude Code 와 같음, 편집이 `apply_patch` 라 경로가 patch 본문 안, `bashEditDiff`·`background_tasks` 없음, PostToolUse 출력 누락 보고 #34289·#46455), worktree 가 편집 경계가 아님. codex-agents-hooks(PR #186)의 결정 근거. `claude-codex-collaboration` 에서 링크.
+
+## [2026-09-28] ingest | git-literal-pathspecs · git-gitfile-format · git-log-added-lines-hardening (stdin 절)
+- audit-leftovers(PR #188)에서 확인한 git 사실을 공용 wiki 로 옮겼다. 네 가지 사실(`git log --stdin`, submodule pathspec, 전역 pathspec 설정 충돌·check-ignore, `.git` 파일 형식)을 scratch repo 에서 다시 재현하고, 반례를 찾는 별도 재실행으로 성립 조건을 좁혔다(git 2.54.0, 2026-09-28). 외부 인용은 원문으로 대조했다: RelNotes 2.42.0·2.43.0·2.56.0, 커밋 c40f0b78771e(v2.42.0 에 처음)·1dd27bfbfd(v2.54.0·v2.55.0 포함)·54a441bcea(v2.55.0 미포함).
+- `git-log-added-lines-hardening` 에 `git log --stdin` 절 추가: 빈 입력·첫 빈 줄이면 HEAD 를 스캔(`git log` 만, argv 리비전이 없을 때), 중간 빈 줄 뒤는 조용히 버림, `^<sha>` 제외, pseudo-option 2.42+·`--not` 범위 2.43.
+- 새 entity `git-literal-pathspecs`: submodule 경로 인자=pathspec, `--literal-pathspecs` 는 glob·magic 해석만 끔(앞 디렉토리 매칭은 남음), 전역 literal + GLOB/ICASE 는 pathspec 인자가 있을 때만 fatal(noglob 허용), check-ignore 는 `top` 외 magic 거부.
+- 새 entity `git-gitfile-format`: `gitdir: ` 8바이트 접두어, `\r`/`\n` 만 제거, 대상 오류 메시지의 2.54 `(null)` 회귀와 수정 경과.
+
+## [2026-09-28] update | unknowns-discovery (퀴즈 옵션 제거)
+- Report 선택지의 "변경 이해 리포트+퀴즈" 옵션을 CLAUDE.md §3-6·dlc 16 Report 에서 제거(사용자 승인). 근거: 2026-08-31~09-28 Windows 세션 로그 2,072개에서 14회 제시·0회 선택, AskUserQuestion 선택지 상한 4개를 기본 세트가 채워 넣을 때마다 기본 선택지 하나를 밀어냄. 대응 표 행은 지우지 않고 "제거" 로 바꿔 기각 근거를 남겼다(plan remove-quiz-option).
+
+## [2026-09-28] ingest | python-subprocess-text-stdin-windows (신규)
+- 공용 wiki 적립(사용자 요청): Windows 의 `subprocess.run(input=str, text=True)` 가 `encoding` 없이 로캘 코드페이지로 인코딩하다 writer 스레드가 `UnicodeEncodeError` 로 죽으면 `stdin.close()` 에 닿지 못해 자식이 무한 대기한다. 근거는 CPython 3.13.15 `Lib/subprocess.py`(`_stdin_write` 는 BrokenPipe·EINVAL 만 처리, POSIX 는 `_save_input` 이 메인 스레드에서 인코딩)와 Windows 최소 재현(`text=True` 만 → timeout, `encoding="utf-8"`·`PYTHONUTF8=1` → 즉시 종료). 발견 경로는 commit-check 테스트가 Windows verify.sh 를 1시간+ 멈춘 것. POSIX 동작은 코드 읽기(⚠️ 미실행).
+
+## [2026-09-28] update | claude-code-bash-tool-shims (rg 경로)
+- `rtk grep` 은 rg 가 PATH 에 있어도 시스템 grep 을 써 단순 명령 `grep -r` 이 `.gitignore` 를 무시(12.3초·292,500 매치 vs `rtk rg` 0.04초·1,465), `rtk rg` 는 독립 rg 실행 파일이 필요(없으면 실패) — 실측 추가. CLAUDE.md §2 재귀 검색 규칙·bootstrap ripgrep 설치와 같은 브랜치(plan bash-search-use-rg).
+
+## [2026-09-28] ingest | claude-code-context-cost (신규) · ops-doc-slimming · lesson 2건
+- 신규 entity: native 1M 모델 auto-compact 기본 약 967K·`autoCompactWindow`(100K~1M, env > flag > setting)·200K 초과 할증 없음(공식 model-config·settings-reference·env-vars), Opus 5.5 cache read 0.05×·1h 쓰기 2×(bundled claude-api skill 2.1.283). 한 사용자 30일 transcript 실측(비율·토큰 수만): 호출당 평균 컨텍스트 약 46만·81% 가 200K 초과, 재작성 원인(1h+ 휴식 80%·`/model` 87.5%·compaction 100%·cwd 변경은 기준선 수준·`/effort` 무효화 없음 1회 관찰), 2.1.239~2.1.247 한정 무신호 재작성(2.1.260 이후 약 0%), auto-compact 창 재생 시뮬레이션(300K −38.9%). 집계는 `message.id` 중복 제거 필수.
+- ops-doc-slimming: 2026-09-28 재검토 절 — CLAUDE.md 몫 3.6~6.6%(계산값), 규칙 보존 압축 기대 약 0.4~2%(압축률 가정 11~30%), 이관·영어 번역안 기각 권고, auto-compact 300K 적용·슬림화 보류.
+- lesson-grep-absence-not-proof 사례 7(집계 단위 중복·단가 가정·비대표 표본, 3 Whys), lesson-verify-scaffold-purpose-before-removal 사례 4(운영 자산 변경 계획 전 decision 미조회 — 원인은 분석 → 계획 전환에 조회 트리거가 없는 것) — 적용 범위를 "운영 자산을 바꾸는 계획"으로 넓힘. 사용자 승인(§13) 후 적립.
+- 2026-09-29 code-reviewer(+Codex) 반영: `autoCompactWindow` scope(Any file)·env 는 정수만(`300k`→100K)·managed 우선, `/effort` 는 대부분 모델에서 무효화(공식)·세션 간 디렉토리별 캐시, TTL 1시간은 구독 포함 사용량 안의 본 대화만, 재작성 정의(60K·50%)와 신호별 n, 표본 한정 표현, 절대 합계 삭제(개인 사용 규모 역산 방지), 측정 스크립트를 plans/2026-09-28-wiki-context-cost-lessons/analysis/ 로 보존.
+
+## [2026-09-29] update | lesson-verify-scaffold-purpose-before-removal (사례 4 후속)
+- 사례 4 의 트리거 공백(분석 → 운영 자산 변경 계획으로 넘어갈 때 wiki 조회가 걸리지 않음)을 사용자 승인으로 dlc 에 반영: 3단계(draft plan) 앞 필수 decision 조회 — 대상 자산 이름·작업 종류로 두 index 조회, 걸린 결정은 `# Decisions` 첫 줄에서 따르거나 뒤집음(skills/dlc/SKILL.md wiki 연계, docs/dlc-details.md §C, README). 페이지의 "제안으로만 남긴다" 문장을 반영 사실로 갱신.
+
+## [2026-09-29] update | link-following-file-ops (Windows junction 실측)
+- ⚠️ 이던 "트리 안 junction" 을 Windows 11·Python 3.13.15 에서 실측(windows-ps1-rest U3): `_force_rmtree` 는 junction 항목만 지우고 밖의 read-only 파일은 남고 read-only 도 유지. junction 을 read-only 로 만들어 핸들러 chmod 경로를 지나게 해도(spy 확인) 같다 — Windows `os.chmod` 는 링크를 따라가지 않는다. heal 코드 수정 없음, 테스트 `test_junction_inside_tree_leaves_outside_alone` 추가.

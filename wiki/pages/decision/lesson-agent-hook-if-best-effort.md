@@ -2,7 +2,7 @@
 title: lesson-agent-hook-if-best-effort
 category: decision
 created: 2026-09-03
-updated: 2026-09-03
+updated: 2026-09-26
 sources:
   - coin-trading-bot PR #165 (`.claude/settings.json` agent hook 수정 + 민감파일 hook 교체)
   - https://code.claude.com/docs/en/hooks — `if` Bash 매칭 표("best-effort"), agent hook `ok`/`reason` 규약, `shell` 기본값
@@ -28,4 +28,4 @@ coin-trading-bot 의 커밋 전 6패턴 점검 hook(`type: agent`, `if: "Bash(gi
 - `shell` 은 기본 bash, Windows 에서 Git Bash 미검출이면 PowerShell — 플랫폼 분기가 없으므로, 두 셸이 같은 문자열로 파싱하는 한 줄(`$`·backtick 없음)로 두고 로직은 `git -c alias.x='!…' x` 가 git 번들 sh 로 실행하게 하면 하나로 된다(PR #165, Windows 는 미실측).
 
 ## 연계
-codex 병행 호출 규약은 [[codex-bash-invocation]], 격리 세션의 네이티브 거부는 [[worktree-isolation-bash-guard]], 반복 실패 추적은 [[workflow-failures]], 완료 게이트는 [[evidence-gate]].
+codex 병행 호출 규약은 [[codex-bash-invocation]], 격리 세션의 네이티브 거부는 [[worktree-isolation-bash-guard]], 반복 실패 추적은 [[workflow-failures]], 완료 게이트는 [[evidence-gate]]. 실행해 볼 수 없는 플랫폼에 추정으로 스위치를 넣어 그 플랫폼만 무음 정지시킬 뻔한 사례는 [[lesson-no-speculative-platform-switch]].

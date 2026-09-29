@@ -31,7 +31,7 @@ description: 진행 중이던 §10 plan 을 실제 git/코드 상태로 동기�
 ### 3. plan 동기화 기록 (메인이 single writer; §10)
 plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신:
 - `# Progress`: 오늘 진행 한 줄 + 임시 커밋 sha7.
-- `# Next`: 다음 세션 즉시 액션으로 교체(실효된 것 정리). WIP 커밋 있으면 "WIP `<sha7>` 이어서/squash" 명시 → c 가 인지.
+- `# Next`: 다음 세션 즉시 액션으로 교체(실효된 것 정리). WIP 커밋 있으면 "브랜치 tip 의 `wip:` 커밋 이어서 — 정리는 commit-check(`/e merge` 가 push 전에 제안)" 명시 → c 가 인지. sha7 은 적지 않는다 — commit-check 가 그 커밋을 합치거나 다시 쓰면 없는 커밋을 가리킨다(`# Progress` 의 sha7 은 기록이라 그대로 둔다).
 - `# Decisions`: 세션 중 결정·스코프 변경 보강(기존은 지우지 말고 §10 방식 "~로 변경 (이유: …)" 덮어쓰기/추가).
 - `# Key Files`: 추가/이동 동기화.
 - `# Blockers`: 막힌 것 + 풀 조건.
@@ -41,17 +41,24 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
 ### 4. status 판정 + 마무리 보고
 - **status 판정**:
   - 머지·배포 등 **확정 완료 신호** 있을 때만 `done` — 단 done 전환은 **사용자 확인**(마무리=세션 끝이지 작업 끝이 아닐 수 있음).
+  - **묶음 intent 판정**(plan 에 `intent:` 가 있을 때, **done 을 쓰는 바로 그 지점에서** — 체크포인트 모드는 여기 4단계의 사용자 확인 done, 머지 모드는 M4 의 done 커밋): 그 `intent.md` 의 `# Plans` 에 적힌 plan 들의 frontmatter `status` 를 읽어(메모 `폐기` 는 done 취급, **읽을 수 없는 항목·`(미착수)` 는 done 아님** — fail-safe) 전부 done 이고 `# Open questions` 가 전부 처분(`(해소)`/`(이월 → …)`)됐으면 `status: closed` + `updated` — 객관 판정이라 확인 없이, 그리고 **plan done 과 같은 커밋에 담는다**. 하나라도 남으면 open 유지하고 보고에 남은 항목을 적는다. `# Out of scope` 는 조건이 아니다(§10).
   - 막힘 → `blocked` + `# Blockers`.
   - 그 외 → `in_progress` 유지(체크포인트).
-- **보고**: plan 위치·title·status / 임시 커밋 sha(또는 "변경 없음") / 동기화한 항목 / 남은 작업(`# Next`·`# Blockers`) / "다음 세션은 `/c` 로 이어받기".
-- **recap 형식(CLAUDE.md §3-6)**: 위 보고는 **결론 요약(≤3줄, 무엇이 끝났고 status)을 먼저**. **`/e` 호출 자체가 "마무리" 지시**이므로 §3-6 예외(사용자가 이미 다음 지시를 준 흐름 → 선택지 생략)에 따라 작업 선택지용 새 AskUserQuestion은 만들지 않는다. 단, 아래 5단계의 Jira task 본문 반영 승인은 외부 쓰기라 별도로 반드시 받는다. 마무리 액션은 아래 7단계 worktree 정리(조건 충족 시)과 8단계 "다음 세션 `/c`" 안내가 담당한다. **머지 모드에선 done 확인 질문을 생략한다** — `/e merge` 가 그 확인이다(§3-6 1회 원칙).
+- **보고**: plan 위치·title·status / 임시 커밋 sha(또는 "변경 없음") / 동기화한 항목 / 남은 작업(`# Next`·`# Blockers`) / "다음 세션은 `/c` 로 이어받기". plan 이 `intent:` 묶음이고 그 `# Plans` 에 `(미착수)` 줄이 있으면 **그 줄들(`<slug 후보> (미착수) — 메모`)을 열거하고 "착수는 `/wt <slug 후보> — <메모>`"** 를 덧붙인다(맨 slug 만 넘기면 dlc 가 요구를 다시 묻는다) — `/c` 는 plan 을 새로 만들지 않아 이 안내가 없으면 첫 plan 만 머지된 채 형제가 잊히고 intent 가 영영 open 으로 남는다.
+- **recap 형식(CLAUDE.md §3-6)**: 위 보고는 **맨 끝을 `## 결론` 블록(§3-6 5항목)으로 닫는다**. **`/e` 호출 자체가 "마무리" 지시**이므로 §3-6 예외(사용자가 이미 다음 지시를 준 흐름 → 선택지 생략)에 따라 작업 선택지용 새 AskUserQuestion은 만들지 않는다. 단, 아래 5단계의 Jira task 본문 반영 승인은 외부 쓰기라 별도로 반드시 받는다. 마무리 액션은 아래 7단계 worktree 정리(조건 충족 시)과 8단계 "다음 세션 `/c`" 안내가 담당한다. **머지 모드에선 done 확인 질문을 생략한다** — `/e merge` 가 그 확인이다(§3-6 1회 원칙).
 
 ### 머지 모드 M1~M6 (`/e merge` 일 때만, 4단계 뒤 · 5단계 앞)
 gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-lifecycle.md` §E(진입 시 Read). 여기엔 게이트·순서·닫힌 목록만.
 - **M1 진입 게이트(hard-stop, 닫힌 목록)** — 하나라도 걸리면 머지 모드 거부 + 사유 보고(체크포인트로 조용히 폴백하지 않는다): (1) 브랜치가 main/master 또는 detached (2) plan 없음 (3) `# Acceptance` 에 미체크 항목 — 섹션 자체가 없으면 통과·보고 1줄, `- [ ] [post-merge] …` 접두어 항목만 제외(의미 판정으로 제외하지 않는다) (4) `gh repo view` 실패(미인증·GitHub 아님·권한 없음). `<default>` = `git symbolic-ref --short refs/remotes/origin/HEAD` 에서 `origin/` 을 뗀 이름 → 실패 시 `gh repo view` 의 `defaultBranchRef.name` → 그것도 없으면 거부. `origin/main` 같은 remote-tracking ref 를 브랜치 이름 자리에 쓰지 않는다.
 - **M2 PR 조회 + 사전 점검(외부 쓰기 없음)**: 먼저 `git fetch origin <default>`(stale ref 로 오판 방지) 후 `gh pr list --head <branch> --base <default> --state all` — 후보 2개+ → 중단·보고. OPEN → 재사용(draft 면 중단·보고). **MERGED 또는 CLOSED → 재사용하지 않는다**(skip 경로로 두면 plan done 커밋을 실을 PR 이 없어 7단계 조건 2·3·5 를 넘지 못한다). **지름길**: `origin/<default>..HEAD` 커밋이 0개이고 plan 이 이미 `done` 이면 3단계가 쓴 plan 편집을 `git restore` 로 되돌리고(머지된 plan 이 단일 진실 — 브랜치를 base 보다 ahead 로 만들면 `git branch -d` 가 거부된다) M3~M5 없이 **M6 의 확인·fetch 로**.
+- **M3 선행 — 정리 안 된 커밋 검사**(push·"M4 먼저" 분기보다 앞. M2 지름길이면 건너뛴다): PR 에 `wip`·`fixup!` 류 커밋이 실리지 않게 한다 — 한 번 push 되면 commit-check 범위(미게시) 밖이라 고칠 수 없다.
+  1. `git fetch origin "+refs/heads/<branch>:refs/remotes/origin/<branch>"`(refspec 명시 — clone 설정의 fetch refspec 이 main 만 매핑하면 브랜치 이름만 준 fetch 는 추적 ref 를 갱신하지 않는다). 원격에 그 브랜치가 없다는 오류(`couldn't find remote ref`)면 남아 있는 `refs/remotes/origin/<branch>` 를 `git update-ref -d` 로 지우고(PR 정리로 원격이 사라진 뒤의 옛 추적 ref 가 미게시 커밋을 `published` 로 보이게 한다 — 로컬 ref 라 원격 영향 없음) 지운 sha 를 보고에 남긴 뒤(복구 `git update-ref refs/remotes/origin/<branch> <sha>`) 넘어간다. 그 밖의 fetch 실패는 중단. fetch 했으면 `git merge-base --is-ancestor origin/<branch> HEAD` — exit 1(갈라짐: ff push 가 안 되고, 원격에만 있는 커밋을 재작성 대상으로 오인할 수 있다)·그 밖의 비0(오류)이면 중단.
+  2. `uv run --no-project python "$HOME/.claude/skills/commit-check/commit_units.py" pending origin/<default>`(경로 고정 — 이 SKILL 은 main checkout 에서 로드된다). 명령 실패는 0건이 아니라 중단. `unfolded` 가 비면 M3 로.
+  3. `status: rewritable` 이 있으면 Skill 도구로 `commit-check` 를 "`/e merge` — `wip`·`fixup` flag 커밋 정리만" 인자로 부른다(합치기 또는 정식 제목 reword, 합치기가 충돌하면 reword 로 재시도 — 규칙은 그 SKILL 의 `/e merge` 절). 적용 뒤 `pending` 을 다시 돌려 `rewritable` 이 0 일 때만 계속. 보류·적용 실패·잔존·질문할 수 없는 흐름(무인) → 중단. apply 가 성공한 뒤 중단하면 재구성은 유지하고 `backup_ref`·`rollback` 을 보고한다.
+  4. `published`(원격 도달)·`held`(다른 로컬 브랜치·태그가 붙잡음)·`blocked`(범위 재구성 불가, `range_error`) 는 고치지 않는다(§8 force-push 금지) — 제목·상태·`refs` 를 보여 주고(`held` 는 "그 ref 를 치운 뒤 재실행하면 다시 분류된다" — 그 ref 가 가리던 merge·서명 커밋이 드러나 `blocked` 가 될 수도 있다) `AskUserQuestion`(그대로 진행 / 중단), 질문할 수 없는 흐름(무인)이면 중단. repo 가 merge 커밋을 불허하면(M6 이 squash 해 이 커밋들이 default 이력에 남지 않는다) 묻지 않고 보고만 한다.
+  - **중단 규칙**: done 을 새로 쓰지 않는다. 3단계의 미커밋 plan 편집은 그대로 두고 `# Next` 에 사유와 "정리 후 `/e merge` 재실행" 을 더한다(커밋·push 안 함). plan 이 이미 done 이면(UNKNOWN·QUEUED·head 불일치 뒤 재실행) status 는 건드리지 않는다.
 - **M3 push + PR 확보**: 직전 PR 이 MERGED/CLOSED 라 새 PR 이 필요하면 **M4(plan done 커밋)를 먼저 수행한 뒤** push·생성한다(커밋 0 상태의 `gh pr create` 는 실패). `git push -u origin HEAD`(권한 프롬프트 거절·실패 → 중단, plan 무변경 — M4 를 선행한 경로면 로컬 done 커밋이 남으므로 복구 규칙으로 `in_progress` 로 되돌리고 보고). PR 이 없으면 `gh pr create --base <default>`(title = plan title 또는 첫 커밋 subject, body 는 스크래치 파일 — §E 템플릿). PR 의 `mergeable`/`mergeStateStatus` 를 **done 을 쓰기 전에** 확인: CONFLICTING·DIRTY → 중단·사유 보고(plan 무변경), UNKNOWN → 짧게 재조회. BEHIND·BLOCKED 는 required check 전엔 정상 상태라 여기서 막지 않고 M6 직전에 재평가한다.
-- **M4 plan done 커밋**: `status: done` · `# Progress` "PR #N" · `# Next` 비움 → plan-lint(실패 → 중단, 커밋 안 함) → 커밋·push. §10 "머지 시점에 done" 을 PR 단위로 앞당긴 것이며 아래 복구 규칙이 그 간극을 메운다. **복구 규칙(hard-stop)**: M5·M6 에서 **REJECTED 로 확정된 경우에만** 즉시 `status: in_progress` 복구 + `# Blockers`(timeout 은 `# Next` "PR #N checks 대기, `/e merge` 재실행") → 커밋·push 후 중단. 복구 push 가 거부되면 로컬 커밋만 남기고 보고. **REJECTED 로 확정되면 done 을 남기지 않는다**; 결과 불명(UNKNOWN)·대기(QUEUED)·head 불일치는 done 을 유지하고 `# Next` 재실행 안내로 닫는다(아래).
+- **M4 plan done 커밋**: `status: done` · `# Progress` "PR #N" · `# Next` 비움 → plan-lint(실패 → 중단, 커밋 안 함) → 커밋·push. plan 에 `intent:` 가 있으면 4단계의 묶음 intent 판정을 여기서 수행해 `intent.md` 변경을 **같은 커밋**에 넣고, 아래 복구 시 `closed` 로 바꿨던 것도 `open` 으로 함께 되돌린다. §10 "머지 시점에 done" 을 PR 단위로 앞당긴 것이며 아래 복구 규칙이 그 간극을 메운다. **복구 규칙(hard-stop)**: M5·M6 에서 **REJECTED 로 확정된 경우에만** 즉시 `status: in_progress` 복구 + `# Blockers`(timeout 은 `# Next` "PR #N checks 대기, `/e merge` 재실행") → 커밋·push 후 중단. 복구 push 가 거부되면 로컬 커밋만 남기고 보고. **REJECTED 로 확정되면 done 을 남기지 않는다**; 결과 불명(UNKNOWN)·대기(QUEUED)·head 불일치는 done 을 유지하고 `# Next` 재실행 안내로 닫는다(아래).
 - **M5 checks(exit code 기준 닫힌 목록)**: `gh pr view` 의 `headRefOid` 가 로컬 HEAD 와 같은지 대조(다르면 M3 의 push 만 재실행, 그래도 다르면 중단·plan 무변경) → `gh pr checks <N> --watch`(도구 timeout 10분). exit 0 → **별도 호출** `gh pr checks <N> --json name,bucket` 로 재조회, 모든 bucket ∈ {pass, skipping} 일 때만 M6, `fail`/`cancel` 이 하나라도 있으면 REJECTED(--watch 는 cancel 을 exit 에 반영하지 않는다) / exit 8(pending 잔존)·도구 timeout → REJECTED(timeout) / exit 1 이고 stderr 에 `no checks reported`(소문자 부분일치) → 15초 간격 3회 재조회, 그래도 없을 때만 required 없음으로 M6(이유: done push 직후 check run 미등록 레이스로 CI 를 건너뛸 수 있다) / 그 외 exit 1 → REJECTED.
 - **M6 머지 + 결과 분류 + fetch(hard invariant)**: 머지 직전 `mergeable`/`mergeStateStatus` 재확인(CONFLICTING → REJECTED, BEHIND·BLOCKED 가 남아 있으면 REJECTED — checks 통과 후에도 남았다면 branch protection 미충족) → `gh pr merge <N> --merge --match-head-commit <M5 시점 headRefOid>`(head 불일치 거부 → 중단·보고, 복구 아님). **`--delete-branch` 금지**(CLAUDE.md §8 — 원격 삭제 분리 승인 우회 + worktree 에서 로컬 삭제 실패). repo 가 merge 커밋을 불허하면(M1 의 `gh repo view` 로 읽은 설정) `--squash`. 결과를 넷으로 분류: **MERGED**(`gh pr view` 의 `mergedAt` non-null) → `git fetch origin <default>` 후 5단계로 / **QUEUED**(명령 성공인데 `mergedAt` null — merge queue) → plan 무변경, "큐 대기, 완료 후 `/e merge` 재실행" 보고·중단(복구 push 금지 — head 가 바뀌면 큐가 무효) / **REJECTED**(merge 명령 실패·권한 프롬프트 거절) → 복구 규칙 / **UNKNOWN**(확인·fetch 명령 실패) → plan 무변경, 재조회 안내·중단. 그 외 오류는 전부 plan 무변경 중단. **확인된 `mergedAt` 은 7단계 조건4 를 직접 충족**한다(squash 면 git 신호가 false 여도 재유도하지 않는다) — `collect-state.sh` 는 fetch 하지 않으므로 fetch 없이는 서버 머지를 영원히 못 본다. 재실행은 M2 에서 MERGED 를 재사용하지 않으므로 merge 를 재호출하지 않는다.
 - 원격 브랜치 삭제는 여기서 하지 않는다 — 7단계 자동 정리가 끝난 뒤 머지 모드에선 **항상 1회** `AskUserQuestion`(§8(b). 사용자가 `--delete-branch` 로 지시했던 경우만 그 승인으로 갈음).
@@ -60,7 +67,7 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 
 `jira-task` skill이 있으면 현재 작업에서 **무엇이 추가·수정됐는지만** `작업 내용:` 한 줄, 최대 1~3문장으로 요약해 Jira task description 추가 preview를 만든다. 변경 파일 목록·검증 명령·작업시간은 task 본문에 넣지 않는다. WIP commit을 이미 만들었다면 그 commit의 diff와 plan의 `# Progress`를 근거로 삼는다. 티켓이 없거나 실제 작업 변경이 없으면 이 단계를 skip한다.
 
-- **preview**: `jira-task` skill의 CLI를 `--summary "작업 내용: ..."` 한 번으로 실행한다. 기본 preview는 외부 변경이 없다.
+- **preview**: `jira-task` skill의 CLI를 요약 파일 인자(`--summary-file`) 한 번으로 실행한다(절차는 `skills/jira-task/SKILL.md`). 기본 preview는 외부 변경이 없다.
 - **승인**: preview의 티켓·marker·description에 추가될 내용을 보고한 뒤 `AskUserQuestion`으로 "이 작업 내용을 Jira task 본문에 반영할까요?"를 묻는다. **사용자 승인 전에는 `--post`를 실행하지 않는다.** 반영하지 않으면 preview만 남기고 다음 단계로 진행한다.
 - **반영**: 승인받았을 때만 같은 인자에 `--post`를 붙여 한 번 실행한다. 기존 task description은 보존되고 같은 marker 항목만 갱신된다. Jira 오류는 credential을 노출하지 않고 한 줄 보고한 뒤 마무리를 계속한다.
 - `~/.agents/skills/jira-task/` 또는 저장소 `skills/jira-task/`가 없으면 이 단계는 skip하고 "jira-task skill 없음"을 보고한다.
@@ -70,7 +77,7 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 - **실행**: POSIX에서는 `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh"`(dry-run), Windows PowerShell에서는 `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1"`(dry-run)로 날짜별 시간·대상 티켓 확인. launcher는 `uv` 우선, `python3`/`python` fallback(Windows는 `py` 포함)이다. 귀속은 줄 단위 cwd 기준이라 **main 으로 복귀한 뒤에 돌려도 그 worktree 시간이 정확히 잡힌다**(이름을 인자로 주면 된다) — 예전처럼 "복귀 전"일 필요는 없다. 다만 삭제 전이어야 한다는 제약은 그대로다.
 - **등록**: 티켓이 잡히고(worktree 이름 prefix) `~/.jira-kit/.env` 에 토큰 있으면 이어서 POSIX `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh" --register`, Windows PowerShell `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1" --register` — **그 worktree 의** 그날 항목 upsert(멱등, /e 반복해도 중복 없음. 같은 티켓의 다른 worktree 항목은 건드리지 않고 티켓 총합은 Jira 가 합산). **티켓 없음/토큰 없음/세션 활동 없음 → preview 만 하고 조용히 넘어감**(마무리 흐름 방해 금지). 사용자가 /e 에 이 동작을 넣은 것 = 등록 표준 동의(별도 AskUserQuestion 안 만듦, §3-6 1회 원칙).
 - **비차단**: 조회·네트워크 실패는 보고 1줄만 하고 마무리는 계속(worklog 실패가 /e 를 막지 않는다).
-- 보고 1줄: 등록 결과("CSTP1-xxxx 에 `<시간>` 등록" · "티켓 없음/토큰 없음 → preview 만" · "세션 활동 없음").
+- 보고 1줄: 등록 결과("ABC-1234 에 `<시간>` 등록" · "티켓 없음/토큰 없음 → preview 만" · "세션 활동 없음").
 
 ### 7. worktree 정리 (조건부 — merged 면 무확인)
 마무리가 끝난 뒤, 현재 worktree 가 **역할을 다했고 안전하게 지울 수 있으면** 정리한다. 아래 조건이 **전부 충족되면 묻지 않고 worktree + 로컬 브랜치를 지운다**(CLAUDE.md §8(a) — 누가 머지했는지 불문). **원격 브랜치 삭제는 여기 포함되지 않는다 — 항상 AskUserQuestion**(§8(b)).
@@ -100,7 +107,7 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 
 - **브랜치 보호(§8)**: 현재 브랜치가 `main`/`master`(또는 `origin/HEAD` default)면 직접 커밋 금지. 멈추고 AskUserQuestion — ① 작업 브랜치 새로 만들어 거기 커밋 / ② 커밋 생략하고 plan 기록만 / ③ 취소. 자동 브랜치 생성·강제 커밋 안 함.
 - **위험 파일 점검(§8)**: `git status` 에 `.env`·`*.key`·`*.pem`·`id_rsa`·인증서·대용량(빌드 산출물 등) 의심 항목 있으면 커밋 보류 + 사용자 확인(secret 유출 방지).
-- **커밋**: 안전하면 `git add -A` 후 `git commit`. 메시지 `wip: <작업 한 줄 요약> (e checkpoint)` + 규약 트레일러(Co-Authored-By). 본문에 "다음 세션 squash/amend 대상" 한 줄.
+- **커밋**: 안전하면 `git add -A` 후 `git commit`. 메시지 `wip: <작업 한 줄 요약> (e checkpoint)` + 규약 트레일러(Co-Authored-By). 본문에 "다음 세션에 이어서 — commit-check 로 합칠 대상" 한 줄.
 - **push 안 함** — §8, 사용자 요청 시만.
 - uncommitted 없으면 커밋 skip.
 
@@ -108,7 +115,7 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 7단계에서 worktree 를 삭제할 때만. **cwd 가 삭제 대상 안이라 순서 중요.**
 - **이동 전 값 캡처**: `target_path`·`target_branch`·`main_path`(`git worktree list --porcelain` 첫 worktree)를 **세션 옮기기 전에** 고정(이동 후 재계산하면 엉뚱한 대상·main 가리킴).
 - **worktree 밖으로**: `ExitWorktree(action: keep)` 로 원래 디렉토리(보통 main) 복귀 — 대상 안에선 자기 remove 불가. **`ExitWorktree` no-op**(harness 가 worktree 에서 시작)이면 폴백은 `docs/worktree-lifecycle.md` §C(다른 linked worktree 경유 or remove 생략+보고) — **강제 진행 금지**. 이동 실패로 cwd 가 대상 안이면 **중단+보고**(remove 금지).
-- **제거**: cwd 가 대상 밖 확인 후 `git worktree remove <target_path>`. 실패 시 stderr 분기(untracked→`--force`·codegraph daemon 파일점유·부분성공 prune) 세부는 `docs/worktree-lifecycle.md` §C.
+- **제거**: cwd 가 대상 밖 확인 후 `git worktree remove <target_path>`. 실패 시 stderr 분기(untracked→`--force`·파일점유·부분성공 prune) 세부는 `docs/worktree-lifecycle.md` §C.
 - **안전 게이트(§8) — 무확인 금지**: `--force`·`git branch -D`(미머지)·원격 `git push origin --delete` 는 **별도 AskUserQuestion 확인 후에만**.
 - **로컬 브랜치(옵션 ②·③)**: `git branch -d <target_branch>`(미머지 `-d` 거부 시 `-D` 는 확인 후). **원격(옵션 ③만)**: worktree·로컬 삭제 성공 후 `git push origin --delete <target_branch>`(원격 ref 부재 no-op). 조건5 확정 아님 → 사용자가 경고 보고 택한 경우만(orphan 방지). 그 외 push 안 함.
 - 한 줄 보고: 제거한 worktree·브랜치(또는 유지 사유).

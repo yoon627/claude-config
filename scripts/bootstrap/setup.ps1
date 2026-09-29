@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Claude Code 환경 부트스트랩 (Windows). setup.sh 의 Windows 대응. idempotent.
 .DESCRIPTION
@@ -24,7 +24,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-# codegraph 인덱스·memory 복원 대상은 Claude Code 가 실제 읽는 ~\.claude 로 고정 (RepoRoot 와 분리).
+# memory 복원·Codex skill source 는 Claude Code 가 실제 읽는 ~\.claude 로 고정 (RepoRoot 와 분리).
 $ClaudeDir = Join-Path $env:USERPROFILE '.claude'
 $LocalBin = Join-Path $env:USERPROFILE '.local\bin'
 
@@ -66,7 +66,7 @@ if (-not (Test-InPath $LocalBin $userPath)) {
 } else { Skip 'PATH 에 ~\.local\bin 있음' }
 if (-not (Test-InPath $LocalBin $env:PATH)) { $env:PATH = "$LocalBin;$env:PATH" }
 
-# --- 2. node (codegraph npm 전) ---
+# --- 2. node (hook 진입점 scripts\*.js 실행) ---
 if (Have 'node') { Skip "node 있음 ($(node --version))" }
 else {
   if ($pkg -eq 'winget') { Run 'winget install OpenJS.NodeJS'; RunCmd 'winget install -e --id OpenJS.NodeJS' }
@@ -86,23 +86,50 @@ else {
 if ((Test-Path (Join-Path $LocalBin 'uv.exe')) -or (Have 'uv')) { Skip 'uv 있음' }
 else { Run 'uv 설치 (astral)'; RunCmd 'powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"'; Ok 'uv 설치' }
 
-# --- 3b. Codex user-scope skill (stable source survives worktree removal) ---
-$CodexSkillSource = Join-Path $ClaudeDir 'skills\jira-worklog'
-$CodexSkillTarget = Join-Path $env:USERPROFILE '.agents\skills\jira-worklog'
-$CodexSkillInstaller = Join-Path $PSScriptRoot 'install-codex-skill.ps1'
-Run "Codex jira-worklog skill 연결: $CodexSkillTarget -> $CodexSkillSource"
-$global:LASTEXITCODE = 0
-if ($DryRun) {
-  & $CodexSkillInstaller -Source $CodexSkillSource -Target $CodexSkillTarget -DryRun
-} else {
-  & $CodexSkillInstaller -Source $CodexSkillSource -Target $CodexSkillTarget
+# --- 3b. Codex 연결: skill junction + AGENTS.md → CLAUDE.md + agent 정의 생성 (stable source survives worktree removal) ---
+# setup.sh 와 같은 목록·순서. 충돌은 건드리지 않고 모아 두었다가 마지막에 exit 1 — Codex 연결은 뒤 단계의 전제가 아니다.
+$CodexSkills = @('c', 'dlc', 'e', 'improve', 'jira-worklog', 'wiki', 'wt')
+$CodexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
+$CodexLinker = Join-Path $PSScriptRoot 'install-codex-skill.ps1'
+$codexFailed = @()
+function Invoke-CodexStep([string]$Label, [scriptblock]$Step) {
+  $global:LASTEXITCODE = 0
+  try {
+    & $Step
+    if ($LASTEXITCODE -ne 0) { throw "exit $LASTEXITCODE" }
+    Ok "Codex $Label"
+  } catch {
+    Warn "Codex $Label 연결 실패: $($_.Exception.Message)"
+    $script:codexFailed += $Label
+  }
 }
-if ($LASTEXITCODE -ne 0) { throw "Codex jira-worklog skill 연결 실패(exit $LASTEXITCODE)" }
-Ok 'Codex jira-worklog skill 연결'
-
-# --- 4. codegraph (npm -g) ---
-if (Have 'codegraph') { Skip 'codegraph 있음' }
-else { Run 'npm install -g @colbymchenry/codegraph'; RunCmd 'npm install -g @colbymchenry/codegraph'; Ok 'codegraph 설치' }
+foreach ($name in $CodexSkills) {
+  $src = Join-Path $ClaudeDir "skills\$name"
+  $dst = Join-Path $env:USERPROFILE ".agents\skills\$name"
+  Run "Codex skill 연결: $dst -> $src"
+  Invoke-CodexStep "skill:$name" { & $CodexLinker -Source $src -Target $dst -DryRun:$DryRun }
+}
+$CodexAgents = Join-Path $CodexHome 'AGENTS.md'
+Run "Codex AGENTS.md 연결: $CodexAgents -> $ClaudeDir\CLAUDE.md"
+Invoke-CodexStep 'AGENTS.md' { & $CodexLinker -File -Source (Join-Path $ClaudeDir 'CLAUDE.md') -Target $CodexAgents -DryRun:$DryRun }
+# agent 정의는 링크가 아니라 생성 사본이다 — 원본의 Codex 병행 절이 Codex 안에서 자기 자신을 부르므로 뺀다.
+$CodexAgentDir = Join-Path $CodexHome 'agents'
+Run "Codex agent 정의 생성: $CodexAgentDir <- $ClaudeDir\agents"
+# python.org 설치기는 기본으로 py 런처만 PATH 에 두고, WindowsApps 의 python 은 Store 로 보내는 별칭이다.
+$pyCmd = @()
+$py = Get-Command python -ErrorAction SilentlyContinue | Where-Object { $_.Source -notlike '*\WindowsApps\*' } | Select-Object -First 1
+if ($py) { $pyCmd = @($py.Source) }
+elseif (Have 'py') { $pyCmd = @((Get-Command py).Source, '-3') }
+if ($pyCmd.Count -eq 0) {
+  Warn 'python 없음 — Codex agent 정의 생성 건너뜀'
+  $codexFailed += 'agents:python'
+} else {
+  $syncArgs = @($pyCmd | Select-Object -Skip 1) + @((Join-Path $PSScriptRoot 'sync_codex_agents.py'), '--source', (Join-Path $ClaudeDir 'agents'), '--out', $CodexAgentDir)
+  if ($DryRun) { $syncArgs += '--dry-run' }
+  # 생성기 출력의 비ASCII(—)가 로캘 코드페이지로 리다이렉트될 때 깨지지 않게 한다.
+  $env:PYTHONUTF8 = '1'
+  try { Invoke-CodexStep 'agents' { & $pyCmd[0] @syncArgs } } finally { Remove-Item Env:PYTHONUTF8 }
+}
 
 # --- 5. rtk (standalone 설치본 선택) ---
 if (Have 'rtk') {
@@ -113,20 +140,6 @@ if (Have 'rtk') {
     else { Run 'rtk init -g --hook-only --no-patch'; RunCmd 'rtk init -g --hook-only --no-patch'; Ok 'rtk hook 등록·서명' }
   }
 } else { Skip 'rtk 미설치(선택)' }
-
-# --- 6. MCP 등록 (홈 ~\.claude.json) ---
-$mcp = (claude mcp list 2>$null) -join "`n"
-if ($mcp -match '(?im)^codegraph') { Skip 'codegraph MCP 등록됨' }
-else { Run 'codegraph install -y'; RunCmd 'codegraph install -y'; Ok 'codegraph MCP 등록' }
-
-# --- 7. codegraph init (~\.claude 인덱스) ---
-if (Test-Path (Join-Path $ClaudeDir '.codegraph')) { Skip 'codegraph 인덱스 있음' }
-else {
-  Run "codegraph init $ClaudeDir"
-  if ($DryRun) { Write-Host "    (dry-run) codegraph init $ClaudeDir" }
-  else { & codegraph init $ClaudeDir; if ($LASTEXITCODE -ne 0) { throw 'codegraph init 실패' } }
-  Ok 'codegraph init'
-}
 
 # --- 8. User env (레지스트리) ---
 function Set-UserEnv($name, $val) {
@@ -173,4 +186,8 @@ if (Have 'gh') { gh auth status *> $null; if ($LASTEXITCODE -ne 0) { Warn 'gh �
 else { Warn 'gh 미설치 — winget install GitHub.cli' }
 
 Write-Host ''
+if ($codexFailed.Count -gt 0) {
+  Warn "Codex 연결 실패: $($codexFailed -join ' ') — 원인은 위 installer·생성기 메시지(충돌·python 부재·원본 형식·symlink 권한). 충돌은 scripts/bootstrap/README.md 'Codex 연결 충돌' 절에 따라 정리한 뒤 재실행."
+  exit 1
+}
 Ok "부트스트랩 완료. 새 터미널을 열어(레지스트리 env 반영) 'claude' 실행."

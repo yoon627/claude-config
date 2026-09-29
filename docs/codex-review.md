@@ -6,12 +6,24 @@ reviewer subagent(plan-reviewer / code-reviewer / architecture-reviewer)와 dlc 
 
 ## 1. preflight
 
-- `codex --version` 성공 시에만 호출. 실패·실행 오류(미설치 / PATH 없음 / 사용량 한도 / 환경 이슈: stdin·git-repo·sandbox)면 codex 병행을 **생략**하고 단독 진행, 출력에 `Codex 미가용: <사유>` 1줄. **agent 자체 검토는 계속**(non-blocking — codex 실패가 리뷰를 막지 않는다).
+순서대로 본다. 어느 단계에서든 생략이 결정되면 codex 병행을 **생략**하고 단독 진행, 출력에 `Codex 미가용: <사유>` 1줄. **agent 자체 검토는 계속**(non-blocking — codex 실패가 리뷰를 막지 않는다).
+
+1. **세션 마커** `<scratch>/codex-unavailable` 이 있으면 **호출하지 않는다** — 사유는 파일 내용 그대로(`Codex 미가용: <내용> (세션 캐시)`). `<scratch>` 는 §3 의 세션 스크래치패드 절대경로다(메인·subagent 가 같은 경로를 받는다).
+2. `codex --version` 실패(미설치 / PATH 없음)면 생략.
+3. 호출 뒤 출력이 **한도·과금 오류**면 마커를 쓰고 생략한다 — 이 오류는 한 세션 안에서 저절로 풀리지 않으므로 다음 reviewer 가 같은 호출을 반복해 기다릴 이유가 없다(2026-09-10 실측: plan-reviewer 가 `out of credits` 를 보고한 뒤 같은 세션의 code-reviewer 가 다시 시도했다). 마커 작성:
+
+   ```bash
+   printf '%s %s\n' "$(date -u +%FT%TZ)" "workspace out of credits" > "<scratch>/codex-unavailable"
+   ```
+
+   한도 오류로 보는 출력(대소문자 무시, 하나라도 포함): `out of credits` · `insufficient_quota` · `usage limit` · `rate limit` · `429`. 환경 이슈(stdin hang·git-repo·sandbox)는 마커를 **쓰지 않는다** — 다음 reviewer 는 다른 cwd·방식으로 성공할 수 있다.
+
+마커는 스크래치패드와 함께 세션이 끝나면 사라진다(다음 세션은 다시 시도). 사용자가 크레딧을 채웠으면 파일을 지우면 그 세션 안에서도 재시도한다. 호출 측(dlc)이 마커를 보면 reviewer 에게 §7 의 외부 codex 모드 문구를 주어 시도 자체를 건너뛴다.
 
 ## 2. phase owner (중복 호출 방지)
 
 - 한 phase 에 reviewer 가 여럿이면(예: 구현 후 `architecture-reviewer` + `code-reviewer` 병렬) 호출 측(dlc)이 **codex owner 1개만** 지정한다.
-- owner 가 아닌 reviewer 는 환경변수 `CLAUDE_REVIEW_CODEX_MODE=external` 를 받아 자기 codex 호출을 생략하고, 출력에 "외부 codex owner 지정 — 병행 생략" 명시.
+- owner 가 아닌 reviewer 에게는 호출 측이 프롬프트에 §7 문구("Codex review is already running externally. Do not invoke Codex.")를 넣는다 — reviewer 는 자기 codex 호출을 생략하고 출력에 "외부 codex owner 지정 — 병행 생략" 명시.
 - owner 기본 선택: 변경이 버그/보안 위주면 `code-reviewer`, 구조 위주면 `architecture-reviewer`, 계획 단계는 `plan-reviewer`. **arch 의 planning 모드는 항상 codex off.**
 
 ## 3. 호출 명령 (Bash 도구 — 1차 경로)
@@ -46,7 +58,7 @@ codex exec --sandbox read-only --ephemeral -c 'model_reasoning_effort="medium"' 
   | 최심층 (지원 모델 한정) | `xhigh` |
 
 - **구현 후 리뷰의 범위는 브랜치 전체 diff** — 프롬프트에 `git diff <base>...HEAD`(base = `origin/<default>` 또는 호출 측이 준 sha)를 명시하고 codex 가 read-only sandbox 안에서 직접 실행하게 한다(번들 파일 목록만 주면 pre-push 가 잡던 범위 밖 결함을 놓친다). P0/P1 급(돈·데이터·보안) 결함을 먼저 보고하게 한다.
-- **effort 는 항상 `-c model_reasoning_effort=...` 로 명시한다.** 생략하면 `~/.codex/config.toml` 기본값(현재 `xhigh`)이 적용돼 토큰이 최대로 샌다.
+- **effort 는 항상 `-c model_reasoning_effort=...` 로 명시한다.** 생략하면 머신마다 다른 `~/.codex/config.toml` 의 `model_reasoning_effort` 값(키가 없으면 codex 내장 기본값)이 적용돼 위 표의 phase 별 차등이 무너진다 — 기본값이 높으면 토큰이 새고, 낮으면 리뷰 깊이가 모자란다.
 - `minimal` 은 일부 모델(gpt-5.5 등)에서 `web_search`/`image_gen` 툴과 충돌(400)하니 실질 최저는 `low`.
 - `xhigh` 는 지원 모델(gpt-5.1-codex-max / gpt-5.2-codex / gpt-5.5 등) 한정. 미지원 모델은 자동 폴백되지 않으니 호출 전 모델 확인.
 - `hide_agent_reasoning=true` 는 **출력 노이즈 억제용** — reasoning 토큰 자체는 줄지 않는다(과금 동일). 실제 토큰 절감은 effort 차등과 글로벌 AGENTS.md 슬림화 두 축뿐이다. 일부 codex 버전에서 무시될 수 있어(openai/codex#7090) 결론 추출은 §5 의 grep/tail 로 보장한다.
@@ -74,4 +86,5 @@ codex exec --sandbox read-only --ephemeral -c 'model_reasoning_effort="medium"' 
 
 ## 7. 외부 codex 모드
 
-- 호출 측이 `CLAUDE_REVIEW_CODEX_MODE=external` 설정 또는 프롬프트에 "Codex review is already running externally. Do not invoke Codex." 포함 시 자체 codex 호출 생략.
+- 호출 측이 프롬프트에 "Codex review is already running externally. Do not invoke Codex." 를 넣으면 자체 codex 호출을 생략한다. 이 문구가 유일한 방식이다 — 환경변수 경로(`CLAUDE_REVIEW_CODEX_MODE=external`)는 2026-09-26 폐기했다: Agent 도구는 subagent 에 환경변수를 넘기지 못하고 그 변수를 읽는 코드도 없었다.
+- 호출 측이 §1 의 세션 마커를 이미 봤으면 프롬프트에 "Codex is unavailable in this session (<사유>). Do not invoke Codex." 를 넣는다 — reviewer 는 preflight 없이 생략하고 출력엔 `Codex 미가용: <사유> (세션 캐시)`.

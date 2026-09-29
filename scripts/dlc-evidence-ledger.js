@@ -4,6 +4,7 @@
 //     (최종 변경 이후 다시 검증해야 gate 통과 — verified 무효화, 경고 자격 회복).
 //     단 문서(.md)는 test/lint 대상이 아니라 verify 게이트를 켜지 않는다(doc-drift 로만 커버).
 //   Bash 검증 명령 → verified=true. 단 cat/grep/ls 등 비검증 시작 명령은 제외.
+//   Bash 로 고친 이 브랜치의 plan·README·wiki/index.md(bashEditDiff) → planTouched·drift target 만(경고를 끄는 쪽).
 // 한계: hook 은 "검증 *명령 실행* 여부"의 거친 근사다. 검증 *성공* 판정은
 //   plan # Acceptance(모델)가 단일 소스 — hook 은 "검증 시도조차 없음"을 잡는 누락 방지망.
 // 도구는 이미 실행된 뒤라 차단하지 않는다. 의존/파싱 실패 시 fail-open(exit 0).
@@ -28,6 +29,12 @@ try {
   sig = require('./dlc-signal.js');
 } catch {
   /* 신호 기록만 skip — ledger 기록은 유지(fail-open) */
+}
+let planMatch = null;
+try {
+  planMatch = require('./plan-match.js');
+} catch {
+  /* Bash 로 고친 plan 반영만 skip */
 }
 
 // `.git` 이 있다고 repo 인 것은 아니다 — 내용 없는 `.git` 디렉토리는 git 자신도
@@ -126,6 +133,51 @@ function isPlan(fp) {
   return !!fp && /(^|[/\\])plans[/\\]/.test(fp);
 }
 
+// Bash 가 바꾼 파일 — 네이티브 `tool_response.bashEditDiff`(v2.1.269, 기본은 auto·bypass 모드에서만 온다).
+// `files` 는 `moreFiles` 로, `changedFiles` 는 200 으로 잘리므로 둘을 합친다. 형태가 어긋나면 빈 목록.
+function bashEditedPaths(diff) {
+  if (!diff || typeof diff !== 'object') return [];
+  const out = new Set();
+  if (Array.isArray(diff.changedFiles)) for (const p of diff.changedFiles) if (typeof p === 'string') out.add(p);
+  if (Array.isArray(diff.files)) for (const f of diff.files) if (f && typeof f.filePath === 'string') out.add(f.filePath);
+  return [...out];
+}
+
+// git pull·merge·checkout 도 diff 에 파일을 나열하는데, 끝까지 간 동기화는 HEAD 와 같아져 여기서 걸러진다.
+// 판정 불능(git 실패·timeout)은 "같다"로 본다: 이 값은 경고를 *끄는* 데만 쓰여 그쪽이 안전하다.
+// --no-optional-locks: status 가 index.lock 을 잡아 같은 repo 의 병렬 git 명령을 실패시키지 않게.
+function differsFromHead(fp) {
+  try {
+    const args = ['--no-optional-locks', 'status', '--porcelain', '-z', '-uall', '--', ':(literal)' + path.basename(fp)];
+    const out = execFileSync('git', args, {
+      cwd: path.dirname(fp),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 2000,
+    });
+    return out.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+// 이 브랜치에 매칭되는 plan(early-stop 의 plan drift 가 보는 그 파일). 충돌로 멈춘 merge 는 다른 plan 들을
+// HEAD 와 다르게 남기므로 plans/ 전체를 인정하면 plan drift 가 세션 끝까지 꺼진다.
+function branchPlanPath(root) {
+  if (!planMatch) return null;
+  try {
+    const branch = execFileSync('git', ['-C', root, 'rev-parse', '--abbrev-ref', 'HEAD'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 2000,
+    }).trim();
+    return planMatch.activePlanPath(root, branch);
+  } catch {
+    return null;
+  }
+}
+const samePath = (a, b) => path.resolve(a).replace(/\\/g, '/') === path.resolve(b).replace(/\\/g, '/');
+
 // 명백한 검증 명령만 좁게 — verified 오탐은 gate 를 헐겁게 하므로 보수적.
 // 아래 둘로 나눈다: 그 자체가 검증인 도구(TOOLS) / 서브커맨드·플래그가 붙어야 검증인 도구(SUBCMD).
 // SUBCMD 를 분리하는 이유: `docker compose up`·`terraform apply`·`prettier --write`·`black .` 은
@@ -168,6 +220,8 @@ process.stdin.on('end', () => {
     // 별개 flag 라 isPlan 제외 규칙은 그대로 둔다 — plan 편집이 검증 대상이 되면 안 된다.
     if (fp && isPlan(fp)) data.planTouched = true;
     if (fp && !isPlan(fp) && !isIgnored(fp, input.cwd)) {
+      data.edited = true; // 결론 블록 축 — .md 포함(보고 형식 게이트), 새 편집은 경고 자격 회복
+      data.conclusionBlocks = 0;
       // 문서(.md)는 test/lint 대상이 아니다 → verify 게이트(changed) 를 켜지 않는다.
       // README·CLAUDE.md·SKILL·wiki 만 고친 세션이 early-stop-verify 오탐을 내던 원인.
       // 문서의 README/index 동기화는 아래 doc-drift 가 계속 추적한다(verify 와 별개 축).
@@ -188,6 +242,33 @@ process.stdin.on('end', () => {
     }
   }
   if (tool === 'Bash') {
+    // Bash 로 고친 이 브랜치의 plan·README·wiki index 는 **경고를 끄는 쪽으로만** 반영한다(plan drift·문서 drift).
+    // Edit/Write 처럼 changed·trigger 까지 켜면 git 동기화 diff·한 diff 안의 경로 순서·`sed … && verify`
+    // 체인의 veto 로 새 오탐이 생긴다(실측) — Bash 로만 고친 스크립트의 경고는 예전처럼 못 띄운다.
+    try {
+      const root = drift ? drift.resolveRoot(input.cwd) : null;
+      const listed = [
+        ...new Set(
+          bashEditedPaths(input.tool_response && input.tool_response.bashEditDiff).map((p) =>
+            path.isAbsolute(p) ? p : path.resolve(input.cwd || process.cwd(), p)
+          )
+        ),
+      ];
+      if (root && listed.length) {
+        if (!data.planTouched && listed.some(isPlan)) {
+          const planPath = branchPlanPath(root);
+          if (planPath && listed.some((fp) => samePath(fp, planPath)) && differsFromHead(planPath)) data.planTouched = true;
+        }
+        for (const fp of listed) {
+          const cls = drift.classify(fp, root);
+          if ((cls === 'readme-target' || cls === 'index-target') && differsFromHead(fp)) {
+            drift.applyChange(data, fp, input.cwd, undefined, isNewInRepo);
+          }
+        }
+      }
+    } catch {
+      /* 형태가 어긋나도 아래 검증 인식·장부 기록은 유지(fail-open) */
+    }
     const cmd = String((input.tool_input && input.tool_input.command) || '').toLowerCase();
     if (!NONVERIFY_START.test(cmd) && (VERIFY.test(cmd) || VERIFY_SCRIPT.test(cmd))) data.verified = true;
   }
