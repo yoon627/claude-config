@@ -22,3 +22,11 @@ page_count = []
 [schema.enums]
 # 키 = [허용값, ...]. 키가 있고 값이 비어 있지 않으면 목록 안이어야 한다.
 # claim_state = ["current", "historical", "superseded"]
+
+[stale]
+# Stop hook(stale --stop-hook)을 이 repo 에서 끈다. 전역으로 등록한 hook 과 이 repo 자체 게이트가
+# 겹칠 때 false 로 둔다. --branch·--report 에는 영향이 없다.
+stop_hook = true
+# 비교 기준 ref. "" 이면 origin/HEAD·origin/main·origin/master·main·master 가운데 현재 브랜치가 아닌
+# ref 들과 HEAD 의 분기점을 쓴다. 기본 브랜치 이름이 다르면 적는다(예: "origin/trunk"). CI 는 --base 로 넘긴다.
+base = ""

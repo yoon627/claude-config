@@ -45,7 +45,7 @@ wiki 는 두 계층이다(CLAUDE.md §11 이 배치 규칙의 단일 소스):
 7. 관련 `entity`(외부사실·버전)/`decision`(결정·교훈)/`concept` 페이지 갱신·생성. 한 ingest 가 여러 페이지 touch. 같은 사실이 이미 있으면 새 페이지 대신 갱신.
 8. 각 페이지 규칙 충족: frontmatter, ≥2 outbound `[[링크]]`(같은 wiki 안의 페이지만 — 계층을 넘는 참조는 경로 텍스트 `~/.claude/wiki/pages/<cat>/<stem>.md`), sources, 모순은 `> [!conflict]`. **raw 적재·페이지 write 전 token/key/PII 점검 → 발견 시 마스킹/중단**(경고 후 진행 금지), 공용이면 공개 점검까지.
 9. `index.md` 등재 + `log.md` append(`## [YYYY-MM-DD] ingest | <title>`).
-10. `check_links.py`(링크·index)와 `wiki_check.py schema`(frontmatter 형식)로 점검 후 보고(명령은 lint 절). 공용 적립이면 커밋 전 공개 점검을 한 번 더(비공개 출처면 diff 확인).
+10. `check_links.py`(링크·index)와 `wiki_check.py schema`(frontmatter 형식)로 점검 후 보고(명령은 lint 절). `covers` 가 있는 페이지를 고쳤으면 `wiki_check.py stale --report` 도 돌린다(값 옮기기는 신선도 절). 공용 적립이면 커밋 전 공개 점검을 한 번 더(비공개 출처면 diff 확인).
 
 ## query
 1. 두 `index.md`(현재 repo wiki, 공용 wiki — `~/.claude` 에서는 하나)에서 관련 페이지 식별 → read.
@@ -58,18 +58,65 @@ wiki 는 두 계층이다(CLAUDE.md §11 이 배치 규칙의 단일 소스):
 - dead `[[링크]]`(대상 부재) / orphan(`index.md` 외 어느 페이지도 안 가리킴, inbound=0) / outbound 링크 <2.
 - `index.md` ↔ `pages/**` 불일치(누락·잉여).
 - frontmatter 형식(필수 키·category·날짜 등)과 stem 형식·중복.
+- covers 신선도 — `verified_at` 이 지금 covers 파일 지문과 다른 페이지(신선도 절).
 - 모순(`[!conflict]` 미해소)·stale(오래된 entity 버전) 후보. 공용 wiki 면 공개 점검 위반 후보도.
 
-기계 점검은 아래 두 스크립트가 하고(stdlib 만 쓴다), 의미 점검(모순·stale·공개)은 LLM 이 한다.
+기계 점검은 아래 스크립트가 하고(stdlib 만 쓴다), 의미 점검(모순·오래된 entity 버전·공개)은 LLM 이 한다.
 - `check_links.py` — dead link·orphan·outbound<2·index 동기화: `uv run --no-project python "${CLAUDE_SKILL_DIR}/check_links.py" [wiki 경로]`(인자가 없으면 현재 repo 의 wiki).
 - `wiki_check.py schema` — frontmatter 형식: `uv run --no-project python "${CLAUDE_SKILL_DIR}/wiki_check.py" schema [wiki 경로] [--config 파일]`.
   - wiki 경로가 없으면 현재 디렉터리에서 repo 루트까지 올라가며 `wiki/` 를 찾는다. `docs/wiki` 처럼 그 밖에 있는 wiki 는 경로를 넘긴다.
   - exit 0 통과, 1 위반(`<경로>: <규칙> — <내용>` 한 줄씩, 경로는 repo 루트 기준이고 repo 밖이면 wiki 의 부모 기준), 2 사용·설정·환경 오류.
   - 규칙은 `<wiki>/wiki-check.toml` 로 그 wiki 의 WIKI.md 규약에 맞춘다. 템플릿은 `templates/wiki-check.toml` 이고 키 설명은 템플릿 주석에 있다. config 가 없으면 공용 WIKI.md 규약(필수 키 5개, category 5종, `created`·`updated` 날짜)으로 돈다. 형식의 정본은 WIKI.md 라 둘이 어긋나면 config 를 고친다.
   - config 를 읽으려면 Python 3.11+(`tomllib`)가 필요하다. 3.9·3.10 은 config 없는 검사만 된다.
+- `wiki_check.py stale --report` — covers 신선도: `uv run --no-project python "${CLAUDE_SKILL_DIR}/wiki_check.py" stale --report [wiki 경로]`. config 없이 돈다. `covers`·`verified_at` 이 있는 페이지가 없으면 "검사 대상 아님" 을 내고 exit 0 이라 모든 wiki 에 돌려도 된다. covers 페이지가 있으면 git repo 안에서 돌린다. 판정·exit code 는 신선도 절.
 - frontmatter 판정의 정본은 `wiki_check.py schema` 다. `check_links.py` 의 frontmatter 줄은 호환용이라 BOM 이 붙은 페이지와 닫는 `---` 가 없는 페이지를 다르게 본다. `check_links.py` 만 따로 돌리면 같은 stem 의 페이지 중복을 잡지 못한다(한쪽을 조용히 덮어쓴다).
 
 결과를 분류해 보고 + 수정안 제시 + `log.md` append(`## [YYYY-MM-DD] lint | <요약>`).
+
+## 신선도 (`covers`·`verified_at`)
+두 키의 의미·권고·판정은 이 절이 정본이다. 코드에 대해 주장하는 페이지가 그 코드 경로를 `covers` 에 걸면, 코드가 바뀌었는데 페이지가 그대로인 것을 `wiki_check.py stale` 이 찾는다. 두 키는 선택이고, 없는 페이지는 stale 이 보지 않는다.
+
+**`covers`** — 경로 패턴 목록(인라인 `[a, b]` 또는 블록 `- a`).
+- 패턴은 git 최상위 기준 상대 경로의 fnmatch 다. 대소문자를 가리고 `*` 가 `/` 를 넘는다(`src/*` 는 `src/a/b.py` 에도 맞는다 — gitignore 식 `**` 가 아니다). 빈 항목, `/`·`./`·`../` 로 시작, `/` 로 끝남, `\` 포함은 schema 가 위반으로 낸다.
+- 거는 기준(권고 — 스크립트는 강제하지 않는다): 코드가 바뀌면 참·거짓이 달라지는 주장에 직접 걸린 경로만 건다. 근거는 한 repo 의 실측이다 — 넓은 covers 가 커밋의 약 3분의 1 에 걸려 확인이 형식이 됐다.
+- 형태는 정확한 파일 경로, `디렉터리/*`, `디렉터리/*.확장자` 를 권한다. `.claude/rules` 의 `paths:`(glob — `*` 는 한 디렉터리 안에서만 맞고 `**` 가 디렉터리를 넘는다)로 옮길 수 있는 형태다. `?`·`[...]` 가 `/` 에 맞는 패턴이나 `*` 가 여럿인 패턴은 그대로 옮기지 못한다.
+
+**`verified_at`** — 페이지를 코드와 대조한 때의 covers 파일 내용 지문. `fp1-` 와 소문자 16진수 16자다.
+- 지문은 covers 에 걸린 파일(wiki 페이지는 뺀다)마다 "지금 `git add -A` 를 하면 index 에 기록될 (mode, blob)" 을 모아 해시한 값이다. 이력을 보지 않아 fixup·rebase·squash·revert·얕은 clone 과 무관하게 "지금 내용이 대조한 내용과 같은가" 하나로 정해진다. 실행 비트만 바뀌어도, covers 목록을 바꿔 파일 집합이 바뀌어도 달라진다.
+- 값을 만드는 명령은 따로 없다. `stale --report` 가 페이지마다 현재 값을 보인다. 페이지 주장을 걸린 파일과 대조해 고친 뒤에만 그 값을 적고, 값을 바꾸는 커밋 메시지에 대조한 파일을 적는다. 값 한 줄을 옮기면 hook 과 보고가 함께 풀려서, 대조 없이 옮기는 것을 도구로는 막지 못한다 — 이 순서가 유일한 장치다.
+- 판정: 값이 지금 지문과 같으면 OK, 다르면 STALE(위반)이다. 값이 없으면 "미확인"(위반 아님)이다. 16진수 7~64자는 옛 형식(commit 값)이라 위반이다 — 페이지를 다시 대조하고 보고가 보인 값으로 바꾼다. `fp2-` 처럼 스크립트가 모르는 판은 스크립트 갱신이 필요하다(exit 2). covers 없이 `verified_at` 만 있거나 covers 에 걸린 파일이 0개면 위반이다.
+
+**모드** — `uv run --no-project python "${CLAUDE_SKILL_DIR}/wiki_check.py" stale <모드> [wiki 경로] [--config 파일]`
+
+| 모드 | 판정 | 용도 |
+|---|---|---|
+| `--report` | 페이지마다 `verified_at` 과 작업 트리의 지문을 비교한다. 이력을 보지 않는다 | 감사·lint·CI |
+| `--branch [--base REF]` | `merge-base(HEAD, base)..HEAD` 의 commit 에서 covers 파일이 바뀌었는데 페이지는 바뀌지 않았다 | CI·push 전 |
+| `--stop-hook` | `--branch` 와 같은 판정을 작업 트리(untracked 포함)까지 넓혀서 본다 | Claude Code Stop hook |
+
+- `--branch`·`--stop-hook` 은 순서를 보지 않는다 — 브랜치에서 페이지를 한 번 고쳤으면 그 뒤의 covers 변경도 알리지 않는다. 대조 뒤의 변경은 `--report` 가 잡지만 `verified_at` 이 있는 페이지만이다.
+- base 는 `--base`, config `[stale] base`, 기본 브랜치 후보(`origin/HEAD`·`origin/main`·`origin/master`·`main`·`master` 가운데 현재 브랜치가 아닌 ref 들과 HEAD 의 분기점) 순으로 정한다. CI 는 `--base origin/$GITHUB_BASE_REF` 처럼 넘긴다. `--report` 는 `--base` 를 받지 않는다(exit 2).
+- `--branch`·`--report` 는 페이지·config 를 작업 트리에서 읽는다. commit 되지 않은 변경이 있으면 출력 머리와 stderr 에 "작업 트리 기준 — … 미커밋 변경 N개" 를 쓴다. CI 는 commit 된 내용으로 판정한다.
+- exit: 0 통과, 1 위반(`<경로>: …` 한 줄씩), 2 사용·설정·환경 오류(repo 밖, git 실패, base 를 정하지 못함, 스크립트가 모르는 지문 판). UTF-8 이 아니거나 frontmatter 가 닫히지 않은 페이지는 covers 를 알 수 없어 "covers 읽기 실패" 위반이다. covers 페이지(`--report` 는 `verified_at` 페이지까지)와 읽지 못한 페이지가 없으면 "검사 대상 아님" 을 내고 exit 0 이다.
+
+**`--report` 의 CI 조건·한계**
+- 미커밋 상태에서 적은 값이 CI 값과 같으려면 대조한 작업 트리를 그대로 commit 한다 — 부분 staging 없이, pre-commit 포매터가 파일을 바꾸지 않게, covers 에 걸린 untracked 파일은 commit 하거나 ignore 한다.
+- CI 에 covers 에 걸린 untracked 산출물이 있으면 CI 에서만 STALE 이 나고 재확인으로 풀리지 않는다 — 산출물을 ignore 하거나 깨끗한 checkout 에서 돌린다.
+- 지문이 기계마다 갈리는 경우: `.gitattributes` 의 줄 끝 규칙을 바꾼 뒤 renormalize commit 전, 대소문자만 다른 두 추적 경로(대소문자를 무시하는 파일시스템 — macOS·Windows 기본 — 과 Linux), 기계마다 다른 ignore 규칙(`core.excludesFile`·`.git/info/exclude` — untracked 집합이 바뀐다).
+- 지문은 git 의 add 경로로 구해서 LFS 같은 clean 필터가 바뀐 covers 파일마다 돈다 — 큰 파일에서 느리고, 필터가 스스로 쓰는 것은 막지 않는다. 도구가 쓰는 것은 임시 디렉터리의 index 사본뿐이고 진짜 index 와 object 는 그대로다.
+
+**알림 해소** — hook 은 상태를 두지 않아 풀릴 때까지 매 턴 끝에 다시 알린다.
+1. 페이지 주장을 걸린 파일과 대조해 고친다. `verified_at` 이 있으면 대조 뒤 값도 옮긴다.
+2. 변경이 주장과 무관하면 covers 를 좁힌다. `verified_at` 이 있으면 파일 집합이 바뀌어 지문이 달라지므로 값도 다시 적는다.
+3. 이 repo 에서 hook 을 끄려면 `<wiki>/wiki-check.toml` 에 `[stale] stop_hook = false` 를 둔다(자체 게이트가 있는 repo 에 전역 등록이 겹칠 때). `--branch`·`--report` 에는 영향이 없다.
+
+**hook 등록** — 이 skill 은 hook·CI 를 등록하지 않는다. 등록할 때 지킬 것:
+- 스크립트 경로가 그 settings 를 쓰는 모든 머신에 있어야 한다. 없으면 python 이 exit 2 로 끝나고, Stop hook 의 exit 2 는 매 종료를 막는다.
+- 시작점은 hook 입력 JSON 의 `cwd`(worktree 에 들어가면 그 worktree)이고, 상대 wiki 경로·`--config` 는 그 repo 루트 기준이다. wiki 경로에 `${CLAUDE_PROJECT_DIR}` 를 쓰지 않는다 — 세션 시작 위치에 머물러 worktree 안의 판정이 main checkout 의 wiki 를 본다. `docs/wiki` 처럼 탐색되지 않는 위치는 경로를 넘긴다.
+- 출력은 셋이고 언제나 exit 0 이다. 할 일이 없으면 무출력이다(`stop_hook_active`, subagent·workflow background 작업 대기, repo 밖, wiki 없음, covers 페이지 0개, `stop_hook = false` 등). stale 이면 `hookSpecificOutput.additionalContext` 에 갱신할 페이지·걸린 파일·해소 방법을 10,000자 안으로 담는다. 도구·환경 실패(인자·stdin·config 오류, git 실패, base 를 정하지 못함, 읽지 못한 페이지, 15초 초과)는 `systemMessage`("wiki_check stale: …")로 알린다 — 무출력으로 끝내면 게이트가 꺼져도 드러나지 않는다. `additionalContext` 는 Claude Code 2.1.163 부터 문서화된 형식이다.
+- 원격 없는 repo 의 기본 브랜치와 unborn HEAD 에서는 작업 트리만 본다(경고 없음).
+
+**Python** — config 없는 schema·stale(세 모드)은 3.9 부터 돈다. config 가 있으면 3.11+(`tomllib`)가 필요하다 — 3.9·3.10 에서 닫힌 모드는 exit 2, hook 은 `systemMessage` 로 버전을 알린다. 그래서 config 가 필요한 기능(규칙 조정, `stop_hook = false`)은 3.11+ 다. Windows 실행은 검증하지 않았다.
 
 ## 경계
 - 페이지 write 는 메인만. `raw/` 원문은 적재 후 편집·삭제하지 않음(불변).
