@@ -142,6 +142,21 @@ function makeGitStub({ grandchildMarker } = {}) {
 }
 const sleepSync = (sec) => execFileSync('sh', ['-c', `sleep ${sec}`]);
 
+// fetch 시도·성공 스탬프. 파일명은 브리프에서 가져온다 — 두 쪽 키가 갈라지면 한쪽이 조용히 굶는다.
+const { AUTOPULL_STAMPS } = require('./session-brief.js');
+const stamps = (repo) => ({
+  attempt: path.join(repo, '.git', AUTOPULL_STAMPS.attempt),
+  ok: path.join(repo, '.git', AUTOPULL_STAMPS.ok),
+});
+const mtimeSec = (file) => Math.round(fs.statSync(file).mtimeMs / 1000);
+const setMtimeDaysAgo = (file, days) => {
+  const t = Math.floor(Date.now() / 1000) - days * 86400;
+  fs.utimesSync(file, t, t);
+  return t;
+};
+// fetch 를 네트워크 없이 즉시 실패시킨다 — 없는 로컬 경로를 origin 으로.
+const breakOrigin = (home, repo) => git(repo, ['remote', 'set-url', 'origin', path.join(home, 'missing.git')]);
+
 ok('command 가 스크립트를 가리키고 그 파일이 repo 에 실존한다', () => {
   assert.ok(COMMAND.includes(SCRIPT_REL), `command 가 ${SCRIPT_REL} 를 참조하지 않는다: ${COMMAND}`);
   assert.ok(fs.existsSync(SCRIPT_ABS), `${SCRIPT_REL} 가 없다`);
@@ -435,6 +450,10 @@ ok('⑪ 워치독이 매달린 fetch 를 상한 안에 죽인다', () => {
   assert.ok(elapsed < 12000, `상한 안에 끝나야 한다 (실제 ${elapsed}ms)`);
   // fetch 가 죽었으므로 merge 도 없다 — HEAD 불변.
   assert.strictEqual(head(repo), before);
+  // kill 뒤에도 시도는 남고 성공은 남지 않아야 브리프가 지속 실패를 잰다.
+  const s = stamps(repo);
+  assert.ok(fs.existsSync(s.attempt), 'fetch 전에 시도 스탬프를 남겨야 한다');
+  assert.ok(!fs.existsSync(s.ok), 'kill 된 fetch 는 성공이 아니다');
 });
 
 ok('⑪-b 워치독이 죽인 뒤 이전 세션의 fetch 결과로 머지하지 않는다', () => {
@@ -486,6 +505,96 @@ ok('⑫ 워치독이 손자(ssh·git-remote-https)까지 거둔다 — 그룹 ki
     settled,
     '손자가 살아남아 계속 쓰고 있다 — 워치독이 프로세스 그룹째 죽이지 않는다',
   );
+});
+
+// ---------- fetch 시도·성공 스탬프(브리프 N 이 "fetch 가 N일째 성공 못 함"을 잰다) ----------
+ok('⑬ fetch 가 성공하면 성공 스탬프가 시도 스탬프보다 늦게 남는다(VERIFY=0 경로도)', () => {
+  for (const extra of [{}, { CLAUDE_AUTOPULL_VERIFY: '0' }]) {
+    const { home, repo } = makeHome();
+    const { code } = runChain(home, extra);
+    assert.strictEqual(code, 0);
+    const s = stamps(repo);
+    assert.ok(fs.existsSync(s.attempt), `시도 스탬프가 없다 ${JSON.stringify(extra)}`);
+    assert.ok(fs.existsSync(s.ok), `성공 스탬프가 없다 ${JSON.stringify(extra)}`);
+    assert.ok(fs.statSync(s.ok).mtimeMs >= fs.statSync(s.attempt).mtimeMs, '성공이 시도보다 앞설 수 없다');
+  }
+});
+
+ok('⑭ fetch 가 실패하면 시도만 남고 성공은 없다 — exit 0', () => {
+  const { home, repo } = makeHome();
+  breakOrigin(home, repo);
+  const { out, code } = runChain(home);
+  assert.strictEqual(code, 0);
+  assert.strictEqual(out, '');
+  const s = stamps(repo);
+  assert.ok(fs.existsSync(s.attempt));
+  assert.ok(!fs.existsSync(s.ok));
+});
+
+// dash(Ubuntu 0.5.12)는 `[ a -nt 없는파일 ]` 이 거짓이다 — 부재를 -nt 에 맡기면 여기서 매번 새로 찍힌다.
+ok('⑮ 성공 기록이 없는 채 다시 실패해도 시도 스탬프는 첫 실패 시각에 머문다', () => {
+  const { home, repo } = makeHome();
+  breakOrigin(home, repo);
+  runChain(home);
+  const s = stamps(repo);
+  const t = setMtimeDaysAgo(s.attempt, 5);
+  runChain(home);
+  assert.strictEqual(mtimeSec(s.attempt), t, '시도 스탬프를 다시 찍으면 경과 일수가 0 으로 돌아간다');
+  assert.ok(!fs.existsSync(s.ok));
+});
+
+ok('⑯ 성공한 적이 있는 머신에서 실패가 이어져도 시도 스탬프는 첫 실패 시각에 머문다', () => {
+  const { home, repo } = makeHome();
+  runChain(home);
+  const s = stamps(repo);
+  breakOrigin(home, repo);
+  runChain(home);
+  const okT = setMtimeDaysAgo(s.ok, 6);
+  const attT = setMtimeDaysAgo(s.attempt, 5);
+  runChain(home);
+  assert.strictEqual(mtimeSec(s.attempt), attT, '시도 스탬프를 다시 찍으면 경과 일수가 0 으로 돌아간다');
+  assert.strictEqual(mtimeSec(s.ok), okT, '실패는 성공 스탬프를 건드리지 않는다');
+});
+
+ok('⑰시도와 성공이 같은 시각이면 새 시도가 시도 스탬프를 찍는다(경계 — 엄밀히 새것만 유지)', () => {
+  const { home, repo } = makeHome();
+  runChain(home);
+  const s = stamps(repo);
+  const t = setMtimeDaysAgo(s.ok, 2);
+  fs.utimesSync(s.attempt, t, t);
+  breakOrigin(home, repo);
+  runChain(home);
+  assert.ok(fs.statSync(s.attempt).mtimeMs > fs.statSync(s.ok).mtimeMs, '이번 실패가 시도로 기록돼야 한다');
+  assert.strictEqual(mtimeSec(s.ok), t, '실패는 성공 스탬프를 건드리지 않는다');
+});
+
+ok('⑱ 실패가 이어지다 복구되면 성공 스탬프가 시도 스탬프보다 새것이 된다', () => {
+  const { home, repo } = makeHome();
+  const url = gitOut(repo, ['remote', 'get-url', 'origin']);
+  breakOrigin(home, repo);
+  runChain(home);
+  runChain(home);
+  const s = stamps(repo);
+  setMtimeDaysAgo(s.attempt, 1);
+  git(repo, ['remote', 'set-url', 'origin', url]);
+  runChain(home);
+  assert.ok(fs.existsSync(s.ok));
+  assert.ok(fs.statSync(s.ok).mtimeMs > fs.statSync(s.attempt).mtimeMs);
+});
+
+ok('⑲ fetch 를 시도하지 않는 skip 경로는 스탬프를 만들지 않는다', () => {
+  const cases = [
+    ['CLAUDE_AUTOPULL_OFF', (h) => runChain(h.home, { CLAUDE_AUTOPULL_OFF: '1' })],
+    ['.autopull-off', (h) => { fs.writeFileSync(path.join(h.repo, '.autopull-off'), ''); runChain(h.home); }],
+    ['feature 브랜치', (h) => { git(h.repo, ['checkout', '-q', '-b', 'feature']); runChain(h.home); }],
+    ['rebase-merge', (h) => { fs.mkdirSync(path.join(h.repo, '.git', 'rebase-merge')); runChain(h.home); }],
+  ];
+  for (const [name, act] of cases) {
+    const h = makeHome();
+    act(h);
+    const s = stamps(h.repo);
+    assert.ok(!fs.existsSync(s.attempt) && !fs.existsSync(s.ok), `${name}: 스탬프가 생겼다`);
+  }
 });
 
 console.log(`session-start-pull.test.js: ${n} tests passed`);

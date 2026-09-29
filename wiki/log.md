@@ -374,3 +374,7 @@
 ## [2026-09-29] update | anthropic-claude-models (ultracode 가 effort 와 분리됨, v2.1.284)
 - Claude Code v2.1.284 에서 ultracode 가 `/effort` 안의 별도 토글이 되어 더 이상 `xhigh` 를 강제하지 않는다. effort 해석 줄의 "ultracode 설정이 꺼져 있을 때 — 켜면 `xhigh` 를 보낸다" 전제를 지우고, 새 동작·`--effort ultracode`/SDK 예외·키워드는 레벨 불변·이전 동작(v2.1.283 이하)을 별도 줄로 적었다. 근거는 model-config·workflows 원문(2026-09-29 조회)·CHANGELOG 2.1.284·설치 바이너리 2.1.281/2.1.283 대 2.1.284 비교(workflow wf_0b281262-6a0). 같은 전제를 담은 CLAUDE.md §5 괄호와 README 서브에이전트 절도 같은 브랜치에서 정정했다.
 - 리뷰 반영: 같은 CHANGELOG 2.1.284 가 Sonnet 5.5 추가를 알리고 model-config 가 "Opus 5.5 and Sonnet 5.5 default to `medium`" 으로 바뀌어, 손댄 effort 해석 줄의 기본값 괄호에 Sonnet 5.5 를 넣고 라인업 미반영은 `[!open]` 으로 표시했다(라인업·가격·researcher 영향 재검증은 별도 작업).
+
+## [2026-09-29] update | autopull-verified-ff (fetch 지속 실패 신호)
+- 이슈 #204(`autopull-fetch-stall`): 자동 pull 의 fetch 가 계속 실패하면 추적 ref 가 멈춰 브리프 N 이 침묵하던 구멍을 `.git/claude-autopull-attempt`(성공 뒤 첫 시도)·`claude-autopull-ok`(성공) 스탬프로 막음. :27 의 "브리프까지 침묵", :34 의 "스스로 감지하는 신호는 아직 없다" 를 새 신호로 교체하고 남는 구멍(옛 스크립트 무음·한 세션 지연·1회 실패 + 공백 오경보·이미 깨진 머신은 수동 pull)을 적음.
+- 실측 ✅: Ubuntu dash 0.5.12-6ubuntu5 는 `[ a -nt 없는파일 ]` 이 거짓(Git Bash sh 는 참) — 원안 `-nt` 단독 식은 Windows 테스트 37/37 통과, WSL dash 에서 "성공 기록 없이 다시 실패" 케이스(⑮) 실패. 부재를 `-e` 로 명시한 식은 두 셸 모두 5경우 기대대로.
