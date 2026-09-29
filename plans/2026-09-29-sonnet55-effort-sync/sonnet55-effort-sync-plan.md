@@ -1,6 +1,6 @@
 ---
 title: sonnet55-effort-sync — 모델 버전 사실을 anthropic-claude-models 한 곳에 모으고 Sonnet 5.5·effort 저장값 제거를 반영
-status: in_progress
+status: done
 started: 2026-09-29
 updated: 2026-09-29
 ---
@@ -28,9 +28,11 @@ updated: 2026-09-29
 - 2026-09-29(보충): `claude-opus-5-5`(당시 `xhigh`) 키 삭제는 이 plan 착수 전, 같은 세션에서 "xhigh 저장값과 M12 medium 중 어느 쪽이 의도인가" 질문에 대한 사용자 결정("기본값이 medium 이면 settings.json 에서 뺀다")으로 먼저 했다(백업 scratchpad `settings.json.bak-20260929` 로 `xhigh` 확인). 남은 3키 제거가 위 첫 줄이다 — 문서의 "4개 키" 는 둘을 합친 수.
 
 - 2026-09-29: 리뷰 반영을 단위별 fixup 으로 커밋(models → 단위 1, 나머지 → 단위 2; index 18행은 단위 1 줄이지만 index.md 를 두 단위가 고쳐 단위 2 fixup 으로 — 귀속 예외). simplify 체크: 문서 서술만 바뀌어 줄일 중복 없음(수정 없음). 격리 runner: verify.sh `ALL PASS (skip: install-codex-skill.test.ps1)`, check_links clean, A2 hit 43곳(위치 불변), settings effort 키 `False False False`. evidence gate A1~A5 충족 → DONE(머지 전이라 status 는 in_progress 유지).
+- 2026-09-29: commit-check 적용(사용자 승인) — fixup 을 두 단위에 합치고 두 단위 메시지를 정정(m8·"실효 레벨은 그대로" 오류). 재구성 전후 tree 동일. Report 후 사용자가 `/e merge` 선택.
+- 2026-09-29: `/e merge` — origin/main(6커밋 앞섬)을 브랜치에 merge, `wiki/log.md` 끝 append 충돌은 양쪽 항목 모두 유지(main 쪽 먼저). merge 뒤 verify.sh `ALL PASS (skip: install-codex-skill.test.ps1)`·check_links clean. PR #211.
 
 # Next
-commit-check(fixup 합치기 + 5ed1427·24828b9 메시지 정정 제안 → 사용자 승인) → Report → 사용자 선택(`/e merge` 등).
+
 
 # Decisions
 - decision 조회: [[effort-global-xhigh]]·M12(`plans/2026-09-24-prompt-audit-apply`) — 따른다. 착수 시 Opus 5.5 키는 `xhigh` 로 M12 와 어긋나 있었고, 사용자가 M12(`medium`)를 택해 키를 지웠다 — 새 Opus 5.5 세션은 `xhigh` → `medium`(= 모델 기본값)으로 바뀐다(2026-09-29 사용자 결정: `modelSettings` 전부 제거). 이 plan 은 처음에 "실효 레벨은 그대로" 라고 적었다가 백업 대조로 정정(2026-09-29). [[model-stage-tiering]] — 따른다(별칭 고정 불변, 본문 수정 없음). [[lesson-verify-scaffold-purpose-before-removal]] — 따랐다: 키 제거 전 M12 plan 을 읽었다(M12 는 `claude-opus-5-5` 키만 만들었고 "다른 키 무변경", 나머지 3키는 M12 와 무관).
@@ -104,3 +106,4 @@ commit-check(fixup 합치기 + 5ed1427·24828b9 메시지 정정 제안 → 사�
 - README:506 이 settings `model` 을 "키 없음(핀 해제)" 으로 적지만 실제 `~/.claude/settings.json` 에는 `"model": "opus"` 가 있다(2026-09-29 확인) — 어느 쪽이 의도인지 확인 필요(심각도 하, README.md:506).
 - `wiki/pages/decision/effort-global-xhigh.md` "## precedence" 절(2026-08-12 historical)은 현재형 문장인데 `modelSettings`·scope 별 `effortLevel` 적용 범위가 없고 인라인 "이후 변경" 표기도 없다 — 현재 precedence 는 models 페이지 effort 절 링크로 바꾸는 이후 변경 노트 제안(심각도 하, 리뷰 m13).
 - 공용 wiki `worktree-isolation-bash-guard` 에 관찰 추가 제안: worktree 세션에서 rtk 가 재작성한 `git status`/`git add` 는 거부되고 `/usr/bin/git <cmd>` 단일 명령은 통과(2026-09-29, 심각도 하).
+- §13 교훈 적립 제안(공용 wiki, 승인 후): (1) 설정 키를 지우며 "실효 레벨은 그대로" 라고 적기 전에 제거 직전 실제 값을 백업으로 확인한다 — 이 작업에서 요약만 보고 단정했다가 백업(`xhigh`)으로 정정. (2) 공식 문서를 발췌 인용하면 적용 범위 문장이 잘린다 — 사실 대조는 원문 전문으로(리뷰 M1). 기존 lesson 페이지에 사례로 붙일지 판정 필요(심각도 중).
