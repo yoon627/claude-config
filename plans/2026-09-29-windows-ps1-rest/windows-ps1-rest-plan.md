@@ -1,6 +1,6 @@
 ---
 title: windows-ps1-rest — 이슈 #190 의 나머지 Windows 항목(PS5.1 BOM, Codex 연결, heal junction, ps1 pre-push stdin, notify balloon)
-status: in_progress
+status: done
 started: 2026-09-29
 updated: 2026-09-29
 intent: plans/2026-09-25-repo-audit-followups/intent.md
@@ -38,10 +38,10 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 - 2026-09-29: U4 커밋. U3 — Windows 전용 테스트(트리 안 junction → 밖의 read-only 파일, junction 자체 read-only 로 핸들러 경로 강제·spy 로 호출 확인) 통과: 밖의 파일 존재·read-only 유지. heal 코드 수정 없음, wiki `link-following-file-ops` ⚠️→✅.
 - 2026-09-29: U2 — `install-codex-skill.ps1 -File`, setup.ps1 3b 를 setup.sh 와 맞춤(skill 7종·AGENTS.md·agent 정의, 실패 모아 exit 1), `.test.ps1` 파일 모드 행렬·목록 일치, verify 가 `*.test.ps1` 실행. 실측: PS5.1 `New-Item -ItemType SymbolicLink` 은 개발자 모드에서도 관리자 요구, `setup.ps1 -DryRun`(5.1) 계획 정상.
 - 2026-09-29: code-reviewer(+Codex) REQUEST CHANGES — 아래 Review Disposition. Major(U4 회귀): PS5.1 + UTF-8 콘솔 입력(이 PC 기본값이 65001)에서 .NET Framework 가 git stdin 앞에 BOM → `bad revision` exit 128 → 모든 push 차단. 재현(5.1 exit 128 / 7 exit 0) → 테스트에 `ps51` 엔진(UTF-8 콘솔) 추가 Red(pre-push 41건) → `Process.Start` 동안 `[Console]::InputEncoding` 을 BOM 없는 UTF-8 로 → 207/207(sh·7·5.1).
+- 2026-09-29: 나머지 리뷰 지적 반영, verify.sh 배열 shellcheck 수정, 전체 verify 초록. commit-check 로 fixup 2개를 U1·U4 에 합침(4커밋, tree 동일). `/e merge` — PR #205.
 
 # Next
 
-전체 verify → 후속 수정을 대상 커밋에 합침(commit-check) → PR(승인 후).
 
 # Review Disposition
 
