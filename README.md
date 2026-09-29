@@ -282,7 +282,7 @@ background task 표시(`✻ N bg`)는 2026-09-25 제거했다 — tasks 디렉�
 
 ### agents/ — 4개 subagent
 
-`Agent` 도구로 호출. CLAUDE.md §5 의 표준 순서 (plan-reviewer → 구현 → code-reviewer → simplify 체크(메인 직접, dlc 13단계)) 가 기본. frontmatter 는 `model` 을 단계별로 고정한다 — reviewer 3종 `opus`, researcher `sonnet`. 별칭이라 모델 세대 교체 시 수정 지점은 0이고, 세션이 Fable 이어도 리뷰·조사가 Fable 캡을 태우지 않는다. `effort` 는 두지 않아 subagent 가 세션 effort 를 물려받는다(sub-agents 문서 "Default: inherits from session"). 세션 effort 는 명시 선택(`/effort`·`--effort`·env) > settings 의 모델별 `modelSettings` > 모델 기본값 순으로 정해지고, user settings 는 2026-09-24 결정(M12, `plans/2026-09-24-prompt-audit-apply` — A/B 근거·되돌리기 기준 포함)으로 Opus 5.5 를 `medium`, Opus 5·Sonnet 5·Fable 5.1 을 `high` 로 저장해 둔다. 세션 모델과 다른 모델로 고정된 subagent 가 어떤 레벨을 받는지는 문서에 없다(❌ — M12 plan 의 미확인 항목). 근거·precedence·함정은 `wiki/pages/decision/model-stage-tiering.md` 와 `wiki/pages/entity/claude-code-model-selection.md`.
+`Agent` 도구로 호출. CLAUDE.md §5 의 표준 순서 (plan-reviewer → 구현 → code-reviewer → simplify 체크(메인 직접, dlc 13단계)) 가 기본. frontmatter 는 `model` 을 단계별로 고정한다 — reviewer 3종 `opus`, researcher `sonnet`. 별칭이라 모델 세대 교체 시 수정 지점은 0이고, 세션이 Fable 이어도 리뷰·조사가 Fable 캡을 태우지 않는다. `effort` 는 두지 않아 subagent 가 세션 effort 를 물려받는다(sub-agents 문서 "Default: inherits from session"). 세션 effort 는 명시 선택(`/effort`·`--effort`·env) > settings 의 모델별 `modelSettings` > 모델 기본값 순으로 정해진다. user settings 에는 effort 저장값을 두지 않아(2026-09-29) project·local·managed settings 나 `--settings` 가 정하지 않는 한 모델 기본값으로 돈다 — 모델별 기본값은 `wiki/pages/entity/anthropic-claude-models.md`, 2026-09-24 M12 결정(Opus 5.5 `medium`, `plans/2026-09-24-prompt-audit-apply`)이 그 기본값과 같아 키를 지운 경위와 되돌리는 방법은 `wiki/pages/decision/effort-global-xhigh.md`. 세션 모델과 다른 모델로 고정된 subagent 가 어떤 레벨을 받는지는 문서에 없다(❌ — M12 plan 의 미확인 항목). 근거·precedence·함정은 `wiki/pages/decision/model-stage-tiering.md` 와 `wiki/pages/entity/claude-code-model-selection.md`.
 
 > ⚠️ 고정에는 **자동 폴백이 없다**. Opus 한도 소진 시 plan-reviewer/code-reviewer 는 `Agent terminated early due to an API error` 로 실패하고, 둘 다 CLAUDE.md §5 의 **필수 게이트**라 dlc 가 멈춘다. 비상 레버는 `CLAUDE_CODE_SUBAGENT_MODEL=<별칭>`(예: `sonnet`)**과 `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`(v2.1.257+)을 함께** 설정하는 것이다 — v2.1.251 부터 env 는 frontmatter 보다 뒤라 혼자서는 고정을 덮지 못한다. FORCE 는 researcher·빌트인 Explore/Plan 까지 같은 모델로 돌리므로, 범위를 좁히려면 `agents/*.md` 의 `model:` 을 직접 바꾼다. 메인 모델을 따르게 하려면 FORCE 만 켠다(빌트인 Explore 는 Claude API 에서 Opus 상한 유지). `CLAUDE_CODE_SUBAGENT_MODEL=inherit` 은 미설정과 같아(v2.1.196+) 아무 효과가 없다.
 
@@ -513,7 +513,7 @@ Path 표기 (cross-platform):
 **Claude Code 가 자동 수정하는 키 (push 전 `git diff` 검토 권장)**:
 - `/config` (theme, verbose 등) → user-level settings.json (v2.1.119+)
 - `/statusline` → settings.json
-- `/effort` → settings.json (`effortLevel` 키 추가). `CLAUDE_CODE_EFFORT_LEVEL`이 shell/OS 또는 settings `env`에 남아 있으면 "Not applied"가 표시될 수 있으므로 두 경로를 먼저 확인한다.
+- `/effort` → settings.json 의 `modelSettings` 에 모델별로 저장(슬라이더·picker 의 `Enter`. `s` 는 이번 세션에만 적용하고 저장하지 않는다). user settings 의 최상위 `effortLevel` 은 옛 저장 형식이다(적용 모델과, 모든 모델에 적용되는 project·local·managed settings 쪽 동작은 `wiki/pages/entity/anthropic-claude-models.md`). `CLAUDE_CODE_EFFORT_LEVEL`이 shell/OS 또는 settings `env`에 남아 있으면 "Not applied"가 표시될 수 있으므로 두 경로를 먼저 확인한다.
 - `/plugin` enable/disable → enabledPlugins
 - "Always allow" Bash prompt → project `.claude/settings.local.json` (이 repo 와 무관)
 

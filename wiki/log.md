@@ -378,3 +378,12 @@
 ## [2026-09-29] update | autopull-verified-ff (fetch 지속 실패 신호)
 - 이슈 #204(`autopull-fetch-stall`): 자동 pull 의 fetch 가 계속 실패하면 추적 ref 가 멈춰 브리프 N 이 침묵하던 구멍을 `.git/claude-autopull-attempt`(성공 뒤 첫 시도)·`claude-autopull-ok`(성공) 스탬프로 막음. :27 의 "브리프까지 침묵", :34 의 "스스로 감지하는 신호는 아직 없다" 를 새 신호로 교체하고 남는 구멍(옛 스크립트 무음·한 세션 지연·1회 실패 + 공백 오경보·이미 깨진 머신은 수동 pull)을 적음.
 - 실측 ✅: Ubuntu dash 0.5.12-6ubuntu5 는 `[ a -nt 없는파일 ]` 이 거짓(Git Bash sh 는 참) — 원안 `-nt` 단독 식은 Windows 테스트 37/37 통과, WSL dash 에서 "성공 기록 없이 다시 실패" 케이스(⑮) 실패. 부재를 `-e` 로 명시한 식은 두 셸 모두 5경우 기대대로.
+
+## [2026-09-29] update | anthropic-claude-models (Sonnet 5.5 반영, 버전 사실의 단일 위치로)
+- Sonnet 5.5(`claude-sonnet-5-5`, 2026-09-28)를 라인업에 넣고 Sonnet 5 를 legacy 로 옮겼다. provider 별 별칭 표(v2.1.284+ 조건), native 1M 목록("Sonnet 5 and later"), `/effort` 변경 시 캐시 유지 모델(Opus 5.5·Sonnet 5.5·Fable 5.1), Sonnet 5.5 폴백·effort 권장·레벨 재보정, 최상위 `effortLevel` 예외("Opus 5.5 and models released after it")와 `/effort` 모델별 저장·`s` 세션 한정을 적었다. 근거는 model-config·prompt-caching·advisor 원문(2026-09-29 조회)과 researcher 조사(platform docs).
+- 이 페이지를 모델 버전·별칭 해석·모델 목록·모델별 기본 effort 의 단일 위치로 정하고, 새 모델이 나올 때 다시 볼 결정(M12·단계별 모델 배치·고정 subagent)을 링크했다 — 모델이 나올 때마다 여러 페이지를 고쳐야 한다는 문제 제기(2026-09-29)에 대한 결정. `[!open]` 은 researcher 가 Sonnet 5.5 로 돈다는 사실만 해소하고, 고정 subagent 의 effort 레벨과 `switchModelsOnFlag: false` 에서의 cybersecurity 플래그 동작(❌)으로 좁혔다.
+
+## [2026-09-29] update | claude-code-model-selection·claude-code-context-cost·effort-global-xhigh (버전명·저장 effort 를 anthropic-claude-models 밖에서 지움)
+- claude-code-model-selection·claude-code-context-cost 에서 별칭→버전 대응, native 1M 목록, advisor 허용 조합, 모델별 캐시 배수, effort 변경에 캐시가 유지되는 모델 목록을 지우고 [[anthropic-claude-models]]·advisor 공식 표 링크로 바꿨다. 단일 모델 사실과 날짜가 붙은 측정·결정 근거(Opus 5.5 cache read 0.05×, 2.1.283 표본 관찰)는 그대로 두고, 토크나이저 측정의 `sonnet` 은 당시 Sonnet 5 로 추정(⚠️)이라고 적었다.
+- effort-global-xhigh 현재 상태: user settings 의 effort 저장값(`modelSettings` 4개 키)을 2026-09-29 사용자 결정으로 모두 지워 모든 모델이 기본값으로 돈다. Opus 5.5 키는 그때 `xhigh` 여서 M12(`medium`)와 어긋나 있었고, 사용자가 M12 를 택해 기본값(`medium`)으로 돌아가게 지웠다. 되돌리기는 Opus 5.5 세션에서 `/effort high` 를 `Enter` 로 저장하는 것으로 바뀌었다. index 요약과 README 의 effort 서술·`/effort` 저장 위치(`modelSettings`, 최상위 `effortLevel` 은 옛 형식)도 맞췄다.
+- 리뷰 반영(같은 날): anthropic-claude-models 의 최상위 `effortLevel` 서술을 user settings 로 한정하고 "project, local, or managed settings, or one passed with `--settings`" 쪽은 모든 모델에 적용된다는 인용을 더했다(README·effort-global-xhigh 의 "모든 모델이 기본값" 도 그 조건을 붙였다). 캐시 읽기 배수(pricing, 기본 0.1x), effort 캐시 유지의 예외 전체, 다른 페이지가 버전명을 유지하는 예외(날짜 기록·측정·단일 모델 사실)를 적었다.

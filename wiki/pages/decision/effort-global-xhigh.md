@@ -2,8 +2,10 @@
 title: effort-global-xhigh
 category: decision
 created: 2026-06-26
-updated: 2026-09-27
+updated: 2026-09-29
 sources:
+  - plans/2026-09-29-sonnet55-effort-sync (2026-09-29 user settings effort 키 전부 제거 — 사용자 결정, M12 plan 확인)
+  - https://code.claude.com/docs/en/model-config (`/effort` 모델별 저장·`s` 세션 한정·최상위 effortLevel 적용 범위 — 2026-09-29 조회)
   - 커밋 f1cbee0 (2026-08-12, env=max + effortLevel 제거 + model 핀 — 단일화 해소)
   - 실측 2026-08-12 (CLI 2.1.228 바이너리: $et() vs T9()/TSe() 파서 분기, WebSearch·WebFetch on max)
   - PR #66 (subagent model opus 통일)
@@ -17,8 +19,12 @@ sources:
 
 # effort-global-xhigh
 
-> [!note] 현재 상태 (2026-09-27 갱신)
-> 전역 `CLAUDE_CODE_EFFORT_LEVEL` 강제는 2026-09-02 에 제거했다. bootstrap/shell 은 effort 를 고정하지 않는다. `/effort`·picker 에서 저장한 레벨은 user settings 의 `modelSettings` 에 **모델별로** 남는다 — 현재 Opus 5.5 `medium`(2026-09-24 **M12 결정**, `plans/2026-09-24-prompt-audit-apply` — A/B 에서 medium·high 모두 숨은 테스트 9/9, fix 과제 비용 약 29% 절감, 놓침·재작업이 보이면 그 키만 `high` 로 되돌리는 기준), Opus 5·Sonnet 5·Fable 5.1 `high`. Opus 5.5 의 API 기본값도 `medium` 이고 user settings 최상위 `effortLevel` 은 Opus 5.5 에 적용되지 않는다([[anthropic-claude-models]]). subagent 는 세션 레벨을 물려받고 이 repo 의 `agents/*.md` 에는 `effort` 가 없다 — M12 plan 이 ❌ 로 남긴 "세션 모델과 다른 모델로 고정된 subagent 가 어떤 레벨을 받는가"는 문서로도 아직 확인되지 않는다. 아래 2026-08-12 내용은 당시 `max` 정책과 그 근거를 보존한 historical 기록이다.
+> [!note] 현재 상태 (2026-09-29 갱신)
+> 전역 `CLAUDE_CODE_EFFORT_LEVEL` 강제는 2026-09-02 에 제거했다. bootstrap/shell 은 effort 를 고정하지 않는다. **user settings 에는 effort 저장값이 없다** — 최상위 `effortLevel` 도 모델별 `modelSettings` 도 없어서, project·local·managed settings 나 `--settings` 가 effort 를 정하지 않는 한 모든 모델이 모델 기본값으로 돈다(모델별 기본값과 다른 scope 의 최상위 `effortLevel` 동작은 [[anthropic-claude-models]]). `/effort`·picker 에서 `Enter` 로 고르면 그때 모델의 키가 `modelSettings` 에 다시 생기고, `s` 는 이번 세션에만 적용한다.
+> - 2026-09-24 **M12 결정**(`plans/2026-09-24-prompt-audit-apply` — A/B 에서 medium·high 모두 숨은 테스트 9/9, fix 과제 비용 약 29% 절감)은 Opus 5.5 를 `medium` 으로 저장했다. 2026-09-29 확인 시에는 그 키에 `xhigh` 가 저장돼 M12 와 어긋나 있었고, 사용자가 M12 쪽을 택하면서 `medium` 이 Opus 5.5 의 모델 기본값과 같으므로 키를 지웠다 — 새 Opus 5.5 세션은 `xhigh` 가 아니라 M12 대로 `medium` 으로 돈다. 되돌리기 기준(reviewer·구현 결과에서 놓침·재작업이 보이면 `high`)도 그대로이고, 방법은 이제 "키만 복원" 이 아니라 Opus 5.5 세션에서 `/effort high` 를 `Enter` 로 저장하는 것이다. M12 의 `medium` 은 모델 기본값에 기대므로 기본값이 바뀌면 강제되지 않고, `opus` 가 다음 모델로 넘어가면 M12 는 끝난다 — 새 모델은 새 effort sweep 으로 정한다.
+> - 같은 날 M12 와 무관한 나머지 키(Opus 5·Sonnet 5·Fable 5.1 `high` — 각 모델 기본값과 같음)도 지웠다. 이 문서 변경을 revert 해도 settings 의 키는 돌아오지 않으므로, 키를 되살리려면 각 모델 세션에서 `/effort` 로 다시 저장한다.
+>
+> subagent 는 세션 레벨을 물려받고 이 repo 의 `agents/*.md` 에는 `effort` 가 없다 — M12 plan 이 ❌ 로 남긴 "세션 모델과 다른 모델로 고정된 subagent 가 어떤 레벨을 받는가"는 문서로도 아직 확인되지 않는다([[anthropic-claude-models]] `[!open]`). 아래 2026-08-12 내용은 당시 `max` 정책과 그 근거를 보존한 historical 기록이다.
 
 메인 세션과 모든 subagent 를 `model: opus` + effort `xhigh` 단일 정책으로 통일한 결정(2026-06-26, PR #66·#67·#68 머지). [[subagent-model-effort-tiering]]의 model/effort 차등을 폐기하고 단일 레버로 되돌렸다.
 
