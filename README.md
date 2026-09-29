@@ -406,7 +406,7 @@ uv run --no-project python "skills/pr-review/bb_pr.py" undo --dir "<작업 디�
 - diff 파서는 hunk header 의 count 로 경계를 잡는다 — 본문 줄이 `+++ `/`--- ` 로 시작해도 헤더로 읽지 않고, `\n` 만 줄 경계로 본다(`splitlines()` 는 form feed·U+2028 에서도 갈라 앵커가 밀린다). 산출물은 POSIX 에서 0700/0600.
 - 인증 헤더는 `api.bitbucket.org` 에만 보낸다 — CPython 의 기본 redirect handler 는 Authorization 을 호스트 검사 없이 복사하므로 전용 handler 로 다른 호스트 리다이렉트·`next` 를 거부한다. 오류 메시지에서 토큰·이메일은 redact.
 - 인증은 `~/.jira-kit/.env` 의 `BITBUCKET_EMAIL`(없으면 `JIRA_EMAIL`)·`BITBUCKET_API_TOKEN`(폴백 없음). scope 는 `read:repository:bitbucket`·`read:pullrequest:bitbucket`·`write:pullrequest:bitbucket`. app password 는 2026-07-28 종료.
-- **Codex 심링크는 수동**(bootstrap 은 jira-worklog 만 연결한다): 머지 후 main 체크아웃 경로로 건다 — POSIX `ln -s "$HOME/.claude/skills/pr-review" "$HOME/.agents/skills/pr-review"`, Windows 는 개발자 모드(또는 junction: `New-Item -ItemType Junction`) 전제. worktree 경로로 걸면 정리 후 dangling 이 된다.
+- **Codex 연결은 수동**: bootstrap(`setup.sh`·`setup.ps1`)은 skill 7종(`c dlc e improve jira-worklog wiki wt`)만 연결하고 pr-review 는 의도적으로 그 목록 밖에 둔다(jira-task 도 현재 목록에 없다. 두 스크립트의 목록이 같아야 해서 `install-codex-skill.test.ps1` 이 대조한다 — 추가하려면 `setup.sh` 도 함께 바꿔야 한다). 머지 후 main 체크아웃 경로로 건다 — 두 설치기 모두 target 에 이미 디렉토리·다른 링크가 있으면 건드리지 않고 실패한다. POSIX `bash "$HOME/.claude/scripts/bootstrap/install-codex-skill.sh" --source "$HOME/.claude/skills/pr-review" --target "$HOME/.agents/skills/pr-review"`, Windows `& $HOME\.claude\scripts\bootstrap\install-codex-skill.ps1 -Source $HOME\.claude\skills\pr-review -Target $HOME\.agents\skills\pr-review`(junction). worktree 경로로 걸면 정리 후 dangling 이 된다.
 
 ### scripts/
 
