@@ -85,7 +85,7 @@
 
 ### Workflow(ultracode) subagent 의 effort 는 단계별로 명시한다
 
-Workflow 스크립트의 `agent()` 는 `model` 을 생략하고(세션 모델 상속) `effort` 를 **항상 명시**한다 — 생략하면 세션 effort(ultracode = xhigh)를 상속해 탐색 agent 까지 xhigh 로 돈다.
+Workflow 스크립트의 `agent()` 는 `model` 을 생략하고(세션 모델 상속) `effort` 를 **항상 명시**한다 — 생략하면 세션 레벨(예: xhigh·max)을 상속해 탐색 agent 까지 그 레벨로 돈다. ultracode 는 레벨이 아니라 세션 레벨을 그대로 두는 토글이다(v2.1.284+ — 레벨을 `xhigh` 로 바꾸는 건 `--effort ultracode`·SDK `effortLevel: "ultracode"` 뿐).
 
 - `low` — 파일 탐색·grep·목록 수집·테스트 실행·기계적 변환
 - `medium` — 구현·단순 리팩토링
