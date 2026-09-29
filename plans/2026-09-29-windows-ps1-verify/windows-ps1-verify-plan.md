@@ -1,6 +1,6 @@
 ---
 title: windows-ps1-verify — Windows 에서 verify.sh 가 빨갛던 ps1·도구 부재 3건을 원인대로 고친다 (#190 의 첫 단위)
-status: in_progress
+status: done
 started: 2026-09-29
 updated: 2026-09-29
 intent: plans/2026-09-25-repo-audit-followups/intent.md
@@ -32,10 +32,10 @@ Windows(Git Bash·pwsh 7)에서 `bash scripts/verify.sh` 가 기존 결함 3건�
 - 2026-09-29: 원인 3건 재현·확인 → 수정. install-hooks ps1 5 PASS + 1 SKIP(`ALL PASS`), pre-commit-check 135/135, verify bash 축 `ALL PASS (skip: record-verified.test.sh)`.
 
 - 2026-09-29: code-reviewer(+Codex) REQUEST CHANGES — 아래 Review Disposition. 가드 수정을 되돌리고 테스트 격리(USERPROFILE)로 방향 변경, 훅 가드 경로 단언 추가(Red 확인), 케이스 skip 요약·CI 에서 jq 부재 실패. install-hooks `ALL PASS`, pre-commit-check 135/135, verify node 축 `ALL PASS (skip: install-hooks.test.js(case))`.
+- 2026-09-29: 전체 verify(Windows) rc 0, `ALL PASS (skip: install-hooks.test.js(case) record-verified.test.sh)`. `/e merge` — PR #200. 나머지 #190 항목은 묶음 intent 의 `windows-ps1-verify-rest (미착수)` 줄로.
 
 # Next
 
-전체 verify → 커밋 → PR(승인 후).
 
 # Review Disposition
 
