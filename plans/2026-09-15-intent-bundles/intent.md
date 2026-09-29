@@ -1,8 +1,8 @@
 ---
 title: intent-bundles — 한 요구가 여러 plan 으로 갈라질 때 요구를 한 파일에 둔다
-status: open
+status: closed
 started: 2026-09-15
-updated: 2026-09-16
+updated: 2026-09-29
 ---
 
 # Problem
@@ -28,10 +28,10 @@ plan `# Intent`(2026-09-07)는 plan 과 1:1 을 전제했는데, 실제 작업�
 
 # Open questions
 
-- (열림) 회사 repo 의 `plans/` gitignore 를 풀 것인가 — public 여부·비밀 스캔 범위 확인 뒤 판단(사용자 "왜 tracked 로 바꾼다는거야?" 2026-09-15). 풀지 않으면 그 repo 의 intent.md 는 로컬에만 남는다.
-- (열림) `intent:` 참조 무결성 검사를 `plan-lint` CLI 에 둘 것인가 — 첫 사용례 뒤 판단.
-- (열림) 분할 판정(2026-09-16)이 plan 을 실제로 작게 만드는가 — medium 이상 5회 사용 뒤 분할 발생 횟수와 `분할: 없음` 정형문화 여부를 관찰. 분할 0회·정형문이면 bullet 회수.
-- (열림) 묶음 단위 architecture-reviewer 를 "plan 사이에 걸친 구조 의사결정이 있을 때만" 조건부로 둘 것인가 — 사용자 확인 필요(`agents/architecture-reviewer.md` 적용 범위 수정 동반).
+- (이월 → #207) 회사 repo 의 `plans/` gitignore 를 풀 것인가 — public 여부·비밀 스캔 범위 확인 뒤 판단(사용자 "왜 tracked 로 바꾼다는거야?" 2026-09-15). 풀지 않으면 그 repo 의 intent.md 는 로컬에만 남는다. 처분(2026-09-29): `plans/` 가 gitignore 된 repo 에서 묶음 intent.md 가 worktree 에만 있는 사례가 이미 생겼고, 그 보존 절차는 #207 에서 다룬다.
+- (해소) 두지 않음. `intent:` 참조 무결성 검사를 `plan-lint` CLI 에 둘 것인가 — 첫 사용례 뒤 판단. 처분(2026-09-29): origin/main 의 `plans/*/*-plan.md` 중 `intent:` 키가 있는 25개 전부가 존재하는 intent.md 를 가리킨다(dangling 0, 이력상 `intent:` 추가도 4개 묶음 대상뿐). CI 의 plan-lint 는 비차단이라 검사를 넣어도 막지 못한다. CLAUDE.md §10 한계 절이 선행 브랜치의 intent.md 를 가져오라고 요구하므로 dangling 참조는 허용 상태가 아니라 빠뜨린 단계다. 재개 조건: dangling 참조 1건 관찰.
+- (해소) 유지. 분할 판정(2026-09-16)이 plan 을 실제로 작게 만드는가 — medium 이상 5회 사용 뒤 분할 발생 횟수와 `분할: 없음` 정형문화 여부를 관찰. 분할 0회·정형문이면 bullet 회수. 처분(2026-09-29): origin/main 에서 2026-09-16 이후 시작한 plan 중 `# Intent` 규모가 medium 인 7개(structural 0)는 `분할: 묶음` 1 · `분할: 없음` 6, `분할:` 줄 전체(`- ` 없는 줄 포함 26개)로는 묶음 4 · 없음 21 · 해당 없음 1. 분할이 0회가 아니고 `없음` 사유는 모두 그 plan 의 결합 관계나 고정비를 구체적으로 적어 정형문이 아니므로 회수 조건에 걸리지 않는다. "작게 만드는지" 자체는 측정하지 않았다.
+- (해소) 기각. 묶음 단위 architecture-reviewer 를 "plan 사이에 걸친 구조 의사결정이 있을 때만" 조건부로 둘 것인가 — 사용자 확인 필요(`agents/architecture-reviewer.md` 적용 범위 수정 동반). 처분(2026-09-29): 기록된 plan-reviewer 묶음 모드 검토는 1회이고 그 지적은 계층·DI·수명주기 문제가 아니었다. dlc 는 분할이 단위의 규모 판정을 면제하지 않는다고 정하므로 structural 단위는 각자 architecture 검토를 받는다. 재개 조건: 묶음 경계에 걸친 계층·의존 방향 결정이 나타나거나, plan-reviewer 묶음 모드가 구조 결함을 1회 놓침.
 
 # Plans
 
