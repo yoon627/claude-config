@@ -76,7 +76,7 @@ G2 — `bash scripts/pre-commit-check.test.sh`. 모두 실제 커밋 fixture 다
 
 공통:
 14. worktree 에서 `bash scripts/verify.sh` → `ALL PASS`(skip 없음).
-15. dogfood(머지 전 가장 비싼 단계): worktree 의 새 가드를 실제 repo 3곳(`~/.claude`·`~/Repos/knowledge_base`·`~/Repos/coin-trading-bot`)에서 실행한다. `<현재 브랜치 ref> <tip> <ref> <zero>` 줄을 stdin 으로 먹인다. 통과 기준: 모두 허용이고 소요 시간을 기록한다.
+15. dogfood(머지 전 가장 비싼 단계): worktree 의 새 가드를 실제 repo 3곳(`~/.claude`·`~/Repos/<회사 repo>`·`~/Repos/coin-trading-bot`)에서 실행한다. `<현재 브랜치 ref> <tip> <ref> <zero>` 줄을 stdin 으로 먹인다. 통과 기준: 모두 허용이고 소요 시간을 기록한다.
 16. 문서: 아래가 바뀐 동작과 맞는다.
   - README 가드 절(35·114·118·186·432·434·436·442 부근)에 push 범위 스캔·탈출구(`git push --no-verify`, `.git/hooks/pre-push` 제거)를 적는다.
   - `scripts/install-hooks.{sh,ps1}` 안내 문구, `pre-commit-check.sh` 헤더 주석.
@@ -253,7 +253,7 @@ workflow `wf_3746ca79-3e4` 결과는 세션 스크래치라 여기 요약만 남
 - (medium) `/improve` 권장의 `last-improve` 마커를 쓰는 코드가 없다(`scripts/session-brief.js:124`).
 - (medium) `skills/synced/` 가 `.gitignore` 에 없다(PUBLIC repo).
 - (medium) CLAUDE.md §8 "다른 repo main 푸시는 pre-push 훅이 하드 차단" 은 사실이 아니다. §3-1 이 가리키는 `/e` 8단계에 memory 절차가 없다(low).
-- (medium) user `autoMode.environment` 가 knowledge_base 전용 서술인데 모든 세션에 적용된다.
+- (medium) user `autoMode.environment` 가 회사 repo 전용 서술인데 모든 세션에 적용된다.
 - (medium) GitHub main 에 branch protection·ruleset 이 없다 + SessionStart 자동 pull 이 CI 결과 없이 ff 한다.
 - (medium) `scripts/bootstrap/README.md:63` 이 settings.json 을 tracked 로 서술한다.
 - (low) 다음 항목들:

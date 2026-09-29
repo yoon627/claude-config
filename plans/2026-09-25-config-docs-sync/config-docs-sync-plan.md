@@ -46,7 +46,7 @@ intent `repo-audit-followups` 의 네 단위를 닫는다. CLAUDE.md §8 의 pre
 # Progress
 
 - 2026-09-25: 착수. 저장소 밖 설정 세 가지는 이 plan 이전에 적용·확인했다(`# Intent` 델타).
-- 2026-09-25: code-reviewer REQUEST CHANGES(Major 3) → fix loop 1: README deny 결론 문장, autoMode.environment 의 knowledge_base "local pre-push hook" 거짓 서술(저장소 밖 — 선택하신 범위 안의 내 오류 정정), intent 에서 빠진 SessionStart 무검증 ff 항목 복원. Minor·Nit 반영.
+- 2026-09-25: code-reviewer REQUEST CHANGES(Major 3) → fix loop 1: README deny 결론 문장, autoMode.environment 의 회사 repo "local pre-push hook" 거짓 서술(저장소 밖 — 선택하신 범위 안의 내 오류 정정), intent 에서 빠진 SessionStart 무검증 ff 항목 복원. Minor·Nit 반영.
 
 # Next
 
@@ -61,7 +61,7 @@ intent `repo-audit-followups` 의 네 단위를 닫는다. CLAUDE.md §8 의 pre
 
 # Review Disposition
 
-- [code] Major README:470 옛 결론 문장 — fix. Major autoMode.environment 의 knowledge_base pre-push hook 서술 — fix(`Default / protected branches` 항목, 백업 `settings.before-automode-fix2.json`). Major intent 에서 SessionStart 무검증 ff 유실 — fix(`autopull-verified-ff (미착수)`).
+- [code] Major README:470 옛 결론 문장 — fix. Major autoMode.environment 의 회사 repo pre-push hook 서술 — fix(`Default / protected branches` 항목, 백업 `settings.before-automode-fix2.json`). Major intent 에서 SessionStart 무검증 ff 유실 — fix(`autopull-verified-ff (미착수)`).
 - [code] Minor wiki 한 페이지 안 모순 문장 — fix. Minor `core.hooksPath` 단서 — fix(CLAUDE.md·README). Minor Codex 확인 절차 보강 — fix. Minor bootstrap 이 AGENTS.md 심링크도 안 만듦 — fix(README·audit-low-batch). Nit skills 심링크 범위 표기·Codex bullet 위치(bootstrap 절로 이동)·wiki 시제·sources·claudeMdExcludes 후속 문장 — fix. Nit CLAUDE.md §3-1 의 7단계 삭제·harness 시작 경우 — wontfix(문구가 틀리지 않고, 경우 나열은 /e SKILL 이 단일 소스).
 
 # Key Files

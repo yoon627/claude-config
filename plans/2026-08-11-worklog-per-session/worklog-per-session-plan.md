@@ -38,7 +38,7 @@ worklog 등록 단위를 (티켓, 날짜, worktree) → **(티켓, 날짜, workt
 - **세션 식별 근거는 파일명**: Claude `<uuid>.jsonl`, Codex `rollout-<ts>-<uuid>.jsonl`.
   둘 다 이미 파일 단위로 파싱하고 있어 추가 스캔이 없다.
 - **겹침 union 포기는 수용한다.** 세션별로 쪼개면 동시 실행 세션의 겹치는 시간을 union 으로
-  지울 수 없다. 실측(knowledge_base): 전체로는 77.66% 과다지만 그 대부분이 `main` bucket
+  지울 수 없다. 실측(회사 repo): 전체로는 77.66% 과다지만 그 대부분이 `main` bucket
   (티켓 없음 → 등록 대상 아님)이고, **등록 대상 worktree 만 보면 합계 약 2.3h**
   (review-show-original 71분, ABC-2812 58분, 나머지 8분). worktree 94개 중 89개는 겹침 0.
 - **stacked on PR #137.** 대기 필터가 아직 머지 전이고 `session_time.py` 를 같이 건드리므로

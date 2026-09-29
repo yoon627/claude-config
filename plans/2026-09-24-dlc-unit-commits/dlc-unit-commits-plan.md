@@ -10,7 +10,7 @@ intent: plans/2026-09-25-unit-commit-followups/intent.md
 medium 이상에서 목적이 2개 이상인 dlc 작업은 목적 단위로 중간 커밋하고, 커밋된 단위의 후속 수정은 `git commit --fixup=<대상>` 으로 만들어 마지막에 commit-check 가 합치게 한다. small·trivial 은 지금처럼 마지막 1회.
 
 # Intent
-- Problem: dlc 는 마지막에 1회 커밋해 목적이 섞인 커밋이 생기면 commit-check 가 파일 단위로만 나눌 수 있다(같은 파일 안 hunk 단위는 불가). 반대로 후속 수정 커밋이 합쳐지지 않고 남는다(knowledge_base 최근 60일 머지 PR 의 29%, 4 repo 읽기 전용 집계).
+- Problem: dlc 는 마지막에 1회 커밋해 목적이 섞인 커밋이 생기면 commit-check 가 파일 단위로만 나눌 수 있다(같은 파일 안 hunk 단위는 불가). 반대로 후속 수정 커밋이 합쳐지지 않고 남는다(회사 repo 최근 60일 머지 PR 의 29%, 4 repo 읽기 전용 집계).
 - Constraints (사용자 선택 2026-09-24 "C 구현"): 적용은 medium 이상 + 목적 2개 이상일 때만, small·trivial 은 현행 1회. 단위 커밋·fixup 은 그 단위의 targeted 검증(Green) 통과 뒤에만(CLAUDE.md §8 검증 실패 커밋 금지). 합치기는 commit-check 의 기존 승인 절차를 그대로 탄다(재구성 전 승인은 사용자 규칙).
 - Out of scope: TDD Red·fix loop 등 단계마다 고정 커밋(선택지 B — 실패 테스트 커밋·bisect 파손·합칠 커밋만 늘어 기각). `/e merge` 의 plan 종료 커밋 방식. commit-check 의 hunk 단위 분할. `agents/code-reviewer.md` 수정(호출 측이 범위를 넘기면 충분 — 에이전트 정의는 이미 "호출 측이 명시한 범위"를 받는다).
 - 분할: 없음 — U1(commit-check `fixup_of`)만 먼저 머지해도 유효하지만, 두 번째 plan 의 worktree·리뷰·머지 고정비가 U2 한 벌 문서 변경보다 크다. 대신 이 plan 안에서 목적 단위 커밋 2개(U1→U2)로 새 규칙을 스스로 적용한다.
@@ -26,7 +26,7 @@ medium 이상에서 목적이 2개 이상인 dlc 작업은 목적 단위로 중�
 7. `bash scripts/verify.sh` 마지막 줄 `ALL PASS`(skip 없음).
 
 # Progress
-- 2026-09-24: 착수. 근거 — 사용자 선택 C, 4 repo PR 집계(`pr_commit_stats.sh`: ~/.claude 후속 수정 PR 5/58, coin-trading-bot 7/74, knowledge_base 47/163·WIP 18).
+- 2026-09-24: 착수. 근거 — 사용자 선택 C, 4 repo PR 집계(`pr_commit_stats.sh`: ~/.claude 후속 수정 PR 5/58, coin-trading-bot 7/74, 회사 repo 47/163·WIP 18).
 - 2026-09-24: U1 구현(TDD) — `fixup_of` 테스트 Red→Green. plan-reviewer(+codex) CONDITIONAL → git autosquash todo 실측(scratch `autosquash_semantics.sh`)으로 매칭 규칙 4곳 불일치 확인·정정(Red→Green, 61 OK). 공유 plan 리허설(`shared_plan_rehearsal.sh`): plan 수정을 U1 fixup 에 넣으면 merge-tree 충돌로 apply 거부, 마지막 단위로 보내면 적용·tree 동일.
 
 - 2026-09-24: U1 단위 커밋(targeted: commit-check 61 OK), U2 문서 → 옛 문구 grep 0건·wiki clean·improve error=0 → U2 단위 커밋. code-reviewer 범위는 `2365cf9...HEAD` + 작업트리.

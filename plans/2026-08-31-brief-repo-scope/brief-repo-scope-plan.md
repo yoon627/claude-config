@@ -11,20 +11,20 @@ updated: 2026-08-31
 넓히면서 라벨과 원인 문구를 repo 별로 가른다 — 지금 그대로 대상만 바꾸면 "~/.claude 가 뒤처졌다"고
 **거짓 라벨**을, "훅은 main 에서만"이라는 **없는 훅의 원인**을 말한다(아래 Decisions 실측).
 
-계기: knowledge_base 가 origin 보다 37커밋 뒤처지고 plan 편집이 3일간 미커밋으로 방치됐는데
+계기: 회사 repo 가 origin 보다 37커밋 뒤처지고 plan 편집이 3일간 미커밋으로 방치됐는데
 아무 신호도 없었다. 2026-08-12 에 같은 실패 모드를 고쳤지만 그 수정이 `~/.claude` 한정이었다.
 
 # Progress
 
 - 2026-08-31: 원인을 실측으로 확정하고 이 plan 을 열었다. `CLAUDE_BRIEF_REPO` 로 브리프를
-  knowledge_base worktree 에 겨누면 `~/.claude 1010커밋 뒤처짐 — 브랜치가 adapter-sandbox 라 자동
+  회사 repo worktree 에 겨누면 `~/.claude 1010커밋 뒤처짐 — 브랜치가 adapter-sandbox 라 자동
   pull 이 돌지 않는다(훅은 main 에서만)` 가 나온다 — 계산은 맞고 라벨·원인이 둘 다 틀린다.
 
 - 2026-08-31: codex plan 리뷰(medium) — Critical 0 / Major 4 / Minor 5. 전부 반영했다(아래 Decisions).
   가장 큰 것은 **cwd 입력원**이었다: 계획은 `process.cwd()` 를 전제했는데 근거가 없었다. 이 repo 의
   형제 훅 4개가 전부 hook stdin JSON 의 `cwd` 를 쓴다 — `dlc-task-router.js:37`,
   `guard-worktree-edit.js:67`, `dlc-early-stop.js:57`, `notify-hook.js:49`. 그것이 정답이다.
-- 2026-08-31: 비용을 실측했다(knowledge_base, tracked 815). `git status --porcelain -z` 32ms,
+- 2026-08-31: 비용을 실측했다(회사 repo, tracked 815). `git status --porcelain -z` 32ms,
   `rev-list --left-right --count` 22ms. 예산 설계의 근거로 쓴다.
 - 2026-08-31: 테스트 10건을 먼저 쓰고(Red 확인) 구현했다. `node scripts/session-brief.test.js`
   **65 passed**(기존 55 + 신규 10). 실 repo 관찰도 통과 — 뒤처진 worktree 를 cwd 로 주면
@@ -32,7 +32,7 @@ updated: 2026-08-31
   push 필요)`, 동기화·clean 인 main worktree 는 무음, stdin 없이 직접 실행해도 208ms 에 끝난다.
   N 라벨도 고쳤다 — 다른 repo 를 겨누면 이제 `adapter-sandbox 1022커밋 뒤처짐 …` 로 나온다.
 - 2026-08-31: code-reviewer(claude, **CONDITIONAL**) + codex code 리뷰(high, Critical 0/Major 5/Minor 4)를
-  받아 반영했다. 결정적 지적은 **기준 ref 폴백**이었다 — `origin/HEAD` 로 떨어뜨리면 knowledge_base
+  받아 반영했다. 결정적 지적은 **기준 ref 폴백**이었다 — `origin/HEAD` 로 떨어뜨리면 회사 repo
   worktree 68개 중 **60개**(upstream 없음)가 "294~1019커밋 뒤처짐"으로 걸린다(리뷰어 실측). 폴백을
   제거했고, 계기 사건은 폴백 없이도 잡힌다. 반영 후 **67 tests passed**, 실 repo 관찰도 다시 했다:
   upstream 없는 `adapter-sandbox` 는 이제 무음(전에는 1022커밋 뒤처짐이라고 했다),
@@ -58,7 +58,7 @@ O 줄이 떠야 하고, 조용하면 안 떠야 한다(지금 이 머신은 후�
 # Decisions
 
 - **새 신호는 cwd repo 한정으로 drift + 묵은 미커밋 두 파트를 한 줄에 담는다. K(머지 대기)·M(닫히지
-  않은 plan)은 cwd repo 로 확장하지 않는다.** 이유: 브리프를 knowledge_base 에 겨눴을 때 K 가
+  않은 plan)은 cwd repo 로 확장하지 않는다.** 이유: 브리프를 회사 repo 에 겨눴을 때 K 가
   미머지 로컬 브랜치 35개를 뱉었다(실측 `+30` 표시). 매 세션 그 줄이 뜨면 신호가 잡음이 되어 죽는다.
 - **기준 ref 는 `@{upstream}` 우선**(없으면 `origin/HEAD` → `origin/main`). 이유: 이번 사건에서 실제
   밀린 축은 `origin/dev` 였다. `origin/main` 고정이면 dev 계열 브랜치에서 일하는 세션은 영영 못 본다.

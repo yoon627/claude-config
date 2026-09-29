@@ -63,7 +63,7 @@ updated: 2026-08-04
 - 현재 귀속 단위는 **폴더**다: cwd → `project_slug()` → `~/.claude/projects/<slug>/` 폴더의 `*.jsonl` **전부**를 합산(`session_time.py:37-46,172-177`). 파일 **내용의 `cwd` 는 읽지 않는다** — 파서가 꺼내는 필드는 `timestamp` 와 `type` 뿐(`session_time.py:85-97`, `_sessionio.py:19-42`).
 - 그런데 세션 파일은 **cwd 를 따라 폴더를 옮겨 다닌다**(세션 시작 위치 고정이 아님). 실측:
   - 세션 `7826dfb7`: 12:51 main 에서 시작 → 13:00 worktree 진입 → 종료. 파일은 **worktree 폴더**에 있고 main 구간 85줄까지 그 안에 들어있음.
-  - 세션 `cf0d4e59`(knowledge_base): 10:49 main 시작 → 10:54~12:5x 를 ABC-2812 worktree 3곳에서 작업(1,191줄) → 13:01 main 복귀. 파일은 **main 폴더**(4.4MB, AI 시간 2h). ABC-2812 worktree 들의 slug 폴더는 **0개**(파일이 세션과 함께 떠났음).
+  - 세션 `cf0d4e59`(회사 repo): 10:49 main 시작 → 10:54~12:5x 를 ABC-2812 worktree 3곳에서 작업(1,191줄) → 13:01 main 복귀. 파일은 **main 폴더**(4.4MB, AI 시간 2h). ABC-2812 worktree 들의 slug 폴더는 **0개**(파일이 세션과 함께 떠났음).
   - 같은 세션 id 파일이 두 폴더에 동시 존재하지 않음 → 복사가 아니라 **이동**.
 - 결과 ①: 오간 세션의 시간이 **마지막 위치 한 곳**에 전부 몰린다. 위 예시는 main(`ticket=(없음)`)으로 몰려 ABC-2812 worklog 는 0 — 2시간이 통째로 미등록.
 - 결과 ②: A 에서 등록 후 B 로 이동해 다시 등록하면 **A 시간이 B 에 또 계산**된다(이중계상).
@@ -136,7 +136,7 @@ updated: 2026-08-04
 - [x] 중첩 worktree(`<wt>/<subwt>`) fixture 에서 하위 worktree 구간이 상위로 새지 않음 — **최심 후보 선택 규칙 검증**(하위가 *삭제된* 경우도 포함. "longest-prefix 검증"이라는 옛 표현은 폐기된 규칙명이라 쓰지 않는다)  ✅(테스트 `test_deleted_nested_worktree_does_not_leak_to_parent_worktree`)
 - [x] `classify_cwd` 테이블 테스트: 타 repo cwd·홈 디렉토리·root 의 조상·worktrees 컨테이너 자체(`<root>/.claude/worktrees`)·대소문자 차이 → 각각 기대 bucket 으로 분류 (테스트 통과)  ✅(테스트 15개 통과)
 - [ ] ~~오가지 않은 단일 worktree 세션의 산출값이 변경 전과 동일~~ → **2026-08-04 정정(plan-review 가 반증)**. worktree 수준에서는 거짓이다 — 새 방식은 *다른* slug 폴더에 있는 파일에서도 자기 cwd 줄을 끌어오므로 값이 바뀌는 게 정상이다(실측: doc-slim 1.96h→2.63h). 기준을 **"단일 cwd 만 담긴 파일 fixture 에서 산출값이 변경 전과 동일"** 로 한정한다(테스트 통과).
-- [ ] ~~knowledge_base 에서 ABC-2812 계열에 시간이 잡히고 main 의 2h 가 줄어듦~~ / ~~main 42.53h→11.63h~~ → **2026-08-04 두 번 정정**. ① ABC-2812 worktree 는 삭제돼 `--all`(live 만 순회)로 검증 불가. ② 대체안으로 쓴 고정 수치도 재귀 코퍼스 오염값인 데다, **실데이터는 매일 늘어 고정 수치는 내일 틀린다**(2차 리뷰 B3). 대체 기준 — **스냅샷 fixture + 불변식**:
+- [ ] ~~회사 repo 에서 ABC-2812 계열에 시간이 잡히고 main 의 2h 가 줄어듦~~ / ~~main 42.53h→11.63h~~ → **2026-08-04 두 번 정정**. ① ABC-2812 worktree 는 삭제돼 `--all`(live 만 순회)로 검증 불가. ② 대체안으로 쓴 고정 수치도 재귀 코퍼스 오염값인 데다, **실데이터는 매일 늘어 고정 수치는 내일 틀린다**(2차 리뷰 B3). 대체 기준 — **스냅샷 fixture + 불변식**:
   - `find_session_files(cwd, home)` 의 `home` 파라미터로 고정 corpus 를 주입해 재현 가능하게 한다.
   - 불변식 ① **main bucket 에 `<root>/.claude/worktrees/*` cwd 의 기여가 0**.
   - 불변식 ② **모든 bucket 시간의 합 ≤ 파일 union 총합**(이중계상 없음).
