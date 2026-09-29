@@ -370,3 +370,7 @@
 
 ## [2026-09-29] update | link-following-file-ops (Windows junction 실측)
 - ⚠️ 이던 "트리 안 junction" 을 Windows 11·Python 3.13.15 에서 실측(windows-ps1-rest U3): `_force_rmtree` 는 junction 항목만 지우고 밖의 read-only 파일은 남고 read-only 도 유지. junction 을 read-only 로 만들어 핸들러 chmod 경로를 지나게 해도(spy 확인) 같다 — Windows `os.chmod` 는 링크를 따라가지 않는다. heal 코드 수정 없음, 테스트 `test_junction_inside_tree_leaves_outside_alone` 추가.
+
+## [2026-09-29] update | anthropic-claude-models (ultracode 가 effort 와 분리됨, v2.1.284)
+- Claude Code v2.1.284 에서 ultracode 가 `/effort` 안의 별도 토글이 되어 더 이상 `xhigh` 를 강제하지 않는다. effort 해석 줄의 "ultracode 설정이 꺼져 있을 때 — 켜면 `xhigh` 를 보낸다" 전제를 지우고, 새 동작·`--effort ultracode`/SDK 예외·키워드는 레벨 불변·이전 동작(v2.1.283 이하)을 별도 줄로 적었다. 근거는 model-config·workflows 원문(2026-09-29 조회)·CHANGELOG 2.1.284·설치 바이너리 2.1.281/2.1.283 대 2.1.284 비교(workflow wf_0b281262-6a0). 같은 전제를 담은 CLAUDE.md §5 괄호와 README 서브에이전트 절도 같은 브랜치에서 정정했다.
+- 리뷰 반영: 같은 CHANGELOG 2.1.284 가 Sonnet 5.5 추가를 알리고 model-config 가 "Opus 5.5 and Sonnet 5.5 default to `medium`" 으로 바뀌어, 손댄 effort 해석 줄의 기본값 괄호에 Sonnet 5.5 를 넣고 라인업 미반영은 `[!open]` 으로 표시했다(라인업·가격·researcher 영향 재검증은 별도 작업).
