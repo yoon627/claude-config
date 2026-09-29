@@ -367,3 +367,6 @@
 
 ## [2026-09-29] update | lesson-verify-scaffold-purpose-before-removal (사례 4 후속)
 - 사례 4 의 트리거 공백(분석 → 운영 자산 변경 계획으로 넘어갈 때 wiki 조회가 걸리지 않음)을 사용자 승인으로 dlc 에 반영: 3단계(draft plan) 앞 필수 decision 조회 — 대상 자산 이름·작업 종류로 두 index 조회, 걸린 결정은 `# Decisions` 첫 줄에서 따르거나 뒤집음(skills/dlc/SKILL.md wiki 연계, docs/dlc-details.md §C, README). 페이지의 "제안으로만 남긴다" 문장을 반영 사실로 갱신.
+
+## [2026-09-29] update | link-following-file-ops (Windows junction 실측)
+- ⚠️ 이던 "트리 안 junction" 을 Windows 11·Python 3.13.15 에서 실측(windows-ps1-rest U3): `_force_rmtree` 는 junction 항목만 지우고 밖의 read-only 파일은 남고 read-only 도 유지. junction 을 read-only 로 만들어 핸들러 chmod 경로를 지나게 해도(spy 확인) 같다 — Windows `os.chmod` 는 링크를 따라가지 않는다. heal 코드 수정 없음, 테스트 `test_junction_inside_tree_leaves_outside_alone` 추가.

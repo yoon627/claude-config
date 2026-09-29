@@ -35,6 +35,7 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 - 2026-09-29: 착수. U1 — BOM 테스트 Red(8개) → 8개 파일에 BOM → Green(10개), PS5.1 가드 테스트 135/135. 조사(subagent): setup.ps1 은 jira-worklog 1개만, `*.test.ps1` 은 verify·CI 미연결, heal junction 테스트 없음.
 - 2026-09-29: U5 관찰 — `notify.ps1` 의 balloon 예비 경로를 그대로(A, 0.2초 만에 종료)와 `Start-Sleep 5`+`Dispose()`(B, 5.2초) 로 `powershell.exe`(5.1, notify-hook.js 가 쓰는 엔진)에서 띄움. 사용자 관찰: **A·B 둘 다 보임**(Windows 11 10.0.26200). → 수정 안 함.
 - 2026-09-29: U1 커밋. U4 — 새 원격에 서로 다른 커밋 800개 push 케이스 추가(fast-import, 두 엔진) → ps1 Red(`Process.Start` 가 명령줄 길이로 예외, 깨끗한 push 차단) → `Invoke-Git -Stdin`, `Get-RevInput`(순서 유지 중복 제거, `^` 제외), `git log --stdin`, 빈 입력 차단 → pwsh 7·PS5.1 모두 137/137.
+- 2026-09-29: U4 커밋. U3 — Windows 전용 테스트(트리 안 junction → 밖의 read-only 파일, junction 자체 read-only 로 핸들러 경로 강제·spy 로 호출 확인) 통과: 밖의 파일 존재·read-only 유지. heal 코드 수정 없음, wiki `link-following-file-ops` ⚠️→✅.
 
 # Next
 

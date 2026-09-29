@@ -2,8 +2,9 @@
 title: link-following-file-ops
 category: entity
 created: 2026-09-27
-updated: 2026-09-27
+updated: 2026-09-29
 sources:
+  - Windows 11·Python 3.13.15 실측 2026-09-29 (skills/wt/test_heal_submodules.py test_junction_inside_tree_leaves_outside_alone)
   - https://pubs.opengroup.org/onlinepubs/9799919799/functions/unlink.html (EACCES — 경로 검색 권한 또는 "the directory containing the directory entry to be removed" 의 쓰기 권한, 부모 디렉토리의 S_ISVTX)
   - https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/V1_chap04.html (4.5 Directory Protection — sticky 디렉토리의 삭제 조건, "Optionally, the file is writable by the process" 는 구현 정의)
   - https://pubs.opengroup.org/onlinepubs/9799919799/functions/link.html (link 는 기존 파일에 새 디렉토리 항목을 만든다)
@@ -28,7 +29,7 @@ sources:
 
 ## 함정과 올바른 방법
 - **삭제 전에 트리 전체를 chmod 하지 않는다.** 이 repo 의 heal(`skills/wt/heal_submodules.py`)은 Windows read-only pack 파일 때문에 모든 플랫폼에서 트리의 모든 파일에 `os.chmod(…, S_IWRITE)` 를 먼저 돌렸다. 재현해 보니 POSIX 에서 트리 안 파일 심링크·hardlink 가 가리키는 밖의 파일이 `0o200`(읽기 불가)이 됐다. 고친 방법은 공식 예제처럼 **삭제가 실패했을 때만 핸들러에서** read-only 를 풀되, **Windows 에서만**, **심링크가 아닐 때만** 하는 것이다(PR #181).
-- **남은 한계(Windows)**: 핸들러의 `islink` 검사는 hardlink 를 거르지 못해, 트리 안 hardlink 가 read-only 로 삭제에 실패하면 공유하는 read-only 속성이 풀린다(수정 전과 같은 동작). junction 을 `os.path.islink` 가 링크로 보는지는 확인하지 않았다 ⚠️(3.12 에 `os.path.isjunction` 이 따로 있다). Windows 에서 실행해 보지 않았으므로 추정으로 방어를 더하지 않는다([[lesson-no-speculative-platform-switch]]).
+- **남은 한계(Windows)**: 핸들러의 `islink` 검사는 hardlink 를 거르지 못해, 트리 안 hardlink 가 read-only 로 삭제에 실패하면 공유하는 read-only 속성이 풀린다(수정 전과 같은 동작). junction 은 `os.path.islink` 가 링크로 보지 않지만(3.12 에 `os.path.isjunction` 이 따로 있다) 해가 없다 ✅ — 2026-09-29 Windows 11(10.0.26200)·Python 3.13.15 실측(`test_junction_inside_tree_leaves_outside_alone`): 트리 안 junction 이 밖의 디렉토리를 가리킬 때 `_force_rmtree` 는 junction 항목만 지우고 밖의 read-only 파일은 남으며 read-only 도 유지된다. junction 자체를 read-only(`attrib +R /L`)로 만들어 핸들러가 실제로 chmod 하는 경로(spy 로 호출 확인)에서도 같다 — Windows `os.chmod` 는 기본으로 링크를 따라가지 않는다. 그래서 방어(`isjunction` 검사)를 더하지 않았다([[lesson-no-speculative-platform-switch]] — 실행으로 확인한 뒤의 판단).
 - **이미 있는 링크가 원하는 대상을 가리키는지 비교할 때는 물리 경로로 푼다.** `install-codex-skill.sh` 는 기존 링크의 대상을 `cd <dir> && pwd -P` 로 정규화했다. 그러면 부모가 심링크인 자리의 `../x` 상대 링크가 글자로 풀려 source 와 같다고 판정됐다. 실제로는 다른 파일(decoy)을 가리키는데도 "already" 로 넘어간 것이다. `cd -P` 로 바꿔 커널과 같은 결과를 얻었다(Red 재현 테스트 포함).
 
 ## 연계
