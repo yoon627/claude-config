@@ -1,6 +1,6 @@
 ---
 title: codex-parser-wait-gaps — Codex 파서의 사용자 대기·turn 사이 공백을 작업시간에서 제외
-status: in_progress
+status: done
 started: 2026-09-11
 updated: 2026-09-28
 ---
@@ -16,6 +16,7 @@ jira-worklog 의 Codex 세션 파서가 turn 사이 공백(사용자 응답 대�
 
 # Progress
 - 2026-09-28: 통합 재개(사용자 승인). 선행 worklog-gap-24h 가 PR #197 로 origin 에 들어가 이 브랜치의 옛 gap-24h 커밋(c7cdc8d·6d91c68)과 같은 내용이 다른 sha 로 존재 → origin/main 병합, 충돌 3곳(README 1·SKILL 2)은 이 브랜치 문장이 origin 문장을 포함하고 Codex 설명을 더한 형태라 이 브랜치 쪽으로. 병합 트리에서 jira 테스트 4파일 OK.
+- 2026-09-29: 전체 verify(Windows) — jira 축 전부 ok, 실패 3건은 origin/main 과 같은 기존 결함(#190). `/e merge` — PR #198.
 - 2026-09-14: `/e` 체크포인트. 정식 커밋 1b1ae38 이 브랜치에 있고 tree clean(WIP 없음). 사용자가 변경 확인 후 통합은 보류·종료 선택. 미머지라 worktree 유지.
 - 2026-09-11: simplify 점검(상수 3개+generator 1개, 정리 대상 없음 — docstring 과장 1곳만 수정). 격리 runner: `bash scripts/verify.sh` exit 0 `ALL PASS`(skip 없음), unittest 119개 OK. evidence gate 7항목 전부 증거 충족 → DONE(통합 대기). 커밋 후 로컬 ff-merge 는 medium 이라 `/e merge` 또는 사용자 판단.
 - 2026-09-11: code-reviewer REQUEST CHANGES(Critical 0·Major 1·Minor 6) → 전부 반영. 독립 재계산으로 Acceptance 5 재현, verify.sh ALL PASS·118 tests 확인(리뷰어 실행).
@@ -24,7 +25,7 @@ jira-worklog 의 Codex 세션 파서가 turn 사이 공백(사용자 응답 대�
 - 2026-09-11: plan-reviewer CONDITIONAL — 초기 실측(494.7h)이 설계와 다른 변형(task_started→assistant)에서 나온 것을 지적, 설계 규칙 재계산 469.9h(차이 24.79h/7파일). `codex:b86f994b` 1038.5m → 16.6m 확인. pending 미종료·구형식 불변식 오기·기각 대안 누락을 아래에 반영. Codex 병행은 `out of credits` 로 생략(세션 마커).
 
 # Next
-전체 verify → `/e merge`(push→PR→머지). 머지 후 첫 `--register` 는 과거 Codex 항목이 게이트에 걸리는 것이 정상 — `--allow-large-change` 판단.
+머지 후 첫 `--register` 는 과거 Codex 항목이 게이트에 걸리는 것이 정상 — `--allow-large-change` 판단.
 
 # Decisions
 - **lifecycle 이벤트를 role 로 번역해 기존 `_is_work_gap` 에 태운다** — `task_started` → `user`(직전 gap 제외. turn 시작 전은 실측상 대기다 — 예외 상한은 자동 compaction turn 44건으로 24.79h 안. `task_complete` 없이 끊긴 turn 208건도 덮는다), `task_complete`/`turn_aborted` → `await_user`(직후 gap 제외). 별도 active-turn 상태기계는 두지 않는다(이유: Claude 쪽 `await_user` 와 같은 메커니즘이라 코드·테스트가 한 규칙으로 설명되고, 상태기계는 turn 미종료 케이스마다 분기가 늘어난다). 기각 대안 1: "complete/abort 만 await_user, task_started 는 계상 이벤트 유지" — `task_complete 10:00:22 → RI:message/user 10:00:29 → 15시간 공백 → task_started 다음날 01:05`(01a056c3) 형태가 실존해 첫 6초만 제외되고 15시간이 남는다(7파일 24.79h). 기각 대안 2: `response_item role=user` 를 사용자 입력으로 보기 — Codex 는 `<environment_context>`·AGENTS.md 등 시스템 컨텍스트도 role=user 로 넣어 구분 불가(기존 docstring 의 근거 유지).
