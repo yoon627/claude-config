@@ -1,6 +1,6 @@
 ---
 title: autopull-fetch-stall — SessionStart 자동 pull 의 fetch 가 계속 실패하면 브리프 N 이 알린다(이슈 #204)
-status: in_progress
+status: done
 started: 2026-09-29
 updated: 2026-09-29
 intent: plans/2026-09-25-repo-audit-followups/intent.md
@@ -41,6 +41,7 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 - 2026-09-29: dash 대조 — 원안 `-nt` 단독 식으로 바꾼 사본(scratchpad)은 Windows 37/37 통과, WSL dash 에서 P4 `시도 스탬프를 다시 찍으면 경과 일수가 0 으로 돌아간다` 로 실패. 5경우 직접 실행(none / attempt 만 / attempt 새것 / attempt 옛것 / 같은 시각): dash 는 수정식 touch·keep·keep·touch·touch(기대와 일치), 원안 식은 "attempt 만" 에서 touch(틀림). Git Bash sh 는 두 식 모두 기대와 일치. `shellcheck scripts/session-start-pull.sh`(0.11.0) rc 0. fixture(attempt 5일 전) 에 대해 브리프가 `… 자동 pull 의 fetch 가 5일째 성공하지 못했다(성공 기록 없음) …` 출력.
 - 2026-09-29: simplify — 게이트 분기의 `behind ? … : null` 5회를 `gate()` 헬퍼로, gitDir·failure 두 단계 계산을 한 번으로. 재실행 brief 95 passed(Windows·WSL). 문서: README N 절·(1)·(2)·끄기 절, wiki `autopull-verified-ff`(:27·:34, sources)·`index.md`·`log.md`, `PYTHONUTF8=1 python skills/wiki/check_links.py` → clean. `bash scripts/verify.sh`(Windows) → `ALL PASS (skip: install-hooks.test.js(case) record-verified.test.sh)` — skip 2건은 이 변경과 무관(install-hooks 의 한 케이스는 `SKIP [ps1] --path-format 을 모르는 git(2.30 이하) — Windows 에서는 sh shim 을 실행할 수 없음`, record-verified 는 jq 부재)이고 통과로 치지 않는다 — 해당 축은 PR CI(ubuntu)에서 확인.
 - 2026-09-29: 코드 리뷰 반영(아래 # Review Disposition). SC3013 disable 주석 → 공식 shellcheck 0.9.0 으로 tracked `*.sh` 전체 rc 0(적용 전 이 줄만 rc 1), 0.11.0 rc 0. 테스트 이름 P1·P3–P7 → ⑬·⑭·⑮·⑰·⑱·⑲ 로 바꾸고 ⑯(ok 있음 + attempt 가 ok 보다 새것인 채 재실패 → attempt·ok 유지) 추가. 리뷰가 든 변형 식 `[ ! -e att ] || [ -e ok ]` 을 넣은 scratchpad 사본에서 ⑯ 이 `시도 스탬프를 다시 찍으면 경과 일수가 0 으로 돌아간다` 로 Red(기존 37건은 이 변형을 통과). Green: Windows pull 38·brief 95 passed, WSL dash pull 38·brief 95 passed.
+- 2026-09-29: `/e merge` — PR #208.
 
 # Review Disposition
 
@@ -50,7 +51,7 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 
 # Next
 
-- PR(본문에 `Closes #204`) → PR CI(ubuntu, dash) `ALL PASS` 확인. 머지 후 Acceptance 6 실측.
+- 머지 후 Acceptance 6 실측: 새 세션을 연 뒤 `ls -l --time-style=full-iso ~/.claude/.git/claude-autopull-*` 에서 ok 가 attempt 보다 새것인지 본다.
 
 # Decisions
 
