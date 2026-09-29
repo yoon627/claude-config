@@ -1,4 +1,4 @@
-param([string]$Mode = 'pre-commit')
+﻿param([string]$Mode = 'pre-commit')
 
 $ErrorActionPreference = 'Stop'
 

@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$Title = 'Claude Code',
     [string]$Message = 'Done',

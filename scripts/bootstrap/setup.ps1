@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Claude Code 환경 부트스트랩 (Windows). setup.sh 의 Windows 대응. idempotent.
 .DESCRIPTION
