@@ -4,7 +4,8 @@
 //   L /improve 권장: dlc-signal failure 축 신호가 마커(마지막 /improve) 이후 임계 세션 이상 누적.
 //   M 닫히지 않은 plan: in_progress 인데 작업이 끝난 것으로 보이는 plan(§10 "머지 시점에 즉시 done" 누락).
 //     K 의 정반대 축 — K 는 "코드는 됐는데 안 머지됨", M 은 "머지는 됐는데 plan 이 안 닫힘".
-//   N 자동 pull 밀림: ~/.claude 가 origin/main 보다 뒤처졌을 때 **왜 자동 pull 이 못 따라잡았는지**.
+//   N 자동 pull 밀림: ~/.claude 가 origin/main 보다 뒤처졌을 때 **왜 자동 pull 이 못 따라잡았는지**,
+//     그리고 뒤처짐이 0 으로 보여도 자동 pull 의 fetch 가 임계일째 성공하지 못했으면 그 사실.
 //     pull 훅은 async 라 stdout 이 첫 턴 뒤에 도달 → 시작 시점에 알려면 동기인 이 브리프가 말해야 한다.
 //   O 세션 repo 밀림: **지금 작업 중인 repo**(hook stdin 의 cwd)가 upstream 보다 뒤처졌거나 미커밋이
 //     오래 방치됐을 때. N 과 나누는 이유는 처방이 다르기 때문 — ~/.claude 는 자동 pull 훅이 있어
@@ -286,7 +287,8 @@ function stalePlanLine(repoDir, env, now) {
 // 보려면 동기인 이 브리프가 말해야 한다. 네트워크는 쓰지 않는다(캐시된 추적 ref 로 판정 — 이번
 // 세션의 pull 보다 먼저 돌므로 **마지막 fetch 시점** 기준이다).
 // 판정이 성립하는 근거: 자동 pull(session-start-pull.sh)은 fetch 와 merge 를 나눠 하므로, merge 가
-// 로컬 변경과 충돌해 거부돼도 추적 ref(origin/main·origin/ci/verified)는 갱신된다.
+// 로컬 변경과 충돌해 거부돼도 추적 ref(origin/main·origin/ci/verified)는 갱신된다. fetch 자체가
+// 실패하면 그 ref 가 멈추므로, 스크립트가 남기는 시도·성공 스탬프(AUTOPULL_STAMPS)로 따로 잰다.
 // 파일명은 `-z`(NUL 구분)로 받는다. 기본 core.quotePath 는 비ASCII 를 `"\355\225\234…"` 로
 // 이스케이프해 표시가 깨지고, quotePath=false 만 끄면 개행 포함 경로가 줄 분리를 깨뜨린다.
 function gitPaths(repoDir, args) {
@@ -343,36 +345,73 @@ function verifiedTarget(repoDir, label) {
   return { sha };
 }
 
-function autopullStalledLine(repoDir, env) {
+// session-start-pull.sh 가 git dir 에 남기는 빈 파일(mtime 만 쓴다). 스크립트와 키가 갈라지면 조용히
+// 무음이 되므로 테스트가 이 이름이 스크립트 본문에 있는지 잠근다.
+const AUTOPULL_STAMPS = { attempt: 'claude-autopull-attempt', ok: 'claude-autopull-ok' };
+
+// 자동 pull 의 fetch 가 임계일째 성공하지 못했으면 { days, lastOk }(lastOk 는 날짜 문자열 또는 null), 아니면 null.
+// attempt 는 "마지막 성공 뒤 첫 시도"라 처음부터 깨진 머신(ok 없음)도 첫 실패부터 잰다.
+// attempt 가 없으면(옛 스크립트·시도한 적 없음) 모르는 것이라 무음이다.
+function autopullFetchFailure(gitDir, env, now) {
+  const mtime = (name) => {
+    try {
+      return fs.statSync(path.join(gitDir, name)).mtimeMs;
+    } catch {
+      return null;
+    }
+  };
+  const attempt = mtime(AUTOPULL_STAMPS.attempt);
+  if (attempt === null) return null;
+  const ok = mtime(AUTOPULL_STAMPS.ok);
+  if (ok !== null && attempt <= ok) return null; // 마지막 시도가 성공했다
+  const rawDays = Number(env.CLAUDE_BRIEF_AUTOPULL_DAYS);
+  const minDays = Number.isFinite(rawDays) && rawDays >= 1 ? Math.floor(rawDays) : 3;
+  const days = daysSinceLocal(localDateString(attempt), now);
+  if (days === null || days < minDays) return null;
+  return { days, lastOk: ok === null ? null : localDateString(ok) };
+}
+
+function autopullStalledLine(repoDir, env, now) {
   let behind;
   try {
     behind = Number(git(repoDir, ['rev-list', '--count', 'HEAD..refs/remotes/origin/main']).trim());
   } catch {
     return null; // origin/main 없음·비 git → 판정 불가라 무음
   }
-  if (!behind) return null; // 최신 = 정상 무음(매 세션 잡음 금지)
+  // fetch 가 계속 실패하면 추적 ref 가 멈춰 behind 가 0 으로 보이므로, 최신이라고 단정하기 전에 스탬프를 본다.
+  const gitDir = git(repoDir, ['rev-parse', '--absolute-git-dir']).trim();
+  const failure = autopullFetchFailure(gitDir, env, now);
+  if (!behind && !failure) return null; // 최신 = 정상 무음(매 세션 잡음 금지)
 
   // 라벨은 감시 대상에서 유도한다. 하드코딩하면 CLAUDE_BRIEF_REPO 로 다른 repo 를 겨눴을 때
   // "~/.claude 가 뒤처졌다"고 거짓 보고한다(실측으로 확인한 뒤 고쳤다).
   const label = samePath(repoDir, path.join(os.homedir(), '.claude')) ? '~/.claude' : path.basename(repoDir) || repoDir;
+  const where = label === '~/.claude' ? label : repoDir;
+  const fetchFailure = (f) =>
+    `자동 pull 의 fetch 가 ${f.days}일째 성공하지 못했다(${f.lastOk ? `마지막 성공 ${f.lastOk}` : '성공 기록 없음'}) — ` +
+    `뒤처짐 판정이 그 시점에 멈춰 있다. 재현: GIT_TERMINAL_PROMPT=0 git -C ${where} -c credential.helper= fetch origin main ` +
+    '(오프라인이었다면 무시). 새 fetch 만 깨졌으면 CLAUDE_AUTOPULL_VERIFY=0';
   const head = `${label} ${behind}커밋 뒤처짐`;
   // 아래 분기 순서 = 훅이 pull 을 포기하는 순서. 스스로 낫지 않는 원인을 "재시도하면 되겠지"로
   // 뭉뚱그리면, 이 신호가 없애려던 "조용히 밀리는데 괜찮은 줄 안다"를 문장만 바꿔 재생산한다.
-  if (env.CLAUDE_AUTOPULL_OFF === '1') return `${head} — CLAUDE_AUTOPULL_OFF=1 로 자동 pull 을 꺼 둔 상태`;
-  if (fs.existsSync(path.join(repoDir, '.autopull-off'))) {
-    return `${head} — .autopull-off 파일로 자동 pull 을 꺼 둔 상태`;
-  }
+  // behind 0 에서는 게이트 사유를 말하지 않는다 — 뒤처지지 않았고, 훅이 fetch 를 시도하지 않는
+  // 상태에서 "fetch 가 실패 중"이라고 하면 거짓이다.
+  const gate = (reason) => (behind ? `${head} — ${reason}` : null);
+  if (env.CLAUDE_AUTOPULL_OFF === '1') return gate('CLAUDE_AUTOPULL_OFF=1 로 자동 pull 을 꺼 둔 상태');
+  if (fs.existsSync(path.join(repoDir, '.autopull-off'))) return gate('.autopull-off 파일로 자동 pull 을 꺼 둔 상태');
 
   const branch = git(repoDir, ['rev-parse', '--abbrev-ref', 'HEAD']).trim();
-  if (branch === 'HEAD') return `${head} — detached HEAD 라 자동 pull 이 돌지 않는다`;
+  if (branch === 'HEAD') return gate('detached HEAD 라 자동 pull 이 돌지 않는다');
   // 훅 스크립트는 브랜치가 `main` 과 정확히 일치할 때만 돈다 — master 도 skip 대상이다.
-  if (branch !== 'main') return `${head} — 브랜치가 ${branch} 라 자동 pull 이 돌지 않는다(훅은 main 에서만)`;
+  if (branch !== 'main') return gate(`브랜치가 ${branch} 라 자동 pull 이 돌지 않는다(훅은 main 에서만)`);
 
-  const gitDir = git(repoDir, ['rev-parse', '--absolute-git-dir']).trim();
   const busy = ['rebase-merge', 'rebase-apply', 'MERGE_HEAD', 'BISECT_LOG'].find((n) =>
     fs.existsSync(`${gitDir}/${n}`),
   );
-  if (busy) return `${head} — ${busy} 진행 중이라 자동 pull 이 skip 된다(끝내면 풀린다)`;
+  if (busy) return gate(`${busy} 진행 중이라 자동 pull 이 skip 된다(끝내면 풀린다)`);
+
+  // 훅은 fetch 가 실패하면 merge 전에 끝낸다 — 아래 사유들은 마지막 fetch 결과 기준이라 그 뒤에 온다.
+  if (failure) return behind ? `${head} — ${fetchFailure(failure)}` : `${label} ${fetchFailure(failure)}`;
 
   // ahead>0 이면 갈라진 것이라 --ff-only 는 영원히 실패한다 — 재시도로는 안 풀린다.
   const ahead = Number(git(repoDir, ['rev-list', '--count', 'refs/remotes/origin/main..HEAD']).trim());
@@ -609,7 +648,7 @@ function main(cwd) {
   collect('CLAUDE_BRIEF_MERGE_OFF', () => mergePendingLine(repoDir));
   collect('CLAUDE_BRIEF_IMPROVE_OFF', () => improveNudgeLine(env));
   collect('CLAUDE_BRIEF_STALE_OFF', () => stalePlanLine(repoDir, env, new Date()));
-  collect('CLAUDE_BRIEF_AUTOPULL_OFF', () => autopullStalledLine(repoDir, env));
+  collect('CLAUDE_BRIEF_AUTOPULL_OFF', () => autopullStalledLine(repoDir, env, new Date()));
   collect('CLAUDE_BRIEF_CWD_OFF', () => currentRepoLine(cwd, repoDir, env, new Date()));
   return lines.length ? lines.join('\n') + '\n' : '';
 }
@@ -646,4 +685,5 @@ if (require.main === module) {
 }
 
 // session-fetch 훅이 fetch 직후 같은 문장을 내기 위해 가져다 쓴다 — 두 곳에서 만들면 갈라진다.
-module.exports = { currentRepoLine, samePath, fetchStampName, GIT_LOCAL_ENV };
+// AUTOPULL_STAMPS 는 테스트가 session-start-pull.sh 와 키 일치를 잠그는 데 쓴다.
+module.exports = { currentRepoLine, samePath, fetchStampName, GIT_LOCAL_ENV, AUTOPULL_STAMPS };

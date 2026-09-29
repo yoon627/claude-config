@@ -12,6 +12,10 @@
 #
 # 상한: 네트워크 단계만 워치독으로 감싼다(CLAUDE_AUTOPULL_TIMEOUT 초, 기본 8).
 #
+# 기록: git dir 에 빈 파일 두 개의 mtime 을 남긴다 — claude-autopull-attempt(마지막 성공 뒤 첫
+# fetch 시도), claude-autopull-ok(마지막 fetch 성공). fetch 가 계속 실패하면 추적 ref 가 멈춰
+# 브리프가 뒤처짐을 못 보므로, 브리프 N 이 이 둘로 "fetch 가 N일째 성공 못 함"을 잰다.
+#
 # 본문을 함수로 감싸고 마지막 줄에서 호출한다: 이 스크립트는 아래 merge 로 **자기 자신을
 # 갈아끼울 수 있고**, 셸은 스크립트를 fd offset 기반으로 이어 읽는다. 통째로 파싱된 뒤 실행되게
 # 해야 교체 후 남은 바이트를 잘린 명령으로 읽지 않는다.
@@ -64,6 +68,16 @@ main() {
   else
     set -- origin main
   fi
+
+  # fetch 전에 찍어야 워치독·하니스 kill 뒤에도 남는다. 성공 뒤 첫 시도만 찍어 첫 실패 시각을 유지한다.
+  # 부재를 -e 로 명시한다 — Ubuntu dash 는 `[ a -nt 없는파일 ]` 이 거짓이다.
+  _att="$git_dir/claude-autopull-attempt"
+  _ok="$git_dir/claude-autopull-ok"
+  # -nt 는 dash·bash 모두 지원한다. CI 의 ShellCheck 0.9 는 sh 에서 SC3013 경고를 낸다(0.11 에서 제거).
+  # shellcheck disable=SC3013
+  if [ ! -e "$_att" ] || { [ -e "$_ok" ] && ! [ "$_att" -nt "$_ok" ]; }; then
+    touch "$_att" 2>/dev/null
+  fi
   #
   # stdio 를 끊지 않으면 백그라운드 자식이 호출자의 파이프를 물고 있어, 이 스크립트를 파이프로
   # 읽는 쪽(테스트·CI)이 자식이 죽을 때까지 반환하지 못한다.
@@ -114,8 +128,10 @@ main() {
     sleep 0.2
   done
   # fetch 가 kill 됐거나 실패했으면 여기서 끝낸다. 그냥 지나가면 **이전 세션이 남긴 추적 ref**
-  # 로 origin 과 한 번도 통신하지 않은 채 ff 하고 "updated" 까지 출력한다.
+  # 로 origin 과 한 번도 통신하지 않은 채 ff 하고 "updated" 까지 출력한다. 성공 기록은 fetch 가
+  # 성공했을 때만 남긴다 — merge 가 거부되는 경우는 브리프 N 의 다른 사유가 말한다.
   wait "$_pid" 2>/dev/null || exit 0
+  touch "$_ok" 2>/dev/null
 
   target=refs/remotes/origin/main
   if [ -n "$verify" ]; then
