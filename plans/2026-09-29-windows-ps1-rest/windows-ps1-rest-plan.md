@@ -36,10 +36,24 @@ intent: plans/2026-09-25-repo-audit-followups/intent.md
 - 2026-09-29: U5 관찰 — `notify.ps1` 의 balloon 예비 경로를 그대로(A, 0.2초 만에 종료)와 `Start-Sleep 5`+`Dispose()`(B, 5.2초) 로 `powershell.exe`(5.1, notify-hook.js 가 쓰는 엔진)에서 띄움. 사용자 관찰: **A·B 둘 다 보임**(Windows 11 10.0.26200). → 수정 안 함.
 - 2026-09-29: U1 커밋. U4 — 새 원격에 서로 다른 커밋 800개 push 케이스 추가(fast-import, 두 엔진) → ps1 Red(`Process.Start` 가 명령줄 길이로 예외, 깨끗한 push 차단) → `Invoke-Git -Stdin`, `Get-RevInput`(순서 유지 중복 제거, `^` 제외), `git log --stdin`, 빈 입력 차단 → pwsh 7·PS5.1 모두 137/137.
 - 2026-09-29: U4 커밋. U3 — Windows 전용 테스트(트리 안 junction → 밖의 read-only 파일, junction 자체 read-only 로 핸들러 경로 강제·spy 로 호출 확인) 통과: 밖의 파일 존재·read-only 유지. heal 코드 수정 없음, wiki `link-following-file-ops` ⚠️→✅.
+- 2026-09-29: U2 — `install-codex-skill.ps1 -File`, setup.ps1 3b 를 setup.sh 와 맞춤(skill 7종·AGENTS.md·agent 정의, 실패 모아 exit 1), `.test.ps1` 파일 모드 행렬·목록 일치, verify 가 `*.test.ps1` 실행. 실측: PS5.1 `New-Item -ItemType SymbolicLink` 은 개발자 모드에서도 관리자 요구, `setup.ps1 -DryRun`(5.1) 계획 정상.
+- 2026-09-29: code-reviewer(+Codex) REQUEST CHANGES — 아래 Review Disposition. Major(U4 회귀): PS5.1 + UTF-8 콘솔 입력(이 PC 기본값이 65001)에서 .NET Framework 가 git stdin 앞에 BOM → `bad revision` exit 128 → 모든 push 차단. 재현(5.1 exit 128 / 7 exit 0) → 테스트에 `ps51` 엔진(UTF-8 콘솔) 추가 Red(pre-push 41건) → `Process.Start` 동안 `[Console]::InputEncoding` 을 BOM 없는 UTF-8 로 → 207/207(sh·7·5.1).
 
 # Next
 
-U2(setup.ps1 Codex 연결) → U3(heal junction 실측) → 전체 verify → code-reviewer → PR.
+전체 verify → 후속 수정을 대상 커밋에 합침(commit-check) → PR(승인 후).
+
+# Review Disposition
+
+- [code Major] PS5.1 stdin BOM(U4 회귀) — fix(`[Console]::InputEncoding` 임시 전환, `ps51` 엔진 테스트). 회귀 확인 절차: `bash scripts/pre-commit-check.test.sh`(Windows 에 powershell.exe 가 있으면 `ps51` 엔진이 UTF-8 콘솔로 돈다).
+- [code Minor, severity disputed(Codex Major)] mklink 경로의 cmd 메타문자 — fix(`CreateSymbolicLinkW` 직접 호출, 생성 후 대상 확인, `&` 경로 테스트).
+- [code Minor] 파일 모드 SKIP 과대 — fix(개발자 모드·관리자로 사전 판정, real-file 충돌은 skip 밖).
+- [code Minor] `[string]$Stdin=$null` sentinel 죽음 — fix(`$PSBoundParameters`).
+- [code Minor] verify 가 pwsh 만 — fix(`*.test.ps1` 을 pwsh·powershell.exe 둘 다).
+- [code Minor PLAUSIBLE] python 탐지(py 런처) — fix(`py -3`). sync em dash — fix(`PYTHONUTF8=1`).
+- [code Minor] 800커밋 block 케이스 — fix(801번째 ref 에만 토큰).
+- [code Nit] 중복 `LASTEXITCODE`(코드 교체로 소멸)·목록 순서(테스트가 순서까지 비교)·BOM 테스트 `--others` — fix.
+- [code Minor] plan/intent 어긋남 — fix(intent 줄 정정, macOS 항목 별도 `(미착수)` 줄).
 
 # Decisions
 
