@@ -726,6 +726,124 @@ ok('ⓝ21 충돌 파일은 자동 pull 이 실제로 가져올 범위(기록까�
   assert.match(run({ CLAUDE_BRIEF_REPO: r, ...NOFF, CLAUDE_AUTOPULL_VERIFY: '0' }), /remote1\.txt/);
 });
 
+// ---------- N: 자동 pull 의 fetch 가 계속 실패 ----------
+// fetch 가 실패하면 추적 ref 가 멈춰 behind 가 0 으로 보인다 — 스크립트가 남기는 시도·성공 스탬프로 잰다.
+const { AUTOPULL_STAMPS } = require('./session-brief.js');
+function upToDateRepo() {
+  const r = initRepo();
+  commit(r, 'base');
+  git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  return r;
+}
+// 스탬프를 만들고 로컬 달력으로 days 일 전으로 맞춘다.
+function stamp(repo, which, days) {
+  const f = path.join(repo, '.git', AUTOPULL_STAMPS[which]);
+  fs.writeFileSync(f, '');
+  ageFile(f, days);
+}
+const FETCH_FAIL = /fetch 가 5일째 성공하지 못했다/;
+
+ok('ⓝf1 스탬프가 없으면 최신 상태에서 무음(옛 스크립트 머신)', () => {
+  assert.strictEqual(run({ CLAUDE_BRIEF_REPO: upToDateRepo(), ...NOFF }), '');
+});
+
+ok('ⓝf2 behind 0 이어도 시도만 있고 성공이 임계일째 없으면 알린다', () => {
+  const r = upToDateRepo();
+  stamp(r, 'attempt', 5);
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...NOFF });
+  assert.match(out, FETCH_FAIL);
+  assert.match(out, /성공 기록 없음/);
+});
+
+ok('ⓝf3 성공 기록이 시도보다 오래됐으면 마지막 성공 날짜를 적는다', () => {
+  const r = upToDateRepo();
+  stamp(r, 'attempt', 5);
+  stamp(r, 'ok', 6);
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...NOFF });
+  assert.match(out, FETCH_FAIL);
+  assert.ok(out.includes(`마지막 성공 ${daysAgo(6)}`), out);
+});
+
+ok('ⓝf4 성공이 시도보다 새것이면 무음(마지막 시도가 성공)', () => {
+  const r = upToDateRepo();
+  stamp(r, 'attempt', 5);
+  stamp(r, 'ok', 1);
+  assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...NOFF }), '');
+});
+
+ok('ⓝf5 임계 미만은 무음, CLAUDE_BRIEF_AUTOPULL_DAYS 로 조정 — 0·음수·비숫자는 기본 3', () => {
+  const r = upToDateRepo();
+  stamp(r, 'attempt', 2);
+  assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...NOFF }), '');
+  assert.match(run({ CLAUDE_BRIEF_REPO: r, ...NOFF, CLAUDE_BRIEF_AUTOPULL_DAYS: '2' }), /fetch 가 2일째/);
+  for (const v of ['0', '-1', 'abc']) {
+    stamp(r, 'attempt', 2);
+    assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...NOFF, CLAUDE_BRIEF_AUTOPULL_DAYS: v }), '', `DAYS=${v}`);
+    stamp(r, 'attempt', 3);
+    assert.match(run({ CLAUDE_BRIEF_REPO: r, ...NOFF, CLAUDE_BRIEF_AUTOPULL_DAYS: v }), /fetch 가 3일째/, `DAYS=${v}`);
+  }
+});
+
+ok('ⓝf6 뒤처져 있으면 커밋 수와 fetch 실패를 함께 말하고 원인을 미확인으로 두지 않는다', () => {
+  const r = behindRepo(2);
+  stamp(r, 'attempt', 5);
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...NOFF });
+  assert.match(out, /2커밋 뒤처짐/);
+  assert.match(out, FETCH_FAIL);
+  assert.doesNotMatch(out, /원인 미확인/);
+});
+
+ok('ⓝf7 fetch 실패가 갈라짐·CI 기록 보류보다 먼저다(훅이 포기하는 순서)', () => {
+  const diverged = behindRepo(2);
+  commit(diverged, 'local-only');
+  stamp(diverged, 'attempt', 5);
+  const a = run({ CLAUDE_BRIEF_REPO: diverged, ...NOFF });
+  assert.match(a, FETCH_FAIL);
+  assert.doesNotMatch(a, /갈라져/);
+  const noRecord = behindRepo(2);
+  git(noRecord, ['update-ref', '-d', 'refs/remotes/origin/ci/verified']);
+  stamp(noRecord, 'attempt', 5);
+  const b = run({ CLAUDE_BRIEF_REPO: noRecord, ...NOFF });
+  assert.match(b, FETCH_FAIL);
+  assert.doesNotMatch(b, /CI 검증 기록\(origin\/ci\/verified\)이 없어/);
+});
+
+ok('ⓝf8 훅이 fetch 를 시도하지 않는 상태면 behind 0 에서 fetch 실패를 말하지 않는다', () => {
+  const cases = [
+    ['CLAUDE_AUTOPULL_OFF', () => ({ CLAUDE_AUTOPULL_OFF: '1' })],
+    ['.autopull-off', (r) => { fs.writeFileSync(path.join(r, '.autopull-off'), ''); return {}; }],
+    ['feature 브랜치', (r) => { git(r, ['checkout', '-q', '-b', 'feature-x']); return {}; }],
+    ['detached', (r) => { git(r, ['checkout', '-q', '--detach']); return {}; }],
+    ['rebase-merge', (r) => { fs.mkdirSync(path.join(r, '.git', 'rebase-merge')); return {}; }],
+  ];
+  for (const [name, setup] of cases) {
+    const r = upToDateRepo();
+    stamp(r, 'attempt', 5);
+    const extra = setup(r);
+    assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...NOFF, ...extra }), '', name);
+  }
+});
+
+ok('ⓝf9 CLAUDE_BRIEF_AUTOPULL_OFF=1 이면 fetch 실패도 무음', () => {
+  const r = upToDateRepo();
+  stamp(r, 'attempt', 5);
+  assert.strictEqual(run({ CLAUDE_BRIEF_REPO: r, ...NOFF, CLAUDE_BRIEF_AUTOPULL_OFF: '1' }), '');
+});
+
+ok('ⓝf10 스탬프 파일명이 자동 pull 스크립트와 같다(키가 갈라지면 한쪽이 조용히 굶는다)', () => {
+  const script = fs.readFileSync(path.join(__dirname, 'session-start-pull.sh'), 'utf8');
+  assert.ok(AUTOPULL_STAMPS.attempt && AUTOPULL_STAMPS.ok, 'AUTOPULL_STAMPS export 가 없다');
+  for (const name of Object.values(AUTOPULL_STAMPS)) assert.ok(script.includes(name), `${name} 이 스크립트에 없다`);
+});
+
+ok('ⓝf11 재현 명령은 훅과 같이 credential helper 를 끄고, 새 fetch 만 깨졌을 때의 탈출구를 적는다', () => {
+  const r = upToDateRepo();
+  stamp(r, 'attempt', 5);
+  const out = run({ CLAUDE_BRIEF_REPO: r, ...NOFF });
+  assert.match(out, /-c credential\.helper= fetch origin main/);
+  assert.match(out, /CLAUDE_AUTOPULL_VERIFY=0/);
+});
+
 ok('ⓝ8 origin/main 이 없으면 무음(판정 불가)', () => {
   const r = initRepo();
   commit(r, 'base');

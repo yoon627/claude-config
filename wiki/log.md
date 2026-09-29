@@ -370,3 +370,7 @@
 
 ## [2026-09-29] update | link-following-file-ops (Windows junction 실측)
 - ⚠️ 이던 "트리 안 junction" 을 Windows 11·Python 3.13.15 에서 실측(windows-ps1-rest U3): `_force_rmtree` 는 junction 항목만 지우고 밖의 read-only 파일은 남고 read-only 도 유지. junction 을 read-only 로 만들어 핸들러 chmod 경로를 지나게 해도(spy 확인) 같다 — Windows `os.chmod` 는 링크를 따라가지 않는다. heal 코드 수정 없음, 테스트 `test_junction_inside_tree_leaves_outside_alone` 추가.
+
+## [2026-09-29] update | autopull-verified-ff (fetch 지속 실패 신호)
+- 이슈 #204(`autopull-fetch-stall`): 자동 pull 의 fetch 가 계속 실패하면 추적 ref 가 멈춰 브리프 N 이 침묵하던 구멍을 `.git/claude-autopull-attempt`(성공 뒤 첫 시도)·`claude-autopull-ok`(성공) 스탬프로 막음. :27 의 "브리프까지 침묵", :34 의 "스스로 감지하는 신호는 아직 없다" 를 새 신호로 교체하고 남는 구멍(옛 스크립트 무음·한 세션 지연·1회 실패 + 공백 오경보·이미 깨진 머신은 수동 pull)을 적음.
+- 실측 ✅: Ubuntu dash 0.5.12-6ubuntu5 는 `[ a -nt 없는파일 ]` 이 거짓(Git Bash sh 는 참) — 원안 `-nt` 단독 식은 Windows 테스트 37/37 통과, WSL dash 에서 "성공 기록 없이 다시 실패" 케이스(⑮) 실패. 부재를 `-e` 로 명시한 식은 두 셸 모두 5경우 기대대로.
