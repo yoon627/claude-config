@@ -46,16 +46,34 @@ run_guard() { # <engine> <mode> <stdin>; GUARD_ENV (one NAME=value) is exported 
   fi
 }
 
-check() { # <engine> <block|allow|clean> <reason substring or -> <desc> <mode> [stdin]; clean = allow with no output
-  local engine="$1" expect="$2" reason="$3" desc="$4" mode="$5" input="${6-}" out rc ok=0
-  out="$(run_guard "$engine" "$mode" "$input")"; rc=$?
+has_reason() { # <output> <reason> — "-" always; "=text" needs the violation line "  - text" exactly
+  case "$2" in
+    -) return 0 ;;
+    =*) printf '%s\n' "$1" | sed $'s/\033\\[[0-9;]*m//g' | tr -d '\r' | grep -Fxq -- "  - ${2#=}" ;;
+    *) [[ "$1" == *"$2"* ]] ;;
+  esac
+}
+
+check() { # <engine> <block|allow|clean> <reason: substring, =violation line, or -> <desc> <mode> [stdin]; clean = allow with no output
+  local out rc
+  out="$(run_guard "$1" "$5" "${6-}")"; rc=$?
+  verdict "$1" "$2" "$3" "$4" "$out" "$rc"
+}
+
+verdict() { # <engine> <expect> <reason> <desc> <output> <exit code>
+  local engine="$1" expect="$2" reason="$3" desc="$4" out="$5" rc="$6" ok=0
   [ "$engine" != sh ] && ps1_ran=$((ps1_ran+1))
   if [ "$expect" = allow ]; then
-    [ $rc -eq 0 ] && ok=1
+    [ "$rc" -eq 0 ] && [[ "$out" != *"[BLOCKED]"* ]] && has_reason "$out" "$reason" && ok=1
   elif [ "$expect" = clean ]; then
-    [ $rc -eq 0 ] && [ -z "$out" ] && ok=1
-  elif [ $rc -ne 0 ] && [[ "$out" == *"[BLOCKED]"* ]] && { [ "$reason" = - ] || [[ "$out" == *"$reason"* ]]; }; then
+    [ "$rc" -eq 0 ] && [ -z "$out" ] && ok=1
+  elif [ "$rc" -ne 0 ] && [[ "$out" == *"[BLOCKED]"* ]] && has_reason "$out" "$reason"; then
     ok=1
+  fi
+  # FORBID (space-separated, lowercase): words the guard output must never contain in any case.
+  if [ $ok -eq 1 ] && [ -n "${FORBID-}" ]; then
+    local lo w; lo="$(printf '%s' "$out" | tr '[:upper:]' '[:lower:]')"
+    for w in $FORBID; do [[ "$lo" == *"$w"* ]] && { ok=0; out="output leaked a forbidden word: $w"; }; done
   fi
   if [ $ok -eq 1 ]; then
     pass=$((pass+1))
@@ -310,6 +328,200 @@ both block 'Direct push to refs/heads/main' 'other repo main push' pre-push "$(l
 both block 'Direct push to refs/heads/master' 'other repo master push' pre-push "$(line master "$s")"
 both allow - 'other repo feature branch push' pre-push "$(line feat "$s")"
 unset FAKE_HOME
+
+# --- private terms: $HOME/.claude/private-terms.txt, checked only in the ~/.claude repo ---
+# Synthetic terms only. List: BOM, CRLF, a comment and a blank line put the terms on physical
+# lines 3-6 — "*" marks a substring entry, the rest match on ASCII letter/digit boundaries.
+LIST='\xEF\xBB\xBF# comment\r\n\r\nzebracorp\r\n  qqxk  \r\n얼룩말사\r\n*mooncalf\r\n'
+newclaude() { # [list-content] — fresh fake HOME whose .claude is a repo on main; REPO points at it
+  FAKE_HOME="$(cd "$(mktemp -d "$T/h.XXXXXX")" && pwd -P)"
+  REPO="$FAKE_HOME/.claude"; mkdir -p "$REPO"; git -C "$REPO" init -q -b main
+  if [ $# -gt 0 ]; then printf '%b' "$1" > "$REPO/private-terms.txt"; fi
+}
+FORBID='zebracorp qqxk mooncalf 얼룩말사'
+
+# scope: another repo under the same HOME never reads the list
+newclaude "$LIST"; REPO="$FAKE_HOME/other"; mkdir -p "$REPO"; git -C "$REPO" init -q -b main
+stage notes/a.md 'ZebraCorp here'
+both clean - 'other repo is out of scope' pre-commit
+# scope: no $HOME/.claude/.git at all (CI, other machines)
+FAKE_HOME="$(cd "$(mktemp -d "$T/h.XXXXXX")" && pwd -P)"; newrepo; stage notes/a.md 'zebracorp'
+both clean - 'no ~/.claude repo' pre-commit
+# scope: main checkout and a linked worktree of ~/.claude
+newclaude "$LIST"; stage notes/a.md 'see ZebraCorp docs'
+both block '=private term (list line 3) in staged notes/a.md' 'main checkout, mixed case' pre-commit
+commit README.md x >/dev/null; git -C "$FAKE_HOME/.claude" worktree add -q -b wt "$FAKE_HOME/.claude/.claude/worktrees/wt"
+REPO="$FAKE_HOME/.claude/.claude/worktrees/wt"; stage notes/b.md 'qqxk_repo'
+both block '=private term (list line 4) in staged notes/b.md' 'linked worktree' pre-commit
+# scope: ~/.claude whose .git is a gitfile (clone --separate-git-dir)
+FAKE_HOME="$(cd "$(mktemp -d "$T/h.XXXXXX")" && pwd -P)"; REPO="$FAKE_HOME/.claude"
+git init -q -b main --separate-git-dir "$FAKE_HOME/dotclaude.git" "$REPO"; printf '%b' "$LIST" > "$REPO/private-terms.txt"
+stage notes/a.md 'zebracorp'
+both block '=private term (list line 3) in staged notes/a.md' '.git is a gitfile' pre-commit
+
+# scope through real hooks: git exports GIT_DIR and GIT_INDEX_FILE to hooks in a linked worktree,
+# which the direct calls above never see. ps51 is left out — its hook shim is Windows-only.
+HOOK_ENGINES=(sh); [ -n "$PWSH" ] && HOOK_ENGINES+=(ps1)
+for e in "${HOOK_ENGINES[@]}"; do
+  mkdir -p "$T/hooks-$e"
+  for m in pre-commit pre-push; do
+    if [ "$e" = sh ]; then
+      printf '#!/bin/sh\nexec bash "%s" %s\n' "$GUARD_SH" "$m"
+    else
+      guard="$GUARD_PS1"; command -v cygpath >/dev/null && guard="$(cygpath -w "$GUARD_PS1")"
+      printf '#!/bin/sh\nexec "%s" -NoLogo -NoProfile -NonInteractive -File "%s" -Mode %s\n' "$PWSH" "$guard" "$m"
+    fi > "$T/hooks-$e/$m"
+    chmod +x "$T/hooks-$e/$m"
+  done
+done
+hook_git() { # <engine> <git args...> — git in $REPO, with hooks that run the guard through <engine>
+  local e="$1" profile="$FAKE_HOME"; shift
+  command -v cygpath >/dev/null && profile="$(cygpath -w "$FAKE_HOME")"
+  ( cd "$REPO" && env HOME="$FAKE_HOME" USERPROFILE="$profile" git -c core.hooksPath="$T/hooks-$e" \
+      -c user.email=t@t -c user.name=t -c commit.gpgsign=false "$@" 2>&1 )
+}
+for e in "${HOOK_ENGINES[@]}"; do
+  newclaude "$LIST"; commit README.md x >/dev/null
+  OTHER="$FAKE_HOME/other"; mkdir -p "$OTHER"; git -C "$OTHER" init -q -b main
+  REPO="$OTHER"; commit README.md x >/dev/null
+  git -C "$OTHER" worktree add -q -b wt "$OTHER/wt"; REPO="$OTHER/wt"; stage notes/a.md 'zebracorp here'
+  out="$(hook_git "$e" commit -q -m 'zebracorp note')"; verdict "$e" clean - 'other repo linked worktree commit (real hook)' "$out" $?
+  git init -q --bare "$FAKE_HOME/other.git"
+  out="$(hook_git "$e" push -q "$FAKE_HOME/other.git" HEAD:refs/heads/zebracorp)"; verdict "$e" clean - 'other repo linked worktree push (real hook)' "$out" $?
+  REPO="$FAKE_HOME/.claude"; git -C "$REPO" worktree add -q -b wt "$REPO/.claude/worktrees/wt"
+  REPO="$REPO/.claude/worktrees/wt"; stage notes/c.md 'see zebracorp'
+  out="$(hook_git "$e" commit -q -m c)"; verdict "$e" block '=private term (list line 3) in staged notes/c.md' 'commit in a linked worktree of ~/.claude (real hook)' "$out" $?
+  # commit -a hands the hook GIT_INDEX_FILE=<index.lock>: the guard must read that index again
+  # after asking about ~/.claude with git's variables cleared.
+  commit notes/d.md plain >/dev/null; printf 'plain\nqqxk\n' > "$REPO/notes/d.md"
+  out="$(hook_git "$e" commit -q -a -m d)"; verdict "$e" block '=private term (list line 4) in staged notes/d.md' 'commit -a in a linked worktree of ~/.claude (real hook)' "$out" $?
+done
+
+# scope: when git cannot answer, block inside ~/.claude and pass elsewhere. The PATH shim only
+# works where the guard can pick a git without an .exe (sh anywhere, ps1 off Windows).
+SHIM_ENGINES=(sh); [ -n "$PWSH" ] && ! command -v cygpath >/dev/null && SHIM_ENGINES+=(ps1)
+FAILSHIM="$T/failshim"; mkdir -p "$FAILSHIM"
+printf '#!/usr/bin/env bash\ncase " $* " in *" --git-common-dir "*) exit 128 ;; esac\nexec "%s" "$@"\n' "$REAL_GIT" > "$FAILSHIM/git"; chmod +x "$FAILSHIM/git"
+GUARD_ENV="PATH=$FAILSHIM:$PATH"
+newclaude "$LIST"; stage notes/a.md clean
+for e in "${SHIM_ENGINES[@]}"; do
+  check "$e" block '=private-terms scope check failed: git could not name the git dir of this ~/.claude checkout (fail-closed)' 'rev-parse fails inside ~/.claude' pre-commit
+done
+REPO="$FAKE_HOME/other"; mkdir -p "$REPO"; git -C "$REPO" init -q -b main; stage notes/a.md clean
+for e in "${SHIM_ENGINES[@]}"; do check "$e" clean - 'rev-parse fails outside ~/.claude' pre-commit; done
+# git before 2.31 echoes an unknown --path-format on stdout and exits 0
+OLDSHIM="$T/oldshim"; mkdir -p "$OLDSHIM"
+cat > "$OLDSHIM/git" <<EOF
+#!/usr/bin/env bash
+args=(); for a in "\$@"; do [ "\$a" = --path-format=absolute ] && echo "\$a" || args+=("\$a"); done
+exec "$REAL_GIT" "\${args[@]}"
+EOF
+chmod +x "$OLDSHIM/git"
+GUARD_ENV="PATH=$OLDSHIM:$PATH"
+newclaude "$LIST"; stage notes/a.md 'zebracorp'
+for e in "${SHIM_ENGINES[@]}"; do
+  check "$e" block '=private-terms scope check failed: git could not name the git dir of this ~/.claude checkout (fail-closed)' 'git without --path-format inside ~/.claude' pre-commit
+done
+unset GUARD_ENV
+
+# list states
+newclaude; stage notes/a.md 'zebracorp'
+both allow 'private-terms list not found' 'no list: pass with a note' pre-commit
+newclaude ''; stage notes/a.md 'zebracorp'
+both clean - 'empty list' pre-commit
+newclaude '# only a comment\n\n'; stage notes/a.md 'zebracorp'
+both clean - 'comment-only list' pre-commit
+newclaude '\xEF\xBB\xBFzebracorp\n'; stage notes/a.md 'zebracorp'
+both block '=private term (list line 1) in staged notes/a.md' 'BOM right before the first entry' pre-commit
+newclaude; mkdir "$REPO/private-terms.txt"; stage notes/a.md clean
+both block 'private-terms list unreadable' 'list is a directory' pre-commit
+newclaude; ln -s "$T/nowhere" "$REPO/private-terms.txt" 2>/dev/null; stage notes/a.md clean
+[ -L "$REPO/private-terms.txt" ] && both block 'private-terms list unreadable' 'list is a dangling link' pre-commit
+newclaude 'ok-term\nab\n*xy\n'; stage notes/a.md clean
+both block '=private-terms.txt line 2: invalid entry (under 3 bytes or has a control character)' 'two-byte entry' pre-commit
+FORBID="$FORBID generic"
+both block 'needs fixing by hand (do not open or rewrite the list with tools)' 'a list error points at the list, not at rephrasing' pre-commit
+FORBID="${FORBID% generic}"
+both block '=private-terms.txt line 3: invalid entry (under 3 bytes or has a control character)' 'substring entry of two bytes after the star' pre-commit
+newclaude 'tab\there\n'; stage notes/a.md clean
+both block '=private-terms.txt line 1: invalid entry (under 3 bytes or has a control character)' 'entry with a tab' pre-commit
+newclaude; stage docs/private-terms.txt 'anything'
+both block '=a file named private-terms.txt is in the staged changes - the list must stay untracked' 'staging a file named like the list, no list present' pre-commit
+FORBID="$FORBID reported"
+both block 'git rm --cached' 'a staged list file gets the unstage hint, not the list-error hint' pre-commit
+FORBID="${FORBID% reported}"
+newclaude "$LIST"; g add -f private-terms.txt
+both block '=a file named private-terms.txt is in the staged changes - the list must stay untracked' 'staging the list itself' pre-commit
+newclaude; b=$(commit README.md x); s=$(commit backup/private-terms.txt 'anything')
+both block '=a file named private-terms.txt is in the pushed commits - the list must stay untracked' 'pushing a file named like the list' pre-push "$(line feat "$s" "$b")"
+
+# matching
+newclaude "$LIST"; stage notes/a.md 'abc zebracorpx qqxkz 1qqxk 0db7fde'
+both clean - 'terms inside longer words and hashes' pre-commit
+newclaude "$LIST"; stage notes/a.md 'ticket QQXK-1234 filed'
+both block '=private term (list line 4) in staged notes/a.md' 'term before a dash' pre-commit
+newclaude "$LIST"; stage notes/a.md 'xmooncalfy'
+both block '=private term (list line 6) in staged notes/a.md' 'substring entry' pre-commit
+newclaude "$LIST"; stage notes/a.md "$(printf 'bad \377 byte 얼룩말사의 문서')"
+both block '=private term (list line 5) in staged notes/a.md' 'invalid byte and a Korean term' pre-commit
+newclaude "$LIST"; stage notes/a.md "$(printf 'unit \342\204\252zebracorp')"
+both block '=private term (list line 3) in staged notes/a.md' 'non-ASCII letter (Kelvin sign) before a term is a boundary' pre-commit
+newclaude 'a.b+c\n[q]x|y\n'; stage notes/a.md 'xa.b+cx axbbc z[q]x|yz y.'
+both clean - 'regex characters in entries match literally' pre-commit
+newclaude 'a.b+c\n[q]x|y\n'; stage notes/a.md 'see [q]x|y now'
+both block '=private term (list line 2) in staged notes/a.md' 'entry with regex characters' pre-commit
+# each entry also sits inside a longer word, so only its regex reading could match the decoys
+# shellcheck disable=SC2016 # "$" is part of an entry, not an expansion
+re_list='x{2}y\np(q)*r?\nb\\d\nc^e$f\n'
+# shellcheck disable=SC2016
+re_decoys='zx{2}yz xxy zp(q)*r?z p zb\dz bd zc^e$fz'
+# shellcheck disable=SC2016
+re_hit='see c^e$f now'
+newclaude "$re_list"; stage notes/a.md "$re_decoys"
+both clean - 'interval, group, star, question mark and backslash match literally' pre-commit
+newclaude "$re_list"; stage notes/a.md "$re_hit"
+both block '=private term (list line 4) in staged notes/a.md' 'anchors inside an entry match literally' pre-commit
+newclaude "$LIST"; stage notes/zebracorpx-notes.md 'about qqxk'
+both block '=private term (list line 4) in staged path (hidden)' 'path holding an entry inside a longer word is hidden' pre-commit
+
+# pre-commit: added content and new paths only
+newclaude "$LIST"; commit notes/a.md "$(printf 'zebracorp\nold\n')" >/dev/null; stage notes/a.md "$(printf 'zebracorp\nnew\n')"
+both clean - 'editing another line of a file that already has a term' pre-commit
+newclaude "$LIST"; stage plans/zebracorp-x/p.md clean
+both block '=private term (list line 3) in staged path (hidden)' 'new path with a term' pre-commit
+newclaude "$LIST"; stage 'notes/q q.md' 'qqxk'
+both block '=private term (list line 4) in staged notes/q q.md' 'content hit in a path with a space' pre-commit
+newclaude "$LIST"; commit docs/a.md hello >/dev/null; g mv docs/a.md docs/b.md
+both clean - 'rename to a clean path' pre-commit
+newclaude "$LIST"; commit docs/a.md hello >/dev/null; g mv docs/a.md docs/zebracorp.md
+both block '=private term (list line 3) in staged path (hidden)' 'rename to a path with a term' pre-commit
+newclaude "$LIST"; commit docs/a.md "$(printf 'one\ntwo\nthree\nfour\n')" >/dev/null; g mv docs/a.md docs/b.md
+printf 'one\ntwo\nthree\nfour\nqqxk\n' > "$REPO/docs/b.md"; g add docs/b.md
+both block '=private term (list line 4) in staged docs/b.md' 'rename plus an added term line' pre-commit
+
+# pre-push: the private range excludes what origin/main already has
+newclaude "$LIST"; b=$(commit README.md x); s=$(commit notes/a.md 'zebracorp')
+both block '=private term (list line 3) in pushed notes/a.md' 'pushed commit adds a term' pre-push "$(line feat "$s" "$b")"
+newclaude "$LIST"; b=$(commit README.md x); stage notes/a.md clean; g commit -q -m 'fix the Zebracorp thing'; s=$(git -C "$REPO" rev-parse HEAD)
+both block "=private term (list line 3) in commit $(git -C "$REPO" rev-parse --short HEAD) message" 'commit message' pre-push "$(line feat "$s" "$b")"
+newclaude "$LIST"; b=$(commit README.md x); stage notes/a.md clean
+git -C "$REPO" -c user.email=dev@zebracorp.example -c user.name=t -c commit.gpgsign=false commit -q -m ok; s=$(git -C "$REPO" rev-parse HEAD)
+both block "=private term (list line 3) in commit $(git -C "$REPO" rev-parse --short HEAD) identity" 'author email' pre-push "$(line feat "$s" "$b")"
+newclaude "$LIST"; b=$(commit README.md x); s=$(commit notes/a.md clean)
+both block '=private term (list line 3) in push ref (hidden)' 'ref name' pre-push "$(line zebracorp-fix "$s" "$b")"
+both clean - 'deleting a ref with a term' pre-push "(delete) $ZERO refs/heads/zebracorp-fix $s"
+g update-ref refs/remotes/origin/main "$s"
+both block '=private term (list line 4) in push ref (hidden)' 'published commit under a new name' pre-push "$(line qqxk-2 "$s")"
+newclaude "$LIST"; old=$(commit notes/a.md 'zebracorp'); g update-ref refs/remotes/origin/main "$old"; s=$(commit notes/b.md clean)
+both clean - 'new branch over history origin/main already has' pre-push "$(line feat "$s")"
+newclaude "$LIST"; old=$(commit notes/a.md 'zebracorp'); g update-ref refs/remotes/mirror/main "$old"; s=$(commit notes/b.md clean)
+both block '=private term (list line 3) in pushed notes/a.md' 'history only another remote has' pre-push "$(line feat "$s")"
+newclaude "$LIST"; old=$(commit notes/a.md 'zebracorp'); s=$(commit notes/b.md clean)
+both clean - 'term only in what the destination already has' pre-push "$(line feat "$s" "$old")"
+newclaude "$LIST"; b=$(commit README.md x); g checkout -q -b side; commit notes/a.md 'qqxk' >/dev/null
+g checkout -q main; commit notes/b.md y >/dev/null; g merge -q --no-ff side -m merged; s=$(git -C "$REPO" rev-parse HEAD)
+both block '=private term (list line 4) in pushed notes/a.md' 'term brought in by a merge' pre-push "$(line feat "$s" "$b")"
+unset FAKE_HOME FORBID
 
 if [ -n "$PWSH" ]; then printf 'ps1: ran %d\n' "$ps1_ran"; else printf 'ps1: skipped (no pwsh)\n'; fi
 printf '\npre-commit-check.test.sh: %d passed, %d failed\n' "$pass" "$fail"
