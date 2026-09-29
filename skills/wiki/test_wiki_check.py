@@ -15,6 +15,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -96,9 +97,36 @@ def verified_page(value: str, *covers: str) -> str:
 FP = re.compile(r"fp1-[0-9a-f]{16}")
 
 
+def smoke_toml(*questions: tuple[str, str, str], forbid: str = "") -> str:
+    """(q, page, expect) 마다 [[smoke.questions]] 하나. json 문자열은 TOML basic string 으로도 유효하다."""
+    parts = [
+        "[[smoke.questions]]\n"
+        + "".join(f"{key} = {json.dumps(value, ensure_ascii=False)}\n" for key, value in zip(("q", "page", "expect"), q))
+        for q in questions
+    ]
+    if forbid:
+        parts.append(f"[smoke.forbid]\n{forbid}\n")
+    return "\n".join(parts)
+
+
+def _alive(pid: int) -> bool:
+    """zombie 는 죽은 것으로 본다 — 고아를 거두지 않는 PID 1(컨테이너) 아래에서는 죽은 손자가 Z 로 남는다."""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    try:
+        return Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0] != "Z"
+    except OSError:
+        ps = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True)
+        return ps.returncode == 0 and not ps.stdout.strip().startswith("Z")
+
+
 def isolated_git_env(home: Path) -> dict:
     """전역·시스템 git 설정과 격리한다(commit-check 테스트와 같다). 전역 ignore·attributes 파일은
-    설정이 없어도 HOME·XDG_CONFIG_HOME 아래에서 읽히므로 둘 다 빈 디렉터리로 돌린다."""
+    설정이 없어도 HOME·XDG_CONFIG_HOME 아래에서 읽히므로 둘 다 빈 디렉터리로 돌린다. commit-check 와 달리
+    auto-maintenance·auto gc 도 끈다 — commit 이 띄운 detached maintenance 가 fixture 의 loose object 를
+    테스트 도중에 pack 한다."""
     env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     env.update(
         GIT_CONFIG_GLOBAL=os.devnull,
@@ -109,6 +137,11 @@ def isolated_git_env(home: Path) -> dict:
         GIT_AUTHOR_EMAIL="t@example.com",
         GIT_COMMITTER_NAME="t",
         GIT_COMMITTER_EMAIL="t@example.com",
+        GIT_CONFIG_COUNT="2",
+        GIT_CONFIG_KEY_0="maintenance.auto",
+        GIT_CONFIG_VALUE_0="false",
+        GIT_CONFIG_KEY_1="gc.auto",
+        GIT_CONFIG_VALUE_1="0",
     )
     return env
 
@@ -140,12 +173,14 @@ class WikiTestCase(unittest.TestCase):
         cwd: Path | None = None,
         env: dict | None = None,
         script: Path = SCRIPT,
+        input: str | None = None,
     ) -> subprocess.CompletedProcess:
         proc_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
         proc_env.update(self.env)
         proc_env.update(env or {})
         return subprocess.run(
             [sys.executable, str(script), *args],
+            input=input,
             cwd=cwd or self.root,
             env=proc_env,
             capture_output=True,
@@ -155,6 +190,8 @@ class WikiTestCase(unittest.TestCase):
     def _run_code(self, code: str) -> subprocess.CompletedProcess:
         proc_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
         proc_env.update(self.env)
+        # -c 는 __main__ 의 stdout reconfigure 를 거치지 않는다.
+        proc_env["PYTHONIOENCODING"] = "utf-8"
         return subprocess.run(
             [sys.executable, "-c", code],
             cwd=self.root,
@@ -240,6 +277,7 @@ class ParserTest(unittest.TestCase):
             "---\n"
             "inline: [x, \"y, z\", 'w'] # 주석\n"
             "empty: []\n"
+            "trailing: [a, ]\n"
             "block:\n"
             "  - one\n"
             '  - "two # 유지"  # 주석\n'
@@ -254,6 +292,7 @@ class ParserTest(unittest.TestCase):
             {
                 "inline": ["x", "y, z", "w"],
                 "empty": [],
+                "trailing": ["a"],
                 "block": ["one", "two # 유지"],
                 "flush": ["three"],
                 "literal": "|",
@@ -301,6 +340,20 @@ class SchemaTest(WikiTestCase):
             ("없는 날짜", "날짜 실재 안 함", {"concept/x.md": page_text(created="2026-02-30")}, {}, 1),
             ("날짜가 목록", "값 형식", {"concept/x.md": page_text(created="[2026-09-29]")}, {}, 1),
             (
+                "여러 줄 흐름 목록",
+                "값 형식",
+                {"concept/x.md": page_text(extra="covers: [src/a.py,\n  src/b.py]")},
+                {},
+                1,
+            ),
+            (
+                "categories 끔",
+                "",
+                {"x.md": page_text()},
+                {"categories": [], "enums": {"category": ["concept"]}},
+                0,
+            ),
+            (
                 "enum",
                 "enum 허용 밖",
                 {"concept/x.md": page_text(extra="claim_state: bogus")},
@@ -323,6 +376,13 @@ class SchemaTest(WikiTestCase):
             ("covers 정상", "", {"concept/x.md": covers_page("src/a.py", "src/*", "lib/*.py")}, {}, 0),
             ("covers 빈 목록", "covers 빈 값", {"concept/x.md": page_text(extra="covers: []")}, {}, 1),
             ("covers 빈 스칼라", "covers 빈 값", {"concept/x.md": page_text(extra="covers:")}, {}, 1),
+            (
+                "covers 흐름 빈 항목",
+                "covers 빈 값",
+                {"concept/x.md": page_text(extra="covers: [src/a.py,,src/b.py]")},
+                {},
+                1,
+            ),
             ("covers ./ 시작", "covers 형식", {"concept/x.md": covers_page("./src/a.py")}, {}, 1),
             ("covers / 시작", "covers 형식", {"concept/x.md": covers_page("/src/a.py")}, {}, 1),
             ("covers / 끝", "covers 형식", {"concept/x.md": covers_page("src/")}, {}, 1),
@@ -339,6 +399,30 @@ class SchemaTest(WikiTestCase):
                 for f in found:
                     self.assertRegex(str(f), rf"^\S.*: {re.escape(rule)} — \S")
 
+    def test_unclosed_flow_names_its_cause(self) -> None:
+        # YAML 처럼 공백 뒤 # 부터 주석이라 `[PR #82, …]` 는 그 줄에서 닫았어도 `[PR` 만 남는다.
+        self._page("concept/cut.md", page_text(sources="[PR #82, a.kt]"))
+        self._page("concept/extra.md", page_text(sources="[PR #82] # 참고 ]"))
+        self._page("concept/multi.md", page_text(extra="covers: [src/a.py,\n  src/b.py]"))
+        self._page("concept/quoted.md", page_text(extra='covers: ["src/a]b.py",\n  src/c.py]'))
+        self._page("concept/note.md", page_text(extra="covers: [src/a.py,  # 진입점 [main]\n  src/b.py]"))
+        self._page("concept/block.md", page_text(extra="covers:\n  - [src/a.py,\n  - src/b.py"))
+        # 닫은 뒤 글자가 붙으면 YAML 에서 깨진 값이다 — 여러 줄 목록으로 안내하면 블록 항목에서 틀린다.
+        self._page("concept/trail.md", page_text(sources="[a.kt] 설명"))
+        self._page("concept/link.md", page_text(extra="covers:\n  - [[x]] (`# y` 설명)"))
+        details = {f.path.rsplit("/", 1)[-1]: f.detail for f in self._findings()}
+        # 설명을 옮길 자리를 알린다 — 설명까지 따옴표로 감싸면 covers 가 어디에도 맞지 않는 패턴이 된다.
+        for name in ("cut.md", "extra.md"):
+            self.assertIn("주석에 잘렸다", details[name])
+            self.assertIn("] 뒤로", details[name])
+        for name in ("trail.md", "link.md"):
+            self.assertIn("뒤에 글자", details[name])
+            self.assertIn("# 주석으로", details[name])
+        for name in ("multi.md", "quoted.md", "note.md"):
+            self.assertIn("여러 줄 흐름 목록", details[name])
+        self.assertIn("항목마다", details["block.md"])
+        self.assertNotIn("블록 - 목록", details["block.md"])
+
     def test_cli_exit_codes_and_line_format(self) -> None:
         self._page("concept/x.md", page_text())
         r = self._cli("schema", "wiki")
@@ -354,6 +438,42 @@ class SchemaTest(WikiTestCase):
         r = self._cli("schema", "wiki")
         self.assertEqual(r.returncode, 2)
         self.assertIn("pages", r.stderr)
+
+    def test_closed_stdout_exits_2_without_traceback(self) -> None:
+        # 결과를 끝까지 내지 못했으면 판정(0·1)을 말할 수 없다.
+        self._page("concept/x.md", page_text())
+        rfd, wfd = os.pipe()
+        os.close(rfd)
+        try:
+            r = subprocess.run(
+                [sys.executable, str(SCRIPT), "schema", "wiki"],
+                stdout=wfd,
+                stderr=subprocess.PIPE,
+                cwd=self.root,
+                env={**os.environ, **self.env},
+            )
+        finally:
+            os.close(wfd)
+        self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertNotIn(b"Traceback", r.stderr)
+
+    def test_closed_stderr_pipe_keeps_verdict(self) -> None:
+        # stderr 의 안내를 못 쓴 것은 stdout 판정과 exit code 를 바꾸지 않는다.
+        self._page("concept/x.md", page_text(drop="sources"))
+        rfd, wfd = os.pipe()
+        os.close(rfd)
+        try:
+            r = subprocess.run(
+                [sys.executable, str(SCRIPT), "schema", "wiki"],
+                stdout=subprocess.PIPE,
+                stderr=wfd,
+                cwd=self.root,
+                env={**os.environ, **self.env},
+            )
+        finally:
+            os.close(wfd)
+        self.assertEqual(r.returncode, 1)
+        self.assertEqual(r.stdout.decode().splitlines(), ["wiki/pages/concept/x.md: 필수 키 누락 — sources"])
 
 
 class DiscoveryTest(WikiTestCase):
@@ -435,6 +555,17 @@ class ConfigTest(WikiTestCase):
         self.assertEqual(wiki_check.load_config(TEMPLATE), wiki_check.Config())
 
     @NEEDS_TOMLLIB
+    def test_template_smoke_example_is_valid_once_uncommented(self) -> None:
+        example = re.compile(r"# (\[\[?smoke[a-z.]*\]\]?|(q|page|expect|branch_names|plan_status|patterns) = .*)")
+        lines = []
+        for line in TEMPLATE.read_text(encoding="utf-8").splitlines():
+            m = example.fullmatch(line)
+            lines.append(m.group(1) if m else line)
+        smoke = self._load("\n".join(lines)).smoke
+        self.assertTrue(smoke.questions)
+        self.assertTrue(smoke.forbid.branch_names and smoke.forbid.plan_status and smoke.forbid.patterns)
+
+    @NEEDS_TOMLLIB
     def test_unknown_key_and_wrong_type_are_rejected(self) -> None:
         cases = [
             ("[schema]\nrequird = []\n", "schema.requird"),
@@ -445,6 +576,11 @@ class ConfigTest(WikiTestCase):
             ("[stale]\nstop_hok = false\n", "stale.stop_hok"),
             ('[stale]\nstop_hook = "false"\n', "stale.stop_hook"),
             ("[stale]\nbase = 1\n", "stale.base"),
+            ("[smoke]\nquestion = []\n", "smoke.question"),
+            ('[smoke.questions]\nq = "a"\n', "smoke.questions"),
+            ('[[smoke.questions]]\nq = "a"\npage = "x.md"\n', "expect"),
+            ('[[smoke.questions]]\nq = "a"\npage = "../x.md"\nexpect = "b"\n', "smoke.questions[1].page"),
+            ('[smoke.forbid]\nplan_status = "yes"\n', "smoke.forbid.plan_status"),
         ]
         for content, needle in cases:
             with self.subTest(content=content):
@@ -482,6 +618,55 @@ class ConfigTest(WikiTestCase):
         r = self._cli("schema", "wiki", "--config", "missing.toml")
         self.assertEqual(r.returncode, 2)
         self.assertIn("missing.toml", r.stderr)
+
+    def test_unreadable_config_at_default_path_is_error_not_absent(self) -> None:
+        self._page("concept/x.md", page_text())
+        config = self.wiki / "wiki-check.toml"
+        makers = {"디렉터리": config.mkdir}
+        if os.name != "nt":
+            makers["깨진 symlink"] = lambda: config.symlink_to(self.root / "gone.toml")
+        for name, make in makers.items():
+            with self.subTest(case=name):
+                make()
+                try:
+                    r = self._cli("schema", "wiki")
+                    self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+                    self.assertIn("wiki-check.toml", r.stderr)
+                finally:
+                    if config.is_symlink():
+                        config.unlink()
+                    else:
+                        config.rmdir()
+
+    def test_list_values_reject_empty_string_and_duplicates(self) -> None:
+        # date_keys 기본값(created, updated)과 겹쳐도 거부하고, 적지 않은 기본값을 문구에 보인다.
+        cases = (
+            ({"required": ["a", "a"]}, ""),
+            ({"categories": [""]}, ""),
+            ({"date_prefixed_keys": ["updated"]}, "created, updated.*기본값"),
+        )
+        for schema, shown in cases:
+            with self.subTest(schema=schema):
+                with self.assertRaisesRegex(wiki_check.ConfigError, shown):
+                    wiki_check.build_config({"schema": schema})
+
+    def test_escaped_bracket_is_not_a_posix_class(self) -> None:
+        # grep 과 Python 이 같은 뜻으로 읽는 식 — escape 된 `[`, 집합 안의 문자 `[`.
+        for pattern in (r"\[:alpha:]", r"\[[=a]", r"\[\[[.a-z0-9-]+\]\]", "[.[]x"):
+            with self.subTest(pattern=pattern):
+                wiki_check._check_regex(pattern, "x")
+        # grep 은 집합 안의 `\` 를 문자로 읽어 뒤의 [:space:] 를 클래스로 본다.
+        for pattern in ("[[:space:]]", "[^[:space:]]", r"[\[:space:]]", r"[\\[:space:]]"):
+            with self.subTest(pattern=pattern):
+                with self.assertRaises(wiki_check.ConfigError):
+                    wiki_check._check_regex(pattern, "x")
+
+    def test_gnu_grep_dialect_is_rejected(self) -> None:
+        for pattern in (r"\<TODO\>", "[[=a=]]", "[[.hyphen.]]", "[^[=e=]]", "[x[.-.]]", r"\\\<TODO"):
+            with self.subTest(pattern=pattern):
+                with self.assertRaises(wiki_check.ConfigError) as cm:
+                    wiki_check._check_regex(pattern, "x")
+                self.assertIn(r"\b", str(cm.exception))
 
     def test_config_without_tomllib_exits_2_with_version_hint(self) -> None:
         self._page("concept/x.md", page_text())
@@ -521,6 +706,11 @@ class CoversTest(unittest.TestCase):
             ("src/?.py", "src/a.py", True),
             ("src/[ab].py", "src/c.py", False),
             ("SRC/*", "src/a.py", False),
+            ("app/[id]/page.tsx", "app/[id]/page.tsx", True),
+            ("app/[id]/*", "app/[id]/page.tsx", True),
+            # 리터럴 `[` 와 문자 집합을 섞으면 어느 해석으로도 맞지 않는다 — 리터럴 쪽을 `[[]` 로 쓴다.
+            ("app/[id]/[ab].py", "app/[id]/a.py", False),
+            ("app/[[]id]/[ab].py", "app/[id]/a.py", True),
         ]
         for pattern, path, want in cases:
             self.assertEqual(wiki_check.covers_match(pattern, path), want, (pattern, path))
@@ -546,6 +736,17 @@ class CoversTest(unittest.TestCase):
             [("wiki/pages/concept/api.md", ["src/api/a.py", "src/api/b.py"])],
         )
 
+    def test_deadline_is_checked_within_a_page(self) -> None:
+        # 패턴이 많은 페이지 하나로도 예산을 넘는다 — 페이지 사이에서만 보면 판정을 낸다.
+        match = wiki_check.covers_match
+        self.addCleanup(setattr, wiki_check, "covers_match", match)
+        wiki_check.covers_match = lambda pattern, path: time.sleep(0.05) or match(pattern, path)
+        page = wiki_check.CoversPage("wiki/pages/concept/a.md", ("src/*",))
+        start = time.monotonic()
+        with self.assertRaises(wiki_check.OutOfTime):
+            wiki_check.stale_pages([page], {f"src/{i}.py" for i in range(20)}, time.monotonic() + 0.1)
+        self.assertLess(time.monotonic() - start, 0.6)
+
     def test_hook_context_stays_under_output_cap(self) -> None:
         long = "d" * 80
         stale = [
@@ -556,6 +757,11 @@ class CoversTest(unittest.TestCase):
         self.assertIn("외 20개", text)
         self.assertIn("외 ", text.splitlines()[-2])
         self.assertIn("stop_hook = false", text.splitlines()[-1])
+
+    def test_single_page_with_long_paths_is_still_named(self) -> None:
+        text = wiki_check.render_context([("wiki/pages/concept/a.md", ["d/" + "x" * 1000] * 10)])
+        self.assertIn("wiki/pages/concept/a.md", text)
+        self.assertLessEqual(len(text), 10_000)
 
 
 class FingerprintTest(unittest.TestCase):
@@ -572,6 +778,9 @@ class FingerprintTest(unittest.TestCase):
         }
         self.assertEqual(wiki_check.fingerprint(entries), "fp1-bb86b9374ac8ff41")
 
+    def test_version_with_more_digits_is_future_without_int_limit(self) -> None:
+        self.assertEqual(wiki_check.value_kind("fp" + "9" * 5000 + "-0"), "future")
+
 
 class GitAdapterTest(GitWikiTestCase):
     @unittest.skipIf(os.name == "nt", "가짜 git 이 sh 스크립트다")
@@ -585,6 +794,31 @@ class GitAdapterTest(GitWikiTestCase):
             git.out("status")
         self.assertLess(time.monotonic() - start, 3)
         self.assertIn("초", str(cm.exception))
+
+    @unittest.skipIf(os.name == "nt", "가짜 git 이 sh 스크립트다")
+    def test_timeout_kills_what_git_started(self) -> None:
+        fake = self._temp_dir()
+        pidfile = fake / "pid"
+        script = f'#!/bin/sh\n/bin/sleep 30 &\necho $! > "{pidfile}.tmp"\n/bin/mv "{pidfile}.tmp" "{pidfile}"\nwait\n'
+        (fake / "git").write_text(script, encoding="utf-8")
+        (fake / "git").chmod(0o755)
+        # 부하가 걸리면 셸이 자식을 띄우기 전에 시간이 끝난다 — 그때는 검사할 자식이 없어 시간을 늘려 다시 한다.
+        for limit in (0.5, 2, 8):
+            git = wiki_check.Git(self.root, dict(self.env, PATH=str(fake)), deadline=time.monotonic() + limit)
+            with self.assertRaises(wiki_check.OutOfTime):
+                git.out("status")
+            if pidfile.exists():
+                break
+        else:
+            self.fail("가짜 git 이 자식을 띄우기 전에 매번 시간이 끝났다")
+        pid = int(pidfile.read_text())
+        end = time.monotonic() + 3
+        while time.monotonic() < end:
+            if not _alive(pid):
+                return
+            time.sleep(0.05)
+        os.kill(pid, 9)
+        self.fail("git 이 띄운 자식이 남았다")
 
 
 class ChangedFilesTest(GitWikiTestCase):
@@ -616,6 +850,30 @@ class ChangedFilesTest(GitWikiTestCase):
         repo = self.repo()
         base = wiki_check.resolve_base(repo, "")
         self.assertEqual(wiki_check.changed_files(repo, worktree=False, base=base.sha), {"src/a.py"})
+
+    def test_submodule_move_counts_under_diff_ignore_submodules_all(self) -> None:
+        source = self._temp_dir()
+        self.write("x", "1\n", root=source)
+        self.git("init", "-q", "-b", "main", cwd=source)
+        self.commit("s1", cwd=source)
+        self.git("-c", "protocol.file.allow=always", "submodule", "add", "-q", str(source), "sub")
+        base = self.commit("sub")
+        self.git("config", "diff.ignoreSubmodules", "all")
+        self.write("sub/x", "2\n")
+        self.commit("s2", cwd=self.root / "sub")
+        git = self.repo()
+        self.assertIn("sub", wiki_check.changed_files(git, worktree=True, base=None))
+        # git 2.39 의 commit 은 이 설정을 따라 gitlink 만 바뀐 commit 을 "바뀐 것 없음" 으로 거부한다.
+        self.git("add", "-A")
+        self.git("-c", "diff.ignoreSubmodules=none", "commit", "-q", "-m", "bump")
+        self.assertEqual(wiki_check.changed_files(git, worktree=False, base=base), {"sub"})
+
+    def test_untracked_nested_repo_is_its_gitlink_path(self) -> None:
+        nested = self.root / "tools" / "cli"
+        self.write("y", root=nested)
+        self.git("init", "-q", "-b", "main", cwd=nested)
+        self.commit("n1", cwd=nested)
+        self.assertEqual(wiki_check.changed_files(self.repo(), worktree=True, base=None), {"tools/cli"})
 
 
 class AddViewTest(GitWikiTestCase):
@@ -679,8 +937,81 @@ class AddViewTest(GitWikiTestCase):
         merge = subprocess.run(["git", "merge", "-q", "other"], cwd=self.root, env=self.env, capture_output=True)
         self.assertEqual(merge.returncode, 1, merge.stderr)
         with self.assertRaises(wiki_check.GitError) as cm:
-            wiki_check.add_view(self.repo(), [], lambda path: True)
+            wiki_check.add_view(self.repo(), {}, lambda path: True)
         self.assertIn("src/u.py", str(cm.exception))
+
+    def test_split_index_repo_keeps_its_shared_index(self) -> None:
+        for key, value in (
+            ("core.splitIndex", "true"),
+            ("splitIndex.maxPercentChange", "0"),
+            ("splitIndex.sharedIndexExpire", "now"),
+        ):
+            self.git("config", key, value)
+        self.write("src/a.py", "v1\n")
+        self.commit("split")
+        shared = sorted((self.root / ".git").glob("sharedindex.*"))
+        self.assertTrue(shared)
+        self.write("src/a.py", "v2\n")
+        git = self.repo()
+        wiki_check.add_view(git, wiki_check.worktree_status(git), lambda path: True)
+        self.assertEqual(sorted((self.root / ".git").glob("sharedindex.*")), shared)
+        self.git("status")
+
+    def test_racily_clean_entry_is_read_again_like_add(self) -> None:
+        # 같은 크기·같은 mtime 의 수정 — index 파일 mtime 이 entry mtime 이하라는 것만이 내용을 다시 읽게 한다.
+        self.git("config", "core.trustctime", "false")
+        path = self.root / "src" / "r.py"
+        past = (int(time.time()) - 100) * 10**9
+        self.write("src/r.py", "v1\n")
+        os.utime(path, ns=(past, past))
+        self.commit("r")
+        path.write_text("v2\n", encoding="utf-8")
+        os.utime(path, ns=(past, past))
+        os.utime(self.root / ".git" / "index", ns=(past, past))
+        git = self.repo()
+        view = wiki_check.add_view(git, wiki_check.worktree_status(git), lambda p: p == "src/r.py")
+        self.assertEqual(view["src/r.py"][1], self.git("hash-object", "src/r.py"))
+
+    def test_ignored_file_removed_from_index_stays_out_like_add(self) -> None:
+        self.write("src/a.py")
+        self.write("src/cache.py")
+        self.commit("c")
+        self.write(".gitignore", "src/cache.py\n")
+        self.git("rm", "-q", "--cached", "src/cache.py")
+        git = self.repo()
+        view = wiki_check.add_view(git, wiki_check.worktree_status(git), lambda path: True)
+        self.assertEqual(view, self._add_all_in_copy())
+
+    @unittest.skipIf(os.name == "nt", "hook 이 sh 스크립트다")
+    def test_post_index_change_hook_does_not_run(self) -> None:
+        marker = self._temp_dir() / "ran"
+        hook = self.root / ".git" / "hooks" / "post-index-change"
+        hook.parent.mkdir(exist_ok=True)
+        hook.write_text(f"#!/bin/sh\ntouch '{marker}'\n", encoding="utf-8")
+        hook.chmod(0o755)
+        self.write("wiki/WIKI.md", "# changed\n")
+        git = self.repo()
+        wiki_check.add_view(git, wiki_check.worktree_status(git), lambda path: True)
+        self.assertFalse(marker.exists())
+
+    @unittest.skipIf(os.name == "nt", "symlink 이 필요하다")
+    def test_directory_turned_file_or_symlink_matches_add(self) -> None:
+        for rel in ("src/f/a.py", "src/l/a.py", "src/d", "other/a.py"):
+            self.write(rel)
+        self.commit("dirs")
+        shutil.rmtree(self.root / "src" / "f")
+        self.write("src/f", "file\n")
+        shutil.rmtree(self.root / "src" / "l")
+        os.symlink("../other", self.root / "src" / "l")
+        (self.root / "src" / "d").unlink()
+        self.write("src/d/a.py")
+        git = self.repo()
+        want = self._add_all_in_copy()
+        # covers 경계(wanted)가 파일·디렉터리 전환의 한쪽만 고를 때도 add 와 같아야 한다.
+        for prefix in ("", "src/f/", "src/l/", "src/d/"):
+            with self.subTest(prefix=prefix):
+                view = wiki_check.add_view(git, wiki_check.worktree_status(git), lambda p: p.startswith(prefix))
+                self.assertEqual(view, {k: v for k, v in want.items() if k.startswith(prefix)})
 
     def _git_bytes(self, *args: str, input: bytes) -> bytes:
         r = subprocess.run(["git", *args], input=input, cwd=self.root, env=self.env, capture_output=True)
@@ -736,6 +1067,61 @@ class BaseTest(GitWikiTestCase):
                 base = wiki_check.resolve_base(self.repo(), configured)
                 self.assertEqual((base.sha, base.quiet), (None, quiet), base.reason)
                 self.assertTrue(base.reason)
+
+    def test_given_name_of_both_branch_and_tag_is_refused(self) -> None:
+        # git 은 태그를 먼저 고른다 — HEAD 의 태그면 범위가 비어 조용히 clean 이다.
+        self.git("checkout", "-q", "-b", "feat")
+        self.write("src/a.py")
+        self.commit("a")
+        self.git("tag", "main", "HEAD")
+        base = wiki_check.resolve_base(self.repo(), "main")
+        self.assertEqual((base.sha, base.quiet), (None, False), base.reason)
+        self.assertIn("refs/heads/main", base.reason)
+
+    def test_given_name_of_remote_branch_and_local_ref_is_refused(self) -> None:
+        # git 은 refs/tags → refs/heads → refs/remotes 순으로 고른다 — 원격 추적 ref 가 가려진다.
+        c0 = self.git("rev-parse", "HEAD")
+        self.git("update-ref", "refs/remotes/origin/main", c0)
+        self.git("checkout", "-q", "-b", "feat")
+        self.write("src/a.py")
+        self.commit("a")
+        for kind in ("tag", "branch"):
+            with self.subTest(kind=kind):
+                self.git(kind, "origin/main", "HEAD")
+                base = wiki_check.resolve_base(self.repo(), "origin/main")
+                self.git(kind, "-d", "origin/main")
+                self.assertEqual((base.sha, base.quiet), (None, False), base.reason)
+
+    def test_criss_cross_range_does_not_depend_on_merge_base_dates(self) -> None:
+        for page, path in (("pm", "src/m.py"), ("pf", "src/f.py")):
+            self._page(f"concept/{page}.md", covers_page(path))
+            self.write(path, "0\n")
+        self.commit("base")
+        clock = iter(range(int(time.time()) + 100, int(time.time()) + 200))
+        self.addCleanup(self.env.pop, "GIT_COMMITTER_DATE", None)
+        for later in ("trunk", "feat"):
+            with self.subTest(later=later):
+                feat = f"feat-{later}"
+                self.git("checkout", "-q", "-B", feat, "main")
+                self.git("branch", "-f", "trunk", "main")
+                sides = [("trunk", "src/m.py"), (feat, "src/f.py")]
+                tips = {}
+                for branch, path in sides if later == "feat" else sides[::-1]:
+                    self.git("checkout", "-q", branch)
+                    self.write(path, f"{later}\n")
+                    self.env["GIT_COMMITTER_DATE"] = f"{next(clock)} +0000"
+                    tips[branch] = self.commit(path)
+                self.git("checkout", "-q", "trunk")
+                self.env["GIT_COMMITTER_DATE"] = f"{next(clock)} +0000"
+                self.git("merge", "-q", "--no-edit", tips[feat])
+                self.git("checkout", "-q", feat)
+                self.env["GIT_COMMITTER_DATE"] = f"{next(clock)} +0000"
+                self.git("merge", "-q", "--no-edit", tips["trunk"])
+                r = self._cli("stale", "--branch", "--base", "trunk")
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+                hook = self._cli("stale", "--stop-hook", "--base", "trunk", input=json.dumps({"cwd": str(self.root)}))
+                self.assertEqual((hook.returncode, hook.stdout), (0, ""), hook.stderr)
+                self.git("checkout", "-q", "main")
 
 
 class StaleBranchTest(GitWikiTestCase):
@@ -808,7 +1194,7 @@ class StaleBranchTest(GitWikiTestCase):
         self.git("clone", "-q", "--depth", "1", "--no-single-branch", "--branch", "feat", self.root.as_uri(), str(clone))
         r = self._branch(cwd=clone)
         self.assertEqual(r.returncode, 2, r.stdout)
-        self.assertIn("merge-base", r.stderr)
+        self.assertIn("얕은 clone", r.stderr)
 
     def test_paths_are_toplevel_relative_from_any_directory(self) -> None:
         self.git("checkout", "-q", "main")
@@ -837,13 +1223,22 @@ class StaleBranchTest(GitWikiTestCase):
         (self.wiki / "pages" / "concept" / "api.md").unlink()
         self._page("concept/bad.md", b"---\ntitle: \xff\n---\n")
         self._page("concept/open.md", "---\ntitle: x\n")
+        self._page("concept/flow.md", "---\ntitle: x\ncovers: [src/api/x.py,\n  src/b.py]\n---\n")
+        self._page("concept/cut.md", "---\ntitle: x\ncovers: [src/api/x.py #1, src/b.py]\n---\n")
+        self._page("concept/tags.md", "---\ntitle: x\ntags: [a,\n  b]\n---\n")
+        self._page("concept/trail.md", "---\ntitle: x\ncovers:\n  - [src/api/x.py] 설명\n---\n")
+        self._page("concept/item.md", "---\ntitle: x\ncovers:\n  - [src/api/x.py,\n  - src/b.py\n---\n")
         r = self._branch()
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertEqual(
             r.stdout.splitlines(),
             [
                 "wiki/pages/concept/bad.md: covers 읽기 실패 — UTF-8 아님",
+                "wiki/pages/concept/cut.md: covers 읽기 실패 — covers 의 [ … ] 가 주석에 잘림",
+                "wiki/pages/concept/flow.md: covers 읽기 실패 — covers 의 [ 가 그 줄에서 닫히지 않음",
+                "wiki/pages/concept/item.md: covers 읽기 실패 — covers 의 [ 로 시작한 항목이 그 줄에서 닫히지 않음",
                 "wiki/pages/concept/open.md: covers 읽기 실패 — frontmatter 닫힘 없음",
+                "wiki/pages/concept/trail.md: covers 읽기 실패 — covers 의 [ … ] 뒤에 글자가 있음",
             ],
         )
 
@@ -856,6 +1251,56 @@ class StaleBranchTest(GitWikiTestCase):
         r = self._branch("docs/w*")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertNotIn("미커밋", r.stdout)
+
+    def test_inherited_global_pathspec_env_is_neutralized(self) -> None:
+        self.write("src/api/x.py", "v2\n")
+        self.commit("code")
+        want = self._branch()
+        for var in ("GIT_GLOB_PATHSPECS", "GIT_ICASE_PATHSPECS"):
+            with self.subTest(var=var):
+                r = self._branch(env={var: "1"})
+                self.assertEqual((r.returncode, r.stdout), (want.returncode, want.stdout), r.stderr)
+
+    def test_wiki_in_nested_repo_is_refused(self) -> None:
+        inner = self.root / "vendor" / "inner"
+        self._init_repo(inner)
+        (inner / "wiki" / "pages" / "concept" / "api.md").write_text(covers_page("src/*"), encoding="utf-8")
+        self.write("src/a.py", "1\n", root=inner)
+        self.commit("i0", cwd=inner)
+        self.git("checkout", "-q", "-b", "feat", cwd=inner)
+        self.write("src/a.py", "2\n", root=inner)
+        self.commit("i1", cwd=inner)
+        self.assertEqual(self._branch(cwd=inner).returncode, 1)
+        r = self._branch("vendor/inner/wiki", "--base", "HEAD")
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+
+    @unittest.skipIf(os.name == "nt", "symlink 이 필요하다")
+    def test_auto_discovered_symlink_wiki_is_judged_at_its_target(self) -> None:
+        self.git("checkout", "-q", "main")
+        (self.root / "docs").mkdir()
+        self.git("mv", "wiki", "docs/wiki")
+        (self.root / "wiki").symlink_to("docs/wiki")
+        self.commit("move wiki")
+        self.git("checkout", "-q", "-B", "feat")
+        self.write("src/api/x.py", "v2\n")
+        self.commit("code")
+        r = self._branch()
+        self.assertEqual(
+            (r.returncode, r.stdout.splitlines()), (1, ["docs/wiki/pages/concept/api.md: covers 변경 — src/api/x.py"]), r.stderr
+        )
+        self.write("docs/wiki/pages/concept/api.md", covers_page("src/api/*") + "upd\n")
+        self.commit("page")
+        self.assertEqual(self._branch().returncode, 0)
+
+    def test_case_mismatched_wiki_argument_is_refused(self) -> None:
+        if not (self.root / "WIKI").exists():
+            self.skipTest("대소문자를 가리는 파일시스템")
+        self._page("concept/api.md", covers_page("src/api/*") + "upd\n")
+        self.write("src/api/x.py", "v2\n")
+        self.commit("code+page")
+        self.assertEqual(self._branch().returncode, 0)
+        r = self._branch("Wiki")
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
 
 
 class StaleReportTest(GitWikiTestCase):
@@ -1003,6 +1448,27 @@ class StaleReportTest(GitWikiTestCase):
         self.assertNotIn("src/api/x.py", line)
         self.assertIn("얕은 clone", line)
 
+    def test_reference_lists_submodule_move_under_diff_ignore_submodules_all(self) -> None:
+        source = self._temp_dir()
+        self.write("x", "1\n", root=source)
+        self.git("init", "-q", "-b", "main", cwd=source)
+        self.commit("s1", cwd=source)
+        self.git("-c", "protocol.file.allow=always", "submodule", "add", "-q", str(source), "sub")
+        self._page("concept/api.md", covers_page("sub"))
+        self.commit("sub")
+        value = self._current()
+        self._page("concept/api.md", verified_page(value, "sub"))
+        self.commit("confirm")
+        self.git("config", "diff.ignoreSubmodules", "all")
+        self.write("sub/x", "2\n")
+        self.commit("s2", cwd=self.root / "sub")
+        # git 2.39 의 commit 은 이 설정을 따라 gitlink 만 바뀐 commit 을 "바뀐 것 없음" 으로 거부한다.
+        self.git("add", "-A")
+        self.git("-c", "diff.ignoreSubmodules=none", "commit", "-q", "-m", "bump")
+        line = self._line(self._report())
+        self.assertIn(": STALE — ", line)
+        self.assertIn("covers 파일): sub — ", line)
+
     def test_uncommitted_wiki_or_covered_change_is_warned(self) -> None:
         self.write("src/api/x.py", "v2\n")
         self._page("concept/plain.md", page_text() + "미커밋\n")
@@ -1037,6 +1503,7 @@ class StaleReportTest(GitWikiTestCase):
         r = self._cli("stale", "--report", "--base", "main")
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
         self.assertIn("--report 는 이력을 보지 않는다", r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
 
     def test_real_index_and_objects_stay_unchanged(self) -> None:
         self._confirm()
@@ -1157,13 +1624,16 @@ class StopHookTest(GitWikiTestCase):
     def test_quiet_rows(self) -> None:
         outside = self._temp_dir()
         self.write("wiki/pages/concept/api.md", covers_page("*"), root=outside)
+        no_wiki = self._temp_dir()
+        self.git("init", "-q", cwd=no_wiki)
         rows = {
             "stop_hook_active": ({"stop_hook_active": True}, ()),
             "subagent 대기": ({"background_tasks": [{"type": "subagent"}]}, ()),
             "workflow 대기": ({"background_tasks": [{"type": "workflow"}]}, ()),
             "없는 cwd": ({"cwd": str(self.root / "gone")}, ()),
             "repo 밖": ({"cwd": str(outside)}, ()),
-            "wiki 없음": ({}, ("nope",)),
+            "repo 밖 명시 wiki": ({"cwd": str(outside)}, ("nope",)),
+            "탐색한 wiki 없음": ({"cwd": str(no_wiki)}, ()),
         }
         for name, (payload, args) in rows.items():
             with self.subTest(row=name):
@@ -1202,23 +1672,29 @@ class StopHookTest(GitWikiTestCase):
     def test_warning_rows(self) -> None:
         mismatch = self.root / "sub"
         (mismatch / ".git").mkdir(parents=True)
+        broken = self.root / "broken"
+        broken.mkdir()
+        (broken / ".git").write_text(f"gitdir: {self.root / 'gone'}\n", encoding="utf-8")
         other = self._other_repo()
         rows = {
-            "인자 오류": {"argv": ["stale", "--stop-hook", "--bogus"]},
-            "UTF-8 아님": {"raw": b'{"cwd": "\xff"}'},
-            "JSON 오류": {"raw": b"{"},
-            "객체 아님": {"raw": b"[]"},
-            "cwd 없음": {"raw": b'{"hook_event_name": "Stop"}'},
-            "cwd 문자열 아님": {"payload": {"cwd": 1}},
-            "git 없음": {"env": {"PATH": str(self._temp_dir())}},
-            "최상위 불일치": {"payload": {"cwd": str(mismatch)}, "args": (str(self.wiki),)},
-            "wiki 가 repo 밖": {"payload": {"cwd": str(other)}, "args": (str(self.wiki),)},
+            "인자 오류": ({"argv": ["stale", "--stop-hook", "--bogus"]}, "인자 오류"),
+            "UTF-8 아님": ({"raw": b'{"cwd": "\xff"}'}, "UTF-8 이 아니다"),
+            "JSON 오류": ({"raw": b"{"}, "JSON 오류"),
+            "객체 아님": ({"raw": b"[]"}, "객체가 아니다"),
+            "cwd 없음": ({"raw": b'{"hook_event_name": "Stop"}'}, "cwd 문자열"),
+            "cwd 문자열 아님": ({"payload": {"cwd": 1}}, "cwd 문자열"),
+            "명시 wiki 없음": ({"args": ("nope",)}, "pages 디렉터리 없음"),
+            "git 없음": ({"env": {"PATH": str(self._temp_dir())}}, "git 을 실행하지 못했다"),
+            "rev-parse 실패": ({"payload": {"cwd": str(broken)}, "args": (str(self.wiki),)}, "rev-parse 실패"),
+            "최상위 불일치": ({"payload": {"cwd": str(mismatch)}, "args": (str(self.wiki),)}, "탐색한 repo 루트"),
+            "wiki 가 repo 밖": ({"payload": {"cwd": str(other)}, "args": (str(self.wiki),)}, "밖이다"),
         }
-        for name, kwargs in rows.items():
+        for name, (kwargs, expected) in rows.items():
             with self.subTest(row=name):
                 out, _ = self._hook(**kwargs)
-                self.assertIsNotNone(out)
                 self.assertTrue(out["systemMessage"].startswith("wiki_check stale:"), out)
+                self.assertIn(expected, out["systemMessage"])
+                self.assertNotIn("예상 밖 오류", out["systemMessage"])
 
     @NEEDS_TOMLLIB
     def test_config_rows(self) -> None:
@@ -1241,6 +1717,147 @@ class StopHookTest(GitWikiTestCase):
         self.assertIn("예상 밖 오류", out["systemMessage"])
         out = self._hook_code("wiki_check.HOOK_BUDGET = 0.0")
         self.assertIn("초", out["systemMessage"])
+
+    @unittest.skipIf(os.name == "nt", "가짜 git 이 sh 스크립트다")
+    def test_git_timeout_gives_system_message_within_budget(self) -> None:
+        fake = self._temp_dir()
+        (fake / "git").write_text("#!/bin/sh\nexec /bin/sleep 5\n", encoding="utf-8")
+        (fake / "git").chmod(0o755)
+        start = time.monotonic()
+        out = self._hook_code(f"wiki_check.HOOK_BUDGET = 1.0\nimport os\nos.environ['PATH'] = {str(fake)!r}")
+        self.assertLess(time.monotonic() - start, 3)
+        self.assertIn("시간 예산", out["systemMessage"])
+
+    def test_time_spent_after_git_counts_toward_budget(self) -> None:
+        out = self._hook_code(
+            "import time\n"
+            "wiki_check.HOOK_BUDGET = 0.5\n"
+            "_changed = wiki_check.changed_files\n"
+            "def _slow(*a, **k):\n"
+            "    r = _changed(*a, **k)\n"
+            "    time.sleep(0.7)\n"
+            "    return r\n"
+            "wiki_check.changed_files = _slow"
+        )
+        self.assertIn("시간 예산", out["systemMessage"])
+
+    def test_oversized_stdin_gives_system_message(self) -> None:
+        out = self._hook_code("wiki_check.STDIN_MAX = 4")
+        self.assertIn("stdin", out["systemMessage"])
+
+    def test_abbreviated_or_valued_flag_is_system_message_not_exit_2(self) -> None:
+        for argv in (["stale", "--st"], ["stale", "--stop"], ["stale", "--stop-h"], ["stale", "--stop-hook=1"]):
+            with self.subTest(argv=argv):
+                out, _ = self._hook(argv=argv)
+                self.assertIn("인자 오류", out["systemMessage"])
+
+    def test_hook_flag_on_other_subcommand_or_after_dashes_is_usage_error(self) -> None:
+        # 닫힌 모드의 사용 오류가 hook 경로의 exit 0 으로 바뀌면 CI 가 잘못 적은 명령을 통과시킨다.
+        proc_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        proc_env.update(self.env)
+        for argv in (["schema", "--st"], ["smoke", "--stop-hook"], ["stale", "--branch", "--", "--stop"]):
+            with self.subTest(argv=argv):
+                r = subprocess.run(
+                    [sys.executable, str(SCRIPT), *argv], input=b"", cwd=self.root, env=proc_env, capture_output=True
+                )
+                self.assertEqual(r.returncode, 2, r.stderr)
+                self.assertEqual(r.stdout, b"")
+
+    def test_closed_stderr_pipe_still_gives_system_message(self) -> None:
+        proc_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        proc_env.update(self.env)
+        rfd, wfd = os.pipe()
+        os.close(rfd)
+        try:
+            r = subprocess.run(
+                [sys.executable, str(SCRIPT), "stale", "--stop-hook", "--bogus"],
+                input=b"{}",
+                stdout=subprocess.PIPE,
+                stderr=wfd,
+                cwd=self.root,
+                env=proc_env,
+            )
+        finally:
+            os.close(wfd)
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("인자 오류", json.loads(r.stdout)["systemMessage"])
+
+    @unittest.skipIf(os.name == "nt", "프로세스 그룹 신호")
+    def test_group_sigterm_still_ends_what_git_started(self) -> None:
+        # git 은 새 세션이라 hook 의 그룹에 온 SIGTERM 을 받지 않는다 — hook 이 git 의 그룹을 정리해야 한다.
+        fake = self._temp_dir()
+        pidfile = fake / "pid"
+        (fake / "git").write_text(
+            '#!/bin/sh\nfor a in "$@"; do\n  if [ "$a" = status ]; then\n'
+            f'    /bin/sleep 30 &\n    echo $! > "{pidfile}.tmp"\n    /bin/mv "{pidfile}.tmp" "{pidfile}"\n'
+            f'    wait\n    exit 0\n  fi\ndone\nexec "{shutil.which("git")}" "$@"\n',
+            encoding="utf-8",
+        )
+        (fake / "git").chmod(0o755)
+        (fake / "in.json").write_text(json.dumps({"cwd": str(self.root)}), encoding="utf-8")
+        proc_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        proc_env.update(self.env)
+        proc_env["PATH"] = f"{fake}{os.pathsep}{proc_env['PATH']}"
+        with open(fake / "in.json", "rb") as stdin:
+            proc = subprocess.Popen(
+                [sys.executable, str(SCRIPT), "stale", "--stop-hook"],
+                stdin=stdin,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                cwd=self.root,
+                env=proc_env,
+                start_new_session=True,
+            )
+        end = time.monotonic() + 10
+        while not pidfile.exists() and time.monotonic() < end:
+            time.sleep(0.05)
+        if not pidfile.exists():
+            proc.kill()
+            proc.communicate()
+            self.fail("가짜 git 이 자식을 띄우지 않았다")
+        os.killpg(proc.pid, signal.SIGTERM)
+        proc.communicate(timeout=10)
+        pid = int(pidfile.read_text())
+        end = time.monotonic() + 3
+        while _alive(pid) and time.monotonic() < end:
+            time.sleep(0.05)
+        if _alive(pid):
+            os.kill(pid, signal.SIGKILL)
+            self.fail("git 이 띄운 자식이 남았다")
+        self.assertEqual(proc.returncode, 0)
+
+    @unittest.skipIf(os.name == "nt", "fd 를 닫는 sh 리다이렉트")
+    def test_closed_stdout_or_stderr_still_exits_0(self) -> None:
+        proc_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        proc_env.update(self.env)
+        payload = json.dumps({"cwd": str(self.root)}).encode("utf-8")
+        # 빈 stdin 은 안내를 stderr 로 쓰는 경로다 — 닫힌 stderr 에서 그 안내가 stdout(JSON 자리)에 새면 안 된다.
+        for redirect, data in ((">&-", payload), ("2>&-", payload), ("2>&-", b"")):
+            with self.subTest(redirect=redirect, empty=not data):
+                r = subprocess.run(
+                    ["/bin/sh", "-c", f'"$0" "$1" stale --stop-hook {redirect}', sys.executable, str(SCRIPT)],
+                    input=data,
+                    cwd=self.root,
+                    env=proc_env,
+                    capture_output=True,
+                )
+                self.assertEqual(r.returncode, 0, r.stderr)
+                if not data:
+                    self.assertEqual(r.stdout, b"")
+        rfd, wfd = os.pipe()
+        os.close(rfd)
+        try:
+            r = subprocess.run(
+                [sys.executable, str(SCRIPT), "stale", "--stop-hook"],
+                input=payload,
+                stdout=wfd,
+                stderr=subprocess.PIPE,
+                cwd=self.root,
+                env=proc_env,
+            )
+        finally:
+            os.close(wfd)
+        self.assertEqual(r.returncode, 0, r.stderr)
 
     def test_stdin_without_eof_ends_within_3_seconds(self) -> None:
         proc_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
@@ -1288,6 +1905,22 @@ class StopHookTest(GitWikiTestCase):
         self.git("checkout", "-q", "--orphan", "fresh")
         self.assertIsNone(self._hook()[0])
 
+    def test_unborn_head_judges_worktree_without_warning(self) -> None:
+        self.git("checkout", "-q", "--orphan", "fresh")
+        # orphan 직후에는 index 의 모든 파일이 새 파일이다 — 페이지를 변경 집합에서 빼야 판정이 드러난다.
+        self.git("rm", "-q", "-r", "--cached", "wiki")
+        (self.root / ".git" / "info").mkdir(exist_ok=True)
+        (self.root / ".git" / "info" / "exclude").write_text("wiki/\n", encoding="utf-8")
+        out, _ = self._hook()
+        self.assertEqual(set(out), {"hookSpecificOutput"})
+        self.assertIn("src/api/x.py", out["hookSpecificOutput"]["additionalContext"])
+
+    def test_uncommitted_change_counts_when_base_is_found(self) -> None:
+        self.git("checkout", "-q", "-b", "feat")
+        out, _ = self._hook()
+        self.assertEqual(set(out), {"hookSpecificOutput"})
+        self.assertIn("src/api/x.py", out["hookSpecificOutput"]["additionalContext"])
+
     def test_branch_commits_count_and_order_does_not(self) -> None:
         self.git("checkout", "-q", "-b", "feat")
         self.commit("code")
@@ -1323,6 +1956,23 @@ class StopHookTest(GitWikiTestCase):
         self.assertIn("lib/y.py", context)
         self.assertNotIn("src/api/x.py", context)
 
+    def test_inherited_repo_env_does_not_redirect_repo(self) -> None:
+        other = self._other_repo()
+        for name, value in (
+            ("GIT_DIR", other / ".git"),
+            ("GIT_WORK_TREE", other),
+            ("GIT_INDEX_FILE", other / ".git" / "index"),
+        ):
+            with self.subTest(var=name):
+                out, _ = self._hook(env={name: str(value)})
+                self.assertIn("hookSpecificOutput", out or {}, out)
+
+    @NEEDS_TOMLLIB
+    def test_relative_config_arg_is_resolved_from_input_repo_root(self) -> None:
+        self.write("docs/c.toml", "[stale]\nstop_hook = false\n")
+        src = self.root / "src"
+        self.assertIsNone(self._hook({"cwd": str(src)}, ("--config", "docs/c.toml"), cwd=src)[0])
+
     def test_relative_wiki_arg_is_resolved_from_input_repo_root(self) -> None:
         self.write("docs/wiki/pages/concept/d.md", covers_page("src/api/*"))
         self.commit("docs wiki")
@@ -1330,6 +1980,144 @@ class StopHookTest(GitWikiTestCase):
         src = self.root / "src"
         out, _ = self._hook({"cwd": str(src)}, ("docs/wiki",), cwd=src)
         self.assertIn("docs/wiki/pages/concept/d.md", out["hookSpecificOutput"]["additionalContext"])
+
+
+class SmokeTest(WikiTestCase):
+    def _config(self, content: str) -> None:
+        (self.wiki / "wiki-check.toml").write_text(content, encoding="utf-8")
+
+    def _index(self, *stems: str) -> None:
+        (self.wiki / "index.md").write_text("".join(f"- [[{s}]]\n" for s in stems), encoding="utf-8")
+
+    @NEEDS_TOMLLIB
+    def test_question_needs_page_index_entry_and_body_evidence(self) -> None:
+        self._page("concept/ok.md", page_text() + "근거 문구\n")
+        self._page("concept/unlisted.md", page_text() + "근거 문구\n")
+        self._page("concept/fm-only.md", page_text(extra="note: 근거 문구"))
+        self._page("concept/open.md", page_text(close=False) + "근거 문구\n")
+        self._index("ok", "fm-only", "open")
+        self._config(
+            smoke_toml(
+                ("통과", "concept/ok.md", "근거 문구"),
+                ("파일", "concept/nope.md", "근거 문구"),
+                ("등재", "concept/unlisted.md", "근거 문구"),
+                ("본문", "concept/fm-only.md", "근거 문구"),
+                ("닫힘", "concept/open.md", "근거 문구"),
+            )
+        )
+        r = self._cli("smoke", "wiki")
+        self.assertEqual(r.returncode, 1, r.stderr)
+        self.assertEqual(
+            r.stdout.splitlines(),
+            [
+                "PASS | 통과 → wiki/pages/concept/ok.md",
+                "FAIL | 파일 → wiki/pages/concept/nope.md — 파일 없음",
+                "FAIL | 등재 → wiki/pages/concept/unlisted.md — index.md 에 [[unlisted]] 등재 없음",
+                "FAIL | 본문 → wiki/pages/concept/fm-only.md — 본문에 근거 없음: 근거 문구",
+                "FAIL | 닫힘 → wiki/pages/concept/open.md — frontmatter 가 닫히지 않아 본문을 가를 수 없다",
+                "wiki smoke check: PASS 1 · FAIL 4",
+            ],
+        )
+        self.assertIn("4 위반", r.stderr)
+
+    @NEEDS_TOMLLIB
+    def test_expect_is_searched_line_by_line_like_grep(self) -> None:
+        self._page("concept/lines.md", page_text() + "앞 부분\n줄 머리 문구\n뒷 부분\n")
+        self._index("lines")
+        self._config(
+            smoke_toml(
+                ("앵커", "concept/lines.md", "^줄 머리"),
+                ("끝 앵커", "concept/lines.md", "문구$"),
+                ("줄 넘김", "concept/lines.md", "앞 부분[^!]*뒷 부분"),
+            )
+        )
+        r = self._cli("smoke", "wiki")
+        self.assertEqual([line[:4] for line in r.stdout.splitlines()[:3]], ["PASS", "PASS", "FAIL"], r.stdout)
+
+    @NEEDS_TOMLLIB
+    def test_bom_and_crlf_page_splits_body_like_schema(self) -> None:
+        text = page_text(extra="note: 머리 근거") + "줄 끝 문구\n"
+        self._page("concept/crlf.md", "\ufeff" + text.replace("\n", "\r\n"))
+        self._index("crlf")
+        self._config(smoke_toml(("줄 끝", "concept/crlf.md", "문구$"), ("머리", "concept/crlf.md", "머리 근거")))
+        r = self._cli("smoke", "wiki")
+        self.assertEqual([line[:4] for line in r.stdout.splitlines()[:2]], ["PASS", "FAIL"], r.stdout)
+
+    @NEEDS_TOMLLIB
+    def test_missing_index_fails_question_with_its_own_reason(self) -> None:
+        self._page("concept/x.md", page_text() + "근거 문구\n")
+        self._config(smoke_toml(("등재", "concept/x.md", "근거 문구")))
+        r = self._cli("smoke", "wiki")
+        self.assertEqual(r.returncode, 1, r.stderr)
+        self.assertIn("FAIL | 등재 → wiki/pages/concept/x.md — index.md 없음", r.stdout)
+
+    def test_without_config_is_not_applicable(self) -> None:
+        r = self._cli("smoke", "wiki")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("검사 대상 아님", r.stdout)
+
+    @NEEDS_TOMLLIB
+    def test_template_copied_as_config_is_not_applicable(self) -> None:
+        shutil.copy2(TEMPLATE, self.wiki / "wiki-check.toml")
+        r = self._cli("smoke", "wiki")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("검사 대상 아님", r.stdout)
+
+    @NEEDS_TOMLLIB
+    def test_unusable_smoke_config_exits_2(self) -> None:
+        self._page("concept/x.md", page_text())
+        cases = [
+            (smoke_toml(("q", "concept/x.md", "[[:space:]]본문")), "POSIX"),
+            ('[smoke.forbid]\npatterns = ["[[:digit:]]+건"]\n', "POSIX"),
+            (smoke_toml(("q", "concept/x.md", "(")), "정규식 오류"),
+            ("[smoke]\n", "검사가 0개"),
+            ("[smoke.forbid]\nbranch_names = false\n", "검사가 0개"),
+            ("[smoke.forbid]\nbranch_names = true\n", "repo 밖"),
+        ]
+        for content, needle in cases:
+            with self.subTest(content=content):
+                self._config(content)
+                r = self._cli("smoke", "wiki")
+                self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+                self.assertIn(needle, r.stderr)
+                self.assertNotIn("Traceback", r.stderr)
+
+
+class SmokeForbidTest(GitWikiTestCase):
+    @NEEDS_TOMLLIB
+    def test_forbid_checks_print_path_and_line_of_each_hit(self) -> None:
+        for branch in ("feat-alpha", "Upper-case", "single", "topic/sub-gamma"):
+            self.git("branch", branch)
+        self.git("update-ref", "refs/remotes/upstream/fix-beta", "HEAD")
+        self.write(
+            "wiki/pages/concept/leak.md",
+            page_text(extra="status: in_progress")
+            + "feat-alpha 를 머지하면\n"
+            + "fix-beta 와 feat-alpha, Upper-case single sub-gamma\n"
+            + "열린 이슈 3건\n",
+        )
+        self.write(
+            "wiki/wiki-check.toml",
+            '[smoke.forbid]\nbranch_names = true\nplan_status = true\npatterns = ["이슈 [0-9]+건", "없는 문구"]\n',
+        )
+        r = self._cli("smoke", "wiki")
+        self.assertEqual(r.returncode, 1, r.stderr)
+        leak = "wiki/pages/concept/leak.md"
+        self.assertEqual(
+            r.stdout.splitlines(),
+            [
+                f"FAIL | 금지 — 작업 브랜치 이름 2개 → {leak}:11 (feat-alpha)",
+                f"FAIL | 금지 — 작업 브랜치 이름 2개 → {leak}:12 (feat-alpha, fix-beta)",
+                f"FAIL | 금지 — status: in_progress → {leak}:7 (status: in_progress)",
+                f"FAIL | 금지 — 패턴 이슈 [0-9]+건 → {leak}:13 (이슈 3건)",
+                "PASS | 금지 — 패턴 없는 문구",
+                "wiki smoke check: PASS 1 · FAIL 4",
+            ],
+        )
+
+    def test_ref_name_with_unicode_line_break_is_one_branch(self) -> None:
+        self.git("branch", "zz\u0085refs/heads/ghost-branch")
+        self.assertNotIn("ghost-branch", wiki_check.work_branches(self.repo()))
 
 
 class StandaloneTest(WikiTestCase):
@@ -1343,6 +2131,22 @@ class StandaloneTest(WikiTestCase):
         r = self._cli("schema", "wiki", env={"PATH": str(no_git)}, script=solo / "wiki_check.py")
         self.assertEqual(r.returncode, 1, r.stderr)
         self.assertIn("날짜 실재 안 함", r.stdout)
+
+    @NEEDS_TOMLLIB
+    def test_copied_script_alone_catches_failing_smoke_question(self) -> None:
+        solo = self.root / "solo"
+        solo.mkdir()
+        shutil.copy2(SCRIPT, solo / "wiki_check.py")
+        no_git = self.root / "empty-path"
+        no_git.mkdir()
+        self._page("concept/x.md", page_text())
+        (self.wiki / "index.md").write_text("[[x]]\n", encoding="utf-8")
+        (self.wiki / "wiki-check.toml").write_text(
+            smoke_toml(("근거", "concept/x.md", "없는 근거")), encoding="utf-8"
+        )
+        r = self._cli("smoke", "wiki", env={"PATH": str(no_git)}, script=solo / "wiki_check.py")
+        self.assertEqual(r.returncode, 1, r.stderr)
+        self.assertIn("FAIL | 근거 → wiki/pages/concept/x.md", r.stdout)
 
     def test_source_parses_with_python_39_grammar(self) -> None:
         ast.parse(SCRIPT.read_text(encoding="utf-8"), feature_version=(3, 9))
