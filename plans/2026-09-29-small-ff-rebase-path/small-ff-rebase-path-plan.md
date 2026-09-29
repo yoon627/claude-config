@@ -1,6 +1,6 @@
 ---
 title: small-ff-rebase-path — small 작업이 ff 불가일 때 갈 경로를 CLAUDE.md §8 에 둔다 (#191)
-status: in_progress
+status: done
 started: 2026-09-29
 updated: 2026-09-29
 ---
@@ -25,10 +25,10 @@ CLAUDE.md §8 의 trivial·small 종결 경로에서 ff 가 불가능할 때(그
 
 - 2026-09-29: 착수. CLAUDE.md:140, dlc:162 수정. README:242 요약은 그대로 참이라 유지.
 - 2026-09-29: `ff-only` 전수 grep — 나머지(post-checkout·SessionStart·`/e` 8단계·README 수동 복구)는 main 최신화 서술이라 무관. Windows `verify.sh` rc 0 `ALL PASS (skip: install-hooks.test.js(case) record-verified.test.sh)`. plan-reviewer·code-reviewer 생략 — 규약 한 문장 확장이고 코드 변경 없음.
+- 2026-09-29: `/e merge` — PR #201.
 
 # Next
 
-verify → 커밋 → `/e merge`.
 
 # Decisions
 
