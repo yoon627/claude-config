@@ -31,7 +31,7 @@ description: 진행 중이던 §10 plan 을 실제 git/코드 상태로 동기�
 ### 3. plan 동기화 기록 (메인이 single writer; §10)
 plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신:
 - `# Progress`: 오늘 진행 한 줄 + 임시 커밋 sha7.
-- `# Next`: 다음 세션 즉시 액션으로 교체(실효된 것 정리). WIP 커밋 있으면 "WIP `<sha7>` 이어서 — 정리는 commit-check(`/e merge` 가 push 전에 제안)" 명시 → c 가 인지.
+- `# Next`: 다음 세션 즉시 액션으로 교체(실효된 것 정리). WIP 커밋 있으면 "브랜치 tip 의 `wip:` 커밋 이어서 — 정리는 commit-check(`/e merge` 가 push 전에 제안)" 명시 → c 가 인지. sha7 은 적지 않는다 — commit-check 가 그 커밋을 합치거나 다시 쓰면 없는 커밋을 가리킨다(`# Progress` 의 sha7 은 기록이라 그대로 둔다).
 - `# Decisions`: 세션 중 결정·스코프 변경 보강(기존은 지우지 말고 §10 방식 "~로 변경 (이유: …)" 덮어쓰기/추가).
 - `# Key Files`: 추가/이동 동기화.
 - `# Blockers`: 막힌 것 + 풀 조건.
