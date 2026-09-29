@@ -85,6 +85,7 @@ agent 정의(`Codex 연결 실패: … agents`)도 같은 규칙이다 — `agen
 | Codex skill·AGENTS.md·agent 정의 | macOS: skill 7종을 `$HOME/.agents/skills/` 에, `${CODEX_HOME:-$HOME/.codex}/AGENTS.md` 를 `$HOME/.claude/CLAUDE.md` 에 symlink, agent 정의를 `agents/*.md` 마다 `${CODEX_HOME:-$HOME/.codex}/agents/` 에 생성(`sync_codex_agents.py`). Windows: 같은 목록 — skill 은 junction, AGENTS.md 는 symlink(개발자 모드·관리자), agent 정의는 `python` 있을 때 |
 | 셸 env | marker 블록(mac `~/.zshrc`) / User 레지스트리(win): `ANTHROPIC_MODEL`, PATH. `CLAUDE_CODE_EFFORT_LEVEL`은 제거/해제해 `/effort`가 동작하게 함. |
 | settings.json | **재현 안 함** — untracked(2026-09-07~)라 `git clone` 으로 오지 않는다. 기존 머신에서 직접 복사한다(루트 README Install A 의 settings.json 배치 단계 — Windows 5번, macOS 2번). 부트스트랩은 rtk hook 등록만. |
+| private-terms.txt | **재현 안 함** — 비공개 용어 목록이라 추적하지 않는다. 기존 머신에서 직접 복사한다(루트 README Install D 절). 없으면 `pre-commit-check` 가 note 한 줄 후 비공개 용어 검사를 건너뛴다. |
 | memory | `--memory-from`/`-MemoryFrom` 으로 기존 머신 경로 줄 때만 복원(아래 한계). |
 
 ## idempotent 동작

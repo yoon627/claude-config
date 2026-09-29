@@ -44,7 +44,10 @@ cd $env:USERPROFILE\.claude
 #    기존 머신의 ~/.claude/settings.json 을 그대로 복사해 온다. cross-platform 이라 편집 불필요.
 #    없으면 hook·statusline 이 전혀 등록되지 않는다.
 
-# 6. Claude Code 재시작
+# 6. (선택) 비공개 용어 목록 — 기존 머신의 ~/.claude/private-terms.txt 를 복사 (untracked).
+#    없으면 가드가 note 한 줄만 찍고 비공개 용어 검사를 건너뛴다 (아래 D 절).
+
+# 7. Claude Code 재시작
 ```
 
 `settings.json` 은 **untracked** — clone 만으로는 오지 않으므로 위 5번을 건너뛰면 안 된다. 이유는 문서 맨 위 참조.
@@ -117,6 +120,8 @@ git checkout origin/main -b main
 
 `settings.json` 이 untracked 가 된 뒤로 이 가드가 실제로 보는 것은 `plans/*.md` 뿐이다. settings.json 검사는 staged 목록이나 push 범위에 그 파일 변경이 있을 때만 돌므로 지금은 조용히 건너뛴다 — 실수로 다시 추적되면 되살아나는 안전망으로 남겨 뒀다. push 검사는 `--no-verify`·commit-check(plumbing 이라 훅 없음)·다른 도구로 pre-commit 을 건너뛴 커밋까지 잡는다.
 
+**비공개 용어 (`~/.claude` 에서만)**: 이 repo 는 공개라, 추적하지 않는 머신별 목록 `~/.claude/private-terms.txt`(한 줄 한 항목 — 회사·비공개 repo 이름·티켓 키 등, `#` 줄은 주석)에 적은 이름이 들어가는 커밋·push 도 막는다. 커밋 때는 staged 변경의 추가 줄·새 경로를, push 때는 ref 이름과 push 커밋의 추가 줄·새 경로·메시지·작성자/커미터를 본다(이 repo 의 모든 경로). 항목은 앞뒤가 ASCII 영숫자가 아닐 때만 걸리고(대소문자 무시 — 긴 단어·커밋 해시 속에는 안 걸린다), 줄 앞에 `*` 를 붙이면 부분일치로 걸린다. 출력은 목록 줄 번호와 위치(`private term (list line 3) in staged notes/a.md`)뿐 — 항목과 걸린 줄은 찍지 않는다. 걸리면 목록을 열어 보지 말고 그 표현을 일반 표현(예: "회사 repo")으로 바꾼다. 목록은 clone 으로 오지 않으니 머신마다 직접 복사한다 — 없으면 note 한 줄 후 통과, 디렉토리·읽을 수 없는 파일·3바이트 미만이나 제어문자가 든 항목은 차단(끄려면 목록을 비운다). `private-terms.txt` 라는 파일을 stage·push 하면 목록이 없어도 차단한다. 다른 repo 에서는 목록을 열지 않는다. 한계: 목록에 없는 이름, PR 제목·본문과 GitHub 웹 편집, `--no-verify` 는 못 잡는다(CLAUDE.md §11 공개 점검이 담당).
+
 설치 한 번:
 ```powershell
 .\scripts\install-hooks.ps1
@@ -142,6 +147,7 @@ git clone <this-repo-url> .claude
 # 2. settings.json 배치 — clone 에 포함되지 않는다 (untracked)
 #    기존 머신의 ~/.claude/settings.json 을 그대로 복사. cross-platform 이라 OS별 편집 불필요.
 #    없으면 hook·statusline 이 전혀 등록되지 않는다.
+#    (선택) 비공개 용어 목록 ~/.claude/private-terms.txt 도 같은 방식으로 복사 (untracked, 아래 D 절).
 
 # 3. (optional) pre-commit / pre-push 가드 설치
 cd ~/.claude
@@ -183,7 +189,7 @@ git checkout origin/main -b main
 
 ### D. Pre-commit / Pre-push 가드 (macOS)
 
-`scripts/pre-commit-check.sh` 가 Windows `.ps1` 버전과 동일한 규칙으로 커밋할 때는 staged `settings.json`·`plans/*.md`(tracked §10) 를, push 할 때는 push 되는 커밋(push 대상 ref 가 아직 갖지 않은 것)이 `settings.json`·`plans/*.md` 에 **추가한 줄**을 검사. 동일하게 금지 키 + 토큰/시크릿 패턴 차단. settings.json 이 untracked 라 실효 대상이 `plans/*.md` 뿐인 것도 Windows 판과 같다.
+`scripts/pre-commit-check.sh` 가 Windows `.ps1` 버전과 동일한 규칙으로 커밋할 때는 staged `settings.json`·`plans/*.md`(tracked §10) 를, push 할 때는 push 되는 커밋(push 대상 ref 가 아직 갖지 않은 것)이 `settings.json`·`plans/*.md` 에 **추가한 줄**을 검사. 동일하게 금지 키 + 토큰/시크릿 패턴 차단. settings.json 이 untracked 라 실효 대상이 `plans/*.md` 뿐인 것도 Windows 판과 같다. `~/.claude` 의 비공개 용어 검사(`~/.claude/private-terms.txt`)도 위 Windows D 절과 같다.
 
 설치:
 ```bash
@@ -242,7 +248,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 8. Git / 보안 — destructive 명령 금지, 시크릿 출력 금지, 코드/파일 변경은 규모 불문 worktree(`/wt`)에서(gitignored 글로벌 상태 제외), **검증 통과분은 요청 없이 작업 브랜치 커밋**(push 는 요청 시만), 커밋은 하나의 목적 단위(`commit-check` 로 점검), trivial·small 종결은 로컬 ff-merge
 9. Claude ↔ Codex 협업 — `plans/` 핸드오프 채널, 리뷰 매트릭스
 10. `plans/` 핸드오프 규약 — slug, frontmatter, 필수 6개 + 선택 섹션(Intent·Acceptance·Review Disposition·Deferred·Workflow Findings — Intent 는 medium 이상 항상), 묶음 intent(`plans/<date>-<intent-slug>/intent.md` 하나에 plan 여럿이 `intent:` 로 링크 — 단발 작업은 plan `# Intent` 만. medium 이상은 dlc 분할 판정이 "독립 머지 가능한 복수 plan 으로 나뉘는가"를 능동으로 보고 안 나뉘면 `분할: 없음 — <근거>`)
-11. 영속 프로젝트 메모리 (LLM Wiki) — 두 계층: repo `wiki/`(그 repo 의 결정·교훈) + 공용 `~/.claude/wiki/`(여러 repo 에 쓸모 있는 공개 가능한 사실·전역 자산 교훈 — 모든 repo 가 조회, 다른 repo 세션은 적립 제안만, 공개 repo 라 회사·비공개 정보 금지), `plans/` 와 경계 (일시적 vs 영속)
+11. 영속 프로젝트 메모리 (LLM Wiki) — 두 계층: repo `wiki/`(그 repo 의 결정·교훈) + 공용 `~/.claude/wiki/`(여러 repo 에 쓸모 있는 공개 가능한 사실·전역 자산 교훈 — 모든 repo 가 조회, 다른 repo 세션은 적립 제안만), `plans/` 와 경계 (일시적 vs 영속). 공개 점검 — `~/.claude` 는 공개 repo 라 이 repo 의 **모든** 커밋·push 에 회사·비공개 정보 금지(`private-terms.txt` 목록으로 기계 백스톱)
 12. 피드백 메모리 — 작업 방식 교정을 `memory/`(type: feedback) + `MEMORY.md` 인덱스로 영속화해 다음 작업에 반영. 보편·중대 규칙은 이 `CLAUDE.md` 로 승격.
 13. 실수·교훈 로그 — 반복 실수를 대상 계층 wiki 의 교훈 페이지(상세 — 공용은 `decision/lesson-*`, 다른 repo 는 그 WIKI.md 형식. 전역 워크플로우 교훈은 공용) + `MEMORY.md` 인덱스(자동 상기 — 프로젝트별이라 다른 repo 에는 공용 index 조회로)로 적립해 다음 구현에서 회피. 인덱스 주입은 권고이지 강제 아님.
 
@@ -453,13 +459,15 @@ CI 의 **검증 기록** `record-verified` job — main push 의 lint 가 통과
 
 > `settings.json` 이 untracked 가 된 뒤로 settings 검사는 **실제로는 돌지 않는다** — staged 목록이나 push 범위에 그 파일 변경이 있을 때만 진입한다. 실수로 다시 추적되면 되살아나도록 코드는 남겨 뒀고, 지금 실효 대상은 `plans/*.md` 다.
 
-`pre-push` 모드는 추가로 **`main`/`master` 직접 푸시를 차단**한다(`.sh`·`.ps1` 동일). 단 **repo 루트가 `~/.claude` 면 면제** — 이 repo 는 main push 허용(2026-08-05 사용자 승인, CLAUDE.md §8)이지만 이 가드는 install-hooks 를 돌린 **모든 repo 가 공유**하므로 제거 대신 repo 루트로 범위를 좁혔다. `$HOME` 과 `--show-toplevel` 중 한쪽이 심볼릭 링크일 수 있어 양쪽을 실제 경로로 해석해 비교한다. 커버리지: `pre-commit-check.test.sh` — 실제 커밋 fixture 로 pre-commit 13(staged blob 의 `git replace` 포함), pre-push 스캔 51(선형·merge 토폴로지·사용자 log/diff 설정·attributes·pathspec 환경변수·`git replace`·NUL·잘못된 UTF-8·태그·손상 객체·입력 불량·커밋을 stdin 으로 넘김(ref 50줄·`git log` argv 에 sha 없음 — sh)·HEAD 가 아닌 push ref·입력 생성 실패, 그리고 제외 기준 — 대상 ref 가 가진 커밋만 제외·다른 브랜치 추적 ref 무시·재작성 뒤 오래된 추적 ref·로컬에 없는/blob/tree/annotated tag 인 remote sha·짧거나 16진수가 아니거나 repo 해시 길이와 다른 sha·sha256 repo·삭제 줄과 여러 줄의 합집합·replace 된 원격 태그), main 차단 5(면제 2 + 차단 2 + 무관 브랜치 1). 차단은 `[BLOCKED]` 와 기대 사유가 출력에 있어야 통과로 센다. pwsh 가 있으면(`$PWSH` 또는 PATH) 같은 케이스를 ps1 로도 돌린다.
+`pre-push` 모드는 추가로 **`main`/`master` 직접 푸시를 차단**한다(`.sh`·`.ps1` 동일). 단 **repo 루트가 `~/.claude` 면 면제** — 이 repo 는 main push 허용(2026-08-05 사용자 승인, CLAUDE.md §8)이지만 이 가드는 install-hooks 를 돌린 **모든 repo 가 공유**하므로 제거 대신 repo 루트로 범위를 좁혔다. `$HOME` 과 `--show-toplevel` 중 한쪽이 심볼릭 링크일 수 있어 양쪽을 실제 경로로 해석해 비교한다. 커버리지: `pre-commit-check.test.sh` — 실제 커밋 fixture 로 pre-commit 13(staged blob 의 `git replace` 포함), pre-push 스캔 51(선형·merge 토폴로지·사용자 log/diff 설정·attributes·pathspec 환경변수·`git replace`·NUL·잘못된 UTF-8·태그·손상 객체·입력 불량·커밋을 stdin 으로 넘김(ref 50줄·`git log` argv 에 sha 없음 — sh)·HEAD 가 아닌 push ref·입력 생성 실패, 그리고 제외 기준 — 대상 ref 가 가진 커밋만 제외·다른 브랜치 추적 ref 무시·재작성 뒤 오래된 추적 ref·로컬에 없는/blob/tree/annotated tag 인 remote sha·짧거나 16진수가 아니거나 repo 해시 길이와 다른 sha·sha256 repo·삭제 줄과 여러 줄의 합집합·replace 된 원격 태그), main 차단 5(면제 2 + 차단 2 + 무관 브랜치 1), 비공개 용어 52(아래 — 합성 용어만. 범위 판정 일부는 `core.hooksPath` 로 실제 `git commit`·`git push` 가 훅을 부르게 해서 git 이 훅에 넘기는 환경까지 재현한다). 차단은 `[BLOCKED]` 와 기대 사유가 출력에 있어야 통과로 센다(사유가 `=` 로 시작하면 색 코드를 벗긴 출력에 `  - <사유>` 줄이 그대로 있어야 한다 — sh·ps1 문자열 동일성). pwsh 가 있으면(`$PWSH` 또는 PATH) 같은 케이스를 ps1 로도 돌린다.
+
+**비공개 용어**(`~/.claude` 에서만 — 사용자 관점 요약은 위 Install D 절): 대상 판정은 현재 repo 의 `git rev-parse --git-common-dir` 이, git 변수(`GIT_DIR`·`GIT_COMMON_DIR`·`GIT_WORK_TREE`·`GIT_INDEX_FILE`)를 지운 채 `~/.claude` 에서 물은 common dir 과 같은 디렉토리인가다(sh `-ef`, ps1 은 git 이 낸 절대경로끼리 비교) — linked worktree 의 훅은 git 이 export 한 `GIT_DIR` 을 물려받아, 지우지 않으면 `~/.claude` 에 물어도 현재 repo 가 답한다. main checkout·linked worktree·gitfile `.git`(`--separate-git-dir`)이 대상이고, 위 main push 면제의 `--show-toplevel` 판정과 다르다. `$HOME/.claude/.git` 이 없으면(CI·다른 머신) 비대상이고, git 이 답하지 못하면 현재 디렉토리가 `~/.claude` 아래일 때만 차단한다 — 다른 repo 는 어떤 경우에도 막지 않고 목록도 열지 않는다. 목록은 UTF-8, 앞 BOM·줄 끝 CR·앞뒤 공백을 떼고 빈 줄·`#` 줄은 건너뛰며, 보고하는 줄 번호는 물리 줄 번호다. sh 는 목록을 awk 로 한 번 정규화해 매처 awk 에 환경변수로 넘기고(`LC_ALL=C` 바이트 비교, ASCII 만 소문자화, 경계 판정은 항목을 정규식 이스케이프해 줄마다 한 번 검색 — 긴 줄에서도 선형), ps1 은 `ToLowerInvariant` 라 비ASCII 대소문자까지 접는다(ps1 이 더 엄격 — 경계는 소문자화 전 글자로 판정해 sh 와 같다). pre-commit 은 `git diff --cached -M -U0 --text` 의 추가 줄과 `--diff-filter=ACR` 새 경로(pre-commit 은 merge·cherry-pick·rebase·commit-check 에서 안 돌므로 조기 경고일 뿐), pre-push 는 위 비밀 스캔과 같은 하드닝 옵션으로 **모든 경로**의 추가 줄·새 경로, `git log` 의 메시지·작성자·커미터, 삭제가 아닌 모든 줄의 remote ref 이름을 본다. push 범위는 비밀 스캔 범위에서 `refs/remotes/origin/main` 이 가진 이력을 더 뺀다 — 가드 도입 전 이력의 이름이 새 브랜치 push 마다 걸리지 않게 하려는 것이고, 제외 기준을 origin(공개) 기본 브랜치 하나로 좁혀 위의 "추적 ref 를 공개로 보지 않는다"는 이유(다른 원격·재작성 뒤 옛 값)가 닿지 않게 했다(main 은 force-push 금지). 계약: 로컬 `origin/main` 이 뒤처지거나 없으면 범위가 넓어져 이미 공개된 이력에도 걸릴 수 있고(`git fetch origin` 으로 해소), `update-ref` 로 조작된 `origin/main` 은 그만큼 놓친다. merge 는 `-m` 이라 가드 도입 전 main 을 feature 로 merge 하면 main 쪽 줄이 다시 보고될 수 있다. annotated tag 본문은 보지 않는다(tag 이름은 ref 검사가 본다). 위반은 `private term (list line N) in <staged 경로|pushed 경로|commit <sha> message|commit <sha> identity|push ref (hidden)>` — 경로에 항목이 들어 있으면(긴 단어의 일부여도) `path (hidden)` — 이고, 목록 파일 자체가 걸리면 `git rm --cached` 안내를, 목록·범위·git 오류에는 목록 줄을 손으로 고치라는 안내(도구로 열거나 다시 쓰지 말 것)를 따로 낸다. git 2.31 미만(`--path-format` 을 모르고 되찍는다)은 범위 판정 불능으로 본다 — install-hooks 가 설치를 거부하는 버전이라 설치 뒤 PATH 의 git 이 바뀐 경우에만 생긴다. 비공개 용어 위반이 있으면 `--no-verify` 안내를 찍지 않는다(비밀 스캔까지 꺼진다). 한계: ps1 은 git 이 범위를 답하지 못할 때의 대체 판정에서 경로의 심볼릭 링크·junction 을 풀지 못해(.NET Framework 에 실제 경로 API 가 없다) 그 경우 `~/.claude` 안에서도 통과할 수 있다. 목록은 올바른 UTF-8 이어야 한다 — 잘못된 바이트가 든 항목은 sh 와 ps1 의 판정이 갈릴 수 있다.
 
 `.git/hooks/` 에 직접 두지 않고 별도 파일 → repo 에 tracked. `install-hooks.ps1` 가 hooks 디렉토리의 `{pre-commit,pre-push}` sh wrapper 를 생성해서 이 스크립트로 위임.
 
 #### `install-hooks.ps1` / `install-hooks.sh`
 repo 의 hooks 디렉토리(`git rev-parse --git-path hooks` — linked worktree 에서 실행해도 공용 `.git/hooks`)에 세 hook 의 sh wrapper 생성 (`.ps1`=Windows, `.sh`=Unix, 동일 로직). `core.hooksPath` 가 다른 디렉토리를 가리키면(husky·lefthook 등, 설정 위치 불문) 그 도구의 훅을 덮거나 git 이 읽지 않는 `.git/hooks` 에 쓰는 대신 **설치하지 않고 exit 1** — 그 도구에서 `pre-commit-check` 를 부르게 한다. git 밖에서는 `Not inside a git repo.` 로 exit 1. `core.hooksPath` 가 없으면 `.git/hooks` 가 symlink 여도 그 경로에 설치한다. **git 2.31+ 필요**(`rev-parse --path-format`; 더 오래된 git 은 설치하지 않고 알린다). ps1 은 git 을 `pre-commit-check.ps1` 과 같은 Process 헬퍼로 부른다(PS 5.1 의 native stderr 종료 오류·콘솔 코드페이지 회피):
-- `pre-commit`·`pre-push` — 비밀·금지 키 가드(`pre-commit-check`)로 위임.
+- `pre-commit`·`pre-push` — 비밀·금지 키·비공개 용어 가드(`pre-commit-check`)로 위임.
 - **`post-checkout`** (main-autopull) — main/master 로 **branch 체크아웃 시** `git pull --ff-only origin <branch>` 로 origin 최신화. `git checkout` 을 절대 막지 않음(항상 exit 0). ff 실패는 "main 에 로컬 커밋 있음" 신호라 자동 rebase 하지 않고 경고만. **skip/무해 조건**: dirty·origin 없음·rebase/merge/bisect 중·default 브랜치가 main/master 아님. **hang 방지**: `GIT_TERMINAL_PROMPT=0`(프롬프트)+SSH `ConnectTimeout=10`+HTTP low-speed+백그라운드 pull 을 ~20s 폴링 워치독으로 kill (macOS 는 `timeout(1)` 부재라 자체 워치독). **비활성**: `export CLAUDE_AUTOPULL_OFF=1`. **제거**(rollback): `rm "$(git rev-parse --git-path hooks)/post-checkout"`(hook 은 비추적·머신별이라 스크립트 revert 로 안 지워짐; linked worktree 에서는 `.git` 이 파일이라 `.git/hooks` 경로가 틀린다).
 
 UTF-8 (no BOM) + LF endings — Git Bash 가 인식. idempotent — 재실행 시 기존 pre-commit/pre-push 는 **바이트 동일 유지**하고 post-checkout 만 추가. 내용이 다른 기존 훅은 `<hook>.bak.<UTC yyyyMMddTHHmmssZ>`(이미 있으면 `.1`·`.2`…)로 옮겨 재설치마다 앞 백업이 남는다(정리는 수동). 커버리지: `install-hooks.test.js` — git 밖·linked worktree·`core.hooksPath` 거부·백업 보존을 sh 와(pwsh 가 있으면, `PWSH=<path>` 로 지정 가능) ps1 로 확인하고 `ps1: ran`/`skipped` 를 출력한다. 새 머신 setup 시(=clone 한 repo 마다) 1회 실행. SessionStart 훅(세션 **시작** 시점 pull)과 역할 분리 — post-checkout 은 **체크아웃** 시점을 커버. hang 방지 처방은 이제 양쪽에 다 있다(2026-09-04 SessionStart 쪽에도 이식). 다만 post-checkout 은 아직 `pull` 전체를 감싸고 상한도 iteration 카운트라 Windows 에서 명목 20s 가 실제 ~24s 다 — SessionStart 쪽에서 고친 두 결함이 여기엔 남아 있다(발화 빈도가 낮아 후순위).
@@ -530,6 +538,7 @@ Path 표기 (cross-platform):
 | `.credentials.json` | Claude / Anthropic OAuth 토큰. 절대 commit 금지. |
 | `~/.claude.json` | MCP server config + OAuth session. `claude mcp add --scope user` 가 여기 박음. 절대 commit 금지. `~/.claude/` 외부 (홈 디렉토리 직속) 라 본 repo 와 별도 파일. |
 | `settings.local.json` | 머신별 allow list, 머신별 hook, 임시 env. Claude Code 가 자동 deep merge 하며 `.local` 우선. |
+| `private-terms.txt` | 비공개 용어 목록(회사·비공개 repo 이름·티켓 키) — 공개 repo 에 올리면 그 자체가 누출이다. `pre-commit-check` 가 읽는다(위 Install D 절). 머신마다 직접 복사. |
 | `history.jsonl` | 명령 입력 히스토리. 개인 데이터. |
 | `projects/`, `sessions/`, `tasks/`, `cache/`, `paste-cache/`, `shell-snapshots/`, `file-history/`, `backups/`, `plugins/`, `plans/` | runtime cache, 세션 로그, 붙여넣기 캐시, plan 핸드오프 등 머신·세션별 데이터 |
 | `mcp-needs-auth-cache.json` | MCP 인증 캐시 |
@@ -570,7 +579,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 Claude Code 내장 skill `/fewer-permission-prompts` 호출 시 최근 transcript 의 read-only Bash·MCP 호출을 분석해 `permissions.allow` 에 자동 추가. 머신별 차이는 `settings.local.json` 에 두는 게 안전.
 
 ### Commit 전 식별자 leak 점검
-pre-commit guard 가 staged `plans/*.md` 의 토큰 패턴은 잡지만, 다른 파일의 머신 식별자 (username·내부 repo 이름·사내 IP/도메인·이메일 등) 는 본인이 확인. CI 가 자동 처리하지 않는 이유는 패턴 자체가 leak 표면이 될 수 있어서. **이 레포는 public** 이므로 사내 식별자가 섞이지 않았는지 특히 볼 것 — `settings.json` 을 추적에서 뺀 것도 그 값들이 자동으로 밀려 들어왔기 때문이다.
+pre-commit guard 가 staged `plans/*.md` 의 토큰 패턴과 `~/.claude/private-terms.txt` 에 적은 이름(Install D 절)은 잡지만, 목록에 없는 머신 식별자 (username·내부 repo 이름·사내 IP/도메인·이메일 등) 는 본인이 확인. CI 가 자동 처리하지 않는 이유는 패턴 자체가 leak 표면이 될 수 있어서. **이 레포는 public** 이므로 사내 식별자가 섞이지 않았는지 특히 볼 것 — `settings.json` 을 추적에서 뺀 것도 그 값들이 자동으로 밀려 들어왔기 때문이다.
 ```powershell
 git diff --staged | Select-String -Pattern '본인_username|내부_repo_이름|이메일도메인'
 ```

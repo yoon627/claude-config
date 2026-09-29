@@ -39,6 +39,7 @@ wiki/raw/
 # Belt-and-suspenders: never push these even if the whitelist is changed by mistake.
 .credentials.json
 settings.local.json
+private-terms.txt
 history.jsonl
 *.bak
 *.bak.*
