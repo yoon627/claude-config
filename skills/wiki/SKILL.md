@@ -45,7 +45,7 @@ wiki 는 두 계층이다(CLAUDE.md §11 이 배치 규칙의 단일 소스):
 7. 관련 `entity`(외부사실·버전)/`decision`(결정·교훈)/`concept` 페이지 갱신·생성. 한 ingest 가 여러 페이지 touch. 같은 사실이 이미 있으면 새 페이지 대신 갱신.
 8. 각 페이지 규칙 충족: frontmatter, ≥2 outbound `[[링크]]`(같은 wiki 안의 페이지만 — 계층을 넘는 참조는 경로 텍스트 `~/.claude/wiki/pages/<cat>/<stem>.md`), sources, 모순은 `> [!conflict]`. **raw 적재·페이지 write 전 token/key/PII 점검 → 발견 시 마스킹/중단**(경고 후 진행 금지), 공용이면 공개 점검까지.
 9. `index.md` 등재 + `log.md` append(`## [YYYY-MM-DD] ingest | <title>`).
-10. `check_links.py` 로 구조 점검 후 보고. 공용 적립이면 커밋 전 공개 점검을 한 번 더(비공개 출처면 diff 확인).
+10. `check_links.py`(링크·index)와 `wiki_check.py schema`(frontmatter 형식)로 점검 후 보고(명령은 lint 절). 공용 적립이면 커밋 전 공개 점검을 한 번 더(비공개 출처면 diff 확인).
 
 ## query
 1. 두 `index.md`(현재 repo wiki, 공용 wiki — `~/.claude` 에서는 하나)에서 관련 페이지 식별 → read.
@@ -57,9 +57,18 @@ wiki 는 두 계층이다(CLAUDE.md §11 이 배치 규칙의 단일 소스):
 현재 repo 의 wiki 만(`~/.claude` 에서는 공용 wiki). 점검만, 자동 수정 안 함(수정은 보고 후 사용자 승인). 점검 항목:
 - dead `[[링크]]`(대상 부재) / orphan(`index.md` 외 어느 페이지도 안 가리킴, inbound=0) / outbound 링크 <2.
 - `index.md` ↔ `pages/**` 불일치(누락·잉여).
-- frontmatter 필수 키 누락.
+- frontmatter 형식(필수 키·category·날짜 등)과 stem 형식·중복.
 - 모순(`[!conflict]` 미해소)·stale(오래된 entity 버전) 후보. 공용 wiki 면 공개 점검 위반 후보도.
-- 구조 점검(dead link·orphan·outbound<2·index 동기화·frontmatter)은 `check_links.py`(`uv run --no-project python "${CLAUDE_SKILL_DIR}/check_links.py" [wiki 경로]` — 인자가 없으면 현재 repo 의 wiki), 의미 점검(모순·stale·공개)은 LLM.
+
+기계 점검은 아래 두 스크립트가 하고(stdlib 만 쓴다), 의미 점검(모순·stale·공개)은 LLM 이 한다.
+- `check_links.py` — dead link·orphan·outbound<2·index 동기화: `uv run --no-project python "${CLAUDE_SKILL_DIR}/check_links.py" [wiki 경로]`(인자가 없으면 현재 repo 의 wiki).
+- `wiki_check.py schema` — frontmatter 형식: `uv run --no-project python "${CLAUDE_SKILL_DIR}/wiki_check.py" schema [wiki 경로] [--config 파일]`.
+  - wiki 경로가 없으면 현재 디렉터리에서 repo 루트까지 올라가며 `wiki/` 를 찾는다. `docs/wiki` 처럼 그 밖에 있는 wiki 는 경로를 넘긴다.
+  - exit 0 통과, 1 위반(`<경로>: <규칙> — <내용>` 한 줄씩, 경로는 repo 루트 기준이고 repo 밖이면 wiki 의 부모 기준), 2 사용·설정·환경 오류.
+  - 규칙은 `<wiki>/wiki-check.toml` 로 그 wiki 의 WIKI.md 규약에 맞춘다. 템플릿은 `templates/wiki-check.toml` 이고 키 설명은 템플릿 주석에 있다. config 가 없으면 공용 WIKI.md 규약(필수 키 5개, category 5종, `created`·`updated` 날짜)으로 돈다. 형식의 정본은 WIKI.md 라 둘이 어긋나면 config 를 고친다.
+  - config 를 읽으려면 Python 3.11+(`tomllib`)가 필요하다. 3.9·3.10 은 config 없는 검사만 된다.
+- frontmatter 판정의 정본은 `wiki_check.py schema` 다. `check_links.py` 의 frontmatter 줄은 호환용이라 BOM 이 붙은 페이지와 닫는 `---` 가 없는 페이지를 다르게 본다. `check_links.py` 만 따로 돌리면 같은 stem 의 페이지 중복을 잡지 못한다(한쪽을 조용히 덮어쓴다).
+
 결과를 분류해 보고 + 수정안 제시 + `log.md` append(`## [YYYY-MM-DD] lint | <요약>`).
 
 ## 경계

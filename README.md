@@ -340,7 +340,7 @@ background task 표시(`✻ N bg`)는 2026-09-25 제거했다 — tasks 디렉�
 
 ### skills/wiki/ — LLM Wiki (영속 프로젝트 메모리)
 
-`/wiki <ingest|query|lint>` 로 영속 프로젝트 메모리를 운영. 두 계층 — 현재 repo 의 `wiki/`(그 repo 의 결정·교훈)와 공용 `~/.claude/wiki/`(여러 repo 에 쓸모 있는 공개 가능한 사실·전역 자산 교훈). query 는 두 index 를 보고, ingest 는 대상 계층을 먼저 정한다 — 다른 repo 세션에서 공용 대상이면 쓰지 않고 `~/.claude 에서 /wt → /wiki ingest <요약 · 공개 근거 · 출처(공개/비공개)>` 제안을 Report·plan `# Deferred` 에 남긴다. 공용 wiki(이 repo)는 공개라 적립 작업이 공개하는 모든 것(페이지·sources·index·log·plan·브랜치/worktree 이름·커밋 메시지·PR)에 회사·조직명·내부 호스트/IP·코드명·티켓 키·비공개 repo 이름/경로를 두지 않고(단일 정의는 CLAUDE.md §11 공개 점검), 출처가 비공개이거나 불명인 제안은 커밋 전 diff 를 확인받는다. 현재 repo 판정은 `[ "$(git rev-parse --path-format=absolute --git-common-dir)" -ef "$HOME/.claude/.git" ]`. ingest(raw·작업지식 → 상호링크 페이지 + index/log) · query(누적 페이지로 답 → 가치 있으면 현재 repo wiki 에 filed) · lint(현재 repo wiki 의 orphan·dead link·모순 점검·보고). 배치 규칙은 CLAUDE.md §11, 형식은 각 wiki 의 `WIKI.md`. `plans/`(일시적 작업 핸드오프)와 달리 작업을 **가로질러 누적**. raw 원문은 gitignored·읽기 전용, 페이지만 tracked. dlc 연계는 CLAUDE.md §11.
+`/wiki <ingest|query|lint>` 로 영속 프로젝트 메모리를 운영. 두 계층 — 현재 repo 의 `wiki/`(그 repo 의 결정·교훈)와 공용 `~/.claude/wiki/`(여러 repo 에 쓸모 있는 공개 가능한 사실·전역 자산 교훈). query 는 두 index 를 보고, ingest 는 대상 계층을 먼저 정한다 — 다른 repo 세션에서 공용 대상이면 쓰지 않고 `~/.claude 에서 /wt → /wiki ingest <요약 · 공개 근거 · 출처(공개/비공개)>` 제안을 Report·plan `# Deferred` 에 남긴다. 공용 wiki(이 repo)는 공개라 적립 작업이 공개하는 모든 것(페이지·sources·index·log·plan·브랜치/worktree 이름·커밋 메시지·PR)에 회사·조직명·내부 호스트/IP·코드명·티켓 키·비공개 repo 이름/경로를 두지 않고(단일 정의는 CLAUDE.md §11 공개 점검), 출처가 비공개이거나 불명인 제안은 커밋 전 diff 를 확인받는다. 현재 repo 판정은 `[ "$(git rev-parse --path-format=absolute --git-common-dir)" -ef "$HOME/.claude/.git" ]`. ingest(raw·작업지식 → 상호링크 페이지 + index/log) · query(누적 페이지로 답 → 가치 있으면 현재 repo wiki 에 filed) · lint(현재 repo wiki 의 orphan·dead link·frontmatter 형식·모순 점검·보고). 기계 점검은 `check_links.py`(링크·orphan·index 동기화)와 `wiki_check.py schema`(frontmatter 형식 — stdlib 단일 파일, 규칙은 `<wiki>/wiki-check.toml` 로 그 wiki 의 WIKI.md 에 맞추고 없으면 공용 WIKI.md 규약, 템플릿 `templates/wiki-check.toml`, config 는 Python 3.11+)가 하고, frontmatter 판정의 정본은 `wiki_check.py` 다. 배치 규칙은 CLAUDE.md §11, 형식은 각 wiki 의 `WIKI.md`. `plans/`(일시적 작업 핸드오프)와 달리 작업을 **가로질러 누적**. raw 원문은 gitignored·읽기 전용, 페이지만 tracked. dlc 연계는 CLAUDE.md §11.
 
 ### skills/improve/ — 자기개선 loop 분석 축 (구 /audit 흡수)
 
@@ -660,7 +660,13 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   │   ├── SKILL.md                # /wt — git worktree 관리
 │   │   └── references/             # 생성 시퀀스·.env 복사·rm 복구 메커닉 (자동 로드 안 됨)
 │   ├── wiki/
-│   │   └── SKILL.md                # /wiki — LLM Wiki 운영 (ingest/query/lint)
+│   │   ├── SKILL.md                # /wiki — LLM Wiki 운영 (ingest/query/lint)
+│   │   ├── check_links.py          # dead link·orphan·outbound·index 동기화 점검 (stdlib)
+│   │   ├── test_check_links.py     # check_links 테스트 (CI)
+│   │   ├── wiki_check.py           # wiki 정합성 검사 — schema(frontmatter 형식) (stdlib 단일 파일)
+│   │   ├── test_wiki_check.py      # wiki_check 테스트 (CI)
+│   │   └── templates/
+│   │       └── wiki-check.toml     # wiki_check config 템플릿 (값 = 코드 기본값)
 │   ├── improve/
 │   │   ├── SKILL.md                # /improve — 자기개선 loop 분석 축 (구 /audit 흡수; 자산 read-only·랭킹·제안, 끝에 last-improve 마커만 갱신)
 │   │   └── improve.sh              # 자산 간 참조 정합 기계 점검 + dlc 신호 집계 + 네이티브 중복 대장 신선도 (read-only)

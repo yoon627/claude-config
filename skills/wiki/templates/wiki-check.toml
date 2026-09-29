@@ -1,0 +1,24 @@
+# wiki_check.py 설정 — <wiki>/wiki-check.toml 로 복사해 그 wiki 의 WIKI.md 규약에 맞게 고친다.
+# 파일이 없으면 아래 값(= 코드 기본값, 공용 WIKI.md 규약)으로 돈다. 형식의 정본은 WIKI.md 다 —
+# 둘이 어긋나면 이 파일을 고친다. 모르는 키·잘못된 타입은 exit 2 다(오타로 규칙이 조용히 꺼지지 않게).
+# 이 파일을 읽으려면 Python 3.11+ (tomllib) 가 필요하다.
+
+# 설정 형식 버전. 스크립트가 아는 것보다 크면 "스크립트 갱신 필요" 로 exit 2.
+version = 1
+
+[schema]
+# 비어 있으면 안 되는 frontmatter 키. 여기서 빼도 check_links.py 는 5개를 계속 검사한다.
+required = ["title", "category", "created", "updated", "sources"]
+# 허용 category. 페이지 바로 위 디렉터리 이름과도 같아야 한다. [] 이면 두 검사를 끈다(평면 wiki).
+categories = ["concept", "entity", "decision", "source", "query"]
+# 값 전체가 YYYY-MM-DD 이고 실재하는 날짜여야 하는 키.
+date_keys = ["created", "updated"]
+# 값이 YYYY-MM-DD 로 시작해야 하는 키. 예: ["verified"] — "verified: 2026-09-29 — 확인한 내용".
+date_prefixed_keys = []
+# 페이지 수 범위 [최소, 최대]. [] 이면 끈다. 무한 증식을 잡는 tripwire 라, 걸리면 늘어난 이유를
+# 확인하고 이 값을 의식적으로 고친다.
+page_count = []
+
+[schema.enums]
+# 키 = [허용값, ...]. 키가 있고 값이 비어 있지 않으면 목록 안이어야 한다.
+# claim_state = ["current", "historical", "superseded"]
