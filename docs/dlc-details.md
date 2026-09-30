@@ -19,7 +19,7 @@ SKILL 은 2스텝 이름(재현 → 인과 사슬)·"재현 없이 고쳤다 금
 
 ## C. wiki 연계 메커닉 (SKILL wiki 연계, CLAUDE.md §11)
 두 판정(ingest·feedback memory) **누락 금지** 게이트는 SKILL 본문이 단일 소스 — 여기는 그 판정을 **어떻게** 수행하나(조건부·opt-in 2지점, 16단계 표 안 늘림). wiki 는 두 계층(현재 repo 의 `wiki/`, 공용 `~/.claude/wiki/` — 공용은 절대경로로 읽고 main 세션에서 쓴다)이고 배치 규칙은 CLAUDE.md §11:
-- **1 Explore**: 두 `index.md`(있는 것만 — `~/.claude` 에서는 하나)를 작업 키워드로 걸러 관련 `decision`/`entity` 페이지 read(과거 결정·검증된 외부 사실 재사용 → researcher 재검색 절감). 둘 다 없으면 skip.
+- **1 Explore**: 두 wiki(있는 것만 — `~/.claude` 에서는 하나)를 작업 키워드로 검색해(`"$HOME/.claude/skills/wiki/wiki_search.py"`, 쓰는 법은 `skills/wiki/SKILL.md` query 1단계) 관련 `decision`/`entity` 페이지 read(과거 결정·검증된 외부 사실 재사용 → researcher 재검색 절감). exit 2 는 stderr 이유를 본다 — `찾을 wiki 가 없다` 일 때만 skip 하고, 그 밖의 이유(단어·category 없음, 설정·읽기 오류)는 고쳐 다시 찾는다.
 - **3 draft plan 전(필수 — 조건·기록 위치는 SKILL 본문이 단일 소스)**: 1 의 키워드 대신 **대상 자산 이름·작업 종류**로 다시 거른다(예: `CLAUDE.md` + slim·압축·이관). 분석에서 이어진 계획은 1 을 건너뛰기 쉬워 여기서 한 번 더 건다 — 이 조회가 없어 7월 결정(`ops-doc-slimming`)과 정면충돌한 슬림화 계획이 나온 실측(2026-09-28).
 - **16 Report — ingest 판정 대상**: 재사용 지식 = 비자명 결정·교훈·확정한 외부 사실. trivial·일회성·이 작업 국한은 제외. 대상이면 계층까지 정한다 — repo 고유는 repo wiki, 여러 repo 에 쓸모 있는 공개 가능한 사실·전역 자산 교훈은 공용. 다른 repo 에서, 또는 `~/.claude` worktree 세션에서 공용 대상이면 적립하지 않고 `~/.claude main 세션에서 /wiki ingest …` 제안을 Report 와 plan `# Deferred` 에 `<요약 · 공개 근거 · 출처(공개/비공개)>` 형식으로(§11 공개 점검 — 출처가 빠지면 적립 쪽이 비공개로 보고 diff 확인을 거친다).
 - plan→wiki **일방향 승격**(plans=일시적 핸드오프, wiki=영속 누적). 양방향 동기화 금지.

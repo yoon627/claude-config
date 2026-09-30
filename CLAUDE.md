@@ -231,7 +231,7 @@ updated: YYYY-MM-DD
 - **공개 점검** — `~/.claude` 는 공개 repo 다. 이 repo 에서 커밋·push 하는 **모든 것**(작업 종류 불문 — 코드·문서·plan·브랜치/worktree 이름·커밋 메시지·PR 제목/본문)에 회사·조직명, 내부 도메인·호스트·IP, 고객·제품 코드명·티켓 키, 비공개 repo 의 이름·경로·내부 도구명을 넣지 않는다(비공개 repo 는 "회사 repo" 로만). 비공개 출처(또는 출처 불명)를 적립할 때는 커밋 전 diff 를 보이고 확인받는다. 기계 백스톱: 추적하지 않는 머신별 목록 `~/.claude/private-terms.txt` 에 적은 이름은 `pre-commit-check` 가 이 repo 의 커밋·push 에서 막는다 — 목록 밖 이름·PR 제목/본문·웹 편집은 못 잡으니 이 점검이 먼저이고, 걸리면 목록을 도구로 읽지 말고 걸린 표현을 일반 표현으로 바꾼다.
 - 현재 repo 가 `~/.claude` 인지: `[ "$(git rev-parse --path-format=absolute --git-common-dir)" -ef "$HOME/.claude/.git" ]`(worktree 포함, 경로 표기 차이에 무관). 맞으면 이 repo 의 wiki 가 곧 공용 wiki(`~/.claude/wiki`)다 — worktree 세션도 같은 절대경로를 읽는다.
 
-- 작업 시작 시 두 `index.md`(공용은 `~/.claude/wiki/index.md`)에서 관련 페이지 조회(있는 것만, 키워드로 먼저 거른다).
+- 작업 시작 시 관련 페이지 조회 — `uv run --no-project python "$HOME/.claude/skills/wiki/wiki_search.py" <키워드>` 가 공용 wiki(cwd 무관)와 현재 repo 의 wiki 를 함께 찾는다(첫 줄에 찾은 wiki·쪽수, exit 2 는 stderr 이유를 본다). 결과가 없거나 빗나가면 두 `index.md`(공용은 `~/.claude/wiki/index.md`)를 직접 본다.
 - 재사용 가능한 지식(비자명한 결정·교훈·확정한 외부 사실)은 **대상 계층까지 판정 필수** — repo wiki / 공용 wiki / 비대상(사유). 대상이면 `/wiki ingest` 제안(자동 아님). 애매하면 repo wiki. repo wiki 대상인데 repo wiki 가 없거나 비-git 이면 비대상 + 사유(공용 대상은 여전히 제안).
 - **다른 repo 세션의 공용 대상은 적립하지 않는다** — Report 와 출처 plan `# Deferred`(없으면 Report 만)에 `~/.claude main 세션에서 /wiki ingest <요약 · 공개 근거 · 출처(공개/비공개)>` 를 남긴다. 출처 칸에는 `공개`/`비공개` 만 쓴다(비공개 repo 이름은 적지 않는다). 요약·근거는 이미 공개 점검을 통과한 문장이어야 하고, 근거는 공개 검증 가능한 것(공식 문서·공개 이슈·비공개 코드 없는 재현)만 — 없으면 공용 대상이 아니다.
 - 어느 wiki 에 둘지는 이 절, 페이지 형식은 대상 wiki 의 `WIKI.md` 가 정한다. raw 원문은 읽기 전용·gitignored. 절차 세부는 `skills/wiki/SKILL.md`.
