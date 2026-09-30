@@ -13,10 +13,8 @@ const SUB = path.join(ROOT, 'subagent-statusline.js');
 let n = 0;
 const ok = (name, fn) => { fn(); n++; };
 
-// 가짜 HOME + 신선한 codex 캐시: statusline 이 실제 캐시를 읽거나 refresh 를 spawn 하지 않게.
+// 가짜 HOME: 실행이 실제 홈 디렉토리의 파일을 읽거나 쓰지 않게.
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'statusline-test-'));
-fs.mkdirSync(path.join(HOME, '.claude', 'cache'), { recursive: true });
-fs.writeFileSync(path.join(HOME, '.claude', 'cache', 'codex-quota.json'), JSON.stringify({ fetchedAt: Date.now() }));
 
 function run(script, input, env = {}) {
   const r = spawnSync(process.execPath, [script], {
@@ -93,26 +91,15 @@ ok('claude 주간 쿼터: 5시간 조각 뒤에 wk 남은 % 만(리셋 시각 �
     seven_day: { used_percentage: { toString: 1 }, resets_at: '2026-01-03' } } }), 'Opus 53%(20:30)');
 });
 
-ok('codex 쿼터: 신선한 캐시의 primary 와 secondary(주간)를 같은 형식으로', () => {
+ok('codex 쿼터 캐시가 남아 있어도 codex 조각을 그리지 않고 refresh 도 띄우지 않는다', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'statusline-codex-'));
   try {
-    fs.mkdirSync(path.join(home, '.claude', 'cache'), { recursive: true });
-    fs.writeFileSync(path.join(home, '.claude', 'cache', 'codex-quota.json'),
-      JSON.stringify({ fetchedAt: Date.now(), primary: { usedPercent: 20, resetsAt: at2030 },
-        secondary: { usedPercent: 79, resetsAt: at2030 } }));
-    assert.ok(runStatus({}, home).endsWith('codex 80%(20:30) wk 21%'));
-    const cache = (data) => fs.writeFileSync(path.join(home, '.claude', 'cache', 'codex-quota.json'),
-      JSON.stringify({ fetchedAt: Date.now(), ...data }));
-    cache({ primary: { resetsAt: at2030 } });
-    assert.ok(runStatus({}, home).includes('codex (20:30)'));
-    // 위치가 아니라 windowDurationMins 로 창을 고른다 — 주간 창만 primary 로 오는 계정, 5시간·주간이 아닌 창.
-    cache({ primary: { usedPercent: 79, resetsAt: at2030, windowDurationMins: 10080 }, secondary: null });
-    assert.ok(runStatus({}, home).endsWith('codex wk 21%'));
-    cache({ primary: { usedPercent: 20, resetsAt: at2030, windowDurationMins: 300 },
-      secondary: { usedPercent: 50, resetsAt: at2030, windowDurationMins: 1440 } });
-    assert.ok(runStatus({}, home).endsWith('codex 80%(20:30)'));
-    cache({ primary: { usedPercent: 20, resetsAt: at2030 }, secondary: { usedPercent: { toString: null } } });
-    assert.ok(runStatus({}, home).endsWith('codex 80%(20:30)'));
+    const cache = path.join(home, '.claude', 'cache');
+    fs.mkdirSync(cache, { recursive: true });
+    fs.writeFileSync(path.join(cache, 'codex-quota.json'), JSON.stringify({ fetchedAt: 0,
+      primary: { usedPercent: 20, resetsAt: at2030 }, secondary: { usedPercent: 79, resetsAt: at2030 } }));
+    assert.strictEqual(runStatus({}, home), '');
+    assert.deepStrictEqual(fs.readdirSync(cache), ['codex-quota.json']);
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }
