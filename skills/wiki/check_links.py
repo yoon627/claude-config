@@ -5,9 +5,9 @@
 의미 점검은 LLM 담당):
 - frontmatter 필수키(title/category/created/updated/sources)
 - 나가는(outbound) 링크 ≥2
-- dead link 없음(모든 `[[name]]` 이 pages/ 에 실재)
+- dead link 없음(모든 `[[name]]`·별칭 `[[name|표시]]` 의 name 이 pages/ 에 실재)
 - orphan 없음(index.md 제외, 다른 페이지로부터 inbound ≥1)
-- index.md ↔ pages/ 동기화(누락·잉여)
+- index.md ↔ pages/ 동기화(누락·잉여 — 등재는 별칭 없는 `[[name]]` 만 인정)
 
 위반을 한 줄씩 출력하고 위반 시 exit 1(clean 0, pages 디렉터리 없으면 2).
 git 없이 파일만 읽으므로 stdlib 외 의존성이 없다.
@@ -32,7 +32,11 @@ if isinstance(sys.stderr, io.TextIOWrapper):
 
 # 코드블록·인라인 코드 안의 [[ ]] 도 링크로 센다 — pages 본문은 위키링크를
 # 코드 예시로 쓰지 않는 규약이라 단순 스캔으로 충분(걸리면 lint 가 사람에게 보고).
-WIKILINK = re.compile(r"\[\[([a-z0-9-]+)\]\]")
+# 별칭 [[name|표시]] 는 name 으로 센다. 별칭에 [ 를 받지 않아야 닫히지 않은 별칭이
+# 뒤의 링크를 삼키지 않는다. wiki_search.LINK 와 같은 규칙이지만, 이 파일만 복사해도
+# 돌도록 import 하지 않고 따로 적는다.
+WIKILINK = re.compile(r"\[\[([a-z0-9-]+)(?:\|[^\[\]\n]*)?\]\]")
+PLAIN_WIKILINK = re.compile(r"\[\[([a-z0-9-]+)\]\]")
 FM_KEY = re.compile(r"^([a-zA-Z_]+):")
 REQUIRED_FM = {"title", "category", "created", "updated", "sources"}
 
@@ -65,11 +69,11 @@ def check_wiki(wiki_root: Path) -> list[str]:
         pages[md.stem] = (extract_links(text), extract_fm_keys(text))
 
     index_path = wiki_root / "index.md"
-    index_links = (
-        extract_links(index_path.read_text(encoding="utf-8"))
-        if index_path.is_file()
-        else set()
-    )
+    index_text = index_path.read_text(encoding="utf-8") if index_path.is_file() else ""
+    # 등재는 별칭 없는 [[stem]] 으로만 인정한다 — smoke 의 등재 검사와 같은 기준이고, wiki_search 는
+    # 별칭 등재 줄에서 index 요약을 읽지 않는다. dead link 판정은 별칭도 본다.
+    index_entries = set(PLAIN_WIKILINK.findall(index_text))
+    index_links = extract_links(index_text)
 
     # inbound 는 pages 끼리만 센다(index.md 의 카탈로그 링크는 제외) — 그래야
     # "어느 본문도 안 가리키는" 진짜 고립 페이지를 orphan 으로 잡는다.
@@ -95,7 +99,7 @@ def check_wiki(wiki_root: Path) -> list[str]:
             violations.append(f"orphan: {name} (index 외 어느 페이지도 안 가리킴)")
 
     page_names = set(pages)
-    for n in sorted(page_names - index_links):
+    for n in sorted(page_names - index_entries):
         violations.append(f"index 누락: {n} (pages 에 있으나 index.md 미등재)")
     for n in sorted(index_links - page_names):
         violations.append(f"index dead link: [[{n}]] (index.md 에 있으나 페이지 없음)")

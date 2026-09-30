@@ -18,6 +18,7 @@ from tempfile import TemporaryDirectory
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import check_links  # noqa: E402
+import wiki_search  # noqa: E402  # 규칙 대조용 — check_links 자신은 import 하지 않는다
 
 FRONTMATTER = """---
 title: {name}
@@ -101,6 +102,53 @@ class CheckWikiTest(unittest.TestCase):
         self._index(["a", "b", "c", "ghost"])  # ghost 페이지 없음
         v = check_links.check_wiki(self.root)
         self.assertTrue(any("ghost" in x for x in v), v)
+
+    def test_alias_link_is_an_edge(self) -> None:
+        self._page("a", ["b|베타 페이지", "c"])  # 별칭 1개 + 링크 1개로 outbound 2
+        self._page("b", ["a", "c"])
+        self._page("c", ["a", "d|디"])
+        self._page("d", ["a", "b"])  # c 의 별칭으로만 들어온다
+        self._index(["a", "b", "c", "d"])
+        self.assertEqual(check_links.check_wiki(self.root), [])
+
+    def test_alias_dead_link(self) -> None:
+        self._page("a", ["b", "c", "zzz|없는 페이지"])
+        self._page("b", ["a", "c"])
+        self._page("c", ["a", "b"])
+        self._index(["a", "b", "c"])
+        self.assertEqual(
+            check_links.check_wiki(self.root),
+            ["dead link: [[zzz]] in a (대상 페이지 없음)"],
+        )
+
+    def test_unclosed_alias_keeps_next_link(self) -> None:
+        self._page("a", ["b", "c"])
+        self._page("b", ["a", "c"])
+        self._page("c", ["a", "x|열림 [[b"])  # 본문 `[[x|열림 [[b]]`
+        self._index(["a", "b", "c"])
+        self.assertEqual(check_links.check_wiki(self.root), [])
+
+    def test_index_entry_needs_plain_link(self) -> None:
+        self._clean()
+        self._index(["a", "b", "c|씨", "zzz|없음"])
+        self.assertEqual(
+            check_links.check_wiki(self.root),
+            [
+                "index 누락: c (pages 에 있으나 index.md 미등재)",
+                "index dead link: [[zzz]] (index.md 에 있으나 페이지 없음)",
+            ],
+        )
+
+
+class WikiLinkTest(unittest.TestCase):
+    def test_same_rule_as_wiki_search(self) -> None:
+        self.assertEqual(check_links.WIKILINK.pattern, wiki_search.LINK.pattern)
+
+    def test_alias_boundaries(self) -> None:
+        cases = {"[[a|]]": {"a"}, "[[a|b|c]]": {"a"}, "[[a|b]c]]": set(), "[[a|b\nc]]": set()}
+        for text, expected in cases.items():
+            with self.subTest(text=text):
+                self.assertEqual(check_links.extract_links(text), expected)
 
 
 if __name__ == "__main__":

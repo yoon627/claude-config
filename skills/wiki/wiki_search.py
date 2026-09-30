@@ -56,7 +56,7 @@ WORD = re.compile(r"[a-z0-9]+(?:[._-][a-z0-9]+)*|[가-힣]+")
 PART = re.compile(r"[._-]")
 # wiki_check.STEM 은 check_links.WIKILINK 가 링크로 읽는 이름과 같은 집합이다.
 INDEX_ENTRY = re.compile(r"\s*[-*+]\s+\[\[(" + wiki_check.STEM.pattern + r")\]\]\s*[—–:-]*\s*(.*)")
-# check_links.WIKILINK 는 별칭 `[[a|b]]` 를 읽지 않는다 — 그래프는 별칭도 간선으로 센다. 별칭에 `[` 를 받지 않아야
+# 별칭 `[[a|b]]` 도 간선이다(check_links.WIKILINK 와 같은 규칙). 별칭에 `[` 를 받지 않아야
 # 닫히지 않은 별칭이 뒤의 링크를 삼키지 않는다.
 LINK = re.compile(r"\[\[(" + wiki_check.STEM.pattern + r")(?:\|[^\[\]\n]*)?\]\]")
 HEADING = re.compile(r"(#{1,6})(?:[ \t]+(.*?))?[ \t]*$")  # 빈 제목(`##`)도 섹션 경계다

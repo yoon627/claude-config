@@ -28,7 +28,7 @@ consumer repo 가 한 번의 초기화로 맥락 킷을 세우고, 킷이 코드
 
 - 공개 repo 다. 회사 repo 의 내용·이름·경로는 가져오지 않는다. 장치의 메커니즘만 일반화하고 예시는 일반 경로로 새로 쓴다(CLAUDE.md §11 공개 점검). 회사 repo 와의 대조 실행 결과는 수치만 적는다.
 - 이 묶음의 plan 은 consumer repo 파일을 고치지 않는다. 적용·이관은 그 repo 세션의 일이고, 여기서는 read-only 대조 실행만 한다.
-- 기존 호출과 호환을 유지한다. consumer repo 문서가 `~/.claude/skills/wiki/check_links.py` 를 지금 경로·인자로 부르므로, 그 경로·인자·출력·exit code 를 바꾸지 않는다.
+- 기존 호출과 호환을 유지한다. consumer repo 문서가 `~/.claude/skills/wiki/check_links.py` 를 지금 경로·인자로 부르므로, 그 호출 계약(경로·인자·출력 형식·exit code 의 의미)을 바꾸지 않는다. 판정을 정확하게 하는 수정(예: 별칭 링크 인식 — check-links-alias)은 계약 변경이 아니다.
 - 스크립트는 stdlib 만 쓰고 `uv run --no-project python <script>` 로 돈다(`check_links.py` 와 같은 실행 방식). 파일 하나만 복사해도 동작해야 한다 — Open questions 의 배포 형태가 vendoring 으로 정해져도 막히지 않게.
   - 예외: `wiki_search.py` 는 frontmatter·본문 파서를 두 벌로 두지 않으려고 `wiki_check.py` 를 import 한다(#219). vendoring 할 때는 두 파일을 함께 옮긴다.
 - Stop hook 모드는 fail-open 이다(도구 오류로 세션을 막지 않는다). 다만 도구 실패는 사용자에게 보이게 알린다 — 조용히 넘기면 config 오타나 Python 버전 문제로 게이트가 꺼져도 아무도 모른다. 보고·CI 모드는 fail-closed 다(검사할 수 없는 상태를 통과로 보고하지 않는다).
@@ -100,3 +100,4 @@ consumer repo 가 한 번의 초기화로 맥락 킷을 세우고, 킷이 코드
     - `[[링크]]` 이름 공간이 겹친다.
     - consumer repo 의 CI 와 다른 사람은 `~/.claude` 아래를 볼 수 없다.
   - 사용자 목적은 "한 곳에서 보고 검색하기"로 확인했다.
+- `plans/2026-09-30-check-links-alias/check-links-alias-plan.md` — wiki-graph-search # Deferred 후속, 규모 small. `check_links.py` 가 별칭 링크 `[[a|b]]` 도 링크로 읽는다. 호출 계약은 그대로이고 판정만 정확해진다(Constraints 첫째 항목의 문구를 이때 분명히 했다).

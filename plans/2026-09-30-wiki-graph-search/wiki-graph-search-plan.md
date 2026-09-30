@@ -198,4 +198,4 @@ plan 리뷰 — plan-reviewer(Codex 병행) CONDITIONAL, Critical 0·Major 4·Mi
 - 재리뷰는 생략했다. 수정이 지적 그대로이고 변이 검사로 확인했다. 사용자가 리뷰 반복을 줄이라고 했다.
 
 # Deferred
-- `check_links.py` 는 별칭 링크 `[[a|b]]` 를 읽지 못한다(`WIKILINK` 가 `|` 를 받지 않는다). 그래서 dead link·outbound·orphan 판정에서 그 간선이 빠진다. 실제 공용 wiki 에 7개 출현한다. 묶음 제약(경로·인자·출력 유지) 안에서 고칠지는 별도로 정한다 — Minor, `skills/wiki/check_links.py:35`.
+- `check_links.py` 는 별칭 링크 `[[a|b]]` 를 읽지 못한다(`WIKILINK` 가 `|` 를 받지 않는다). 그래서 dead link·outbound·orphan 판정에서 그 간선이 빠진다. 실제 공용 wiki 에 7개 출현한다. 묶음 제약(경로·인자·출력 유지) 안에서 고칠지는 별도로 정한다 — Minor, `skills/wiki/check_links.py:35`. (해소 2026-09-30: `plans/2026-09-30-check-links-alias` — 호출 계약은 그대로 두고 별칭을 읽는다)
