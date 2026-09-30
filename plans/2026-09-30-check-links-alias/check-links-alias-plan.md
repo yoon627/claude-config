@@ -1,6 +1,6 @@
 ---
 title: check-links-alias — check_links.py 가 별칭 링크 [[a|b]] 도 링크로 읽는다
-status: in_progress
+status: done
 started: 2026-09-30
 updated: 2026-09-30
 intent: plans/2026-09-29-repo-context-kit/intent.md
@@ -43,9 +43,9 @@ intent: plans/2026-09-29-repo-context-kit/intent.md
   - A2·A3 재측정 결과는 같다(clean·exit 0, 312 = 312, 차이 0).
 - 2026-09-30: 격리 runner — `verify.sh` exit 0 `ALL PASS (skip: install-codex-skill.test.ps1)`(main 과 같은 skip), `improve --ci` exit 0. evidence gate 1~5 를 모두 증거로 충족해 판정은 DONE 이다(status 는 머지 때 done).
   - 대조 중 SKILL.md 의 "별칭도 링크로 센다"가 index 등재에는 맞지 않아, SKILL.md·docstring 에 "index 등재는 별칭 없는 `[[a]]` 만"을 더했다(문서만, 대상 테스트 재실행 OK).
+- 2026-09-30: 커밋 1개, commit-check 이상 없음. small 이라 로컬 ff-merge(§8)로 main 에 반영한다. 묶음 intent 는 미착수 단위와 열린 질문이 남아 open 이다. 남은 것은 # Deferred 의 공용 wiki 갱신(main 세션)이다.
 
 # Next
-- 커밋 → commit-check → 로컬 ff-merge(§8) → worktree 정리 → main 세션에서 # Deferred 의 공용 wiki 갱신.
 
 # Decisions
 - 관련 결정 [[wiki-search-design]](공용 wiki)의 "묶음 제약 때문에 check_links 는 고치지 않는다"를 뒤집는다(사용자 승인 2026-09-30).
