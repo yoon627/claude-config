@@ -3,6 +3,7 @@ title: e-worklog-gate — /e 6단계 worklog 가 실패하면 7단계 자동 정
 status: done
 started: 2026-09-30
 updated: 2026-09-30
+intent: plans/2026-09-30-worklog-deletion-safety/intent.md
 ---
 
 # Goal

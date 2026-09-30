@@ -37,7 +37,7 @@ worktree 별로 나누고, worktree 경계를 넘는 구간은 어느 쪽 것도
 안정적인 `$HOME/.claude/skills/jira-worklog` source를 가리킨다. 실행기는 `uv`를 우선 사용하고, 없으면
 `python3`/`python`(Windows PowerShell에서는 `py`)으로 fallback한다. 플랫폼별 `run_worklog.sh`·
 `run_worklog.ps1`가 이 선택을 한 곳에서 담당한다. 대상 worktree를 `cwd`로 두거나 이름을 인자로 준다.
-**worktree를 삭제하기 전에** 실행해야 한다 — 삭제되면 `--all` 순회 대상에서 빠져 등록할 수 없다(표시만 된다).
+**worktree를 삭제하기 전에** 실행해야 한다 — 등록할 worktree 는 이름(또는 cwd)으로 고르는데 고를 수 있는 것은 살아 있는 worktree 뿐이라, 지운 worktree 의 시간은 표시만 되고 등록할 수 없다(`--all` 은 원래 미리보기만 한다).
 
 ## 실행
 

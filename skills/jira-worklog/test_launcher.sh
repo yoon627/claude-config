@@ -28,4 +28,28 @@ test "${args[1]}" = '--all'
 test "${args[2]}" = '--comment'
 test "${args[3]}" = 'space value'
 
-echo 'run_worklog.sh Python fallback and argv forwarding passed'
+# 종료코드는 /e 6단계가 정리 여부를 가르는 신호다: 실행기가 없으면 127, 있으면 그 종료코드를 그대로.
+# PATH 는 전용 디렉터리 하나라 bash 는 절대경로로 부른다(이름으로 부르면 bash 를 못 찾아 다른 127 이 난다).
+bash_bin="$(command -v bash)"
+runner_path() {
+  mkdir -p "$1"
+  ln -s "$(command -v dirname)" "$1/dirname"
+}
+runner_path "$root/no-runner"
+rc=0
+PATH="$root/no-runner" "$bash_bin" "$PWD/skills/jira-worklog/run_worklog.sh" 2> "$root/no-runner.err" || rc=$?
+test "$rc" -eq 127
+grep -q '실행기 없음' "$root/no-runner.err"
+if grep -q 'command not found' "$root/no-runner.err"; then
+  echo "PATH 구성이 틀렸다 — 실행기 판정 전에 명령을 못 찾았다" >&2
+  exit 1
+fi
+
+runner_path "$root/failing"
+printf '%s\n' '#!/bin/sh' 'exit 3' > "$root/failing/python3"
+chmod +x "$root/failing/python3"
+rc=0
+PATH="$root/failing" "$bash_bin" "$PWD/skills/jira-worklog/run_worklog.sh" || rc=$?
+test "$rc" -eq 3
+
+echo 'run_worklog.sh Python fallback, argv forwarding and exit codes passed'
