@@ -1,8 +1,8 @@
 ---
 title: worklog-deletion-safety — worktree 를 지울 때 등록하지 못한 AI 작업시간을 잃지 않게
-status: open
+status: closed
 started: 2026-09-30
-updated: 2026-09-30
+updated: 2026-10-01
 ---
 
 # Problem

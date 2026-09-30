@@ -1,6 +1,6 @@
 ---
 title: worklog-followups — jira_worklog 종료코드 계약 테스트, 삭제 worktree 등록 불가 기전 문구 정정, /wt rm 의 worklog 경고
-status: in_progress
+status: done
 started: 2026-09-30
 updated: 2026-10-01
 intent: plans/2026-09-30-worklog-deletion-safety/intent.md
@@ -41,9 +41,11 @@ intent: plans/2026-09-30-worklog-deletion-safety/intent.md
   - 코드 리뷰는 ultracode workflow(관점 3개 + finding 별 반증 검증).
 - 2026-10-01: 코드 리뷰 — finding 13건(확인 4·반증 1·미검증 8, 에이전트 8). fix 1회: 이름 없는 경로·등록 계획 실패·일부 쓰기 실패·디렉터리 이름 선택을 고정하고, subprocess 원인을 고정했다. `/wt rm` 미리보기 조건·등록 안내·README 문구를 고쳤다. 변이 17종(`jira_worklog.py`) 모두 KILLED — 각각 해당 사례에서만. 처분은 # Review Disposition.
   - simplify: 자격증명 사례의 `Config` 재생성을 `dataclasses.replace` 로.
+- 2026-10-01: commit-check 로 fixup 3개를 합치고 단위 1·3 메시지를 리뷰 반영 내용에 맞췄다(사용자 승인, tree 동일). 로컬 main(improve kind 목록 미게시 1커밋) 위로 rebase — 충돌 없음. 격리 runner — `verify.sh` `ALL PASS (skip: install-codex-skill.test.ps1)`(`test_exit_contract.py`·`test_launcher.sh`·shellcheck ok), `improve.sh --ci` exit 0. evidence gate 1–5 충족 → DONE. #206 에 식별자 댓글을 남겼다(사용자 승인). 마무리는 `/e merge`(사용자 선택).
+- 2026-10-01: PR #225. 묶음 intent `worklog-deletion-safety` 는 두 plan 이 모두 done 이고 열린 질문이 없어 closed.
 
 # Next
-- 격리 runner(Acceptance 5) → plan·intent 기록을 마지막 단위 fixup 으로 → commit-check(단위 3 메시지의 미리보기 조건 문구 수정) → 마무리(medium — `/e merge` 가 규칙 기본, push 는 사용자 선택).
+
 
 # Decisions
 - 관련 결정: 공용 wiki `worktree-isolation-bash-guard` — 격리 세션은 `bash "$HOME/…"` 를 거부한다. `/wt rm` 의 미리보기 명령 표기에 반영한다(`/e` 2단계와 같은 규칙). 뒤집는 결정은 없다.
