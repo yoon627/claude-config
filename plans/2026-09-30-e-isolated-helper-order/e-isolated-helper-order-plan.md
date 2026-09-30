@@ -64,8 +64,8 @@ worktree 에 격리된 세션에서 `/e` 6단계(worklog)·7단계(상태 재수
 - Nit 이름 선택 모호(동명 worktree)·복귀와 worklog 사이 수 초의 시간 귀속·PowerShell `( )` 는 서브셸이 아님 — risk accept: `/wt` 가 이름 중복을 막고, 시간 차는 초 단위이며, 제거 전 "cwd 가 대상 밖" 게이트가 있다.
 
 # Deferred
-- 7단계 삭제 조건에 6단계 결과가 없다. 등록 게이트·네트워크 실패로 worklog 가 빠져도 worktree 가 지워져 다시 등록할 수 없다 — Minor(기존 문제), `skills/e/SKILL.md` 6·7단계.
-- 7단계 collect-state 호출이 상대경로(`bash skills/e/collect-state.sh` — `~/.claude` 에서만 해석)와 `$HOME` 절대경로로 섞여 있다 — Nit, `skills/e/SKILL.md` 7단계.
+- 7단계 삭제 조건에 6단계 결과가 없다. 등록 게이트·네트워크 실패로 worklog 가 빠져도 worktree 가 지워져 다시 등록할 수 없다 — Minor(기존 문제), `skills/e/SKILL.md` 6·7단계. (해소 2026-09-30, `plans/2026-09-30-e-worklog-gate`: worklog 가 비0 으로 끝나거나 거부되면 7단계 자동 정리를 생략한다)
+- 7단계 collect-state 호출이 상대경로(`bash skills/e/collect-state.sh` — `~/.claude` 에서만 해석)와 `$HOME` 절대경로로 섞여 있다 — Nit, `skills/e/SKILL.md` 7단계. (해소 2026-09-30, `plans/2026-09-30-e-worklog-gate`: 2단계에 경로 표기 규칙을 적었고, 7단계·lifecycle §A 가 그것을 가리킨다)
 - `CLAUDE.md`(§3-1 "복귀는 `/e` 8단계", §8 worklog 줄)와 `scripts/dlc-early-stop.js` 주석이 "8단계에서 main 복귀"를 전제한다 — Nit, 운영 자산이라 명시 요청이 있을 때 고친다.
 - `claude --worktree` 로 시작한 세션에서 `ExitWorktree` 가 no-op 인지 모른다(no-op 이면 no-op 분기의 재시도·정리 생략이 적용된다) — Open.
 - 공용 wiki `worktree-isolation-bash-guard` 에 2026-09-30 실측을 더한다(`bash "$HOME/…"` 거부 3/3, 펼친 절대경로 통과 3/3, `uv run python "$HOME/…"` 통과 2/2 — 이 repo 세션 실측이라 공개 출처) — `~/.claude` main 세션에서 `/wiki ingest`.

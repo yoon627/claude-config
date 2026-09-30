@@ -404,4 +404,36 @@ ok('미룬 뒤 background 가 끝난 Stop 에서는 cap 이 보존된 채 경고
   assert.strictEqual(readLedger(F.tmp).blocks, 1);
 });
 
+// ---- 이번 사용자 턴에 run_in_background 로 띄운 shell(장부 bgTaskIds 에 id)도 대기 — 이전 턴 서버는 아님 ----
+ok('이번 턴에 띄운 shell 대기 → 경고 없음, 장부 그대로, early-stop-wait-shell 1건', () => {
+  const F = makeHome();
+  writeLedger(F.tmp, { ...UNVERIFIED, bgTaskIds: ['b1'] });
+  const before = fs.readFileSync(ledgerFile(F.tmp), 'utf8');
+  const r = run(F, F.root, { input: { background_tasks: [bg('shell', { id: 'b1', command: 'gh run watch 1' })], last_assistant_message: NO_CONCLUSION } });
+  assert.ok(!blocked(r.out), `경고가 뜨면 안 된다: ${r.out.slice(0, 120)}`);
+  assert.deepStrictEqual(r.signals, ['early-stop-wait-shell']);
+  assert.strictEqual(fs.readFileSync(ledgerFile(F.tmp), 'utf8'), before);
+});
+ok('bgTaskIds 에 없는 shell(이전 턴 서버)·id 없는 shell·shell 아닌 type 만 있으면 기존대로 경고', () => {
+  for (const t of [bg('shell', { id: 'old', command: 'npm run dev' }), { type: 'shell', status: 'running', command: 'x' }, bg('monitor', { id: 'b1' })]) {
+    const F = makeHome();
+    writeLedger(F.tmp, { ...UNVERIFIED, bgTaskIds: ['b1'] });
+    assert.ok(blocked(run(F, F.root, { input: { background_tasks: [t] } }).out), JSON.stringify(t));
+  }
+});
+ok('손상 장부(bgTaskIds 가 배열 아님·문자열 아닌 원소)면 억제하지 않는다 — 문자열 부분 일치도', () => {
+  for (const [bad, id] of [[null, 'b1'], ['xb1x', 'b1'], [{ b1: true }, 'b1'], [[null], null]]) {
+    const F = makeHome();
+    writeLedger(F.tmp, { ...UNVERIFIED, bgTaskIds: bad });
+    assert.ok(blocked(run(F, F.root, { input: { background_tasks: [bg('shell', { id })] } }).out), JSON.stringify(bad));
+  }
+});
+ok('stop_hook_active 재종료 + 이번 턴 shell 대기 → 장부를 건드리지 않는다', () => {
+  const F = makeHome();
+  writeLedger(F.tmp, { ...UNVERIFIED, bgTaskIds: ['b1'] });
+  const before = fs.readFileSync(ledgerFile(F.tmp), 'utf8');
+  run(F, F.root, { input: { stop_hook_active: true, background_tasks: [bg('shell', { id: 'b1' })], last_assistant_message: '## 결론\n- 문제: x' } });
+  assert.strictEqual(fs.readFileSync(ledgerFile(F.tmp), 'utf8'), before);
+});
+
 console.log(`dlc-early-stop.test.js: ${n} tests passed`);

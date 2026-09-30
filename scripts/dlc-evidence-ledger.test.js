@@ -237,6 +237,63 @@ ok('node --test-only server.js → verified 불변 (--test 완전 토큰만)', (
 ok('node -e "..x.test.js.." → verified 불변 (인용문 내 미매칭)', () =>
   assert.strictEqual(V('node -e "require(\'./x.test.js\')"'), false));
 
+// ---- 검증 래퍼: `bash|sh [옵션] <file>.sh` 의 본문을 한 단계만 본다(이름 규칙 VERIFY_SCRIPT 는 넓히지 않는다) ----
+// 실제 사례 형태: scratch 의 일반 이름 래퍼 안에서 `./gradlew build -q > log 2>&1`.
+// 디렉토리 이름에 대문자를 둔다 — 소문자화한 명령에서 경로를 뽑으면 대소문자를 가리는 파일시스템(Linux CI)에서 못 찾는다.
+const wrapHome = fs.mkdtempSync(path.join(os.tmpdir(), 'dlc-led-wraphome-'));
+const wrapDir = path.join(wrapHome, 'Scratch-Dir');
+const wrap = (name, body) => W(wrapDir, name, body);
+function wrapperVerified(command, cwd) {
+  const s = sid();
+  const input = JSON.stringify({ session_id: s, cwd: cwd || os.tmpdir(), tool_name: 'Bash', tool_input: { command } });
+  const env = { ...process.env, HOME: wrapHome, USERPROFILE: wrapHome, CLAUDE_DLC_SIGNAL_OFF: '1' };
+  execFileSync('node', [HOOK], { input, env, timeout: 10000 });
+  return ledger.read(s).verified;
+}
+const gradleWrap = wrap('x_final.sh', '#!/usr/bin/env bash\nset -e\ncd "$1"\n./gradlew build -q > build.log 2>&1\necho done\n');
+
+ok('래퍼 본문에 검증 명령 → verified (대소문자 섞인 경로·cwd 기준 상대경로·~/·옵션)', () => {
+  assert.strictEqual(wrapperVerified(`bash ${gradleWrap}`), true);
+  assert.strictEqual(wrapperVerified('bash x_final.sh', wrapDir), true);
+  assert.strictEqual(wrapperVerified('sh -e ~/Scratch-Dir/x_final.sh'), true);
+  assert.strictEqual(wrapperVerified(`cd /tmp && bash -x ${gradleWrap} 2>&1 | tail -n 30`), true);
+  assert.strictEqual(wrapperVerified(`set -e\nbash ${gradleWrap}`), true);
+  assert.strictEqual(wrapperVerified(`bash ${wrap('run_all.sh', 'bash scripts/verify.sh\n')}`), true, '본문 줄도 VERIFY_SCRIPT 이름 규칙');
+});
+ok('CRLF 본문 — heredoc(<<- 의 탭 들여쓴 끝 줄)을 알아보고 그 뒤 검증 줄을 인식', () => {
+  const f = wrap('crlf_run.sh', 'cat > notes.txt <<-EOF\r\n\tsee below\r\n\tEOF\r\nnpm test\r\n');
+  assert.strictEqual(wrapperVerified(`bash ${f}`), true);
+});
+ok('래퍼는 명령마다 3개까지 본다', () => {
+  const prep = wrap('prep.sh', 'mkdir -p out\n');
+  assert.strictEqual(wrapperVerified(`bash ${prep} && bash ${gradleWrap}`), true);
+  assert.strictEqual(wrapperVerified(`bash ${prep}; bash ${prep}; bash ${prep}; bash ${gradleWrap}`), false);
+});
+ok('본문에 검증 실행이 없으면 불변 — 주석·echo·heredoc 도움말·실제 deploy.sh', () => {
+  const quiet = wrap('notes.sh', '# npm test 는 CI 에서\necho "run pytest later"\nmake build  # pytest next\n');
+  const help = wrap('usage.sh', "cat <<-'EOF'\n\tusage: npm test\n\tEOF\n");
+  const helpBs = wrap('usage_bs.sh', 'cat <<\\EOF\nusage: npm test\nEOF\n');
+  const helpDash = wrap('usage_dash.sh', "cat <<'END-HELP'\nusage: npm test\nEND-HELP\n");
+  const deploy = wrap('deploy.sh', 'set -e\nrsync -a dist/ web:/srv/app\nsystemctl restart app\n');
+  const bom = wrap('bom_notes.sh', '﻿# npm test 는 CI 에서\n'); // BOM 뒤 주석도 주석 — JS \s 가 U+FEFF 를 공백으로 읽는다
+  for (const f of [quiet, help, helpBs, helpDash, deploy, bom]) assert.strictEqual(wrapperVerified(`bash ${f}`), false, path.basename(f));
+});
+ok('읽지 않는 래퍼 — 16KB 초과·없는 파일·변수 경로(풀지 않는다)·일반 파일 아님·읽기 오류', () => {
+  const big = wrap('big_run.sh', 'npm test\n' + '# pad\n'.repeat(3000));
+  assert.strictEqual(wrapperVerified(`bash ${big}`), false);
+  assert.strictEqual(wrapperVerified(`bash ${path.join(wrapDir, 'missing.sh')}`), false);
+  assert.strictEqual(wrapperVerified('bash $HOME/Scratch-Dir/x_final.sh'), false);
+  if (process.platform !== 'win32') {
+    const fifo = path.join(wrapDir, 'pipe.sh');
+    execFileSync('mkfifo', [fifo]);
+    assert.strictEqual(wrapperVerified(`bash ${fifo}`), false);
+    const locked = wrap('locked_run.sh', 'mkdir -p out\n'); // root 면 읽혀도 검증 줄이 없어 결과가 같다
+    fs.chmodSync(locked, 0);
+    assert.strictEqual(wrapperVerified(`bash ${locked}`), false, '읽기 오류(EACCES)도 exit 0');
+    assert.strictEqual(wrapperVerified(`bash ${locked}; bash ${gradleWrap}`), true, '앞 래퍼의 읽기 오류가 뒤 래퍼 판정을 끊지 않는다');
+  }
+});
+
 // ---- 생태계 커버리지: node/python/JVM 밖 검증기 인식 (early-stop-verify 오탐 축소) ----
 // 근거(2026-08-13 telemetry 조사): `.md` 제외 fix 이후 남은 발동이 compose.yaml·*.css·*.sh 에
 // 몰렸는데, 그 파일들의 표준 검증 명령(docker compose config·stylelint·shellcheck)이 전부 미인식이었다.
@@ -374,6 +431,55 @@ ok('Bash 로 고친 스크립트는 경고를 켜지 않는다(changed·readmeDi
 ok('bashEditDiff 형태 불량이어도 같은 명령의 검증 인식은 산다', () => {
   assert.strictEqual(bashEdit('bash scripts/verify.sh', 'not-an-object', sid()).verified, true);
   assert.strictEqual(bashEdit('bash scripts/verify.sh', { files: 'x', changedFiles: 7 }, sid()).verified, true);
+});
+
+// ---- 대기 턴: run_in_background Bash 의 backgroundTaskId → bgTaskIds (early-stop 이 Stop 의 background_tasks[].id 와 대조) ----
+// 형태는 transcript 실측(2.1.285): 결과 stdout·stderr·interrupted·isImage·noOutputExpected·backgroundTaskId.
+// timeout 으로 자동 background 되면 결과에 timedOutAfterMs 가 더해지고 입력에 run_in_background 가 없다.
+function bashTool(s, toolInput, toolResponse) {
+  const input = JSON.stringify({ session_id: s, cwd: os.tmpdir(), tool_name: 'Bash', tool_input: toolInput, tool_response: toolResponse });
+  execFileSync('node', [HOOK], { input, env: { ...process.env, CLAUDE_DLC_SIGNAL_OFF: '1' } });
+  return ledger.read(s);
+}
+const bgResult = (id, extra) => ({ stdout: '', stderr: '', interrupted: false, isImage: false, noOutputExpected: false, backgroundTaskId: id, ...extra });
+const bgInput = (command) => ({ command, description: 'x', run_in_background: true });
+
+ok('run_in_background Bash → bgTaskIds 에 backgroundTaskId 를 순서대로, 중복 없이', () => {
+  const s = sid();
+  bashTool(s, bgInput('gh run watch 1'), bgResult('b1'));
+  bashTool(s, bgInput('sleep 30'), bgResult('b2'));
+  assert.deepStrictEqual(bashTool(s, bgInput('sleep 30'), bgResult('b1')).bgTaskIds, ['b1', 'b2']);
+});
+ok('run_in_background 가 없으면 기록하지 않는다 — timeout 자동 background 도(경고 유지 쪽)', () => {
+  const d = bashTool(sid(), { command: 'npm run e2e', description: 'x' }, bgResult('b3', { timedOutAfterMs: 120000 }));
+  assert.deepStrictEqual(d.bgTaskIds, []);
+});
+ok('backgroundTaskId 가 없거나 빈 문자열·비문자열이면 기록하지 않는다', () => {
+  const s = sid();
+  for (const r of [{ stdout: '' }, bgResult(''), bgResult(7), null]) bashTool(s, bgInput('sleep 1'), r);
+  assert.deepStrictEqual(ledger.read(s).bgTaskIds, []);
+});
+ok('bgTaskIds 는 최근 50개만 남긴다', () => {
+  const s = sid();
+  ledger.write(s, { ...ledger.DEFAULT, bgTaskIds: Array.from({ length: 50 }, (_, i) => `o${i}`) });
+  const d = bashTool(s, bgInput('sleep 1'), bgResult('new'));
+  assert.strictEqual(d.bgTaskIds.length, 50);
+  assert.deepStrictEqual([d.bgTaskIds[0], d.bgTaskIds[49]], ['o1', 'new']);
+});
+ok('손상 장부(bgTaskIds 가 배열 아님)에서도 exit 0 · 같은 Bash 의 검증 기록 유지', () => {
+  for (const bad of [null, 'b1', { b1: true }]) {
+    const s = sid();
+    ledger.write(s, { ...ledger.DEFAULT, bgTaskIds: bad });
+    const d = bashTool(s, bgInput('npm test'), bgResult('b1'));
+    assert.strictEqual(d.verified, true, JSON.stringify(bad));
+    assert.deepStrictEqual(d.bgTaskIds, ['b1'], JSON.stringify(bad));
+  }
+});
+ok('사용자 턴 리셋(ledger.reset)은 bgTaskIds 를 비운다', () => {
+  const s = sid();
+  bashTool(s, bgInput('sleep 1'), bgResult('b1'));
+  ledger.reset(s);
+  assert.deepStrictEqual(ledger.read(s).bgTaskIds, []);
 });
 
 console.log(`dlc-evidence-ledger.test.js: ${n} tests passed`);

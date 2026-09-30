@@ -17,7 +17,9 @@ const path = require('path');
 //   한 세션이 두 root 를 오가면 '' (mixed) 로 두어 어떤 root 와도 일치하지 않게 한다.
 // edited/conclusionBlocks: 결론 블록 축(early-stop ④). edited 는 changed 와 달리 .md 를 포함하고(보고 형식 게이트라
 //   문서 편집 턴도 대상) 결론 축이 통과하면 소비된다 — 리셋이 UserPromptSubmit 1곳뿐이라 소비하지 않으면 후속 짧은 답변을 막는다.
-const DEFAULT = { changed: false, verified: false, blocks: 0, readmeDirty: false, indexDirty: false, docBlocks: 0, readmeTrigger: null, indexTrigger: null, changedTrigger: null, readmeCovered: [], readmePending: [], indexCovered: [], indexPending: [], driftRoot: null, planTouched: false, planBlocks: 0, edited: false, conclusionBlocks: 0 };
+// bgTaskIds: 마지막 사용자 프롬프트 이후 `run_in_background` 로 띄운 Bash 의 backgroundTaskId(최근 50개).
+//   early-stop 이 Stop 의 background_tasks[].id 와 대조해 이번 턴 shell 대기를 가른다.
+const DEFAULT = { changed: false, verified: false, blocks: 0, readmeDirty: false, indexDirty: false, docBlocks: 0, readmeTrigger: null, indexTrigger: null, changedTrigger: null, readmeCovered: [], readmePending: [], indexCovered: [], indexPending: [], driftRoot: null, planTouched: false, planBlocks: 0, edited: false, conclusionBlocks: 0, bgTaskIds: [] };
 
 function ledgerPath(sessionId) {
   const id = String(sessionId || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');

@@ -4,13 +4,16 @@
 //     (최종 변경 이후 다시 검증해야 gate 통과 — verified 무효화, 경고 자격 회복).
 //     단 문서(.md)는 test/lint 대상이 아니라 verify 게이트를 켜지 않는다(doc-drift 로만 커버).
 //   Bash 검증 명령 → verified=true. 단 cat/grep/ls 등 비검증 시작 명령은 제외.
+//     `bash <file>.sh` 래퍼는 작은 일반 파일이면 본문을 한 단계만 본다(wrapperVerifies).
 //   Bash 로 고친 이 브랜치의 plan·README·wiki/index.md(bashEditDiff) → planTouched·drift target 만(경고를 끄는 쪽).
+//   `run_in_background` Bash → backgroundTaskId 를 bgTaskIds 에(early-stop 의 이번 턴 shell 대기 판정).
 // 한계: hook 은 "검증 *명령 실행* 여부"의 거친 근사다. 검증 *성공* 판정은
 //   plan # Acceptance(모델)가 단일 소스 — hook 은 "검증 시도조차 없음"을 잡는 누락 방지망.
 // 도구는 이미 실행된 뒤라 차단하지 않는다. 의존/파싱 실패 시 fail-open(exit 0).
 'use strict';
 const { execFileSync } = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 let ledger;
 try {
@@ -193,6 +196,45 @@ const NONVERIFY_START = /^\s*(cat|grep|rg|ls|echo|printf|find|head|tail|sed|awk)
 // checkout.sh·test-data-loader.sh 처럼 키워드로 시작만 하는 비검증 스크립트를 verified 로 오인식하지 않게.
 const VERIFY_SCRIPT = /(^|&&|;)\s*(?:bash|sh)\s+(?:\S*[\/._-])?(?:verify|check|test)\.sh(?=$|\s|[;&|])/;
 
+// 이름이 규칙에 안 맞는 래퍼(`bash <scratch>/x_final.sh`) 안에서 돌린 검증 — 이름 규칙을 넓히는 대신 본문을 본다.
+// 경로는 명령 원문에서 뽑는다(소문자화하면 대소문자를 가리는 파일시스템에서 못 찾는다). 변수는 풀지 않는다.
+const WRAPPER = /(?:^|\n|&&|;)\s*(?:bash|sh)\s+(?:-[a-zA-Z]+\s+)*([^\s;&|]+\.sh)(?=$|\s|[;&|])/g;
+const WRAPPER_MAX = 3;
+const WRAPPER_MAX_BYTES = 16 * 1024;
+const HEREDOC = /<<-?\s*\\?(['"]?)([A-Za-z_][A-Za-z0-9_-]*)\1/;
+
+// 한 단계만, 16KB 이하 일반 파일만(FIFO 를 읽다 멈추지 않게 stat 먼저). 줄마다 주석·heredoc 본문(도움말·만들 파일
+// 내용)·비검증 시작 줄을 빼고 명령과 같은 규칙을 적용한다. 판정 불능은 전부 "검증 아님"(경고 유지 쪽).
+function wrapperVerifies(command, cwd) {
+  for (const m of [...command.matchAll(WRAPPER)].slice(0, WRAPPER_MAX)) {
+    try {
+      const p = m[1].startsWith('~/') ? path.join(os.homedir(), m[1].slice(2)) : path.resolve(cwd || process.cwd(), m[1]);
+      const st = fs.statSync(p, { throwIfNoEntry: false });
+      if (st && st.isFile() && st.size <= WRAPPER_MAX_BYTES && bodyVerifies(fs.readFileSync(p, 'utf8'))) return true;
+    } catch {
+      /* 이 래퍼만 판정 불능 → 다음 래퍼 */
+    }
+  }
+  return false;
+}
+function bodyVerifies(body) {
+  let heredoc = null;
+  for (const raw of body.split(/\r?\n/)) {
+    if (heredoc !== null) {
+      if (raw.replace(/^\t+/, '') === heredoc) heredoc = null;
+      continue;
+    }
+    const code = raw.replace(/(^|\s)#.*$/, '');
+    const line = code.toLowerCase();
+    if (!NONVERIFY_START.test(line) && (VERIFY.test(line) || VERIFY_SCRIPT.test(line))) return true;
+    const h = HEREDOC.exec(code);
+    if (h) heredoc = h[2];
+  }
+  return false;
+}
+
+const BG_TASK_MAX = 50; // bgTaskIds 상한 — 긴 자율 세션에서도 장부가 커지지 않게
+
 let raw = '';
 const wd = setTimeout(() => process.exit(0), 1000); // stdin 미수신 안전망(notify-hook 패턴)
 process.stdin.on('data', (c) => (raw += c));
@@ -269,8 +311,18 @@ process.stdin.on('end', () => {
     } catch {
       /* 형태가 어긋나도 아래 검증 인식·장부 기록은 유지(fail-open) */
     }
-    const cmd = String((input.tool_input && input.tool_input.command) || '').toLowerCase();
-    if (!NONVERIFY_START.test(cmd) && (VERIFY.test(cmd) || VERIFY_SCRIPT.test(cmd))) data.verified = true;
+    // 명시한 background 만 — timeout·Ctrl+B 로 넘어간 명령은 기다리려고 띄운 것이 아니라 경고를 남긴다.
+    // backgroundTaskId 는 hooks 문서에 없는 도구 출력 필드라, 형태가 다르면 기록하지 않는 쪽(경고 유지)으로 틀린다.
+    const bgId = input.tool_response && input.tool_response.backgroundTaskId;
+    if (input.tool_input && input.tool_input.run_in_background === true && typeof bgId === 'string' && bgId) {
+      const ids = Array.isArray(data.bgTaskIds) ? data.bgTaskIds : [];
+      if (!ids.includes(bgId)) data.bgTaskIds = ids.concat(bgId).slice(-BG_TASK_MAX);
+    }
+    const rawCmd = String((input.tool_input && input.tool_input.command) || '');
+    const cmd = rawCmd.toLowerCase();
+    if (!NONVERIFY_START.test(cmd) && (VERIFY.test(cmd) || VERIFY_SCRIPT.test(cmd) || wrapperVerifies(rawCmd, input.cwd))) {
+      data.verified = true;
+    }
   }
   ledger.write(input.session_id, data);
   process.exit(0);
