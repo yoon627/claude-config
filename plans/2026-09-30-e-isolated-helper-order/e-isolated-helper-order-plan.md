@@ -1,6 +1,6 @@
 ---
 title: e-isolated-helper-order — /e 6·7단계 헬퍼를 격리 worktree 세션에서는 main 으로 나온 뒤 돌린다
-status: in_progress
+status: done
 started: 2026-09-30
 updated: 2026-09-30
 ---
@@ -23,9 +23,9 @@ worktree 에 격리된 세션에서 `/e` 6단계(worklog)·7단계(상태 재수
 - 2026-09-30: 재리뷰 APPROVE — 이전 Major 해소(argparse 실측: `<이름> --register` 양쪽 순서 모두 name·register=True). Critical/Major 0, Minor 3·Nit 8 은 문구로 반영했다(처분은 # Review Disposition).
   - 재리뷰어의 가드 실측(이 격리 세션): `bash "$HOME/…"` 3/3 거부, `$HOME` 을 펼친 절대경로 bash 3/3 통과, `uv run --no-project python "$HOME/…"`(commit_units·jira_task `--help`) 2/2 통과.
 - 2026-09-30: 문구 반영 뒤 격리 runner 재실행 — `verify.sh` `ALL PASS (skip: install-codex-skill.test.ps1)`, `improve --ci` exit 0. argparse 도 직접 확인했다(`<이름> --register`·`--register <이름>` 모두 name·register=True). evidence gate 1~4 를 모두 증거로 충족해 판정은 DONE 이다(status 는 머지 때 done).
+- 2026-09-30: 커밋 1개, commit-check 이상 없음. 로컬 main 위로 rebase(충돌 없음) 뒤 `verify.sh` 재실행 `ALL PASS (skip: install-codex-skill.test.ps1)`. small 이라 로컬 ff-merge(§8)로 반영하고, 이 worktree 는 새 순서(값 캡처 → `ExitWorktree(keep)` → 이름 인자 worklog → subshell 재수집 → remove)로 정리한다. 남은 것은 # Deferred.
 
 # Next
-- 커밋 → commit-check → 로컬 main(`1bd6939`) 위로 rebase·재검증 → ff-merge → 이 worktree 를 새 순서대로 정리(실측 재현) → main 세션에서 # Deferred 의 공용 wiki 적립.
 
 # Decisions
 - 관련 결정·관찰: 공용 wiki `worktree-isolation-bash-guard` 는 가드를 규칙이 아니라 관찰로 둔다(하네스 버전 의존). 그래서 문서에는 2026-09-30 실측과 버전 의존을 함께 적는다.
