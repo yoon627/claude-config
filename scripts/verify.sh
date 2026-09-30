@@ -9,6 +9,7 @@
 #
 # 사용: bash scripts/verify.sh [축]
 #   축: syntax | node | bash | python | shell   (생략 시 전부)
+#   syntax 는 JS 문법(node --check)과 skill·agent frontmatter 형식(scripts/frontmatter-lint.js)을 본다.
 # 종료코드: 실패 1건이라도 있으면 1. 테스트가 77 로 끝나면 필요한 도구가 없다는 뜻이라 skip 으로 센다.
 #
 # 미설치 도구는 **조용히 건너뛰지 않는다** — `[skip]` 을 찍고 마지막 줄 요약에
@@ -53,6 +54,7 @@ run() { # run <label> <command...> — 종료 코드 77 은 "필요한 도구 �
 # CI·worktree 와 결과가 갈리고, 중첩 worktree(.claude/worktrees) 사본도 끌려온다.
 # 작업트리에서 지운 추적 파일은 존재 검사로 뺀다. -z 는 비ASCII·특수문자 경로의
 # quoting(core.quotePath)을 꺼 존재 검사에서 조용히 빠지는 것을 막는다.
+# skills/improve/improve.sh 점검 4 가 이 발견을 bash 로 복제한다 — 바꾸면 같이 바꾼다.
 repo_files() { # repo_files <pathspec...>
   git ls-files -z --cached --others --exclude-standard -- "$@" | tr '\0' '\n' | sort -u |
     while IFS= read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done
@@ -63,6 +65,18 @@ if [ "$axis" = all ] || [ "$axis" = syntax ]; then
   for f in $(repo_files ':(glob)*.js' ':(glob)scripts/**/*.js'); do
     run "$f" node --check "$f"
   done
+  # 대상 pathspec 은 skills/improve/improve.sh 점검 4 와 같다.
+  echo '== syntax (frontmatter) =='
+  n=0
+  for f in $(repo_files ':(glob)skills/*/SKILL.md' ':(glob)agents/*.md'); do
+    n=$((n + 1))
+    run "$f" node scripts/frontmatter-lint.js "$f"
+  done
+  # 0개면 발견이 깨진 것이다 — 검사 없이 통과로 보이지 않게 실패로 센다.
+  if [ "$n" -eq 0 ]; then
+    fail=$((fail + 1))
+    echo 'FAIL frontmatter — 대상 0개(skills/*/SKILL.md·agents/*.md)'
+  fi
 fi
 
 if [ "$axis" = all ] || [ "$axis" = node ]; then
