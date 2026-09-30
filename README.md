@@ -12,10 +12,10 @@ Windows 에서 사용하는 `%USERPROFILE%\.claude\` 또는 macOS 에서 사용�
 
 ## Prerequisites
 
-- **Node.js** (LTS 권장) — `statusline.js`, `subagent-statusline.js`, `codex-quota-refresh.js` 가 Node 로 실행. `node --version` 으로 확인.
+- **Node.js** (LTS 권장) — `statusline.js`, `subagent-statusline.js` 가 Node 로 실행. `node --version` 으로 확인.
 - **Claude Code** 설치 — `~/.claude/` 위치를 자동으로 읽음. 설치 후 한 번이라도 실행하여 디렉토리 생성.
 - **Git** + **Git Bash** (Windows) — Claude Code 가 statusLine·hook command 를 Windows 에서 Git Bash 로 실행. `~` 확장에 필요 (Git Bash·sh 는 `~` 를 홈으로 확장; `$HOME` 은 PowerShell fallback 시 깨질 수 있어 `~` 사용). Git Bash 가 없으면 PowerShell fallback 인데 이때 `~` 확장이 보장되지 않으므로 Windows 는 Git Bash 설치 필수.
-- **(선택) Codex CLI** — statusline 의 Codex quota 표시용. 없으면 해당 부분만 빠지고 나머지는 정상 동작 (silent fail).
+- **(선택) Codex CLI** — reviewer subagent 의 Codex 병행 검토용(CLAUDE.md §9, `docs/codex-review.md`). 없으면 병행을 건너뛰고 Claude subagent 검토만 돈다.
 - **(선택, Windows) PowerShell ExecutionPolicy** — Windows notify 는 `notify-hook.js` 가 `powershell.exe` 로 `notify-hook.ps1`(toast/flash) 를 spawn 하므로 `Restricted` 면 실행 안 됨. 아래 Install 참고. (macOS 는 PowerShell 불필요.)
 
 ---
@@ -234,9 +234,9 @@ Windows PowerShell 에서는 아래 명령의 `~` 를 `$env:USERPROFILE` 로 바
 설치 후 다음으로 동작 확인:
 
 ### 1. Statusline 표시
-Claude Code 실행 후 화면 하단에 한 줄이 나와야 함. claude/codex 조각의 앞 레이블은 각각 현재 모델명으로 표시됨 (claude = 세션 모델 `model.display_name`, codex = `~/.codex/config.toml` 의 기본 `model`). 예시:
+Claude Code 실행 후 화면 하단에 한 줄이 나와야 함. 사용량 조각의 앞 레이블은 세션 모델명(`model.display_name`)으로 표시됨. 예시:
 ```
-Opus 53%(20:30) wk 72% | gpt-5.4 60%(18:45) wk 40% | ctx 12% | main
+Opus 53%(20:30) wk 72% | ctx 12% | main
 ```
 
 표시 안 되면 → Troubleshooting 의 "statusline 미표시".
@@ -246,15 +246,10 @@ Opus 53%(20:30) wk 72% | gpt-5.4 60%(18:45) wk 40% | ctx 12% | main
 
 사운드/알림이 없으면 → "hook 미실행".
 
-### 3. Codex quota 표시 (선택)
-`codex --version` 으로 Codex CLI 설치 확인 후, statusline 에 `<codex 모델명> NN%(HH:MM) wk NN%` (예: `gpt-5.4 60%(18:45) wk 40%`) 가 나타나야 함. 모델명은 `~/.codex/config.toml` 의 `model`, 못 읽으면 `codex` 로 폴백. 첫 표시는 캐시 채워질 때까지 최대 20초.
-
-표시 안 되면 → "codex quota 미표시".
-
-### 4. Subagent statusline
+### 3. Subagent statusline
 `Agent` 도구로 subagent 를 띄우면 프롬프트 아래 subagent 패널의 행이 `Review change · running · 48.2k tok (24%) · 3m 12s` 형태로 나와야 함(이름을 붙여 띄운 agent 는 앞에 `code-reviewer · ` 처럼 이름이 붙는다. 기본 표시는 `이름 또는 agent 종류 · description · tokens`).
 
-### 5. Pre-commit guard
+### 4. Pre-commit guard
 `.\scripts\install-hooks.ps1` 실행 후 일반 `git commit` 은 무동작 (정상). 확인하려면 `plans/` 아래 임시 plan 파일에 토큰 형태 문자열(예: `sk-` 로 시작하는 더미)을 넣고 stage 후 commit 시도 → `[BLOCKED]` 출력 + exit 1 이어야 함. (settings.json 은 untracked 라 더 이상 이 경로로 검증되지 않는다.)
 
 ---
@@ -290,30 +285,17 @@ Opus 53%(20:30) wk 72% | gpt-5.4 60%(18:45) wk 40% | ctx 12% | main
 Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline) 으로 등록되어 약 2초 주기로 stdin 의 세션 JSON 을 받아 한 줄을 출력.
 
 표시 항목:
-- **Claude 5-hour + weekly rate limit**: `claude NN%(HH:MM) wk NN%` — 각 창(`rate_limits.five_hour`·`seven_day`)의 남은 percentage, 5시간 창은 reset 시각도. 두 창은 독립적으로 빠질 수 있다 — Claude Code 는 최신 API 응답에 그 창의 `anthropic-ratelimit-unified-5h-*`/`7d-*` 헤더가 없거나 reset 시각이 지나면 그 창을 입력에서 뺀다(2.1.285 바이너리 확인)
-- **Codex 5-hour + weekly rate limit**: `codex NN%(HH:MM) wk NN%` — `cache/codex-quota.json` 에서 읽음 — 창은 `windowDurationMins`(300 = 5시간, 10080 = 주간)로 고르고 그 값이 없을 때만 위치(`primary` = 5시간, `secondary` = 주간)를 따른다, 5분 TTL, stale 시 `codex-quota-refresh.js` 백그라운드 spawn
+- **Claude 5-hour + weekly rate limit**: `<모델명> NN%(HH:MM) wk NN%`(`model.display_name`, 없으면 `claude`) — 각 창(`rate_limits.five_hour`·`seven_day`)의 남은 percentage, 5시간 창은 reset 시각도. 두 창은 독립적으로 빠질 수 있다 — Claude Code 는 최신 API 응답에 그 창의 `anthropic-ratelimit-unified-5h-*`/`7d-*` 헤더가 없거나 reset 시각이 지나면 그 창을 입력에서 뺀다(2.1.285 바이너리 확인)
 - **Context window**: `ctx NN%` — 현재 세션의 컨텍스트 사용률
 - **Git branch + worktree**: `main` 또는 `feature-x @wt:gallant-hodgkin` — 현재 cwd 기준
 
-모든 부분이 try/catch 로 감싸져 있어 외부 의존(Codex CLI, git, fs) 실패 시 해당 부분만 빠지고 나머지는 정상 동작. stdin 이 `null`·빈 값·깨진 JSON 이어도 exit 0.
+외부 의존은 git 뿐이고 try/catch 로 감싸져 있어 실패하면 branch 부분만 빠지고 나머지는 정상 동작. stdin 이 `null`·빈 값·깨진 JSON 이어도 exit 0.
 
 background task 표시(`✻ N bg`)는 2026-09-25 제거했다 — tasks 디렉토리에는 foreground Bash 출력도 쌓여 background 와 구분할 수 없고(`refreshInterval: 2` 라 Bash 를 돌릴 때마다 뜬다), macOS 에서는 경로도 틀려 한 번도 뜬 적이 없었다. background subagent 는 프롬프트 아래 subagent 패널과 `/tasks` 가 보여 준다.
 
 ### subagent-statusline.js — subagent statusline
 
 `subagentStatusLine` 으로 등록되어 subagent 패널의 행을 그린다. 입력은 `{columns, tasks[]}`(task 마다 `id`·`name`·`description`·`status`·`startTime`(epoch ms)·`tokenCount`·`contextWindowSize` 등), 출력은 행마다 `{"id","content"}` JSON 한 줄이다([문서](https://code.claude.com/docs/en/statusline#subagent-status-lines)). content 는 `name · description · status · <N>k tok (P%) · Xm Ys` — 없는 조각은 빼고(`name` 은 이름을 등록한 agent 에만 오며, 기본 표시가 대신 쓰는 agent 종류는 입력에 없다), 경과는 `running`·`pending` 일 때만 붙인다(입력에 종료 시각이 없어 끝난 행의 경과가 계속 늘기 때문). `columns` 를 넘으면 description 부터 줄인다(글자 단위, 한글·CJK·이모지는 2칸). 비율은 `tokenCount / contextWindowSize` 로, 출력 토큰이 겹쳐 세여 100% 에서 자르는 근사치다. 문자열 id 가 없는 task 와 `columns` 가 0 일 때는 기본 표시로 남긴다.
-
-### codex-quota-refresh.js — Codex quota fetcher
-
-`statusline.js` 가 cache stale 감지 시 detached spawn 으로 호출. `codex app-server` 의 JSON-RPC (`initialize` → `account/rateLimits/read`) 로 quota 조회 후 `cache/codex-quota.json` 에 atomic write.
-
-- TTL: 5분
-- Negative cache: 실패 시에도 `fetchedAt` 만 기록해서 매 2초마다 재spawn 방지
-- 모든 종료 경로(응답·RPC 오류·spawn 오류·20초 timeout·app-server 종료)가 한 곳에서 캐시를 쓰고 app-server 를 끝낸 뒤 종료한다. app-server 가 응답 없이 끝나면 20초를 기다리지 않고 곧(남은 출력을 1초까지 기다린 뒤) negative cache 를 쓴다
-- 캐시 파일을 못 쓰면(rename 실패 등) 임시 파일을 지우고 lock 을 남긴다 — statusline 은 lock 을 쓴(spawn 한) 시각부터 25초까지 다시 띄우지 않으므로 2초마다 재spawn 하지 않는다
-- POSIX 에선 셸 없이 `codex app-server` 를 띄워 kill 이 app-server 에 바로 간다(Ubuntu dash 처럼 `sh -c` 가 exec 하지 않는 셸이면 셸만 죽는다). Windows 는 `.cmd` shim 이라 셸로 띄운다(미검증)
-- Codex CLI 미설치 / 인증 안 된 머신: spawn 실패 시 negative cache, statusline 의 codex 부분만 빠짐
-- Codex CLI 버전 변경으로 `account/rateLimits/read` 메소드가 사라지면 마찬가지로 빠짐 (확인된 동작 버전: codex-cli 0.128.x 시점)
 
 ### agents/ — 4개 subagent
 
@@ -583,7 +565,7 @@ Path 표기 (cross-platform):
 settings.json 의 statusLine / hook command 모두 `~` 로 추상화돼 있어 사용자명 무관 동작. `~` 는 실행 셸(macOS·Linux = `sh`, Windows = Git Bash)이 홈 디렉토리로 확장.
 
 ### Codex CLI 없는 머신
-설치 안 해도 statusline 의 `codex NN%(HH:MM) wk NN%` 부분만 빠지고 나머지는 정상. 설치하려면 `npm install -g @openai/codex` 후 `codex login`.
+설치 안 해도 된다 — reviewer subagent 가 Codex 병행 검토(CLAUDE.md §9)를 건너뛰고 Claude subagent 검토만 한다. 설치하려면 `npm install -g @openai/codex` 후 `codex login`.
 
 ### PowerShell ExecutionPolicy 가 `Restricted` 인 머신
 후크의 `.ps1` 스크립트 실행 불가. 일회성 처리:
@@ -658,7 +640,7 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 
 ### OS 지원 현황 (Windows / macOS / Linux)
 `settings.json` 은 단일 cross-platform — 모든 command 가 `node ~/.claude/...` 이고 OS 분기는 `notify-hook.js` 의 `process.platform` 에서. 컴포넌트별:
-- `statusline.js`, `subagent-statusline.js`, `codex-quota-refresh.js`, `notify-hook.js`, `guard-worktree-edit.js`, `guard-push-delete.js`, `dlc-*.js` — node 기반(`os.homedir()` / `process.platform` / `os.tmpdir()`), **cross-platform**.
+- `statusline.js`, `subagent-statusline.js`, `notify-hook.js`, `guard-worktree-edit.js`, `guard-push-delete.js`, `dlc-*.js` — node 기반(`os.homedir()` / `process.platform` / `os.tmpdir()`), **cross-platform**.
 - `CLAUDE.md`, `agents/*.md`, `skills/*/SKILL.md` — 텍스트 가이드, **OS 무관**.
 - `scripts/notify.ps1`, `notify-hook.ps1` — Windows 전용 (WinRT toast / flash). macOS·Linux 는 `notify-hook.js` 가 직접 처리하므로 미사용.
 - `scripts/pre-commit-check.{sh,ps1}`, `install-hooks.{sh,ps1}` — OS별 가드/설치 스크립트 (양쪽 제공).
@@ -677,7 +659,6 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 ├── settings.local.json             # 머신별 / 민감 정보 (gitignored)
 ├── statusline.js                   # 메인 statusline
 ├── subagent-statusline.js          # subagent statusline
-├── codex-quota-refresh.js          # Codex quota fetcher
 ├── agents/
 │   ├── architecture-reviewer.md
 │   ├── code-reviewer.md
@@ -778,12 +759,6 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 1. 공통: 직접 호출로 확인 — `echo '{}' | node ~/.claude/scripts/notify-hook.js Stop` (사운드/알림 떠야 함). `node --version` 으로 PATH 확인.
 2. macOS: 첫 `osascript` 호출 시 알림 권한 허용 필요 (위 "macOS 알림 권한").
 3. Windows: `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` 한 번 실행 (notify-hook.js 가 spawn 하는 `.ps1` 용). `.ps1` 직접 점검: `powershell -File "$env:USERPROFILE\.claude\scripts\notify-hook.ps1" -Event Stop -DryRun` → JSON 출력 확인. 디버그 로그: `$env:CLAUDE_NOTIFY_DEBUG = '1'` 설정 후 재현 → `%TEMP%\claude-notify-debug.json` 확인, 후 `Remove-Item Env:\CLAUDE_NOTIFY_DEBUG`.
-
-### Codex quota 미표시
-1. `codex --version` 으로 CLI 존재 확인
-2. `codex login` 인증 상태 확인
-3. `cache/codex-quota.json` 의 `error` 필드 확인 — 마지막 실패 사유 기록
-4. 수동 refresh: `node "$env:USERPROFILE\.claude\codex-quota-refresh.js"` 직접 실행 후 cache 갱신 확인
 
 ### Pre-commit guard 가 정상 변경을 차단
 `scripts/pre-commit-check.sh`(`.ps1`)의 토큰 패턴이 `plans/*.md`(다시 추적되면 `settings.json`)의 정상 값과 충돌하는 경우. 패턴 수정이 정답이다. 패턴을 고치기 전에 한 번 통과시켜야 한다면, 그것은 **사용자가 차단된 매치를 직접 확인하고 오탐으로 판단한 뒤 터미널에서 실행하는** 복구 절차다 — `git commit --no-verify`(push 단계면 `git push --no-verify`). 매치를 확인하지 않고 통과시키지 말 것. Claude 는 이 우회를 실행하지 않는다 — 차단되면 원인(패턴·내용)을 고치거나 보고 후 멈춘다(CLAUDE.md §8).
