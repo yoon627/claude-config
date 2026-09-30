@@ -21,15 +21,36 @@ function readCodexModel() {
   }
 }
 
-// "<label> 53%(20:30)" — 남은 %(100 - used)와 리셋 시각(epoch 초, 로컬 시각). 없는 쪽은 빼고, 둘 다 없으면 ''.
-function quotaPiece(label, usedPct, resetsAt) {
-  const pct = usedPct != null ? Math.round(Math.max(0, 100 - usedPct)) + '%' : '';
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
+// "53%(20:30)" — 남은 %(100 - used)와 리셋 시각(epoch 초, 로컬 시각). 주간 창은 리셋이 최대 7일 뒤라
+// 시각만으로는 날을 알 수 없어 요일을 붙인다. 숫자가 아닌 값은 없는 것으로 보고, 둘 다 없으면 ''.
+function windowPiece(usedPct, resetsAt, withDay) {
+  const used = num(usedPct);
+  const pct = used != null ? Math.round(Math.max(0, 100 - used)) + '%' : '';
+  const reset = num(resetsAt);
+  const d = reset != null ? new Date(reset * 1000) : null;
   let tm = '';
-  if (resetsAt != null) {
-    const d = new Date(resetsAt * 1000);
+  if (d && !Number.isNaN(d.getTime())) {
     tm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    if (withDay) tm = WEEKDAYS[d.getDay()] + ' ' + tm;
   }
-  return pct && tm ? `${label} ${pct}(${tm})` : pct ? `${label} ${pct}` : tm ? `${label} (${tm})` : '';
+  return pct && tm ? `${pct}(${tm})` : pct || (tm ? `(${tm})` : '');
+}
+
+// "<label> 53%(20:30) wk 72%(Sat 13:00)" — 5시간 창 뒤에 주간 창. 둘 다 비면 ''.
+function quotaPiece(label, fiveHour, weekly) {
+  const body = [fiveHour, weekly && 'wk ' + weekly].filter(Boolean).join(' ');
+  return body ? `${label} ${body}` : '';
+}
+
+// primary·secondary 의 순서는 계정마다 달라(주간 창만 primary 로 오는 사례가 보고됐다) windowDurationMins 로
+// 창을 고르고, 그 값이 없을 때만 위치(primary = 5시간, secondary = 주간)를 따른다. 다른 길이의 창은 표시하지 않는다.
+function codexWindow(cdx, mins, pos) {
+  const wins = [cdx.primary, cdx.secondary];
+  const w = wins.find((x) => x && x.windowDurationMins === mins) || wins[pos];
+  return w && (w.windowDurationMins == null || w.windowDurationMins === mins) ? w : {};
 }
 
 const chunks = [];
@@ -41,16 +62,19 @@ process.stdin.on('end', () => {
 
   const parts = [];
 
-  // 1. 5-hour rate limit: remaining % and reset clock as "53%(20:30)"
-  const fiveHour = input.rate_limits && input.rate_limits.five_hour;
-  if (fiveHour) {
-    // 레이블 'claude' 대신 현재 모델명(stdin 의 model.display_name). 없으면 'claude' 폴백.
-    const label = (input.model && input.model.display_name) || 'claude';
-    const piece = quotaPiece(label, fiveHour.used_percentage, fiveHour.resets_at);
-    if (piece) parts.push(piece);
-  }
+  // 1. 5-hour + weekly rate limits: "Opus 53%(20:30) wk 72%(Sat 13:00)"
+  //    두 창은 서로 독립적으로 없을 수 있다(리셋 시각이 지나면 Claude Code 가 그 창을 뺀다).
+  const rl = input.rate_limits || {};
+  const fiveHour = rl.five_hour || {};
+  const sevenDay = rl.seven_day || {};
+  // 레이블 'claude' 대신 현재 모델명(stdin 의 model.display_name). 없으면 'claude' 폴백.
+  const model = input.model && input.model.display_name;
+  const claudePiece = quotaPiece(typeof model === 'string' && model ? model : 'claude',
+    windowPiece(fiveHour.used_percentage, fiveHour.resets_at, false),
+    windowPiece(sevenDay.used_percentage, sevenDay.resets_at, true));
+  if (claudePiece) parts.push(claudePiece);
 
-  // 1b. Codex 5-hour limit (cached; refreshed in background when stale).
+  // 1b. Codex 5-hour + weekly limits (cached; refreshed in background when stale).
   //     Cache populated by ~/.claude/codex-quota-refresh.js.
   try {
     const CDX_CACHE = path.join(os.homedir(), '.claude', 'cache', 'codex-quota.json');
@@ -87,10 +111,13 @@ process.stdin.on('end', () => {
       } catch (_) { /* swallow */ }
     }
 
-    if (cdx && cdx.primary) {
-      // 레이블 'codex' 대신 codex 설정 모델명. 못 읽으면 'codex' 폴백.
-      const piece = quotaPiece(readCodexModel() || 'codex', cdx.primary.usedPercent, cdx.primary.resetsAt);
-      if (piece) parts.push(piece);
+    if (cdx) {
+      const fiveWin = codexWindow(cdx, 300, 0);
+      const weekWin = codexWindow(cdx, 10080, 1);
+      const five = windowPiece(fiveWin.usedPercent, fiveWin.resetsAt, false);
+      const week = windowPiece(weekWin.usedPercent, weekWin.resetsAt, true);
+      // 레이블 'codex' 대신 codex 설정 모델명. 못 읽으면 'codex' 폴백 — 표시할 창이 없으면 config 를 읽지 않는다.
+      if (five || week) parts.push(quotaPiece(readCodexModel() || 'codex', five, week));
     }
   } catch (_) { /* never break statusline */ }
 

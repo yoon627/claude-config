@@ -236,7 +236,7 @@ Windows PowerShell 에서는 아래 명령의 `~` 를 `$env:USERPROFILE` 로 바
 ### 1. Statusline 표시
 Claude Code 실행 후 화면 하단에 한 줄이 나와야 함. claude/codex 조각의 앞 레이블은 각각 현재 모델명으로 표시됨 (claude = 세션 모델 `model.display_name`, codex = `~/.codex/config.toml` 의 기본 `model`). 예시:
 ```
-Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
+Opus 53%(20:30) wk 72%(Sat 13:00) | gpt-5.4 60%(18:45) wk 40%(Fri 09:00) | ctx 12% | main
 ```
 
 표시 안 되면 → Troubleshooting 의 "statusline 미표시".
@@ -247,7 +247,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 사운드/알림이 없으면 → "hook 미실행".
 
 ### 3. Codex quota 표시 (선택)
-`codex --version` 으로 Codex CLI 설치 확인 후, statusline 에 `<codex 모델명> NN%(HH:MM)` (예: `gpt-5.4 60%(18:45)`) 가 나타나야 함. 모델명은 `~/.codex/config.toml` 의 `model`, 못 읽으면 `codex` 로 폴백. 첫 표시는 캐시 채워질 때까지 최대 20초.
+`codex --version` 으로 Codex CLI 설치 확인 후, statusline 에 `<codex 모델명> NN%(HH:MM) wk NN%(Ddd HH:MM)` (예: `gpt-5.4 60%(18:45) wk 40%(Fri 09:00)`) 가 나타나야 함. 모델명은 `~/.codex/config.toml` 의 `model`, 못 읽으면 `codex` 로 폴백. 첫 표시는 캐시 채워질 때까지 최대 20초.
 
 표시 안 되면 → "codex quota 미표시".
 
@@ -290,8 +290,8 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline) 으로 등록되어 약 2초 주기로 stdin 의 세션 JSON 을 받아 한 줄을 출력.
 
 표시 항목:
-- **Claude 5-hour rate limit**: `claude NN%(HH:MM)` — 남은 percentage 와 reset 시각
-- **Codex 5-hour rate limit**: `codex NN%(HH:MM)` — `cache/codex-quota.json` 에서 읽음, 5분 TTL, stale 시 `codex-quota-refresh.js` 백그라운드 spawn
+- **Claude 5-hour + weekly rate limit**: `claude NN%(HH:MM) wk NN%(Ddd HH:MM)` — 각 창(`rate_limits.five_hour`·`seven_day`)의 남은 percentage 와 reset 시각. 주간 창은 reset 이 최대 7일 뒤라 요일을 붙인다. 두 창은 독립적으로 빠질 수 있다
+- **Codex 5-hour + weekly rate limit**: `codex NN%(HH:MM) wk NN%(Ddd HH:MM)` — `cache/codex-quota.json` 에서 읽음 — 창은 `windowDurationMins`(300 = 5시간, 10080 = 주간)로 고르고 그 값이 없을 때만 위치(`primary` = 5시간, `secondary` = 주간)를 따른다, 5분 TTL, stale 시 `codex-quota-refresh.js` 백그라운드 spawn
 - **Context window**: `ctx NN%` — 현재 세션의 컨텍스트 사용률
 - **Git branch + worktree**: `main` 또는 `feature-x @wt:gallant-hodgkin` — 현재 cwd 기준
 
@@ -582,7 +582,7 @@ Path 표기 (cross-platform):
 settings.json 의 statusLine / hook command 모두 `~` 로 추상화돼 있어 사용자명 무관 동작. `~` 는 실행 셸(macOS·Linux = `sh`, Windows = Git Bash)이 홈 디렉토리로 확장.
 
 ### Codex CLI 없는 머신
-설치 안 해도 statusline 의 `codex NN%(HH:MM)` 부분만 빠지고 나머지는 정상. 설치하려면 `npm install -g @openai/codex` 후 `codex login`.
+설치 안 해도 statusline 의 `codex NN%(HH:MM) wk NN%(Ddd HH:MM)` 부분만 빠지고 나머지는 정상. 설치하려면 `npm install -g @openai/codex` 후 `codex login`.
 
 ### PowerShell ExecutionPolicy 가 `Restricted` 인 머신
 후크의 `.ps1` 스크립트 실행 불가. 일회성 처리:
