@@ -15,14 +15,14 @@ wiki 는 두 계층이다(CLAUDE.md §11 이 배치 규칙의 단일 소스):
 
 ## 적용
 - `/wiki ingest|query|lint` 명시 호출.
-- dlc 연계(CLAUDE.md §11): 작업 시작 시 두 index 조회(있는 것만), 작업 후 재사용 지식의 대상 계층 판정·ingest 제안(자동 아님).
+- dlc 연계(CLAUDE.md §11): 작업 시작 시 두 wiki 조회(있는 것만 — `wiki_search.py`, query 1단계), 작업 후 재사용 지식의 대상 계층 판정·ingest 제안(자동 아님).
 - 코드 변경·단순 질문은 제외.
 
 ## 인자 해석
 | 입력 | 동작 |
 |---|---|
 | `ingest <경로\|설명>` | raw/지식 → 대상 wiki 페이지 갱신 + index/log |
-| `query <질문>` | 두 index 에서 페이지 read 후 답, 가치 있으면 filed |
+| `query <질문>` | 두 wiki 를 검색해 페이지 read 후 답, 가치 있으면 filed |
 | `lint` | 현재 repo 의 wiki 무결성 점검·보고 |
 | (빈 인자) | 두 `index.md` 요약 + 사용법 |
 
@@ -47,7 +47,13 @@ wiki 는 두 계층이다(CLAUDE.md §11 이 배치 규칙의 단일 소스):
 10. `check_links.py`(링크·index)와 `wiki_check.py schema`(frontmatter 형식)로 점검 후 보고(명령은 lint 절). `covers` 가 있는 페이지를 고쳤으면 `wiki_check.py stale --report` 도 돌린다(값 옮기기는 신선도 절). config 에 `[smoke]` 를 둔 wiki 면 `wiki_check.py smoke` 도 돌린다. 공용 적립이면 커밋 전 공개 점검을 한 번 더(비공개 출처면 diff 확인).
 
 ## query
-1. 두 `index.md`(현재 repo wiki, 공용 wiki `~/.claude/wiki/index.md` — `~/.claude` 에서는 하나)에서 관련 페이지 식별 → read.
+1. `uv run --no-project python "${CLAUDE_SKILL_DIR}/wiki_search.py" <질의어…>` 로 관련 페이지를 찾아 read 한다.
+   - 공용 wiki(`CLAUDE_SHARED_WIKI`, 없으면 `~/.claude/wiki`)는 cwd 와 무관하게 찾고, repo wiki 는 현재 디렉터리에서 repo 루트까지 올라가며 찾아 함께 검색한다. 둘이 같은 경로면 한 번만 찾는다.
+   - 결과마다 계층(`[공용]`/`[repo]`)·절대경로·index 요약·맞은 본문 줄(`L<줄 번호>`)이 나온다. `--limit N`(기본 5)·`--category C` 는 질의어 앞뒤 어디든 둔다. `-` 로 시작하는 단어(플래그 이름)는 앞의 `-` 를 떼고 넣는다.
+   - 첫 줄의 찾은 wiki·쪽수로 어디를 찾았는지 확인한다. 기본 경로에 공용 wiki 가 없으면 stderr 경고와 함께 repo wiki 만 찾는다.
+   - exit 1(결과 없음)이거나 결과가 빗나가면 다른 단어(영문 식별자·동의어)로 다시 찾고, 두 `index.md`(공용은 `~/.claude/wiki/index.md`)를 직접 훑는다. 한 음절 한글(`훅`)은 찾지 못한다.
+   - exit 2 는 찾을 wiki·단어·category 가 없거나, `CLAUDE_SHARED_WIKI` 가 wiki 가 아니거나, 읽기 오류다. stderr 의 이유를 보고 질의·설정을 고쳐 다시 찾는다 — `찾을 wiki 가 없다` 일 때만 조회를 건너뛴다.
+   - 점수는 stem·title 일치 3, index 요약 일치 2.5, 본문 BM25(상한 2.2)의 idf 가중합이다. 한글은 2-gram 으로 나눠 조사가 붙어도 맞는다.
 2. 페이지 기반으로 답(raw chunk 아님). 근거 페이지를 **어느 wiki 의 것인지와 함께** 인용.
 3. 재사용 가치 있으면 **현재 repo 의 wiki** 에 `pages/query/<slug>.md` 로 filed(frontmatter+링크) + 그 wiki 의 `log.md` append. 공용 페이지가 근거인 답을 다른 repo 에서 filed 할 가치가 있으면 ingest 2단계의 공용 제안으로 돌린다. 공용 페이지는 비공개 repo 의 페이지를 가리키지 않는다.
 4. 관련 페이지가 없으면 "wiki 에 없음" 명시(추측 금지). 필요 시 ingest 제안.
