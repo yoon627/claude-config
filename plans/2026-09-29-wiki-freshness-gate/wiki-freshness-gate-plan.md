@@ -1,6 +1,6 @@
 ---
 title: wiki-freshness-gate — consumer repo 두 곳의 wiki 신선도 장치(형식·covers·대표 질문)를 skills/wiki/wiki_check.py 로 일반화
-status: in_progress
+status: done
 started: 2026-09-29
 updated: 2026-09-30
 intent: plans/2026-09-29-repo-context-kit/intent.md
@@ -185,12 +185,9 @@ consumer repo 두 곳이 각자 만든 wiki 신선도 장치의 메커니즘을 
   - 테스트 항목(1·2·4·5·6·8·10·17·18): 3.13.9 에서 126 통과, 3.9.6 에서 126 실행·17 skip(`tomllib`). runner 의 verify.sh 에서도 두 테스트 파일이 ok.
   - 대조·실측(3·7·9·14·19): 위 2026-09-30 재측정 값. 11 은 3.9.6 실행과 skip 수 17 이 2회차와 같다. 12 는 브랜치 diff 0줄·`test_check_links.py` 통과. 13 은 SKILL.md·README 갱신과, 3회차 문서 변경을 코드와 읽어 대조한 결과. 15 는 runner 의 `ALL PASS`(skip 없음). 16 은 마지막 커밋 직전의 금지어 스캔.
   - 이 세션부터 `/model` 이 Opus 5.5 로 바뀌었다. 판정과 측정에는 영향이 없다.
+- 2026-09-30: `commit-check`(사용자 승인)로 fixup 6개를 unit 3 에 합치고, 메시지에 리뷰 수정 단락과 기록 파일 문장을 더했다. unit 1·2 는 tree·메시지·author 가 그대로이고 committer 시각만 바뀌어 sha 가 새로 났다. 단위 커밋마다 스크래치 checkout 테스트가 3.13·3.9 에서 통과했다(unit 1 26·unit 2 77·unit 3 126 — 3.9 skip 6·7·17, check_links 7). `/e merge` 로 PR #215 — origin/main 과 충돌 없음(merge-tree).
 
 # Next
-- 다음 즉시 액션 — `commit-check`(사용자 승인). fixup 을 흡수하면 unit 3 커밋에 unit 1·2 코드의 리뷰 수정이 들어가므로, 그 메시지에 리뷰 수정 단락을 더한다(흡수 때 fixup 의 `-m` 본문은 버려진다 — `git help commit`). 리뷰 라운드는 더 돌리지 않는다.
-- 그다음: 단위 커밋마다 스크래치 checkout 테스트 → Report(dlc 16) → 사용자 선택(`/e merge` 등).
-- Report 에 적을 것: 단위 커밋 sha, 귀속 예외(unit 2 의 `__main__` 출력 설정·`cmd_schema` 의 `missing_wiki()` 추출. 리뷰 수정 가운데 unit 1 코드에 닿은 것 — 파서의 `unclosed_flow`·`FLOW_CAUSES`·`_bracket_depth`, `build_config`, `load_pages`. unit 2 코드에 닿은 것 — `Git`·`open_repo`·`resolve_base`·`split_covers`·`_unreadable_detail`·지문·hook·`find_wiki`·`covers_match`·`stale_pages`·`_reference`·`main`/`__main__`·`_QuietStderr`·`_discard`·`_wants_hook`. 모두 마지막 단위 fixup 에 담는다), 공용 wiki 3쪽의 schema 위반(병합 뒤 ingest·lint 의 schema 가 exit 1 — # Deferred, 후속 선택지로), fix1 리뷰·r3 재리뷰의 Codex 미가용(§9 생략 사유), fix loop 상한을 넘긴 3회차(사용자 승인)와 그 뒤 리뷰 없이 남긴 risk accept 6건(HK-2(1)·HK-3·CI-3·FP-1·CI-7·PS-2 — # Review Disposition "[r3 재리뷰]"), wiki·memory 후보(대조 9 r10 의 BSD awk·sed UTF-8 로캘 동작 — 합성 재현이라 공개할 수 있고 wiki 보관 방식 결정 대기와 함께 판단한다. # Workflow Findings 의 memory 보강 제안 — `cd` 재발 포함, 승인 뒤 main 에서).
-- 명령 주의: git 은 worktree 루트에서 `/usr/bin/git <명령>` 을 한 번에 하나, `cd` 하지 않고 절대 경로로(# Workflow Findings). 세션이 worktree 밖(`~/.claude` main)에서 재개됐으면 `/usr/bin/git -C <worktree 절대 경로> <명령>` 으로 부른다. fixup 커밋의 본문은 `-m` 으로 준다 — `-F` 는 `--fixup` 과 함께 쓰면 git 2.54.0 이 거부한다. 스크래치 도구는 이전 세션 scratchpad(`/private/tmp/claude-501/*/32f2b813-fc86-47fe-8da6-f66374327ce4/scratchpad/`)에 있다: `scan16.py`(금지어 스캔 — 항목을 출력하지 않는다), `private-denylist.txt`(비공개 — 커밋·출력 금지), `cfscan.py`(제어 문자 — Edit·Write 뒤마다), `mutate_unit3.py`, `parity3.py`·`parity7.py`·`parity9.py`. 이 세션 scratchpad(`/private/tmp/claude-501/*/791c9753-f138-47bc-b578-7612c4a3cc4d/scratchpad/`): `run_r2_tests.sh <tag>`(3.13·3.9·check_links 로그), `parity_r2.py`(대조 3 두 판 비교), `unclosed_scan.py`(닫히지 않은 흐름 목록 익명 집계), `schema_public.py`, `simplify/apply.py`(simplify 참고안 — 2회차 전 코드 기준 치환이라 Edit 로 다시 적용한다). 이 머신에는 `~/.claude/private-terms.txt` 가 없다.
 
 # Decisions
 - 커밋 단위:
@@ -597,7 +594,7 @@ consumer repo 두 곳이 각자 만든 wiki 신선도 장치의 메커니즘을 
 - `skills/wiki/check_links.py:44-56` — BOM 을 지우지 않아 BOM 페이지를 frontmatter 5키 누락으로 보고, 닫는 `---` 가 없으면 본문까지 키로 센다. schema 와 판정이 갈린다(더 엄격한 쪽이 드러난다). low.
 - `scripts/dlc-evidence-ledger.js:186` — `VERIFY_TOOLS` 의 `check_links` 는 wiki 검사라, 코드를 바꾸고 `check_links` 만 돌린 세션이 verified 가 된다. 도입 사유를 찾지 못했다(도입 결정을 먼저 확인해야 한다). low.
 - `wiki/pages/decision/wiki-shared-layer.md` "당시 wiki" 표 — 회사 repo 장치를 "검증 날짜" 로 적었지만 값은 commit 이다. low. wiki 보관 방식이 정해진 뒤 그 페이지를 고칠 때 정정한다.
-- `wiki/pages/decision/git-hook-network-safety.md`·`wiki/pages/decision/ops-doc-slimming.md` — `sources` 흐름 목록의 `#` 가 든 항목(`PR #…`)을 따옴표로 감싸지 않아 공백 뒤 `#` 부터 주석이 되고 목록이 그 줄에서 닫히지 않는다. PyYAML 6.0.3 도 "while parsing a flow sequence" 로 거부한다(✅ 실측). schema 가 리뷰 PS-1 수정부터 `값 형식` 위반으로 잡아, 고칠 때까지 ingest 10단계·lint 의 schema 가 exit 1 이다. 고치는 법: 그 항목을 따옴표로 감싼다. `wiki/pages/concept/plan-handoff.md` 도 같다 — `sources` 블록 항목 `- [[…]] (설명)` 이 흐름 목록 뒤에 글자가 붙은 형태라 PyYAML 6.0.3 이 "while parsing a block collection" 으로 거부한다(✅ 실측). schema 는 리뷰 R-PS-5 수정(블록 항목 판정)부터 잡는다. 고치는 법: 항목 전체를 따옴표로 감싼다. 합쳐 3쪽. low-medium. Acceptance 14 대로 이 작업에서는 고치지 않고, wiki 보관 방식이 정해진 뒤 페이지를 고칠 때 함께 고친다.
+- `wiki/pages/decision/git-hook-network-safety.md`·`wiki/pages/decision/ops-doc-slimming.md` — `sources` 흐름 목록의 `#` 가 든 항목(`PR #…`)을 따옴표로 감싸지 않아 공백 뒤 `#` 부터 주석이 되고 목록이 그 줄에서 닫히지 않는다. PyYAML 6.0.3 도 "while parsing a flow sequence" 로 거부한다(✅ 실측). schema 가 리뷰 PS-1 수정부터 `값 형식` 위반으로 잡아, 고칠 때까지 ingest 10단계·lint 의 schema 가 exit 1 이다. 고치는 법: 그 항목을 따옴표로 감싼다. `wiki/pages/concept/plan-handoff.md` 도 같다 — `sources` 블록 항목 `- [[…]] (설명)` 이 흐름 목록 뒤에 글자가 붙은 형태라 PyYAML 6.0.3 이 "while parsing a block collection" 으로 거부한다(✅ 실측). schema 는 리뷰 R-PS-5 수정(블록 항목 판정)부터 잡는다. 고치는 법: `(설명)` 을 공백 뒤 `#` 주석으로 옮긴다(3회차 안내 — 항목 전체를 따옴표로 감싸면 설명이 값에 섞인다). 합쳐 3쪽. low-medium. Acceptance 14 대로 이 작업에서는 고치지 않고, wiki 보관 방식이 정해진 뒤 페이지를 고칠 때 함께 고친다.
 - `scripts/verify.sh` — Python 축이 PATH 의 `python3` 하나라 3.9·3.10 호환을 지속적으로 보지 못한다(CI 에 setup-python 없음). `/usr/bin/python3` 등 하한 버전 축을 더할지 판단. low.
 - wiki-init 인계 — medium:
   - 등록 명령에 스크립트 파일 부재 guard(없는 경로의 `python` 은 exit 2 로 매 종료를 막는다). `uv run` 런처 자체의 실패(uv 없음 등)도 exit 2 이므로 guard 가 런처 오류까지 덮어야 한다.
@@ -620,6 +617,7 @@ consumer repo 두 곳이 각자 만든 wiki 신선도 장치의 메커니즘을 
 - `skills/wiki/test_wiki_check.py` 테스트 빈틈 두 가지(r3 재리뷰, low).
   - R3-CI-3: `_QuietStderr.flush` 의 OSError 분기를 고정하는 테스트가 없다. 개행 없이 남은 stderr 가 종료 flush 에서 실패하는 경우다.
   - R3-CI-7(PLAUSIBLE): `_alive` 가 Linux 에서 kill(0) 과 /proc 읽기 사이에 거둬진 프로세스를 ps 로 다시 본다. ps 가 없는 컨테이너면 ERROR 다. 고친다면 /proc 이 있을 때 읽기 실패를 죽은 것으로 본다.
+- 공용 wiki 후보(대조 9 r10, low): UTF-8 로캘의 BSD awk 20200816 는 UTF-8 이 아닌 바이트에서 `towc: multibyte conversion failure` 로 exit 2 하고, `set -o pipefail` 이면 파이프 전체가 실패한다. BSD `sed` 는 같은 바이트에서 `RE error: illegal byte sequence` 로 멈춘다. C 로캘에서는 둘 다 통과한다. 합성 재현이라 공개할 수 있다. wiki 보관 방식이 정해진 뒤 `/wiki ingest` 여부를 판단한다.
 - `skills/wiki/wiki_check.py` 파서의 뒤 글자 판정(R3-PS-2, low). `]` 로 끝나는 뒤 글자 값(`[[a]], [[b]]`·`[a]]`·블록 `- [a] [b]`)을 닫힌 목록으로 잘못 읽는다. 1회차 전부터 있던 판정이다. 고친다면 따옴표 밖 깊이가 끝나기 전에 0 이하가 되는지 보는 판정을 더한다.
 
 # Workflow Findings
