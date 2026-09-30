@@ -69,7 +69,7 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 - **증거 게이트**(Report 전): 전 항목 증거 대조. 미충족·미검증이면 완료 금지 → 수정 또는 `status: blocked`/"미검증"(CLAUDE.md §1).
 - **verification grounding**: 실행되는 산출물(HTML·SVG·게임·차트·CLI·서버)은 정적 점검이 아니라 **실제 실행·출력 관찰** 증거를 넣는다("well-formed ≠ correct").
 - trivial 은 항목화 면제(검증 자체가 acceptance) — 단 검증은 한다.
-- **문서 동기화도 acceptance**(CLAUDE.md §3): README 문서화 컴포넌트·`wiki/pages/` 를 건드리면 README/`wiki/index.md` 동기화를 acceptance 항목으로 같은 브랜치 갱신(잊으면 완료 아님).
+- **문서 동기화도 acceptance**(CLAUDE.md §3): README 문서화 컴포넌트·`wiki/pages/` 를 건드리면 README/`wiki/index.md` 동기화를 acceptance 항목으로 같은 브랜치 갱신(잊으면 완료 아님 — 공용 wiki 는 브랜치가 아니라 main 세션에서 그 repo 에 함께 커밋, §11).
 - **삼중 보조**: Stop hook(`dlc-early-stop`)이 capped 경고(fail-open) — ① 비trivial 변경에 검증 기록 없음 ② 문서화 표면 바꿨는데 README/index 동기화 없음(`dlc-doc-drift`) ③ 소스를 바꿨는데 이 브랜치에 매칭되는 plan 을 안 건드림(`plan-match` — plan 이 실제로 있을 때만 발동, 없으면 침묵). hook 은 보조 — 이 규약이 단일 소스.
 
 ## 판정 + 알림 (비-trivial)
@@ -120,7 +120,7 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 ```
 
 ## wiki 연계 (CLAUDE.md §11)
-ingest 제안은 조건부·opt-in, 16단계 표 안 늘림. **단 계획 전 decision 조회는 필수다** — draft plan(3단계, plan 없이 가는 small 은 구현 착수) 전에 두 index 를 이 작업의 **대상 자산 이름과 작업 종류**(slim·압축·이관·재구성·제거·설정 변경 등)로 조회해 걸린 decision·lesson 을 읽는다. 같은 세션의 분석·조사에서 이어진 계획이라 1단계 조회를 거치지 않았어도 한다. 걸린 decision 이 있으면 따를지 뒤집을지를 plan `# Decisions` 첫 줄에 적고, 뒤집으면 근거와 사용자 승인을 붙인다([[lesson-verify-scaffold-purpose-before-removal]] 사례 4). wiki 는 두 계층(현재 repo 의 `wiki/`, 공용 `~/.claude/wiki/` — 배치 규칙은 §11)이라 현재 repo 에 wiki 가 없어도 공용 조회는 한다. **16 Report 두 판정 누락 금지**: ① 재사용 지식(비자명 결정·교훈·확정 외부사실)이면 **대상 계층까지** 판정해 `/wiki ingest` 제안(자동 아님, trivial·일회성 제외) — 다른 repo 에서 공용 대상이면 `~/.claude 에서 /wt → /wiki ingest <요약 · 공개 근거 · 출처(공개/비공개)>` 제안을 Report 와 plan `# Deferred` 에 남긴다(§11 공개 점검) ② 작업 중 **사용자 교정·리뷰 지적**이 있었으면 §12 feedback memory 저장 판정(대상이면 memory 파일 + `MEMORY.md` 인덱스 **둘 다**, 비대상이면 사유 1줄). Explore wiki read·plan→wiki 일방향 승격 메커닉은 `docs/dlc-details.md` §C.
+ingest 제안은 조건부·opt-in, 16단계 표 안 늘림. **단 계획 전 decision 조회는 필수다** — draft plan(3단계, plan 없이 가는 small 은 구현 착수) 전에 두 index 를 이 작업의 **대상 자산 이름과 작업 종류**(slim·압축·이관·재구성·제거·설정 변경 등)로 조회해 걸린 decision·lesson 을 읽는다. 같은 세션의 분석·조사에서 이어진 계획이라 1단계 조회를 거치지 않았어도 한다. 걸린 decision 이 있으면 따를지 뒤집을지를 plan `# Decisions` 첫 줄에 적고, 뒤집으면 근거와 사용자 승인을 붙인다([[lesson-verify-scaffold-purpose-before-removal]] 사례 4). wiki 는 두 계층(현재 repo 의 `wiki/`, 공용 `~/.claude/wiki/` — 배치 규칙은 §11)이라 현재 repo 에 wiki 가 없어도 공용 조회는 한다. 공용은 절대경로 `~/.claude/wiki/index.md` 로 읽는다 — `~/.claude` worktree 에는 `wiki/` 가 없어 상대경로로 찾으면 "없음"으로 조용히 넘어간다. **16 Report 두 판정 누락 금지**: ① 재사용 지식(비자명 결정·교훈·확정 외부사실)이면 **대상 계층까지** 판정해 `/wiki ingest` 제안(자동 아님, trivial·일회성 제외) — 다른 repo 에서 공용 대상이면 `~/.claude main 세션에서 /wiki ingest <요약 · 공개 근거 · 출처(공개/비공개)>` 제안을 Report 와 plan `# Deferred` 에 남긴다(§11 공개 점검). `~/.claude` worktree 세션에서도 공용 wiki 에 쓰지 않고 같은 제안을 `# Deferred` 에 남겨 main 세션에서 적립한다 ② 작업 중 **사용자 교정·리뷰 지적**이 있었으면 §12 feedback memory 저장 판정(대상이면 memory 파일 + `MEMORY.md` 인덱스 **둘 다**, 비대상이면 사유 1줄). Explore wiki read·plan→wiki 일방향 승격 메커닉은 `docs/dlc-details.md` §C.
 
 ## 격리 경계 (hub-and-spoke)
 - **메인(hub)**: Setup, Explore(얇게 — 광범위 검색만 Explore agent 위임), draft plan, TDD Red, 구현, Green(구현 직후 최소 스모크), 통합, 검증 명령 식별·결과 판단·실패 fix, Report, 최종 판단.
@@ -151,7 +151,7 @@ plan 을 쓸 때(single writer re-read 시점) 지금 행동이 `# Next`·규모
 ## Workflow Findings (증거기반 자기개선)
 작업 중 **확인된 workflow 실패**(dlc/규약 자체 문제로 작업이 샌 경우)만 기록 — 매 작업 회고 아님(빈 의례 방지). 자동 수정 안 함.
 - **기록 트리거**(확인된 것만): ① 중대 self-diagnosis 발동(스코프 이탈·단계 누락·격리 위반 등) ② 동일 유형 실패 2회 재현 ③ **사용자가 명시 지적한 workflow 마찰·오탐**(예: hook false positive). ③ 은 §12 feedback(작업방식 즉시 교정)과 달리 *운영 자산(dlc/hook/규약)*을 고칠 반복 마찰.
-- **기록(2곳)**: plan `# Workflow Findings` 한 줄 + **공용** wiki `decision/workflow-failures.md` 누적(같은 실패면 횟수만 ↑ — dlc 는 전역 자산이라 공용 계층. 다른 repo 세션이면 공용 기록은 §11 제안으로). 기록 형식·자동 hook 신호(`scripts/dlc-signal.js`→`/improve`)와의 상보 관계는 `docs/dlc-details.md` §D.
+- **기록(2곳)**: plan `# Workflow Findings` 한 줄 + **공용** wiki `decision/workflow-failures.md` 누적(같은 실패면 횟수만 ↑ — dlc 는 전역 자산이라 공용 계층. main 세션에서 쓴다 — `~/.claude` worktree 세션이면 plan 에 남기고 복귀 후, 다른 repo 세션이면 공용 기록은 §11 제안으로). 기록 형식·자동 hook 신호(`scripts/dlc-signal.js`→`/improve`)와의 상보 관계는 `docs/dlc-details.md` §D.
 - **반복 시 제안**: wiki 같은 finding 이 **2회+ 누적**되면 `AskUserQuestion` 으로 "N회 반복됐다 — `~/.claude` 에서 `wt` 로 고칠까?" 제안. 승인 시 **`~/.claude` 에서 wt → dlc**(운영 자산은 `~/.claude` 에 있고, 변경은 파일 변경이라 wt 필수), 거부 시 보존만.
 - **자가수정 경계(§1)**: 승인 없이 운영 자산(dlc/CLAUDE.md 등)을 스스로 고치지 않는다. harness 는 발견·기록·제안까지, 수정은 사용자 승인 후. 완전 무인 자동화는 두지 않는다(공용 wiki [[self-diagnosis-and-improvement-status]]).
 

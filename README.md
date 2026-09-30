@@ -47,7 +47,10 @@ cd $env:USERPROFILE\.claude
 # 6. (선택) 비공개 용어 목록 — 기존 머신의 ~/.claude/private-terms.txt 를 복사 (untracked).
 #    없으면 가드가 note 한 줄만 찍고 비공개 용어 검사를 건너뛴다 (아래 D 절).
 
-# 7. Claude Code 재시작
+# 7. 공용 wiki — 이 repo 에는 없다(비공개 repo 의 별도 clone, 아래 E 절).
+git clone <비공개 wiki repo URL> $env:USERPROFILE\.claude\wiki
+
+# 8. Claude Code 재시작
 ```
 
 `settings.json` 은 **untracked** — clone 만으로는 오지 않으므로 위 5번을 건너뛰면 안 된다. 이유는 문서 맨 위 참조.
@@ -78,6 +81,8 @@ git checkout origin/main -b main
 
 # 5) hooks 설치
 .\scripts\install-hooks.ps1
+
+# 6) 공용 wiki — 이 repo 에는 없다. 아래 E 절대로 clone 한다(wiki 가 있던 머신이면 E 절 1단계부터).
 ```
 
 `.gitignore` 가 화이트리스트 방식이라 `.credentials.json`, `settings.local.json`, `history.jsonl`, `projects/`, `sessions/`, `cache/` 등 기존 개인 데이터는 git 이 건드리지 않음.
@@ -156,7 +161,10 @@ cd ~/.claude
 # 4. (optional) `gwl` 셸 단축키 설치 — worktree list (수동 1회). 상세: 아래 gwl.zsh 절.
 ./scripts/install-gwl.zsh
 
-# 5. Claude Code 재시작
+# 5. 공용 wiki — 이 repo 에는 없다(비공개 repo 의 별도 clone, 아래 E 절).
+git clone <비공개 wiki repo URL> ~/.claude/wiki
+
+# 6. Claude Code 재시작
 ```
 
 ### B. 이미 `~/.claude/` 가 있는 macOS 머신 — 기존 데이터 보존
@@ -179,6 +187,8 @@ git checkout origin/main -b main
 
 # 4) hooks 설치
 ./scripts/install-hooks.sh
+
+# 5) 공용 wiki — 이 repo 에는 없다. 아래 E 절대로 clone 한다(wiki 가 있던 머신이면 E 절 1단계부터).
 ```
 
 ### C. macOS 알림 권한
@@ -197,6 +207,25 @@ git checkout origin/main -b main
 ```
 
 훅 디렉토리(`git rev-parse --git-path hooks`)는 머신별이라 clone 한 프로젝트마다 매번 실행 필요. 가드가 모든 push 를 막을 때의 복구(`--no-verify` 로 한 번 빠져나오기·훅 삭제)는 위 Windows D 절과 같다 — 사용자가 판단해 직접 하는 절차이고, Claude 는 우회하지 않고 원인을 고치거나 보고 후 멈춘다(CLAUDE.md §8).
+
+### E. 공용 wiki 전환 — 이미 쓰던 머신 (Windows·macOS 공통)
+
+2026-09-30 부터 공용 wiki(`~/.claude/wiki`)는 이 repo 가 아니라 **비공개 wiki repo** 에 있다. 이 repo 는 `wiki/` 를 추적하지 않는다. 그래서 전환 커밋을 받으면(SessionStart 자동 pull 포함) 그 머신의 wiki 파일이 지워진다. 다시 받으려면 비공개 wiki repo 를 같은 자리에 clone 한다. 머신마다 한 번 한다.
+
+Windows PowerShell 에서는 아래 명령의 `~` 를 `$env:USERPROFILE` 로 바꾼다(5.1 은 git 인자의 `~` 를 확장하지 않아 엉뚱한 폴더에 clone 된다). Git Bash 에서는 그대로 쓴다.
+
+0. **(선택) 자동 pull 잠시 끄기** — 정리할 시간이 필요하면 전환 커밋이 들어오기 전에 `touch ~/.claude/.autopull-off` 로 그 머신의 SessionStart pull 을 멈춘다. 끝나면 그 파일을 지운다.
+1. **전환 커밋을 받기 전** — 그 머신에 커밋·push 하지 않은 wiki 편집이 있는지 본다: `git -C ~/.claude status --porcelain -- wiki`, `git -C ~/.claude log origin/main..main -- wiki`.
+   - 커밋하지 않은 편집만 있으면, 그 파일을 다른 곳에 복사해 두고 `git -C ~/.claude restore --staged --worktree -- wiki` 로 되돌린다.
+   - push 하지 않은 로컬 커밋이 wiki 를 건드렸으면, 멈추고 그 wiki 파일을 복사해 둔다. **공개 repo 로 push 해서 풀지 않는다** — wiki 내용이 공개된다. 그 커밋을 어떻게 정리할지는 다른 파일과 섞였는지 보고 그 머신에서 정한다.
+   - 그대로 두면 자동 pull 이 fast-forward 에 실패해 **조용히 멈춘다**.
+2. **pull** — `git -C ~/.claude pull --ff-only`. 추적에서 빠진 wiki 파일이 지워진다.
+3. **clone** — `git clone <비공개 wiki repo URL> ~/.claude/wiki`.
+   - `~/.claude/wiki` 가 비어 있지 않아 실패하면(ignored `raw/` 등이 남은 경우), 다른 경로에 clone 한 뒤 남은 파일을 그 clone 으로 옮기고 폴더를 바꿔 넣는다.
+   - 1 에서 복사해 둔 편집이 있으면 clone 에 다시 적용해 커밋한다.
+4. **확인** — `git -C ~/.claude status --porcelain` 이 비어 있고(`wiki/` 는 무시된다), `git -C ~/.claude/wiki status` 가 clean 이다.
+
+공용 wiki 에는 main 세션에서 쓰고 그 repo 의 main 에 직접 커밋한다. push 는 필요할 때 한다(CLAUDE.md §11·§8). 다른 머신의 wiki 는 자동으로 갱신되지 않는다 — `git -C ~/.claude/wiki pull`.
 
 ---
 
@@ -248,7 +277,7 @@ Opus 53%(20:30) | gpt-5.4 60%(18:45) | ctx 12% | main
 8. Git / 보안 — destructive 명령 금지, 시크릿 출력 금지, 코드/파일 변경은 규모 불문 worktree(`/wt`)에서(gitignored 글로벌 상태 제외), **검증 통과분은 요청 없이 작업 브랜치 커밋**(push 는 요청 시만), 커밋은 하나의 목적 단위(`commit-check` 로 점검), trivial·small 종결은 로컬 ff-merge
 9. Claude ↔ Codex 협업 — `plans/` 핸드오프 채널, 리뷰 매트릭스
 10. `plans/` 핸드오프 규약 — slug, frontmatter, 필수 6개 + 선택 섹션(Intent·Acceptance·Review Disposition·Deferred·Workflow Findings — Intent 는 medium 이상 항상), 묶음 intent(`plans/<date>-<intent-slug>/intent.md` 하나에 plan 여럿이 `intent:` 로 링크 — 단발 작업은 plan `# Intent` 만. medium 이상은 dlc 분할 판정이 "독립 머지 가능한 복수 plan 으로 나뉘는가"를 능동으로 보고 안 나뉘면 `분할: 없음 — <근거>`)
-11. 영속 프로젝트 메모리 (LLM Wiki) — 두 계층: repo `wiki/`(그 repo 의 결정·교훈) + 공용 `~/.claude/wiki/`(여러 repo 에 쓸모 있는 공개 가능한 사실·전역 자산 교훈 — 모든 repo 가 조회, 다른 repo 세션은 적립 제안만), `plans/` 와 경계 (일시적 vs 영속). 공개 점검 — `~/.claude` 는 공개 repo 라 이 repo 의 **모든** 커밋·push 에 회사·비공개 정보 금지(`private-terms.txt` 목록으로 기계 백스톱)
+11. 영속 프로젝트 메모리 (LLM Wiki) — 두 계층: repo `wiki/`(그 repo 의 결정·교훈) + 공용 `~/.claude/wiki/`(여러 repo 에 쓸모 있는 공개 가능한 사실·전역 자산 교훈 — 비공개 repo 의 별도 clone, 모든 repo 가 조회, 쓰기는 `~/.claude` main 세션, 다른 repo 세션은 적립 제안만), `plans/` 와 경계 (일시적 vs 영속). 공개 점검 — `~/.claude` 는 공개 repo 라 이 repo 의 **모든** 커밋·push 에 회사·비공개 정보 금지(`private-terms.txt` 목록으로 기계 백스톱)
 12. 피드백 메모리 — 작업 방식 교정을 `memory/`(type: feedback) + `MEMORY.md` 인덱스로 영속화해 다음 작업에 반영. 보편·중대 규칙은 이 `CLAUDE.md` 로 승격.
 13. 실수·교훈 로그 — 반복 실수를 대상 계층 wiki 의 교훈 페이지(상세 — 공용은 `decision/lesson-*`, 다른 repo 는 그 WIKI.md 형식. 전역 워크플로우 교훈은 공용) + `MEMORY.md` 인덱스(자동 상기 — 프로젝트별이라 다른 repo 에는 공용 index 조회로)로 적립해 다음 구현에서 회피. 인덱스 주입은 권고이지 강제 아님.
 
@@ -347,14 +376,14 @@ background task 표시(`✻ N bg`)는 2026-09-25 제거했다 — tasks 디렉�
 
 ### skills/wiki/ — LLM Wiki (영속 프로젝트 메모리)
 
-`/wiki <ingest|query|lint>` 로 영속 프로젝트 메모리를 운영. 두 계층 — 현재 repo 의 `wiki/`(그 repo 의 결정·교훈)와 공용 `~/.claude/wiki/`(여러 repo 에 쓸모 있는 공개 가능한 사실·전역 자산 교훈). query 는 두 index 를 보고, ingest 는 대상 계층을 먼저 정한다 — 다른 repo 세션에서 공용 대상이면 쓰지 않고 `~/.claude 에서 /wt → /wiki ingest <요약 · 공개 근거 · 출처(공개/비공개)>` 제안을 Report·plan `# Deferred` 에 남긴다. 공용 wiki(이 repo)는 공개라 적립 작업이 공개하는 모든 것(페이지·sources·index·log·plan·브랜치/worktree 이름·커밋 메시지·PR)에 회사·조직명·내부 호스트/IP·코드명·티켓 키·비공개 repo 이름/경로를 두지 않고(단일 정의는 CLAUDE.md §11 공개 점검), 출처가 비공개이거나 불명인 제안은 커밋 전 diff 를 확인받는다. 현재 repo 판정은 `[ "$(git rev-parse --path-format=absolute --git-common-dir)" -ef "$HOME/.claude/.git" ]`. ingest(raw·작업지식 → 상호링크 페이지 + index/log) · query(누적 페이지로 답 → 가치 있으면 현재 repo wiki 에 filed) · lint(현재 repo wiki 의 orphan·dead link·frontmatter 형식·covers 신선도·대표 질문·모순 점검·보고). 기계 점검은 `check_links.py`(링크·orphan·index 동기화)와 `wiki_check.py`(stdlib 단일 파일, config 는 Python 3.11+)가 한다. `wiki_check.py schema` 는 frontmatter 형식을 보고(규칙은 `<wiki>/wiki-check.toml` 로 그 wiki 의 WIKI.md 에 맞추고 없으면 공용 WIKI.md 규약, 템플릿 `templates/wiki-check.toml`), frontmatter 판정의 정본이다. `wiki_check.py stale` 은 covers 신선도를 본다 — 페이지 frontmatter `covers` 에 걸린 코드가 바뀌었는데 페이지가 그대로인지를 `--branch`(CI·push 전)·`--stop-hook`(Stop hook 어댑터, 언제나 exit 0)으로, `verified_at`(대조한 때의 covers 파일 내용 지문)이 지금 지문과 같은지를 `--report`(이력 무관)로 본다. 규약 정본은 SKILL.md 신선도 절이고, hook·CI 등록은 하지 않는다. `wiki_check.py smoke` 는 config `[smoke]` 에 적은 대표 질문마다 답할 페이지·index 등재·본문 근거가 있는지와 작업 중 흔적(브랜치 이름·`status: in_progress`·사용자 패턴)이 페이지에 없는지를 본다 — `[smoke]` 가 없으면 검사 대상 아님(exit 0). 배치 규칙은 CLAUDE.md §11, 형식은 각 wiki 의 `WIKI.md`. `plans/`(일시적 작업 핸드오프)와 달리 작업을 **가로질러 누적**. raw 원문은 gitignored·읽기 전용, 페이지만 tracked. dlc 연계는 CLAUDE.md §11.
+`/wiki <ingest|query|lint>` 로 영속 프로젝트 메모리를 운영. 두 계층 — 현재 repo 의 `wiki/`(그 repo 의 결정·교훈)와 공용 `~/.claude/wiki/`(여러 repo 에 쓸모 있는 공개 가능한 사실·전역 자산 교훈). query 는 두 index 를 보고, ingest 는 대상 계층을 먼저 정한다 — 다른 repo 세션이나 `~/.claude` worktree 세션에서 공용 대상이면 쓰지 않고 `~/.claude main 세션에서 /wiki ingest <요약 · 공개 근거 · 출처(공개/비공개)>` 제안을 Report·plan `# Deferred` 에 남긴다. 공용 wiki 는 비공개 repo 를 `~/.claude/wiki` 에 별도 clone 한 것이고(이 repo 는 추적하지 않는다 — 설치는 Install E 절), main 세션에서 쓰고 그 repo 의 main 에 직접 커밋한다. 저장소는 비공개지만 모든 repo 세션이 읽고 옮겨 적으므로 페이지·sources·index·log·커밋 메시지에 회사·조직명·내부 호스트/IP·코드명·티켓 키·비공개 repo 이름/경로를 두지 않고(단일 정의는 CLAUDE.md §11 공개 점검), 출처가 비공개이거나 불명인 제안은 커밋 전 diff 를 확인받는다. 현재 repo 판정은 `[ "$(git rev-parse --path-format=absolute --git-common-dir)" -ef "$HOME/.claude/.git" ]`. ingest(raw·작업지식 → 상호링크 페이지 + index/log) · query(누적 페이지로 답 → 가치 있으면 현재 repo wiki 에 filed) · lint(현재 repo wiki 의 orphan·dead link·frontmatter 형식·covers 신선도·대표 질문·모순 점검·보고). 기계 점검은 `check_links.py`(링크·orphan·index 동기화)와 `wiki_check.py`(stdlib 단일 파일, config 는 Python 3.11+)가 한다. `wiki_check.py schema` 는 frontmatter 형식을 보고(규칙은 `<wiki>/wiki-check.toml` 로 그 wiki 의 WIKI.md 에 맞추고 없으면 공용 WIKI.md 규약, 템플릿 `templates/wiki-check.toml`), frontmatter 판정의 정본이다. `wiki_check.py stale` 은 covers 신선도를 본다 — 페이지 frontmatter `covers` 에 걸린 코드가 바뀌었는데 페이지가 그대로인지를 `--branch`(CI·push 전)·`--stop-hook`(Stop hook 어댑터, 언제나 exit 0)으로, `verified_at`(대조한 때의 covers 파일 내용 지문)이 지금 지문과 같은지를 `--report`(이력 무관)로 본다. 규약 정본은 SKILL.md 신선도 절이고, hook·CI 등록은 하지 않는다. `wiki_check.py smoke` 는 config `[smoke]` 에 적은 대표 질문마다 답할 페이지·index 등재·본문 근거가 있는지와 작업 중 흔적(브랜치 이름·`status: in_progress`·사용자 패턴)이 페이지에 없는지를 본다 — `[smoke]` 가 없으면 검사 대상 아님(exit 0). 배치 규칙은 CLAUDE.md §11, 형식은 각 wiki 의 `WIKI.md`. `plans/`(일시적 작업 핸드오프)와 달리 작업을 **가로질러 누적**. raw 원문은 gitignored·읽기 전용, 페이지만 tracked(공용 wiki 는 그 비공개 repo 에서). dlc 연계는 CLAUDE.md §11.
 
 ### skills/improve/ — 자기개선 loop 분석 축 (구 /audit 흡수)
 
 `/improve` 로 ① 운영 자산(skills·agents·CLAUDE.md·settings.json·MEMORY.md·wiki)의 **자산 간 참조 정합**(구 `/audit` 승계)과 ② hook 이 자동 누적한 **dlc 신호(telemetry)** 를 함께 분석해 **개선 후보를 랭킹**으로 제시. **수정은 제안만**(§1 자가수정 금지) — 승인 시 wt→dlc 별도 작업. loop 구조: 수집(hook 자동, `dlc-signal.js`) → 분석·제안(`/improve`) → 반영(승인 후 wt→dlc) → 효과 확인(다음 `/improve` 의 신호 추이). 최종 보고 직전에 `node ~/.claude/scripts/dlc-signal.js mark` 로 `last-improve` 마커를 갱신해 SessionStart 의 "/improve 권장" 카운트를 0 부터 다시 센다(스킬 7단계 — `/improve` 의 유일한 write).
-- 기계 점검+집계 `skills/improve/improve.sh`(read-only): settings hooks↔scripts 실존 · MEMORY 인덱스↔파일 양방향 · CLAUDE.md 가 참조한 agent 실존 · SKILL frontmatter name · 죽은 스크립트 후보(require 그래프·수동유틸 화이트리스트로 오탐 차단, info 만) · wiki index↔pages 개수 · **plan-lint**(tracked plan 전수 §10 무결성) · **신호 집계**(`node scripts/dlc-signal.js summary` — failure/activity 축, session-unique 우선) · **네이티브 중복 대장 신선도**(⑨ — `node scripts/native-overlap-lint.js`, 아래 참조).
+- 기계 점검+집계 `skills/improve/improve.sh`(read-only): settings hooks↔scripts 실존 · MEMORY 인덱스↔파일 양방향 · CLAUDE.md 가 참조한 agent 실존 · SKILL frontmatter name · 죽은 스크립트 후보(require 그래프·수동유틸 화이트리스트로 오탐 차단, info 만) · **wiki 비추적 게이트**(이 repo 가 `wiki/` 를 추적하면 error — 공용 wiki 는 비공개 repo) · 공용 wiki(`~/.claude/wiki`, override `CLAUDE_IMPROVE_WIKI`) index↔pages 개수 · **plan-lint**(tracked plan 전수 §10 무결성) · **신호 집계**(`node scripts/dlc-signal.js summary` — failure/activity 축, session-unique 우선) · **네이티브 중복 대장 신선도**(⑨ — `node scripts/native-overlap-lint.js`, 아래 참조).
 - **`improve.sh deep`**(opt-in 광역 관측, 여전히 read-only·secret 미출력): ⑩ 주입·로드 표면 크기(`wc -c` — CLAUDE.md·SKILL·agent, 토큰 압박) · ⑪ 사용량 카운트(`node scripts/usage-count.js` — transcript JSONL 파싱해 skill·subagent·codex 호출 빈도, **카운트·slug 만**, 원문·파일명·경로·args 미출력) · ⑫ MCP 서버 인벤토리(`~/.claude.json` **이름만**, 값·env·secret 미출력) + ⑨ 가 delta 창을 한 줄 더 출력. 판단·제안 경로는 기본 4단계와 동일(측정→제안, 수정 금지).
-- **네이티브 중복 점검**(SKILL §6, deep 전용·주기): Claude Code 네이티브가 흡수한 기능과 겹치는 자작 부품을 `keep`/`watch`/`retire` 로 재판정해 wiki 대장 `wiki/pages/decision/native-overlap-ledger.md` 에 누적. 1~5 가 "자산이 서로 어긋났나"라면 이 축은 "자산이 **아직 필요한가**" — 유일하게 밖(네이티브)을 기준으로 삼는다. 대장 `checked_version` 이후 changelog 만 읽는 **delta 창** 방식이라 전수 조회를 피한다. 주기 임계 45일(`CLAUDE_IMPROVE_NATIVE_MAX_AGE_DAYS`, 근거: 실측 6주 36릴리스), 대장 경로 override `CLAUDE_IMPROVE_LEDGER`. **`/improve` 는 대장을 쓰지 않는다** — 판정은 초안, write 는 승인 후 `/wiki ingest`(§1·§11·§13 승인 게이트).
+- **네이티브 중복 점검**(SKILL §6, deep 전용·주기): Claude Code 네이티브가 흡수한 기능과 겹치는 자작 부품을 `keep`/`watch`/`retire` 로 재판정해 wiki 대장 `~/.claude/wiki/pages/decision/native-overlap-ledger.md` 에 누적. 1~5 가 "자산이 서로 어긋났나"라면 이 축은 "자산이 **아직 필요한가**" — 유일하게 밖(네이티브)을 기준으로 삼는다. 대장 `checked_version` 이후 changelog 만 읽는 **delta 창** 방식이라 전수 조회를 피한다. 주기 임계 45일(`CLAUDE_IMPROVE_NATIVE_MAX_AGE_DAYS`, 근거: 실측 6주 36릴리스), 대장 경로 override `CLAUDE_IMPROVE_LEDGER`. **`/improve` 는 대장을 쓰지 않는다** — 판정은 초안, write 는 승인 후 `/wiki ingest`(§1·§11·§13 승인 게이트).
 - 의미 점검(LLM): 문서 간 모순 · 중복 trigger · 죽은 규칙 + wiki `workflow-failures` 표·MEMORY 인덱스·plan `# Workflow Findings` 대조.
 - **역할 경계**: README↔surface drift 는 `dlc-doc-drift` hook, wiki 내부 무결성·**대장 write** 는 `/wiki lint`·`/wiki ingest` 영역 — improve 는 재판정하지 않고 신호의 **사후 집계**만(중복 회피).
 
@@ -719,11 +748,11 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   ├── prompt-gwl.py               # UserPromptSubmit 훅 (프로젝트별 사용, + test_prompt_gwl.py)
 │   ├── gwl.ps1 / gwl.zsh           # `gwl` — worktree list + 현재 위치 → (Windows / macOS·zsh)
 │   └── install-gwl.ps1 / .zsh      # gwl 을 profile($PROFILE·~/.zshrc)에 등록 (멱등)
-├── wiki/                           # LLM Wiki — 영속 프로젝트 메모리
+├── wiki/                           # 공용 LLM Wiki — 비공개 repo 의 별도 clone (이 repo 는 추적하지 않는다, Install E 절)
 │   ├── WIKI.md                     # 운영 규약 (schema)
 │   ├── index.md                    # 페이지 카탈로그
 │   ├── log.md                      # 연산 로그
-│   ├── raw/                        # 원문 (gitignored, 런타임 생성·미추적)
+│   ├── raw/                        # 원문 (그 repo 에서 gitignored)
 │   └── pages/                      # concept·entity·decision·source·query
 └── plans/                          # 핸드오프 plan 파일 (tracked — §10, 브랜치와 함께 commit)
 ```
