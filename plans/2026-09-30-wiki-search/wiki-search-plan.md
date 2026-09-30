@@ -1,6 +1,6 @@
 ---
 title: wiki-search — 공용 wiki 를 cwd 와 무관하게 찾는 검색 스크립트(#217)
-status: in_progress
+status: done
 started: 2026-09-30
 updated: 2026-09-30
 ---
@@ -66,9 +66,9 @@ updated: 2026-09-30
   - Acceptance 5: 0.058·0.061·0.061·0.061·0.058초(중앙값 0.061), `uv run` 포함 0.090초.
   - Acceptance 6: 문서 명령 형식을 실행해 exit 0.
   - evidence gate 1~7 을 모두 증거로 충족해 판정은 DONE 이다(status 는 머지 때 done).
+- 2026-09-30: `/e merge` — push 후 PR #219. 머지 뒤 main 세션에서 # Deferred 의 `/wiki ingest` 2건을 처리한다.
 
 # Next
-- 다음 즉시 액션 — 사용자 선택: `/e merge`(push·PR·머지 — PR 본문에 `Closes #217`) 또는 확인. 머지 뒤 main 세션에서 # Deferred 의 `/wiki ingest` 제안을 처리한다.
 
 # Decisions
 - 관련 결정을 따른다: [[lesson-grep-absence-not-proof]] — 결과 0건은 "없음"의 증거가 아니므로, 출력에 어느 wiki 를 몇 쪽 찾았는지 적고, wiki 를 못 찾은 경우(exit 2)와 결과 없음(exit 1)을 가른다. [[wiki-shared-layer]] — 두 계층을 함께 찾되 공용은 절대경로로 찾는다.
