@@ -1,6 +1,6 @@
 ---
 title: wiki-graph-search — wiki 를 구조(섹션·링크·callout) 그래프로 읽어 검색 결과를 섹션 단위로 가리키고 관련 페이지·구조 질의를 낸다(#221 첫 단위)
-status: in_progress
+status: done
 started: 2026-09-30
 updated: 2026-09-30
 intent: plans/2026-09-29-repo-context-kit/intent.md
@@ -91,9 +91,9 @@ GitHub issue #221 의 첫 단위다.
   - 다시 잰 값: A2(차이 = 별칭 간선 5), A3(18=18, 3/3·4/4), A4(10/10, 4/4, `python3` 0.069·0.071·0.063·0.064·0.064초 중앙값 0.064).
 
 - 2026-09-30: 격리 runner 결과 — verify.sh exit 0 `ALL PASS (skip: install-codex-skill.test.ps1)`(main 과 같은 skip), improve --ci exit 0(error 0·warn 0). evidence gate 1~6 을 모두 증거로 충족해 판정은 DONE 이다(status 는 머지 때 done).
+- 2026-09-30: `/e merge` — push 후 PR #222(Refs #221, 이슈는 열어 둔다). 묶음 intent 는 미착수 단위와 열린 질문이 남아 open 이다. 다음 단위(wiki-covers-query·wiki-multi-search)는 각 Open question 을 정한 뒤 착수한다.
 
 # Next
-- 다음 즉시 액션 — 사용자 선택: `/e merge`(push·PR·머지 — PR 본문에 #221 첫 단위 표시) 또는 확인. 머지 뒤 묶음의 다음 단위(wiki-covers-query·wiki-multi-search)는 각 Open question 을 정한 뒤 착수한다.
 
 # Decisions
 - 관련 결정을 따른다.
