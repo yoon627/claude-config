@@ -26,6 +26,8 @@ pwsh -File scripts\bootstrap\setup.ps1 -MemoryFrom 'D:\backup\.claude'
 pwsh -File scripts\bootstrap\install-codex-skill.test.ps1
 ```
 
+공용 wiki(`~/.claude/wiki`)는 setup 이 만들지 않는다. 비공개 wiki repo 를 직접 clone 한다 — 저장소 URL 을 공개 repo 에 적지 않기 때문이다(루트 README 의 Install E 절).
+
 Codex 가 이 환경의 규칙과 skill 을 그대로 쓰도록 macOS bootstrap(`setup.sh`)은 다음 8개 연결을 만든다:
 - `$HOME/.agents/skills/<name>` → `$HOME/.claude/skills/<name>` — `c`·`dlc`·`e`·`improve`·`jira-worklog`·`wiki`·`wt`(목록은 `setup.sh` 의 `CODEX_SKILLS`)
 - `${CODEX_HOME:-$HOME/.codex}/AGENTS.md` → `$HOME/.claude/CLAUDE.md` — Codex 는 `CODEX_HOME`(기본 `~/.codex`)의 `AGENTS.md` 를 읽는다. 같은 곳에 비어 있지 않은 `AGENTS.override.md` 가 있으면 Codex 가 그것을 먼저 읽으니 이 연결이 무시된다.

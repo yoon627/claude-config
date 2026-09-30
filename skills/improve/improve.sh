@@ -91,10 +91,14 @@ for js in scripts/*.js; do
   [ "$ref" = no ] && I "scripts/$b: settings·require·문서·CI 어디에도 안 보임(죽은코드 후보 — 수동 확인)"
 done
 
-echo "== 6. wiki index ↔ pages 개수 (내부 무결성은 /wiki lint 권장) =="
-if [ -d wiki/pages ] && [ -f wiki/index.md ]; then
-  pc=$(find wiki/pages -name '*.md' | wc -l | tr -d ' ')
-  ic=$(grep -cE '^- \[\[' wiki/index.md 2>/dev/null || true)
+echo "== 6. wiki 비추적 · index ↔ pages 개수 (내부 무결성은 /wiki lint 권장) =="
+# 공용 wiki 는 비공개 repo 의 별도 clone 이다. 이 repo 가 추적하면 공개 repo 로 push 된다(.gitignore 는 이미 추적된 경로·gitlink 를 막지 못한다).
+tracked=$(git ls-files -- wiki 2>/dev/null | head -1)
+if [ -n "$tracked" ]; then E "wiki/ 가 이 repo 에 추적됨($tracked …) — 공용 wiki 는 비공개 repo 의 별도 clone 이다. git rm -r --cached wiki"; else OK "wiki/ 비추적"; fi
+WIKI=${CLAUDE_IMPROVE_WIKI:-$HOME/.claude/wiki}  # worktree·CI 에는 사본이 없다 — 이 머신의 clone 을 본다
+if [ -d "$WIKI/pages" ] && [ -f "$WIKI/index.md" ]; then
+  pc=$(find "$WIKI/pages" -name '*.md' | wc -l | tr -d ' ')
+  ic=$(grep -cE '^- \[\[' "$WIKI/index.md" 2>/dev/null || true)
   ic=${ic:-0}
   if [ "$pc" = "$ic" ]; then OK "wiki pages=$pc = index 등재=$ic"; else W "wiki pages=$pc ≠ index 등재=$ic → /wiki lint 권장"; fi
   I "wiki 내부 무결성(orphan·dead link·모순)은 /wiki lint 로 점검(improve 는 개수만)"
@@ -128,7 +132,7 @@ else
 fi
 
 echo "== 9. 네이티브 중복 대장 신선도 (주기 게이트 — 실제 재판정은 deep + SKILL §6) =="
-LEDGER=${CLAUDE_IMPROVE_LEDGER:-wiki/pages/decision/native-overlap-ledger.md}
+LEDGER=${CLAUDE_IMPROVE_LEDGER:-$WIKI/pages/decision/native-overlap-ledger.md}
 if [ -f scripts/native-overlap-lint.js ]; then
   # deep 일 때만 `claude --version` 을 부른다(기본 모드는 프로세스 spawn 0 유지).
   # 미설치·출력형식 변경이면 빈 값 → lint 가 "설치 버전 미확인" 경로로 처리.
@@ -190,6 +194,7 @@ if [ "$CI" = 1 ]; then
   [ -f settings.json ] || ci_skips="$ci_skips 1(settings.json untracked)"
   [ -n "${MEMDIR:-}" ] || ci_skips="$ci_skips 2(MEMORY 디렉토리 없음)"
   [ -f "${SIGDIR:-}/dlc-signals.jsonl" ] || ci_skips="$ci_skips 7(telemetry 없음)"
+  [ -d "$WIKI/pages" ] || ci_skips="$ci_skips 6·9(공용 wiki clone 없음 — 비추적 게이트는 돌았다)"
   [ -n "$ci_skips" ] && echo "== ci: 이 환경에서 안 돈 점검 —$ci_skips =="
   echo "== ci: exit $((err > 0 ? 1 : 0)) (warn 은 게이트하지 않는다) =="
   [ "$err" -eq 0 ]
