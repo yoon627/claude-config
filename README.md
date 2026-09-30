@@ -718,7 +718,9 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │       ├── jira_kit/               # 세션시간 추정·마커·Jira REST·설정 모듈
 │       ├── test_worklog_scope.py   # worktree 단위 upsert 격리 테스트 (CI)
 │       ├── test_session_time.py    # cwd → bucket 귀속·구간 발행 테스트 (CI)
-│       └── test_register_gate.py   # 등록 diff·게이트 판정 테스트 (CI)
+│       ├── test_register_gate.py   # 등록 diff·게이트 판정 테스트 (CI)
+│       ├── test_exit_contract.py   # /e 정리 게이트가 기대는 CLI 종료코드 계약 테스트 (CI)
+│       └── test_launcher.sh        # launcher 의 Python fallback·인자 전달·종료코드(127·전달) 테스트 (CI)
 │   └── jira-task/
 │       ├── SKILL.md                # Claude·Codex 작업내용 → Jira task description (dry-run 기본)
 │       ├── jira_task.py            # description preview/post/upsert CLI (stdlib only)
