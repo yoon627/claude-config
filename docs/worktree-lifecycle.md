@@ -37,11 +37,12 @@ SKILL 은 "6조건 AND + 하나라도 불충족/헬퍼불가면 제안 생략(�
 - **`wt rm <이름>` 직접 호출**은 사용자가 대상을 지목한 경로라 조건 충족 여부와 무관하게 **항상 확인**(오타로 엉뚱한 worktree 를 지울 수 있다).
 
 ## C. worktree 정리 실행 메커닉 (SKILL 정리 규칙)
-§B 조건이 전부 충족돼 자동 정리하거나(§8(a)), 확인 경로에서 사용자가 삭제를 택했을 때. **cwd 가 삭제 대상 안이라 순서 중요.**
+§B 조건이 전부 충족돼 자동 정리하거나(§8(a)), 확인 경로에서 사용자가 삭제를 택했을 때. **cwd 가 삭제 대상 안일 수 있어 순서 중요**(SKILL "6 전" 절로 나왔으면 이미 밖이다).
 - **이동 전 값 캡처**: `target_path`·`target_branch`·`main_path`(`git worktree list --porcelain` 첫 worktree)를 **세션 옮기기 전에** 고정. 이동 후 재계산하면 엉뚱한 대상(또는 main) 가리킴.
 - **worktree 밖으로**: `ExitWorktree(action: keep)` 로 원래 디렉토리(보통 main) 복귀 — 대상 안에서는 자기 remove 불가. ⚠️ `EnterWorktree(path: <main_path>)` 안 씀(메인 워킹트리는 linked 아니라 거부됨, 검증).
   - **`ExitWorktree` no-op**(harness 가 worktree 에서 시작, `EnterWorktree` 미경유): 세션이 묶여 못 빠져나옴. 폴백 — (a) 다른 **linked** worktree 있으면 `EnterWorktree(path: <other>)` 후 remove, (b) 없으면 remove **생략+보고**("세션 종료 시 harness 가 놓음" + 수동 `git worktree remove`/디렉토리 삭제 안내). 강제 금지.
   - 이동 실패로 cwd 가 여전히 대상 안이면 **중단+보고**(remove 금지).
+  - **비-메인 worktree 세션**은 이 이동을 6단계 앞으로 당긴다(SKILL "6 전" 절) — 격리된 세션에서는 worktree 안의 `bash "$HOME/..."` 헬퍼(worklog·collect-state) 호출이 네이티브 Bash 가드에 거부된다(2026-09-30 실측, 하네스 버전 의존). 복귀했으면 원래 디렉토리(보통 main)에서 worklog 는 미리보기·등록 모두 `<target_path>` 의 디렉터리 이름 인자로, 재수집은 `(cd "<target_path>" && bash "$HOME/.claude/skills/e/collect-state.sh")` 로 돌리고, `ExitWorktree` 를 다시 부르지 않는다(재호출 no-op 을 위 no-op 폴백으로 처리하지 않는다). 처음 시도가 no-op 이면 6·7단계는 worktree 안에서 계속하고, 삭제할 때 위 폴백을 쓴다.
 - **제거**: cwd 가 대상 밖 확인 후, 대상이 `git worktree list --porcelain` 에 있으면 `git worktree remove <target_path>`. 실패 시 stderr 분기:
   - **"modified or untracked files" 류**: `--force` 는 **별도 AskUserQuestion 후에만**(§8 무확인 강제 금지).
   - **파일 점유 류**("Access is denied"·"being used"·"Directory not empty"·Windows **"Invalid argument"**): 그 worktree 안의 `.venv` 등을 살아있는 프로세스가 잡고 있다. **먼저 내가 띄운 것부터 회수한다**(`/e` 7단계 한정 — `wt rm` 은 자동 종료하지 않고 안내만, `skills/wt/SKILL.md` rm §6) — 검증용으로 백그라운드 실행한 서버·데몬은 셸 `kill` 로 자식까지 안 죽는 경우가 많다(실측: `uv run` 으로 띄운 서버가 worktree `.venv` 를 잡아 remove 실패). **경로로 대상을 특정해** 종료하고(예: `Get-Process python,<앱> | Where-Object { $_.Path -like "*worktrees\<name>\*" } | Stop-Process -Force`) 재시도한다. ⚠️ **사용자 서버·다른 worktree 프로세스는 건드리지 않는다** — 경로 필터 없이 이름만으로 일괄 종료 금지. 내 것이 아닌 점유(사용자 서버·다른 세션의 프로세스 등)는 **자동 종료 안 함** — 점유 프로세스를 알려 소유자가 종료한 뒤 재시도하도록 안내(`--force` 는 OS 점유엔 무효).

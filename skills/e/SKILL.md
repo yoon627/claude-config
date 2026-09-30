@@ -15,7 +15,7 @@ description: 진행 중이던 §10 plan 을 실제 git/코드 상태로 동기�
 - **체크포인트 모드**(기본, `/e` 무인자 또는 머지 토큰 없음): 아래 1~8단계. push 안 함.
 - **머지 모드**(`/e merge` 또는 `/e 머지` — 이 두 토큰만. `push`·`PR` 은 트리거가 아니다): 1~4단계 → **M1~M6**(아래 "머지 모드") → 5~8단계. 사용자의 `/e merge` 인자 자체가 push·PR·머지 지시다(CLAUDE.md §8 "push 는 요청 시만" 충족). `git push` 에 `permissions.ask` 가 뜨면 그것도 게이트 — 거부되면 중단하고 plan 은 건드리지 않는다.
 
-## 동작 (8단계: 찾기 → 상태 수집·임시 커밋 → plan 동기화 → 마무리 보고 → Jira 작업내용 승인·기록 → worklog 기록 → worktree 정리 → main 복귀)
+## 동작 (8단계: 찾기 → 상태 수집·임시 커밋 → plan 동기화 → 마무리 보고 → Jira 작업내용 승인·기록 → worklog 기록 → worktree 정리 → main 복귀 — 비-메인 worktree 세션은 worklog 전에 복귀)
 
 ### 1. plan 찾기 (c 1단계와 동일)
 - `ROOT = git rev-parse --show-toplevel`, `BR = git rev-parse --abbrev-ref HEAD`.
@@ -72,16 +72,22 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 - **반영**: 승인받았을 때만 같은 인자에 `--post`를 붙여 한 번 실행한다. 기존 task description은 보존되고 같은 marker 항목만 갱신된다. Jira 오류는 credential을 노출하지 않고 한 줄 보고한 뒤 마무리를 계속한다.
 - `~/.agents/skills/jira-task/` 또는 저장소 `skills/jira-task/`가 없으면 이 단계는 skip하고 "jira-task skill 없음"을 보고한다.
 
+### 6 전. worktree 밖으로 (비-메인 worktree 세션)
+세션이 비-메인 worktree 안이면 6단계 전에 "worktree 정리 규칙"의 값 캡처(`target_path`·`target_branch`·`main_path`)를 하고 `ExitWorktree(action: keep)` 를 시도한다. worktree 에 격리된 세션에서는 worktree 안의 `bash "$HOME/..."` 헬퍼(worklog·collect-state) 호출이 네이티브 Bash 가드에 거부된다(2026-09-30 실측 — `$HOME` 을 펼친 절대경로와 `uv run python "$HOME/..."` 는 통과했다. 하네스 버전에 따라 달라질 수 있다 — 공용 wiki `worktree-isolation-bash-guard`). 5단계까지는 지금처럼 worktree 안에서 돈다.
+- **복귀했으면**: 6·7단계를 원래 디렉토리(보통 main)에서 돌린다. worklog 는 미리보기·등록 모두 `<target_path>` 의 디렉터리 이름을 인자로 준다 — 빠뜨리면 main 이 대상이 된다. 7단계 재수집은 `(cd "<target_path>" && bash "$HOME/.claude/skills/e/collect-state.sh")`. 이후 `ExitWorktree` 를 다시 부르지 않는다.
+- **no-op 이면**(harness 가 worktree 에서 바로 시작): 지금처럼 worktree 안에서 6·7단계를 돌린다. 헬퍼가 거부되면 `$HOME` 을 펼친 절대경로로 한 번 다시 부른다. 그래도 worklog·collect-state 가 거부·실패했으면 7단계 정리를 생략한다(worklog 를 다시 돌릴 수 있게 worktree 를 남긴다).
+- 6·7단계 도중 멈췄으면 같은 세션은 캡처한 값으로 남은 단계를 잇고, 새 세션은 `/wt <이름>` 으로 들어가 다시 돌린다.
+
 ### 6. worklog 기록 (현재 worktree — **삭제 전**)
 마무리 시 이 worktree 에서 한 AI 작업시간을 Jira worklog 에 기록한다. **7단계 삭제보다 먼저** 실행한다 — worktree 를 지우면 `--all` 순회 대상에서 빠져 등록이 불가능해진다(표시만 된다). `~/.claude/skills/jira-worklog/` 없으면 이 단계 skip + "worklog 스킬 없음" 1줄.
 - **실행**: POSIX에서는 `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh"`(dry-run), Windows PowerShell에서는 `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1"`(dry-run)로 날짜별 시간·대상 티켓 확인. launcher는 `uv` 우선, `python3`/`python` fallback(Windows는 `py` 포함)이다. 귀속은 줄 단위 cwd 기준이라 **main 으로 복귀한 뒤에 돌려도 그 worktree 시간이 정확히 잡힌다**(이름을 인자로 주면 된다) — 예전처럼 "복귀 전"일 필요는 없다. 다만 삭제 전이어야 한다는 제약은 그대로다.
-- **등록**: 티켓이 잡히고(worktree 이름 prefix) `~/.jira-kit/.env` 에 토큰 있으면 이어서 POSIX `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh" --register`, Windows PowerShell `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1" --register` — **그 worktree 의** 그날 항목 upsert(멱등, /e 반복해도 중복 없음. 같은 티켓의 다른 worktree 항목은 건드리지 않고 티켓 총합은 Jira 가 합산). **티켓 없음/토큰 없음/세션 활동 없음 → preview 만 하고 조용히 넘어감**(마무리 흐름 방해 금지). 사용자가 /e 에 이 동작을 넣은 것 = 등록 표준 동의(별도 AskUserQuestion 안 만듦, §3-6 1회 원칙).
+- **등록**: 티켓이 잡히고(worktree 이름 prefix) `~/.jira-kit/.env` 에 토큰 있으면 이어서 POSIX `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh" --register`, Windows PowerShell `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1" --register`(6 전 단계로 main 에 나왔으면 미리보기와 같은 `<이름>` 을 앞에 준다 — `run_worklog.sh <이름> --register`) — **그 worktree 의** 그날 항목 upsert(멱등, /e 반복해도 중복 없음. 같은 티켓의 다른 worktree 항목은 건드리지 않고 티켓 총합은 Jira 가 합산). **티켓 없음/토큰 없음/세션 활동 없음 → preview 만 하고 조용히 넘어감**(마무리 흐름 방해 금지). 사용자가 /e 에 이 동작을 넣은 것 = 등록 표준 동의(별도 AskUserQuestion 안 만듦, §3-6 1회 원칙).
 - **비차단**: 조회·네트워크 실패는 보고 1줄만 하고 마무리는 계속(worklog 실패가 /e 를 막지 않는다).
 - 보고 1줄: 등록 결과("ABC-1234 에 `<시간>` 등록" · "티켓 없음/토큰 없음 → preview 만" · "세션 활동 없음").
 
 ### 7. worktree 정리 (조건부 — merged 면 무확인)
 마무리가 끝난 뒤, 현재 worktree 가 **역할을 다했고 안전하게 지울 수 있으면** 정리한다. 아래 조건이 **전부 충족되면 묻지 않고 worktree + 로컬 브랜치를 지운다**(CLAUDE.md §8(a) — 누가 머지했는지 불문). **원격 브랜치 삭제는 여기 포함되지 않는다 — 항상 AskUserQuestion**(§8(b)).
-- **자동 정리 조건 (6가지 모두 충족 = AND)**: 2단계 이후 WIP 커밋·plan write 로 상태가 바뀌므로 **삭제 직전 `bash skills/e/collect-state.sh` 를 한 번 더 실행**해 그 신호로 판정(2단계 스냅샷 재사용 금지 — 재수집 invariant). **헬퍼 실패·필드 누락·파싱 불가면 정리 생략(보수)**.
+- **자동 정리 조건 (6가지 모두 충족 = AND)**: 2단계 이후 WIP 커밋·plan write 로 상태가 바뀌므로 **삭제 직전 `bash skills/e/collect-state.sh` 를 한 번 더 실행**해 그 신호로 판정(2단계 스냅샷 재사용 금지 — 재수집 invariant). 6 전 단계로 main 에 나왔으면 `(cd "<target_path>" && bash "$HOME/.claude/skills/e/collect-state.sh")` 로 대상 worktree 의 신호를 받는다. **헬퍼 실패·필드 누락·파싱 불가면 정리 생략(보수)**.
   1. **비-메인 worktree**(`root` ≠ `mainWorktree`; 메인이면 제안 안 함)
   2. **`detached`=false + plan `status == done`**(4단계 확정)
   3. **working tree clean**(untracked 포함; `dirty`=unknown 이면 생략)
@@ -95,8 +101,8 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 
 ### 8. 세션을 main worktree 로 복귀
 1~7단계 후 세션을 main worktree 로 되돌린다(작업 기록은 worktree 에 남기고 다음 작업은 main 에서). **비파괴적**(worktree·브랜치 보존)이라 자동 수행.
-- **대상**: 7단계 후에도 세션이 **비-메인 worktree** 에 있을 때(`--show-toplevel` ≠ main path, 정규화 후 비교). 메인이면 skip.
-- 7단계에서 worktree 를 **삭제한 경우** → 이미 main 복귀됨 → skip(중복 `ExitWorktree` 금지).
+- **`ExitWorktree` 대상**: 7단계 후에도 세션이 **비-메인 worktree** 에 있을 때(`--show-toplevel` ≠ main path, 정규화 후 비교). 처음부터 main 이던 세션이면 skip.
+- 7단계에서 worktree 를 **삭제한 경우**, 또는 6 전 단계에서 이미 나온 경우 → 이미 main 복귀됨 → skip(중복 `ExitWorktree` 금지). 아래 main 최신화는 그대로 한다.
 - 그 외(유지·제안 생략·조건 미충족) → `ExitWorktree(action: keep)` 로 원래 디렉토리(보통 main) 복귀. plan `status` 무관 — `in_progress` 체크포인트여도 세션만 빠지고 worktree·브랜치는 남는다(다음에 `/wt <name>` 로 들어가 `/c` 로 이어감).
 - **`ExitWorktree` 가 no-op**(harness 가 worktree 에서 바로 시작해 `EnterWorktree` 미경유) → in-session 복귀 불가. 강제 이동 금지 — "세션 종료하면 harness 가 worktree 를 놓는다"고 보고만(다른 worktree 로 우회하지 않는다).
 - **복귀 후 main 최신화 (main-autopull ⓑ)**: 세션이 **실제로 main 에 복귀했을 때만** — ① main worktree ② 현재 브랜치 ∈ {main, master} ③ clean **전부 충족 시** — `git pull --ff-only origin "$(현재 브랜치)"` 1회(하드코딩 `main` 금지 — master repo 오대응 방지). **no-op(feature 잔류)·dirty·ff 실패·origin 부재면 skip**(feature 에 origin/main merge 하는 파괴 방지). 자동 rebase·stash·force 없음(§8). 세부 `docs/worktree-lifecycle.md` §D.
@@ -112,9 +118,9 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 - uncommitted 없으면 커밋 skip.
 
 ## worktree 정리 규칙
-7단계에서 worktree 를 삭제할 때만. **cwd 가 삭제 대상 안이라 순서 중요.**
+7단계에서 worktree 를 삭제할 때만. **cwd 가 삭제 대상 안일 수 있어 순서 중요**(6 전 단계에서 나왔으면 이미 밖이다).
 - **이동 전 값 캡처**: `target_path`·`target_branch`·`main_path`(`git worktree list --porcelain` 첫 worktree)를 **세션 옮기기 전에** 고정(이동 후 재계산하면 엉뚱한 대상·main 가리킴).
-- **worktree 밖으로**: `ExitWorktree(action: keep)` 로 원래 디렉토리(보통 main) 복귀 — 대상 안에선 자기 remove 불가. **`ExitWorktree` no-op**(harness 가 worktree 에서 시작)이면 폴백은 `docs/worktree-lifecycle.md` §C(다른 linked worktree 경유 or remove 생략+보고) — **강제 진행 금지**. 이동 실패로 cwd 가 대상 안이면 **중단+보고**(remove 금지).
+- **worktree 밖으로**: `ExitWorktree(action: keep)` 로 원래 디렉토리(보통 main) 복귀 — 대상 안에선 자기 remove 불가. 6 전 단계에서 이미 나왔으면 다시 부르지 않는다 — 그 재호출이 돌려주는 no-op 을 아래 no-op 폴백으로 처리하지 않는다. **`ExitWorktree` no-op**(harness 가 worktree 에서 시작)이면 폴백은 `docs/worktree-lifecycle.md` §C(다른 linked worktree 경유 or remove 생략+보고) — **강제 진행 금지**. 이동 실패로 cwd 가 대상 안이면 **중단+보고**(remove 금지).
 - **제거**: cwd 가 대상 밖 확인 후 `git worktree remove <target_path>`. 실패 시 stderr 분기(untracked→`--force`·파일점유·부분성공 prune) 세부는 `docs/worktree-lifecycle.md` §C.
 - **안전 게이트(§8) — 무확인 금지**: `--force`·`git branch -D`(미머지)·원격 `git push origin --delete` 는 **별도 AskUserQuestion 확인 후에만**.
 - **로컬 브랜치(옵션 ②·③)**: `git branch -d <target_branch>`(미머지 `-d` 거부 시 `-D` 는 확인 후). **원격(옵션 ③만)**: worktree·로컬 삭제 성공 후 `git push origin --delete <target_branch>`(원격 ref 부재 no-op). 조건5 확정 아님 → 사용자가 경고 보고 택한 경우만(orphan 방지). 그 외 push 안 함.
@@ -127,4 +133,4 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 - plan 갱신은 **사실 기반만**(§1) — git/파일로 확인된 것만. 추측으로 Progress/Decisions 채우지 않는다.
 - subagent 위임 아님 — plan single writer 는 메인. 메인이 직접 커밋/기록한다.
 - **worktree 정리는 7단계 조건(비-메인·done·clean·merged·미보존 산출물 없음·점유 프로세스 없음) 충족 시 무확인 실행** — 조건 하나라도 불충족이면 정리 생략(강행 금지). `--force`·`git branch -D`(미머지)·**원격 삭제(`git push origin --delete`)**는 여기 포함되지 않으며 명시 확인 없이 금지(§8).
-- **main 복귀(8단계)는 자동** — `ExitWorktree(action: keep)` 라 worktree·브랜치를 보존하는 비파괴 동작이라 확인 없이 수행. 단 삭제(remove)는 8단계 아닌 7단계 사안이고, no-op(harness 가 worktree 에서 시작)이면 강제 이동 없이 보고만.
+- **main 복귀(6 전·8단계)는 자동** — `ExitWorktree(action: keep)` 라 worktree·브랜치를 보존하는 비파괴 동작이라 확인 없이 수행. 단 삭제(remove)는 8단계 아닌 7단계 사안이고, no-op(harness 가 worktree 에서 시작)이면 강제 이동 없이 보고만.
