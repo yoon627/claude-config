@@ -2,7 +2,7 @@
 title: repo-audit-followups — 두 감사(2026-06-11·2026-09-25)에서 남은 결함을 주인 있게 추적
 status: open
 started: 2026-09-25
-updated: 2026-09-29
+updated: 2026-09-30
 ---
 
 # Problem
@@ -51,3 +51,4 @@ updated: 2026-09-29
 - macos-resolve-path-symlink (미착수) — 이슈 #190 항목 5: ps1 `~/.claude` 면제 판정의 `Resolve-Path` 가 symlink 를 풀지 못해 macOS pwsh 에서 sh 와 판정이 갈린다. macOS 에서만 검증 가능해 windows-ps1-rest 에서 뺐다(사용자 지시 2026-09-29).
 - `plans/2026-09-29-autopull-fetch-stall/autopull-fetch-stall-plan.md` — 이슈 #204: 자동 pull 의 fetch 가 계속 실패하면 브리프 N 이 알린다(`.git/claude-autopull-attempt`·`-ok` 스탬프). 감사 항목이 아니라 autopull-verified-client 의 code-review 결함이라 이 묶음에 연결했다(해석은 그 plan `# Decisions`).
 - `plans/2026-09-28-audit-leftovers/audit-leftovers-plan.md` — `repo-audit-remaining` plan `# Deferred` 저우선 절의 미배정 항목 처분(사용자 결정 2026-09-28): 고침 5 — sh pre-push 스캔을 `git log --stdin`(중복 제거·빈 입력 차단)으로, heal `deinit` 에 `--literal-pathspecs`(+ `GIT_*_PATHSPECS` 제거)·`.git` 은 `gitdir: ` 일 때만 gitlink·OS 중립 복구 안내, statusline 쿼터 표시 헬퍼·lock/refresh 결합 주석 · 이관 3 → windows-ps1-verify(ps1 pre-push stdin, ps1 `Resolve-Path` symlink, notify.ps1 balloon) · 닫음 2(statusline readdir, heal `_force_rmtree` symlink) · 기각 1(corrupt 시그니처 확인 후 reset).
+- `plans/2026-09-30-hook-wait-shell-verify-body/hook-wait-shell-verify-body-plan.md` — ledger-bash-edits 후속(그 # Deferred 의 래퍼 스크립트 본문 판정 포함): 이번 턴에 띄운 background shell 을 기다리는 턴은 경고를 미루고, `bash <file>.sh` 래퍼는 작은 스크립트 본문으로 검증을 인식한다. `/improve` 2026-09-30 의 transcript 분류(결론 경고 7건·검증 경고 2건)가 근거. 규모 medium.
