@@ -5,6 +5,7 @@
 //     단 문서(.md)는 test/lint 대상이 아니라 verify 게이트를 켜지 않는다(doc-drift 로만 커버).
 //   Bash 검증 명령 → verified=true. 단 cat/grep/ls 등 비검증 시작 명령은 제외.
 //   Bash 로 고친 이 브랜치의 plan·README·wiki/index.md(bashEditDiff) → planTouched·drift target 만(경고를 끄는 쪽).
+//   `run_in_background` Bash → backgroundTaskId 를 bgTaskIds 에(early-stop 의 이번 턴 shell 대기 판정).
 // 한계: hook 은 "검증 *명령 실행* 여부"의 거친 근사다. 검증 *성공* 판정은
 //   plan # Acceptance(모델)가 단일 소스 — hook 은 "검증 시도조차 없음"을 잡는 누락 방지망.
 // 도구는 이미 실행된 뒤라 차단하지 않는다. 의존/파싱 실패 시 fail-open(exit 0).
@@ -192,6 +193,7 @@ const NONVERIFY_START = /^\s*(cat|grep|rg|ls|echo|printf|find|head|tail|sed|awk)
 // 검증 스크립트 래핑 인식(`bash /tmp/x-verify.sh`). 키워드가 .sh 직전 완전 세그먼트일 때만 —
 // checkout.sh·test-data-loader.sh 처럼 키워드로 시작만 하는 비검증 스크립트를 verified 로 오인식하지 않게.
 const VERIFY_SCRIPT = /(^|&&|;)\s*(?:bash|sh)\s+(?:\S*[\/._-])?(?:verify|check|test)\.sh(?=$|\s|[;&|])/;
+const BG_TASK_MAX = 50;
 
 let raw = '';
 const wd = setTimeout(() => process.exit(0), 1000); // stdin 미수신 안전망(notify-hook 패턴)
@@ -268,6 +270,13 @@ process.stdin.on('end', () => {
       }
     } catch {
       /* 형태가 어긋나도 아래 검증 인식·장부 기록은 유지(fail-open) */
+    }
+    // 명시한 background 만 — timeout·Ctrl+B 로 넘어간 명령은 기다리려고 띄운 것이 아니라 경고를 남긴다.
+    // backgroundTaskId 는 hooks 문서에 없는 도구 출력 필드라, 형태가 다르면 기록하지 않는 쪽(경고 유지)으로 틀린다.
+    const bgId = input.tool_response && input.tool_response.backgroundTaskId;
+    if (input.tool_input && input.tool_input.run_in_background === true && typeof bgId === 'string' && bgId) {
+      const ids = Array.isArray(data.bgTaskIds) ? data.bgTaskIds : [];
+      if (!ids.includes(bgId)) data.bgTaskIds = ids.concat(bgId).slice(-BG_TASK_MAX);
     }
     const cmd = String((input.tool_input && input.tool_input.command) || '').toLowerCase();
     if (!NONVERIFY_START.test(cmd) && (VERIFY.test(cmd) || VERIFY_SCRIPT.test(cmd))) data.verified = true;

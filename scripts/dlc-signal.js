@@ -11,7 +11,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-// kind → axis 단일 소스. failure = 개선 효과 측정 대상, activity = 작업 유형·리뷰 활동량(실패 아님).
+// kind → axis 단일 소스. failure = 개선 효과 측정 대상, activity = 작업 유형·리뷰 활동량·대기 턴 수(실패 아님).
 const KINDS = {
   'early-stop-verify': 'failure',
   'doc-drift-readme': 'failure',
@@ -24,6 +24,7 @@ const KINDS = {
   'router-investigation': 'activity',
   'router-grounding': 'activity',
   'review-disposition': 'activity',
+  'early-stop-wait-shell': 'activity',
 };
 
 const DEFAULT_MAX_BYTES = 5 * 1024 * 1024;

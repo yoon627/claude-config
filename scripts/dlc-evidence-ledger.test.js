@@ -376,4 +376,53 @@ ok('bashEditDiff 형태 불량이어도 같은 명령의 검증 인식은 산다
   assert.strictEqual(bashEdit('bash scripts/verify.sh', { files: 'x', changedFiles: 7 }, sid()).verified, true);
 });
 
+// ---- 대기 턴: run_in_background Bash 의 backgroundTaskId → bgTaskIds (early-stop 이 Stop 의 background_tasks[].id 와 대조) ----
+// 형태는 transcript 실측(2.1.285): 결과 stdout·stderr·interrupted·isImage·noOutputExpected·backgroundTaskId.
+// timeout 으로 자동 background 되면 결과에 timedOutAfterMs 가 더해지고 입력에 run_in_background 가 없다.
+function bashTool(s, toolInput, toolResponse) {
+  const input = JSON.stringify({ session_id: s, cwd: os.tmpdir(), tool_name: 'Bash', tool_input: toolInput, tool_response: toolResponse });
+  execFileSync('node', [HOOK], { input, env: { ...process.env, CLAUDE_DLC_SIGNAL_OFF: '1' } });
+  return ledger.read(s);
+}
+const bgResult = (id, extra) => ({ stdout: '', stderr: '', interrupted: false, isImage: false, noOutputExpected: false, backgroundTaskId: id, ...extra });
+const bgInput = (command) => ({ command, description: 'x', run_in_background: true });
+
+ok('run_in_background Bash → bgTaskIds 에 backgroundTaskId 를 순서대로, 중복 없이', () => {
+  const s = sid();
+  bashTool(s, bgInput('gh run watch 1'), bgResult('b1'));
+  bashTool(s, bgInput('sleep 30'), bgResult('b2'));
+  assert.deepStrictEqual(bashTool(s, bgInput('sleep 30'), bgResult('b1')).bgTaskIds, ['b1', 'b2']);
+});
+ok('run_in_background 가 없으면 기록하지 않는다 — timeout 자동 background 도(경고 유지 쪽)', () => {
+  const d = bashTool(sid(), { command: 'npm run e2e', description: 'x' }, bgResult('b3', { timedOutAfterMs: 120000 }));
+  assert.deepStrictEqual(d.bgTaskIds, []);
+});
+ok('backgroundTaskId 가 없거나 빈 문자열·비문자열이면 기록하지 않는다', () => {
+  const s = sid();
+  for (const r of [{ stdout: '' }, bgResult(''), bgResult(7), null]) bashTool(s, bgInput('sleep 1'), r);
+  assert.deepStrictEqual(ledger.read(s).bgTaskIds, []);
+});
+ok('bgTaskIds 는 최근 50개만 남긴다', () => {
+  const s = sid();
+  ledger.write(s, { ...ledger.DEFAULT, bgTaskIds: Array.from({ length: 50 }, (_, i) => `o${i}`) });
+  const d = bashTool(s, bgInput('sleep 1'), bgResult('new'));
+  assert.strictEqual(d.bgTaskIds.length, 50);
+  assert.deepStrictEqual([d.bgTaskIds[0], d.bgTaskIds[49]], ['o1', 'new']);
+});
+ok('손상 장부(bgTaskIds 가 배열 아님)에서도 exit 0 · 같은 Bash 의 검증 기록 유지', () => {
+  for (const bad of [null, 'b1', { b1: true }]) {
+    const s = sid();
+    ledger.write(s, { ...ledger.DEFAULT, bgTaskIds: bad });
+    const d = bashTool(s, bgInput('npm test'), bgResult('b1'));
+    assert.strictEqual(d.verified, true, JSON.stringify(bad));
+    assert.deepStrictEqual(d.bgTaskIds, ['b1'], JSON.stringify(bad));
+  }
+});
+ok('사용자 턴 리셋(ledger.reset)은 bgTaskIds 를 비운다', () => {
+  const s = sid();
+  bashTool(s, bgInput('sleep 1'), bgResult('b1'));
+  ledger.reset(s);
+  assert.deepStrictEqual(ledger.read(s).bgTaskIds, []);
+});
+
 console.log(`dlc-evidence-ledger.test.js: ${n} tests passed`);
