@@ -1,6 +1,6 @@
 ---
 title: hook-wait-shell-verify-body — 이번 턴에 띄운 background shell 은 대기로 보고, 작은 검증 래퍼 스크립트는 본문으로 검증을 인식한다
-status: in_progress
+status: done
 started: 2026-09-30
 updated: 2026-09-30
 intent: plans/2026-09-25-repo-audit-followups/intent.md
@@ -59,9 +59,12 @@ early-stop hook 의 오탐 두 가지를 없앤다.
   - simplify 체크(메인): 래퍼 카운터 → `slice(0, WRAPPER_MAX)`, `ownShellWait` 의 `!ids.length` 중복 검사 제거, `BG_TASK_MAX` 를 래퍼 블록 밖으로 — 동작 불변, 위 테스트·변이로 재확인. 판정식 공통화는 줄지 않아 보류했다.
 - 2026-09-30: 격리 runner 최종 검증 — `bash scripts/verify.sh` exit 0, 마지막 줄 `ALL PASS (skip: install-codex-skill.test.ps1)`(main 과 같은 skip — PowerShell 미설치), 세 테스트 파일 `ok`. `bash skills/improve/improve.sh --ci` exit 0(error 0·warn 0, settings.json 이 untracked 라 점검 1 은 이 환경에서 안 돈다).
   - evidence gate: Acceptance 1–3 테스트·변이, 4 transcript 키·공개 점검 0건, 5 `rg` 대조(README 472 의 "억제" 문구를 검증 중에 고쳤다 — README 를 읽는 테스트는 없다), 6 runner, 7 기준선 기록 — 충족. 8 은 머지 뒤.
+- 2026-09-30: commit-check 로 fixup 5개를 두 단위에 합치고 단위 1 메시지를 리뷰 M3·M4 대로 고쳤다(사용자 승인, tree 동일). 로컬 main(`1851661`, e-worklog-gate 미게시 2커밋) 위로 rebase — 충돌 없음. 격리 runner 재검증 `ALL PASS (skip: install-codex-skill.test.ps1)`·`improve --ci` exit 0. 판정 DONE.
+  - 마무리는 medium 이라 `/e merge`(사용자 선택). origin/main 이 `b881777` 이라 PR 에 e-worklog-gate 2커밋도 실린다.
+- 2026-09-30: PR #224. 묶음 intent 는 `macos-resolve-path-symlink (미착수)` 가 남아 open 이다. 머지 뒤 Acceptance 8 실측과 공용 wiki 적립·memory 덧붙임(사용자 승인)은 main 세션에서 한다.
 
 # Next
-- commit-check(fixup 합치기, 단위 1 메시지의 "over-suppression stays visible" 문구를 대기 턴 수로 고친다) → 로컬 main(`1851661`) 위로 rebase·재검증 → close 커밋 → worktree 밖으로 나와 ff-merge → 정리 → Acceptance 8 실측 → main 세션에서 공용 wiki `workflow-failures` 적립.
+
 
 # Decisions
 - 관련 결정 변경(사용자 승인 2026-09-30): `ledger-bash-edits` 의 "shell 은 대기로 보지 않는다"(그 리뷰의 wontfix — 전제 "결과를 기다리는 검증은 보통 foreground")를 "이번 사용자 턴에 `run_in_background` 로 띄운 shell 은 대기"로 좁혀 변경한다. 이유: 대기 턴 수정이 live 가 된 뒤의 결론 경고 7건 전부가 shell 대기 턴이었다(머지 뒤 배포 감시 등 — foreground 전제가 맞지 않았다).
