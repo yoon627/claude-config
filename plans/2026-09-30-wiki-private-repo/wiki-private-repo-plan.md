@@ -1,6 +1,6 @@
 ---
 title: wiki-private-repo — 공용 wiki 를 비공개 GitHub repo 로 옮기고 공개 repo(~/.claude)에서 추적 해제
-status: in_progress
+status: done
 started: 2026-09-30
 updated: 2026-09-30
 ---
@@ -55,14 +55,10 @@ updated: 2026-09-30
 - 2026-09-30: 커밋 뒤 머지 전에 사용자가 공개 유지를 다시 물었다. 이유는 "레포에 포함되니 수정할 때마다 충돌나서 번거로웠다" 였다.
   - 이력 근거: main 에서 `wiki/log.md`·`index.md` 를 건드린 merge 6개 중 5개가 두 부모와 다른 결합 diff hunk 를 가진다(08-05·08-11·09-28·09-29 ×2). 충돌 해소의 정황이고 확증은 아니다(Codex).
   - 사용자 요청으로 Codex 결정 리뷰를 받았다(effort medium, 크레딧 복구 확인). 결과: 분리(B)는 타당하다 — 충돌 감소는 쓰기 직렬화에서 나온다. A2(`merge=union`)는 PR 흐름에 부족하다(GitHub 머지 지원 추정 불가, index 부적합). Codex 권고는 원격 없는 로컬 전용이었다(근거 "이 노트북에만"). 다만 "사용자가 비공개 GitHub 보관·여러 머신 복제를 명시적으로 허용하면 B 원안"이라고 했고, 오늘 사용자 선택이 그 허용이다.
+  - 사용자가 "비공개 GitHub 로 머지"를 확정했다.
+- 2026-09-30: `/e merge` — 머지 직전 대조에서 `origin/main` 이 split 기준 그대로(wiki 차이 0)였다. `commit-check` 로 plan fixup 을 합쳤다(사용자 승인). PR #216. 머지 뒤 이 노트북의 `~/.claude/wiki` 를 비공개 clone 으로 바꾸는 일과 Acceptance 6 확인은 main 세션에서 한다(Report).
 
 # Next
-- 다음 즉시 액션 — 공개 점검 스캔 → 커밋 → 머지 전 멈춤. 사용자 답: 다른 머신에 밀린 wiki 편집이 "있을 수 있음/모름" — 머지 전에 README Install E 절 0·1단계를 그 머신에서 하도록 안내한다.
-- 그다음, 순서대로:
-  1. 머지 직전: `git diff --name-status 8802d6d origin/main -- wiki` 가 비었는지 본다(비지 않았으면 split 을 다시 하거나 비공개 repo 에 반영한다). 이 머신은 비공개 wiki repo 를 임시 경로에 먼저 clone 해 둔다.
-  2. `/e merge`.
-  3. 이 머신: main 을 pull 해서 wiki 파일이 지워지면, 임시 clone 을 `~/.claude/wiki` 로 옮긴다. Acceptance 6 을 확인한다.
-  4. 다른 머신은 README Install E 절 절차를 사용자가 실행한다. memory `wiki-storage-decision-pending` 을 정리하고, #206 을 체크한다.
 
 # Decisions
 - 관련 결정 [[wiki-shared-layer]](2026-09-26)을 부분적으로 따른다.
@@ -136,6 +132,7 @@ updated: 2026-09-30
 
 # Deferred
 - `scripts/dlc-evidence-ledger.js` 의 Bash 편집 대조(`bashEditDiff`)는 이 repo 의 git diff 로 plan·README·`wiki/index.md` 를 본다. wiki 가 빠지면 Bash 로 고친 wiki index 를 못 봐 문서 drift 경고가 한 번 더 날 수 있다(경고를 끄는 쪽 경로라 누락이 아니라 오탐). low.
+- 다른 머신 전환 — 각 머신에서 README Install E 절(사용자). 그 머신에 밀린 wiki 편집이 "있을 수 있음/모름"(사용자 답)이라 E 절 1단계 확인이 먼저다.
 - 재추적을 push 전에 막기 — `scripts/pre-commit-check.sh`·`.ps1` 의 pre-push 에 `git ls-files -- wiki` 검사를 더할지 판단한다. 지금은 CI(`improve.sh --ci`)가 PR 머지 전에만 막는다. 로컬 ff-merge 뒤 main 직접 push 는 CI 가 사후에 알린다. low(구현 리뷰).
 - worktree 중 미룬 공용 wiki 적립의 처리 추적 — `# Deferred` 는 보존일 뿐 처리 보장이 아니다(Codex). main 복귀 시 미처리 항목을 보여 주는 장치(예: `/e` 복귀 단계 안내)를 검토한다. low.
 - 다른 머신의 wiki 동기화 — SessionStart 자동 pull 은 `~/.claude` 만 본다. wiki repo 는 수동 `git -C ~/.claude/wiki pull` 이다. 불편하면 후속으로 hook 확장을 검토한다. low.
