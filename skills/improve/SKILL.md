@@ -21,7 +21,7 @@ description: dlc 자기개선 loop 의 분석 축 — 운영 자산 정합성 �
 
 ### 1. 기계 점검 + 신호 집계 — `improve.sh`
 repo root 에서 `bash skills/improve/improve.sh` 를 **1회** 실행(read-only). 출력:
-- 점검 1~6(구 audit 승계): `[error]` 실행경로 깨짐(settings→scripts 부재, CLAUDE.md→agent 부재, SKILL name 누락) / `[warn]` 미등록·한쪽 누락(MEMORY 인덱스, wiki 개수) / `[info]` 죽은 스크립트 *후보*(단정 아님) / `[ok]`.
+- 점검 1~6(구 audit 승계): `[error]` 실행경로 깨짐(settings→scripts 부재, CLAUDE.md→agent 부재, skill·agent frontmatter 형식 위반 — YAML 오류·허용 형식 밖·name/description 누락, `scripts/frontmatter-lint.js`) / `[warn]` 미등록·한쪽 누락(MEMORY 인덱스, wiki 개수) / `[info]` 죽은 스크립트 *후보*(단정 아님) / `[ok]`.
 - 점검 8 = **plan-lint**(tracked plan 전수, 항상): `scripts/plan-lint.js` 로 §10 plan 무결성(frontmatter 필수키·6 H1 섹션·**끊긴 Acceptance 참조**) 검사, 위반은 `[warn]`. tracked plan 없으면 skip. (셸엔 active-plan 개념 없어 전수 — /c·/e 만 active plan 대상.)
 - 점검 7(신규): `~/.claude/telemetry/dlc-signals.jsonl` 집계 — kind 별 `sessions`(unique)·`raw`·기간. **failure 축**(early-stop-verify·early-stop-plan-drift·early-stop-conclusion·doc-drift-*·guard-worktree-deny·main-edit-ask·plan-blocked)과 **activity 축**(router-*·review-disposition·early-stop-wait-shell — 실패 아님, 활동량·대기 턴 수)을 분리 표시. kind 목록의 정본은 `scripts/dlc-signal.js` 의 `KINDS` 다. 효과 판단은 sessions(unique) 우선 — raw 는 같은 세션 반복 발동에 지배될 수 있다.
 - 점검 9 = **네이티브 중복 대장 신선도**(주기 게이트): `~/.claude/wiki/pages/decision/native-overlap-ledger.md`(경로 override `CLAUDE_IMPROVE_LEDGER`)의 `checked` 가 임계(45일, `CLAUDE_IMPROVE_NATIVE_MAX_AGE_DAYS`)를 넘었으면 §6 재판정을 권고. **`[info]` 만 낸다** — 정합성 위반이 아니라 리마인더라 err/warn 카운터·랭킹 심각도 축을 오염시키지 않는다. 대장 부재·frontmatter 불량·날짜 불량·미래 날짜는 사실만 적고 skip(`exit 0` 유지). 판정 로직은 `scripts/native-overlap-lint.js`(순수함수+CLI, 테스트 있음).

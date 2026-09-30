@@ -69,7 +69,7 @@ jobs:
       - name: Shell script lint (shellcheck)
         run: bash scripts/verify.sh shell
 
-      # 운영 자산 *간* 참조 정합(CLAUDE.md→agents 실존 · SKILL frontmatter · wiki
+      # 운영 자산 *간* 참조 정합(CLAUDE.md→agents 실존 · skill·agent frontmatter · wiki
       # index↔pages · plan-lint). 산문 겹을 읽는 유일한 기계 검사인데 지금까지는
       # 사람이 /improve 를 칠 때만 돌았다. --ci 는 error 만 게이트하고(warn 은 아님)
       # 이 환경에서 안 돈 점검을 요약에 명시한다.

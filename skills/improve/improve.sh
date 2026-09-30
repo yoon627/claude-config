@@ -3,7 +3,7 @@
 # 심각도 prefix: [error]=실행경로 깨짐 / [warn]=미등록·한쪽누락 / [info]=인벤토리·약참조(단정 아님) / [ok].
 # 경계: README↔surface drift 는 dlc-doc-drift hook, wiki 내부 무결성은 /wiki lint 영역 — 여기서 안 본다(개수만).
 #   신호 집계는 hook 이 emit 한 판정의 *사후 집계*다(재판정 아님).
-# 수정·파괴 명령 없음(read-only). 부분 실패는 그 점검만 skip + 명시, 스크립트는 exit 0.
+# 수정·파괴 명령 없음(read-only). 부분 실패는 그 점검만 skip + 명시, 스크립트는 exit 0. 단 점검 4 는 CI 게이트라 도구 실패·대상 0개도 [error].
 # check 8 = plan-lint(tracked plans, 항상). check 9 = 네이티브 중복 대장 신선도(주기 게이트 — 리마인더라 [info] 만).
 # deep 모드(`improve.sh deep`): ⑩ 표면 크기 ⑪ 사용량 카운트 ⑫ MCP 인벤토리 추가(광역 관측, 여전히 read-only·secret 미출력)
 #   + ⑨ 가 delta 창(마지막 점검 버전 → 설치 버전)까지 출력.
@@ -70,12 +70,22 @@ if [ -f CLAUDE.md ]; then
   done < <(grep -oE '\*\*[a-z][a-z-]+\*\*' CLAUDE.md | sed 's/\*//g' | grep -E 'reviewer|simplifier|researcher' | sort -u)
 fi
 
-echo "== 4. skills/*/SKILL.md frontmatter name (error if 없음) =="
-for sk in skills/*/SKILL.md; do
-  [ -f "$sk" ] || continue
-  d=$(basename "$(dirname "$sk")")
-  if grep -qE '^name:[[:space:]]*[^[:space:]]' "$sk"; then OK "skill $d: name 있음"; else E "skill $d: SKILL.md frontmatter name 없음/빔"; fi
-done
+echo "== 4. skills·agents frontmatter 형식 (error if 위반 — scripts/frontmatter-lint.js) =="
+# 대상 pathspec 은 scripts/verify.sh syntax 축과 같다 — git 이 아는 파일만. 파일시스템 glob 은 main checkout 의
+# ignored 외부 skill(orca-cli 등)까지 끌어와 허용 형식 밖이라는 거짓 [error] 를 낸다.
+fm_files=()
+while IFS= read -r f; do
+  [ -f "$f" ] && fm_files+=("$f")
+done < <(git ls-files -z --cached --others --exclude-standard -- ':(glob)skills/*/SKILL.md' ':(glob)agents/*.md' 2>/dev/null | tr '\0' '\n' | sort -u)
+if [ ${#fm_files[@]} -eq 0 ]; then
+  E "frontmatter 대상 0개 — git 발견 실패(skills/*/SKILL.md·agents/*.md)"
+elif out=$(node scripts/frontmatter-lint.js "${fm_files[@]}" 2>&1); then
+  OK "frontmatter-lint: ${#fm_files[@]}개 통과"
+else
+  printed=0
+  while IFS= read -r ln; do [ -n "$ln" ] && { E "frontmatter-lint: $ln"; printed=1; }; done <<<"$out"
+  [ "$printed" -eq 1 ] || E "frontmatter-lint 가 출력 없이 비0 으로 끝났다"
+fi
 
 echo "== 5. 미참조 scripts/*.js 후보 (info — 단정 아님; *.ps1/*.py 수동유틸·*.test.js 제외) =="
 for js in scripts/*.js; do
