@@ -2,7 +2,7 @@
 title: repo-context-kit — consumer repo 마다 LLM 이 코드를 이해할 맥락을 세우고 코드와 어긋나지 않게 유지하는 공용 킷
 status: open
 started: 2026-09-29
-updated: 2026-09-29
+updated: 2026-09-30
 ---
 
 # Problem
@@ -30,6 +30,7 @@ consumer repo 가 한 번의 초기화로 맥락 킷을 세우고, 킷이 코드
 - 이 묶음의 plan 은 consumer repo 파일을 고치지 않는다. 적용·이관은 그 repo 세션의 일이고, 여기서는 read-only 대조 실행만 한다.
 - 기존 호출과 호환을 유지한다. consumer repo 문서가 `~/.claude/skills/wiki/check_links.py` 를 지금 경로·인자로 부르므로, 그 경로·인자·출력·exit code 를 바꾸지 않는다.
 - 스크립트는 stdlib 만 쓰고 `uv run --no-project python <script>` 로 돈다(`check_links.py` 와 같은 실행 방식). 파일 하나만 복사해도 동작해야 한다 — Open questions 의 배포 형태가 vendoring 으로 정해져도 막히지 않게.
+  - 예외: `wiki_search.py` 는 frontmatter·본문 파서를 두 벌로 두지 않으려고 `wiki_check.py` 를 import 한다(#219). vendoring 할 때는 두 파일을 함께 옮긴다.
 - Stop hook 모드는 fail-open 이다(도구 오류로 세션을 막지 않는다). 다만 도구 실패는 사용자에게 보이게 알린다 — 조용히 넘기면 config 오타나 Python 버전 문제로 게이트가 꺼져도 아무도 모른다. 보고·CI 모드는 fail-closed 다(검사할 수 없는 상태를 통과로 보고하지 않는다).
 - 실행해 볼 수 없는 플랫폼(Windows)의 동작에는 추정 스위치를 넣지 않고 미검증으로 적는다.
 - 전역 등록은 머지로 전달되지 않는다. `settings.json` 은 추적하지 않고(`.gitignore`, `README.md:7`) bootstrap 은 rtk hook 만 등록한다(`scripts/bootstrap/README.md` settings.json 행). hook·plugin 을 켜는 단위는 머신마다 할 절차를 문서로 내고, 켜기 전 상태에서도 문서끼리 모순되지 않게 한다.
@@ -47,6 +48,26 @@ consumer repo 가 한 번의 초기화로 맥락 킷을 세우고, 킷이 코드
 - (열림) pilot repo — 킷을 처음 적용할 consumer repo. 적용 자체는 그 repo 세션의 일이다(Constraints). — 결정: context-eval 착수 전.
 - (열림) eval 예산 — context-eval 의 규모와 비용 상한. — 결정: context-eval 착수 전.
 - (열림) 게이트 등록 위치 — `stale --stop-hook` 을 전역 `~/.claude/settings.json` 에 두나(머신마다 손으로 등록, 모든 repo 에서 돌고 wiki·`covers` 가 없으면 무동작 — wiki 경로·`--config` 를 넘기지 않을 때만. 넘기면 그 경로가 없는 repo 마다 매 턴 `systemMessage` 가 뜬다), consumer repo 의 project settings 에 두나(opt-in, 그 repo 세션이 등록한다). 자체 게이트가 이미 있는 repo 에서 전역 등록이 겹치면 같은 변경을 두 번 알린다 — 첫 단위의 config `[stale] stop_hook = false` 로 끌 수 있다. — 결정: wiki-init 착수 전.
+- (열림) path-scoped-context 의 전달 방식. 두 안이 있다(#220).
+  - B: `covers` 에서 `.claude/rules` 의 `paths:` 규칙을 생성한다.
+  - C: PostToolUse(Read) hook 이 wiki-covers-query 의 조회 결과를 `additionalContext` 로 넣는다.
+
+  비교 항목:
+  - Read 트리거와 compaction 뒤 유지: B 는 다시 Read 하면 재로드되고, C 의 hook 주입분은 요약된다. 공식 문서(context-window 의 "what survives compaction") 기준이고, 로컬에서는 재현하지 않았다.
+  - 관리 비용: B 는 생성 파일을 관리해야 하고, C 는 자작 hook 을 유지해야 한다.
+  - 등록 비용: C 는 hook 등록이 필요한데 `settings.json` 은 머지로 전달되지 않는다(Constraints). B 는 생성 파일을 consumer repo 에 커밋해야 한다.
+  - Read 한 번마다 드는 비용: C 는 hook 프로세스 실행 지연과 반복 주입 토큰이 든다. B 는 규칙 로드 토큰이 든다.
+  - 사용 측정 방법(Constraints 마지막 항목).
+  - Edit·Write 가 규칙을 트리거하는지: 공식 문서에 없고, anthropics/claude-code 이슈 #38487·#88565 가 상충한다. 로컬 재현이 필요하다.
+
+  결정: wiki-covers-query 착수 전. C 로 정하면 covers 조회의 출력 계약과 지연 예산을 그 단위에서 함께 정해야 해서, path-scoped-context 착수 전으로는 늦다.
+- (열림) 공용 wiki 페이지가 `~/.claude` 코드를 `covers` 로 가리키는 방법.
+  - `covers` 는 페이지가 속한 git 최상위 기준이다(`wiki_check.py` 의 `covers_match` — covers 문법의 유일한 정의).
+  - 공용 wiki 는 별도 clone(#216)이라 git 최상위가 `~/.claude/wiki` 이고, `~/.claude` 코드를 가리킬 수 없다(공용 wiki `wiki-shared-layer` 한계). 지금 공용 wiki 에 covers 페이지는 0개다.
+  - 선택지 1: 비대상으로 유지한다. `~/.claude` 코드의 결정은 코드 옆 주석과 커밋에 둔다.
+  - 선택지 2: 기준 repo 를 명시하는 키를 두고 `wiki_check`·`wiki_search` 가 함께 따르게 한다.
+  - 결정: wiki-covers-query 착수 전.
+- (열림) wiki-graph-search 사용 측정 — 머지 뒤 2주(2026-10-14 무렵부터) transcript 로 잰다. 제외·중복 제거·신호·임계값은 그 plan 의 `# Decisions` 에 있다. 처분: 측정 결과를 적고, 임계값 미만이면 문서 안내를 고치거나 되돌림을 검토한다.
 - (열림) 후순위 후보(용어집, repo 전용 skill, 외부 사실 자동 생성)를 이 묶음에 넣을지. — 결정: context-eval 결과를 본 뒤. 빈틈이 보이면 새 단위, 아니면 이월하거나 Out of scope 로 옮긴다.
 
 # Plans
@@ -56,5 +77,26 @@ consumer repo 가 한 번의 초기화로 맥락 킷을 세우고, 킷이 코드
 - repo-init (미착수) — `/repo-init` 과 점검(`check`): 상시 진입 문서, 검증 명령 식별, 킷 상태 점검. `check` 는 그 시점에 머지된 층만 보고, 뒤 단위가 자기 층의 점검 항목을 더한다. 정본이 AGENTS.md 로 정해지면 전역 CLAUDE.md §3-1 의 "per-repo CLAUDE.md" 문구를 같은 plan 에서 맞춘다. 정본 파일이 정해져야 한다.
 - lsp-first (미착수) — 탐색에서 LSP 진단·심볼 조회를 먼저 쓰게 한다(plugin 활성, 언어 서버 설치 점검). 이력: 2026-07-26 lifetime 사용 0 으로 끔 → 2026-09-03 되돌림 → 2026-09-26 바이너리 없음으로 끔(사용자 결정) → 2026-09-28 `/doctor` 로 제거. 착수 전에 0회의 원인을 밝히거나 context-eval 로 필요를 보인다(Constraints). plugin 활성은 `settings.json` 이라 머지로 전달되지 않는다. README `enabledPlugins` 서술 drift 는 `plans/2026-09-28-push-colon-delete-hook` 의 `# Deferred` 에 있다.
 - context-eval (미착수) — 맥락이 실제로 도움이 되는지 LLM 응답으로 잰다. 첫 단위의 `[[smoke.questions]]` 를 질문 세트로 재사용하고 과거 작업 replay 를 더한다. 킷 없는 기준선을 먼저 잰다. pilot repo 와 eval 예산이 정해져야 한다.
-- path-scoped-context (미착수) — `covers` 에서 `.claude/rules` 의 `paths:` 규칙을 만들어, 해당 파일을 읽을 때만 관련 결정을 로드한다. `covers` 는 fnmatch(`*` 가 `/` 를 넘는다)이고 `paths:` 는 glob 이라 변환 규칙이 필요하다. 생성한 규칙이 `covers` 와 어긋나는지 보는 검사도 이 단위가 가진다. 선행: wiki-freshness-gate(`covers` 형식).
+- path-scoped-context (미착수) — 해당 파일을 읽을 때만 관련 결정을 로드한다. 전달 방식(B: `covers` 에서 `.claude/rules` 의 `paths:` 규칙 생성 / C: Read 시점 hook 주입, #220)은 Open question 이다.
+  - B 로 가면 두 가지를 함께 한다. `covers` 는 fnmatch(`*` 가 `/` 를 넘는다)이고 `paths:` 는 glob 이라 변환 규칙이 필요하다. 생성한 규칙이 `covers` 와 어긋나는지 보는 검사도 이 단위가 가진다.
+  - 선행: wiki-freshness-gate(`covers` 형식). C 로 가면 wiki-covers-query 도 선행이다.
 - git-impact (미착수) — git 이력에서 함께 바뀌어 온 파일을 뽑아 변경 영향 범위를 제시한다(피드백 층).
+- `plans/2026-09-30-wiki-graph-search/wiki-graph-search-plan.md` — #221 첫 단위, "요청 시" 층. 규모는 medium.
+  - `wiki_search.py` 가 wiki 를 섹션 트리·`[[링크]]`(별칭 포함)·`[!open]`/`[!conflict]` 구조로 읽는다.
+  - 결과에 섹션 위치와 관련 페이지를 붙이고, `--links-to`·`--open` 질의를 둔다.
+- wiki-covers-query (미착수) — #221 둘째 단위. 규모는 착수 때 판정한다(예비값 medium).
+  - covers 간선을 두고 `--covers <파일>` 질의(그 파일에 걸린 결정)를 둔다.
+  - covers 가 가리키는 파일이 없는 경우는 새로 판정하지 않는다. `wiki_check.py` 의 판정("covers 매칭 0건")을 재사용해 질의 출력에 표시만 한다.
+  - 공용 wiki 의 covers 기준은 Open question 이다.
+  - 쓰는 곳: CLI, 그리고 C 안이면 path-scoped-context·#220.
+  - 선행: wiki-graph-search.
+- wiki-multi-search (미착수) — #221 셋째 단위. 규모는 착수 때 판정한다(예비값 medium).
+  - 머신 로컬 목록(추적하지 않는 파일)으로 여러 repo wiki 를 함께 검색한다. 결과마다 출처를 표시한다.
+  - 공개 경계는 fail-closed 다. 공개 repo 세션, 판정할 수 없는 세션, 공개 여부 표시가 없는 wiki 는 모두 비공개 wiki 를 빼는 쪽으로 다룬다.
+  - 선행: wiki-graph-search. 같은 파일을 고치고, 질의 모드가 wiki 여러 개에서 어떻게 동작할지 정해야 한다(stem 겹침, 링크는 같은 wiki 안에서만).
+  - 기각: 여러 repo wiki 를 한 repo(공용 clone)로 모으기. 2026-09-30 사용자 질문으로 다시 검토했고, 공용 wiki `wiki-shared-layer` 의 기각 절 사유가 그대로다.
+    - 공개 범위가 섞인다.
+    - 같은 브랜치 갱신과 covers 신선도 검사가 멈춘다.
+    - `[[링크]]` 이름 공간이 겹친다.
+    - consumer repo 의 CI 와 다른 사람은 `~/.claude` 아래를 볼 수 없다.
+  - 사용자 목적은 "한 곳에서 보고 검색하기"로 확인했다.

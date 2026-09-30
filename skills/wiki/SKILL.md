@@ -49,10 +49,23 @@ wiki 는 두 계층이다(CLAUDE.md §11 이 배치 규칙의 단일 소스):
 ## query
 1. `uv run --no-project python "${CLAUDE_SKILL_DIR}/wiki_search.py" <질의어…>` 로 관련 페이지를 찾아 read 한다.
    - 공용 wiki(`CLAUDE_SHARED_WIKI`, 없으면 `~/.claude/wiki`)는 cwd 와 무관하게 찾고, repo wiki 는 현재 디렉터리에서 repo 루트까지 올라가며 찾아 함께 검색한다. 둘이 같은 경로면 한 번만 찾는다.
-   - 결과마다 계층(`[공용]`/`[repo]`)·절대경로·index 요약·맞은 본문 줄(`L<줄 번호>`)이 나온다. `--limit N`(기본 5)·`--category C` 는 질의어 앞뒤 어디든 둔다. `-` 로 시작하는 단어(플래그 이름)는 앞의 `-` 를 떼고 넣는다.
+   - 결과마다 계층(`[공용]`/`[repo]`)·절대경로·index 요약·맞은 본문 줄이 나온다.
+     - 맞은 줄에는 그 섹션과 줄 범위가 붙는다(`L20 §결정 (L18-35): …`). 섹션만 읽으려면 Read 의 offset·limit 에 그 범위를 쓴다.
+     - 결과마다 같은 wiki 안에서 링크로 이어진 관련 페이지가 붙는다(`관련: → 나가는 · ← 들어오는`). 별칭 `[[a|b]]` 도 링크로 세고, index.md 의 링크는 들어오는 쪽으로 세지 않는다.
+   - `--limit N`(기본 5)·`--category C` 는 질의어 앞뒤 어디든 둔다. `-` 로 시작하는 단어(플래그 이름)는 앞의 `-` 를 떼고 넣는다.
+   - 구조 질의(질의어 대신 쓴다):
+     - `--links-to <stem>`: 그 페이지를 가리키는 링크가 든 줄을 전부 낸다(한 줄에 여럿이어도 한 번). 결정을 바꾸기 전에 영향받는 페이지를 찾을 때 쓴다.
+     - `--open`: 미해결 `[!open]`·`[!conflict]` 를 전부 낸다.
+     - 둘 다 페이지마다 머리줄(계층·이름·절대경로) 아래 `L<줄> §<섹션>: …` 레코드를 낸다. `--limit` 을 따르지 않는다.
+     - `--category` 는 가리키는 쪽(callout 이 든 쪽) 페이지에만 적용한다.
    - 첫 줄의 찾은 wiki·쪽수로 어디를 찾았는지 확인한다. 기본 경로에 공용 wiki 가 없으면 stderr 경고와 함께 repo wiki 만 찾는다.
    - exit 1(결과 없음)이거나 결과가 빗나가면 다른 단어(영문 식별자·동의어)로 다시 찾고, 두 `index.md`(공용은 `~/.claude/wiki/index.md`)를 직접 훑는다. 한 음절 한글(`훅`)은 찾지 못한다.
-   - exit 2 는 찾을 wiki·단어·category 가 없거나, `CLAUDE_SHARED_WIKI` 가 wiki 가 아니거나, 읽기 오류다. stderr 의 이유를 보고 질의·설정을 고쳐 다시 찾는다 — `찾을 wiki 가 없다` 일 때만 조회를 건너뛴다.
+   - exit 2 의 경우:
+     - 찾을 wiki·단어·category·stem 이 없다.
+     - 질의 모드를 질의어나 서로와 함께 썼다.
+     - `CLAUDE_SHARED_WIKI` 가 wiki 가 아니다.
+     - 읽기 오류다.
+   - exit 2 면 stderr 의 이유를 보고 질의·설정을 고쳐 다시 찾는다 — `찾을 wiki 가 없다` 일 때만 조회를 건너뛴다.
    - 점수는 stem·title 일치 3, index 요약 일치 2.5, 본문 BM25(상한 2.2)의 idf 가중합이다. 한글은 2-gram 으로 나눠 조사가 붙어도 맞는다.
 2. 페이지 기반으로 답(raw chunk 아님). 근거 페이지를 **어느 wiki 의 것인지와 함께** 인용.
 3. 재사용 가치 있으면 **현재 repo 의 wiki** 에 `pages/query/<slug>.md` 로 filed(frontmatter+링크) + 그 wiki 의 `log.md` append. 공용 페이지가 근거인 답을 다른 repo 에서 filed 할 가치가 있으면 ingest 2단계의 공용 제안으로 돌린다. 공용 페이지는 비공개 repo 의 페이지를 가리키지 않는다.

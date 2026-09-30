@@ -21,6 +21,7 @@ from tempfile import TemporaryDirectory
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+import wiki_check  # noqa: E402
 import wiki_search  # noqa: E402
 
 SCRIPT = HERE / "wiki_search.py"
@@ -106,6 +107,84 @@ class SearchCase(unittest.TestCase):
         if wiki:
             make_wiki(repo / "wiki", {"decision/local-rule.md": page("local-rule", "decision", "repo 전용 clone 규칙.")}, {"local-rule": "repo 결정"})
         return repo
+
+
+GRAPH_ALPHA_FM = '## 주석 — frontmatter 안이라 제목이 아니다\nsee:\n  - "[[beta]]"\n'
+GRAPH_ALPHA = """소개 문단.
+
+## 결정
+
+- 다음은 [[gamma]] 를 본다. 별칭 [[beta|베타 페이지]] 도 링크다.
+- 자기 자신 [[alpha]] 와 없는 [[ghost]] 는 관련에서 뺀다.
+
+```bash
+# 코드 안 주석은 제목이 아니다
+echo "[[beta]]"
+```
+
+### 세부
+
+> [!open] 아직 정하지 않은 경계
+> 두 번째 줄은 보이지 않는다
+
+## 기록
+
+> [!conflict] 두 문서가 다르게 말한다
+> [!note] 이 종류는 모으지 않는다"""
+GRAPH_FENCES = """## 앞
+
+~~~
+```
+## 여전히 코드
+~~~
+
+## 뒤
+
+````
+```
+## 긴 fence 안
+````
+
+```
+```bash
+## 정보가 붙은 fence 줄은 닫는 fence 가 아니다
+```
+
+```인라인``` 처럼 info 에 backtick 이 든 줄은 fence 가 아니다
+
+## 인라인 뒤
+
+## 마지막
+
+```
+## 닫히지 않은 코드"""
+
+
+def graph_page(stem: str, category: str, body: str, extra: str = "") -> str:
+    return (
+        f"---\ntitle: {stem}\ncategory: {category}\ncreated: 2026-09-30\nupdated: 2026-09-30\n"
+        f"{extra}sources: [https://example.com/pr/1]\n---\n\n# {stem}\n\n{body}\n"
+    )
+
+
+GRAPH_PAGES = {
+    "decision/alpha.md": graph_page("alpha", "decision", GRAPH_ALPHA, GRAPH_ALPHA_FM),
+    "entity/beta.md": graph_page("beta", "entity", "## 참고\n\n[[alpha]] 로 돌아간다."),
+    "concept/gamma.md": graph_page("gamma", "concept", "## 연결\n\n[[alpha]] 와 [[beta]]."),
+    "concept/many.md": graph_page("many", "concept", "## 반복\n\n" + "\n".join(f"- {i}번째 [[alpha]]" for i in range(6))),
+    "concept/fences.md": graph_page("fences", "concept", GRAPH_FENCES),
+}
+GRAPH_INDEX = {stem: f"{stem} 요약" for stem in ("alpha", "beta", "gamma", "many", "fences")}
+
+
+def structure_of(text: str):
+    text = wiki_check.normalize(text)
+    lines = wiki_check.text_lines(text)
+    return lines, wiki_search.parse_structure(lines, len(lines) - len(wiki_check.body_lines(text)))
+
+
+def line_no(lines: list[str], prefix: str) -> int:
+    return next(i for i, line in enumerate(lines, 1) if line.startswith(prefix))
 
 
 class TokenizeTest(unittest.TestCase):
@@ -255,6 +334,126 @@ class ExitCodeTest(SearchCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("1. [공용] decision/wiki-storage ", result.stdout)
+
+
+class StructureTest(unittest.TestCase):
+    def test_sections_skip_code_blocks_and_frontmatter(self):
+        lines, structure = structure_of(graph_page("alpha", "decision", GRAPH_ALPHA, GRAPH_ALPHA_FM))
+        self.assertEqual([(s.level, s.title) for s in structure.sections], [(2, "결정"), (3, "세부"), (2, "기록")])
+        # H3 은 다음 H2 앞에서, H2 는 다음 H2 앞에서 끝난다.
+        self.assertEqual(structure.sections[1].end, line_no(lines, "## 기록") - 1)
+        self.assertEqual(structure.sections[0].end, line_no(lines, "## 기록") - 1)
+        self.assertEqual([(kind, text) for _, kind, text in structure.callouts], [("open", "아직 정하지 않은 경계"), ("conflict", "두 문서가 다르게 말한다")])
+
+    def test_fence_rules(self):
+        # 같은 문자·같거나 긴 길이로만 닫힘, 뒤에 글자가 붙은 줄은 닫지 않음, backtick info 줄은 fence 아님, 미종료는 끝까지.
+        _, structure = structure_of(graph_page("fences", "concept", GRAPH_FENCES))
+        self.assertEqual([s.title for s in structure.sections], ["앞", "뒤", "인라인 뒤", "마지막"])
+
+    def test_empty_heading_bounds_sections(self):
+        structure = wiki_search.parse_structure(["## Before", "### Child", "## ", "body"], 0)
+        self.assertEqual([(s.title, s.start, s.end) for s in structure.sections], [("Before", 1, 2), ("Child", 2, 2), ("", 3, 4)])
+
+    def test_links_include_alias_frontmatter_and_code(self):
+        lines, structure = structure_of(graph_page("alpha", "decision", GRAPH_ALPHA, GRAPH_ALPHA_FM))
+        stems = [stem for _, stem in structure.links]
+        self.assertEqual(stems, ["beta", "gamma", "beta", "alpha", "ghost", "beta"])
+        self.assertEqual(structure.links[0][0], line_no(lines, '  - "[[beta]]"'))
+        # 닫히지 않은 별칭이 뒤의 링크를 삼키지 않는다(check_links 도 beta 를 읽는다).
+        self.assertEqual(wiki_search.parse_structure(["[[alpha|미완성 설명 [[beta]]"], 0).links, [(1, "beta")])
+
+    def test_callout_variants(self):
+        structure = wiki_search.parse_structure(["> [!OPEN]- 접힌 것", "> > [!conflict] 중첩", "> [!note] 아님"], 0)
+        self.assertEqual([(kind, text) for _, kind, text in structure.callouts], [("open", "접힌 것"), ("conflict", "중첩")])
+
+
+class GraphTest(SearchCase):
+    def setUp(self):
+        super().setUp()
+        self.graph = make_wiki(self.tmp / "graph", GRAPH_PAGES, GRAPH_INDEX)
+        self.env = dict(self.env, CLAUDE_SHARED_WIKI=str(self.graph))
+
+    def records(self, out: str) -> list[str]:
+        return [line.strip() for line in out.splitlines() if line.startswith("   L")]
+
+    def test_matched_line_shows_section_and_range(self):
+        lines = GRAPH_PAGES["decision/alpha.md"].split("\n")
+        n, start, end = line_no(lines, "- 자기 자신"), line_no(lines, "## 결정"), line_no(lines, "## 기록") - 1
+        code, out, _ = self.run_main("ghost")
+        self.assertEqual(code, 0, out)
+        self.assertIn(f"L{n} §결정 (L{start}-{end}): - 자기 자신", out)
+
+    def test_related_pages_are_existing_pages_of_the_same_wiki(self):
+        code, out, _ = self.run_main("ghost")
+        self.assertEqual(code, 0, out)
+        self.assertIn("관련: → entity/beta, concept/gamma · ← concept/gamma, concept/many, entity/beta", out)
+
+    def test_links_to_lists_every_occurrence_with_category_on_the_source(self):
+        code, out, _ = self.run_main("--links-to", "alpha")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(len(self.records(out)), 8, out)  # --limit 기본값 5 를 넘는다
+        self.assertIn(f"[공용] concept/many  {self.graph / 'pages' / 'concept' / 'many.md'}", out)
+        n = line_no(GRAPH_PAGES["concept/many.md"].split("\n"), "- 0번째")
+        self.assertIn(f"L{n} §반복: - 0번째 [[alpha]]", out)
+        code, out, _ = self.run_main("--links-to", "gamma", "--category", "decision")
+        self.assertEqual((code, len(self.records(out))), (0, 1), out)
+        # frontmatter 안의 링크 줄은 섹션 대신 frontmatter 로 표시한다.
+        fm_line = line_no(GRAPH_PAGES["decision/alpha.md"].split("\n"), '  - "[[beta]]"')
+        self.assertIn(f'L{fm_line} frontmatter: - "[[beta]]"', self.run_main("--links-to", "beta")[1])
+
+    def test_links_to_exit_codes(self):
+        cases = ((["--links-to", "fences"], 1), (["--links-to", "ghost"], 2), (["--links-to", "alpha", "--category", "nosuch"], 2))
+        for argv, expected in cases:
+            with self.subTest(argv=argv):
+                self.assertEqual(self.run_main(*argv)[0], expected)
+
+    def test_open_lists_open_and_conflict_callouts(self):
+        code, out, _ = self.run_main("--open")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(
+            [r.split(": ", 1)[1] for r in self.records(out)],
+            ["[!open] 아직 정하지 않은 경계", "[!conflict] 두 문서가 다르게 말한다"],
+        )
+        self.assertIn("§세부: [!open]", out)
+        self.assertEqual(self.run_main("--open", "--category", "entity")[0], 1)
+
+    def test_query_mode_usage_errors(self):
+        for argv in (["--links-to", "alpha", "질의어"], ["--links-to", "alpha", "--open"]):
+            with self.subTest(argv=argv):
+                code, out, err = self.run_main(*argv)
+                self.assertEqual((code, out), (2, ""))
+                self.assertTrue(err, err)
+
+    def test_links_to_is_per_wiki_shared_first(self):
+        repo = self.tmp / "repo"
+        (repo / ".git").mkdir(parents=True)
+        make_wiki(
+            repo / "wiki",
+            # gamma 는 공용 wiki 에만 있다 — 링크는 같은 wiki 안에서만 잇는다.
+            {"decision/alpha.md": graph_page("alpha", "decision", "본문"), "concept/user.md": graph_page("user", "concept", "[[alpha]] 사용, [[gamma]] 는 공용에만")},
+            {"alpha": "repo 알파", "user": "repo 사용"},
+        )
+        code, out, _ = self.run_main("--links-to", "alpha", cwd=repo)
+        self.assertEqual(code, 0, out)
+        heads = [line.split("]", 1)[0] + "]" for line in out.splitlines() if line.startswith("[")]
+        self.assertEqual(heads[-1], "[repo]", out)
+        self.assertEqual(heads.count("[repo]"), 1, out)
+        self.assertTrue(all(h == "[공용]" for h in heads[:-1]), out)
+        code, out, _ = self.run_main("--links-to", "gamma", cwd=repo)
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("[repo]", out)
+        code, out, _ = self.run_main("공용에만", cwd=repo)
+        related = [line for line in out.split("[repo] concept/user", 1)[1].splitlines() if line.startswith("   관련:")]
+        self.assertEqual(related, ["   관련: → decision/alpha"], out)
+
+    def test_self_link_is_by_stem_even_with_duplicate_stems(self):
+        dup = make_wiki(
+            self.tmp / "dup",
+            {"concept/alpha.md": graph_page("alpha", "concept", "본문"), "decision/alpha.md": graph_page("alpha", "decision", "[[alpha]] 자기 참조")},
+            {"alpha": "중복"},
+        )
+        env = dict(self.env, CLAUDE_SHARED_WIKI=str(dup))
+        self.assertEqual(self.run_main("--links-to", "alpha", env=env)[0], 1)
 
 
 if __name__ == "__main__":
