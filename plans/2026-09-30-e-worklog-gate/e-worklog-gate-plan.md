@@ -1,6 +1,6 @@
 ---
 title: e-worklog-gate — /e 6단계 worklog 가 실패하면 7단계 자동 정리를 생략하고, collect-state 경로 표기를 적는다
-status: in_progress
+status: done
 started: 2026-09-30
 updated: 2026-09-30
 ---
@@ -20,9 +20,9 @@ updated: 2026-09-30
   - 격리 runner: `verify.sh` `ALL PASS (skip: install-codex-skill.test.ps1)`, `improve --ci` exit 0.
 - 2026-09-30: 코드 리뷰 APPROVE — Critical/Major 0·Minor 5·Nit 7(Codex 미가용). 처분은 # Review Disposition. 게이트를 7단계 서두·경계 절·lifecycle §B 까지 올리고, 원격 질문 시점·남긴 worktree 의 다음 명령·부분 자격증명을 적었다.
   - 반영 뒤 `verify.sh` 재실행 `ALL PASS (skip: install-codex-skill.test.ps1)`, plan-lint 0. `rg` 로 게이트가 SKILL·lifecycle·README 모든 요약에 들어간 것을 확인했다. evidence gate 1~4 충족 → 판정 DONE(status 는 머지 때 done).
+- 2026-09-30: 커밋 1개. small 이라 로컬 ff-merge(§8)로 반영하고 새 순서대로 정리한다. 남은 것은 # Deferred.
 
 # Next
-- 커밋 → 로컬 ff-merge → 정리.
 
 # Decisions
 - 게이트는 6조건 번호 목록에 넣지 않고 7단계의 선행 조건으로 둔다. "6조건" 을 가리키는 다른 문서(CLAUDE.md §8(a)·dlc)의 수를 바꾸지 않으려는 선택이다. 대신 7단계 서두·실행·경계 절·lifecycle 이 모두 선행 조건을 적는다(리뷰 M1).
