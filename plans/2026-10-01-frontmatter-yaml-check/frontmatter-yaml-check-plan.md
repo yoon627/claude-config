@@ -1,6 +1,6 @@
 ---
 title: frontmatter-yaml-check — skill·agent frontmatter 를 모든 소비자가 같게 읽는 한 줄 형식으로 검사해 로컬 verify·CI 에서 실패시킨다
-status: in_progress
+status: done
 started: 2026-10-01
 updated: 2026-10-01
 ---
@@ -53,8 +53,9 @@ git 이 아는 `skills/*/SKILL.md`·`agents/*.md` 의 frontmatter 가 모든 소
 
 - 2026-10-01 최종 검증(격리 runner): `bash scripts/verify.sh` exit 0, `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치 — 이번 변경과 무관), frontmatter 13개 ok. code-reviewer 2회차 APPROVE → Minor·Nit 반영(Red 1 → Green 72) 뒤 메인이 전체 재검증.
 
+- 2026-10-01 전체 `bash scripts/verify.sh` 재확인(exit 0, 무관한 PowerShell skip 1건) → evidence gate DONE → 커밋 → commit-check 이상 없음 → `/e merge` PR #226.
+
 # Next
-- 전체 `bash scripts/verify.sh` 재확인 → evidence gate → 커밋 → commit-check → Report(`/e merge` 선택지).
 
 # Decisions
 - 계획 전 wiki 조회(`verify.sh improve frontmatter 검사`): 걸린 decision·lesson 없음 — 새로 정한다.
