@@ -30,6 +30,7 @@ updated: 2026-10-01
 - 2026-09-30: 백그라운드 `bash scripts/verify.sh` 완주(약 50분) — `pre-commit-check.test.sh` ok(교착 아님, 느린 진행 확정), syntax·node·bash·ps1·shellcheck 전부 ok, `record-verified.test.sh` `[skip]`(jq 미설치), `FAILED: 2` = `skills/wiki/test_wiki_check.py`(fail 2·error 2)·`test_wiki_search.py`(fail 1). base 재현: main checkout(62ddfcf, clean, `skills/wiki` 동일)에서 두 테스트를 돌려 **같은 테스트 이름**이 실패(worktree 도 이름 단위 대조 일치, skip 수만 14/13) → 입증된 baseline failure 로 # Deferred. evidence gate: A1 Red→Green ✅, A2 (a)(b) ✅, A3·A4 grep 0·13곳 대조 ✅, A5 = baseline 2건 제외 통과·`record-verified` 축은 로컬 미검증(jq, 파일 무변경) — 판정 DONE.
 
 - 2026-10-01: 정식 커밋 → commit-check 이상 없음 → `/e merge`: origin/main 이 23커밋 앞섰으나 trial merge 깨끗(README 만 겹침, 무관한 줄)·병합 tree 잔존 참조 0 → push → PR #227 → done.
+- 2026-10-01: 정정 — # Workflow Findings·# Deferred 의 `timeout` 서술이 틀렸음을 재현으로 확인하고 고쳤다(남은 프로세스의 원인은 Bash 도구 중단).
 
 # Next
 
@@ -70,7 +71,7 @@ updated: 2026-10-01
   - [Nit] # Decisions 의 "⚠️ 추론" 표기 — fix.
 
 # Workflow Findings
-- 격리 runner 가 `bash scripts/verify.sh` 를 도구 시간 제한(foreground 600s → background)으로 "killed" 보고했지만, Git Bash(MSYS) 자식 프로세스(verify.sh·pre-commit-check.test.sh·guard)는 45분 넘게 살아 있었다. Git Bash 의 `timeout 150` 도 손자 프로세스를 죽이지 못했다. 시간 제한으로 끝난 검증 뒤에는 `Win32_Process` 에서 남은 프로세스를 확인·정리해야 한다(다른 세션 프로세스와 구분 필수). 1회 — 반복되면 dlc runner 계약(`docs/dlc-details.md` §E)에 정리 단계를 넣는 제안.
+- 격리 runner 가 `bash scripts/verify.sh` 를 도구 시간 제한(foreground 600s → background)으로 "killed" 보고했지만, Git Bash(MSYS) 자식 프로세스(verify.sh·pre-commit-check.test.sh·guard)는 45분 넘게 살아 있었다. Bash 도구의 중단(시간 제한·TaskStop)이 Git Bash 자식을 끝내지 않기 때문이다(2026-10-01 재현 — TaskStop 뒤 `sleep.exe` 잔존). GNU `timeout` 은 자손까지 끝냈다(같은 날 재현). 처음 적었던 "`timeout 150` 도 손자 프로세스를 죽이지 못했다" 는 틀렸다 — 그때 남아 있던 같은 명령줄의 bash 는 runner 의 verify.sh 트리였다. 시간 제한으로 끝난 검증 뒤에는 `Win32_Process` 에서 남은 프로세스를 확인·정리해야 한다(다른 세션 프로세스와 구분 필수). 1회 — 반복되면 dlc runner 계약(`docs/dlc-details.md` §E)에 정리 단계를 넣는 제안.
 
 # Blockers
 
@@ -79,5 +80,5 @@ updated: 2026-10-01
 - (medium) Windows 로컬 `bash scripts/verify.sh` 가 base(62ddfcf)부터 `FAILED: 2` — `skills/wiki/test_wiki_check.py` 의 `test_closed_stdout_exits_2_without_traceback`(flush 가 EPIPE 대신 `OSError: [Errno 22]`), `test_case_mismatched_wiki_argument_is_refused`(대소문자 무시 파일시스템에서 거부 안 됨), `StopHookTest.test_oversized_stdin_gives_system_message`·`test_stdin_without_eof_ends_within_3_seconds`(error), `skills/wiki/test_wiki_search.py` 의 `test_unreadable_index_exit_2`(stderr 에 경로가 repr 이스케이프로 찍힘). CI 는 ubuntu 뿐이라 드러나지 않는다. 이번 변경과 무관(파일 동일, base 재현).
 - (low) Windows 에서 `scripts/pre-commit-check.test.sh` 가 수십 분 걸린다(이번 실행에서 전체 verify.sh 약 50분의 대부분) — 격리 runner 의 도구 시간 제한(600s)을 넘는다. `record-verified.test.sh` 는 jq 미설치로 로컬 skip.
 - (low) `statusline.js` ctx 조각 — `context_window.used_percentage` 가 object 면 `Math.round` 에서 throw 해 rc 1·빈 출력, 문자열이면 `ctx NaN%`(base 부터 있던 결함, 이번 변경과 무관). 고칠 때는 `num()` 으로 거르고 `scripts/statusline.test.js` 의 깨진 입력 목록에 케이스 추가.
-- (low) `~/.claude main 세션에서 /wiki ingest` 후보 · 요약: Windows Git Bash 에서 `timeout N bash <script>` 와 도구 시간 제한은 MSYS 자식·손자 프로세스를 끝내지 못해 검증 스크립트가 계속 돈다 — 제한 초과 뒤 `Win32_Process` 로 남은 프로세스를 확인한다 · 근거: 이 세션 재현(timeout rc 124 뒤 pre-commit-check.test.sh·guard 프로세스 잔존, 다른 비공개 요소 없음) · 출처: 공개.
+- (low) `/wiki ingest` 후보 → 2026-10-01 main 세션에서 적립(공용 wiki `entity/windows-bash-tool-orphan-processes`) · 요약: Windows 에서 Claude Code Bash 도구의 중단(시간 제한·TaskStop)은 Git Bash 자식 프로세스를 끝내지 않아 검증 스크립트가 계속 돈다(GNU `timeout` 은 자손까지 끝낸다) — 중단 뒤 `Win32_Process` 로 남은 프로세스를 확인한다 · 근거: 2026-10-01 재현(TaskStop 뒤 `sleep.exe` 잔존, `timeout` 뒤 잔존 없음) · 출처: 공개.
 - (low) main checkout 과 이 worktree 의 `.claude/settings.local.json` 에 `Bash(node --check codex-quota-refresh.js)` 류 allow 가 남는다 — gitignored 로컬 상태라 이 브랜치 범위 밖, 동작에 해 없음. main 세션에서 정리 가능.
