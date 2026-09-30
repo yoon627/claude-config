@@ -1,8 +1,8 @@
 ---
 title: statusline-drop-codex — statusline 에서 codex 사용량·리셋 시각 표시 제거
-status: in_progress
+status: done
 started: 2026-09-30
-updated: 2026-09-30
+updated: 2026-10-01
 ---
 
 # Goal
@@ -29,8 +29,9 @@ updated: 2026-09-30
 
 - 2026-09-30: 백그라운드 `bash scripts/verify.sh` 완주(약 50분) — `pre-commit-check.test.sh` ok(교착 아님, 느린 진행 확정), syntax·node·bash·ps1·shellcheck 전부 ok, `record-verified.test.sh` `[skip]`(jq 미설치), `FAILED: 2` = `skills/wiki/test_wiki_check.py`(fail 2·error 2)·`test_wiki_search.py`(fail 1). base 재현: main checkout(62ddfcf, clean, `skills/wiki` 동일)에서 두 테스트를 돌려 **같은 테스트 이름**이 실패(worktree 도 이름 단위 대조 일치, skip 수만 14/13) → 입증된 baseline failure 로 # Deferred. evidence gate: A1 Red→Green ✅, A2 (a)(b) ✅, A3·A4 grep 0·13곳 대조 ✅, A5 = baseline 2건 제외 통과·`record-verified` 축은 로컬 미검증(jq, 파일 무변경) — 판정 DONE.
 
+- 2026-10-01: 정식 커밋 → commit-check 이상 없음 → `/e merge`: origin/main 이 23커밋 앞섰으나 trial merge 깨끗(README 만 겹침, 무관한 줄)·병합 tree 잔존 참조 0 → push → PR #227 → done.
+
 # Next
-- 정식 커밋 → commit-check → Report. 머지는 medium 이라 `/e merge`(push·PR) — push 는 사용자 요청 시.
 
 # Decisions
 - wiki decision 조회: `lesson-verify-scaffold-purpose-before-removal` 이 걸렸다 — 따른다. 이 제거는 사용자 지시이고, refresh 스크립트의 도입 목적은 statusline codex 조각에 캐시를 채우는 것 하나뿐(스크립트 헤더 "Designed to be invoked detached from statusline.js", `git grep` 상 다른 호출자 없음, `docs/codex-review.md` 의 리뷰 호출은 `codex exec` 경로로 무관)이라 표시를 없애면 목적이 함께 사라진다.
