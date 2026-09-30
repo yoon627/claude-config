@@ -25,7 +25,7 @@ description: 진행 중이던 §10 plan 을 실제 git/코드 상태로 동기�
 - **fallback (매칭 0개)**: `status: in_progress|blocked` plan 을 `updated` 내림차순 목록 제시 → 사용자 선택. 추측으로 자동 선택하지 않는다. 전부 done/없음이면 "마무리할 plan 없음" — 그래도 2단계(임시 커밋)는 수행하고 보고만 한다.
 
 ### 2. 작업 상태 수집 + 임시 커밋
-- **수집 (`collect-state.sh` 1회)**: `bash skills/e/collect-state.sh` 로 읽기전용 상태 신호를 평문 `key: value` 로 받는다(개별 git 10+ 호출 1회 묶음). **헬퍼 실패·필드 누락이면** 보고에 명시하고 개별 git 명령으로 폴백. **필드 카탈로그·파싱 규칙(첫 `: ` split·list 필드)·조건별 폴백 명령은 `docs/worktree-lifecycle.md` §A**(상태 수집 분기에서 Read).
+- **수집 (`collect-state.sh` 1회)**: `bash skills/e/collect-state.sh` 로 읽기전용 상태 신호를 평문 `key: value` 로 받는다(개별 git 10+ 호출 1회 묶음). 이 상대경로는 cwd 가 `~/.claude`(또는 그 worktree) 루트일 때만 해석된다 — 다른 repo 에서는 `~/.claude/skills/e/collect-state.sh` 를 절대경로로 부르고, 격리 worktree 세션에서는 `bash "$HOME/…"` 형태가 거부될 수 있어(2026-09-30 실측) `$HOME` 을 펼친 절대경로로 쓴다. **헬퍼 실패·필드 누락이면** 보고에 명시하고 개별 git 명령으로 폴백. **필드 카탈로그·파싱 규칙(첫 `: ` split·list 필드)·조건별 폴백 명령은 `docs/worktree-lifecycle.md` §A**(상태 수집 분기에서 Read).
 - **임시 커밋**(아래 "임시 커밋 규칙"): uncommitted 있으면 작업 브랜치에 WIP 커밋으로 보존. 없으면 skip + "변경 없음" 명시. **머지 모드는 WIP 를 만들지 않는다** — uncommitted 가 있으면 `AskUserQuestion`(정식 메시지로 커밋 / 취소). 이건 §1 위험 확인이 아니라 "작업이 끝났는가" 방향 합의다(§1 단서).
 
 ### 3. plan 동기화 기록 (메인이 single writer; §10)
@@ -61,7 +61,7 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 - **M4 plan done 커밋**: `status: done` · `# Progress` "PR #N" · `# Next` 비움 → plan-lint(실패 → 중단, 커밋 안 함) → 커밋·push. plan 에 `intent:` 가 있으면 4단계의 묶음 intent 판정을 여기서 수행해 `intent.md` 변경을 **같은 커밋**에 넣고, 아래 복구 시 `closed` 로 바꿨던 것도 `open` 으로 함께 되돌린다. §10 "머지 시점에 done" 을 PR 단위로 앞당긴 것이며 아래 복구 규칙이 그 간극을 메운다. **복구 규칙(hard-stop)**: M5·M6 에서 **REJECTED 로 확정된 경우에만** 즉시 `status: in_progress` 복구 + `# Blockers`(timeout 은 `# Next` "PR #N checks 대기, `/e merge` 재실행") → 커밋·push 후 중단. 복구 push 가 거부되면 로컬 커밋만 남기고 보고. **REJECTED 로 확정되면 done 을 남기지 않는다**; 결과 불명(UNKNOWN)·대기(QUEUED)·head 불일치는 done 을 유지하고 `# Next` 재실행 안내로 닫는다(아래).
 - **M5 checks(exit code 기준 닫힌 목록)**: `gh pr view` 의 `headRefOid` 가 로컬 HEAD 와 같은지 대조(다르면 M3 의 push 만 재실행, 그래도 다르면 중단·plan 무변경) → `gh pr checks <N> --watch`(도구 timeout 10분). exit 0 → **별도 호출** `gh pr checks <N> --json name,bucket` 로 재조회, 모든 bucket ∈ {pass, skipping} 일 때만 M6, `fail`/`cancel` 이 하나라도 있으면 REJECTED(--watch 는 cancel 을 exit 에 반영하지 않는다) / exit 8(pending 잔존)·도구 timeout → REJECTED(timeout) / exit 1 이고 stderr 에 `no checks reported`(소문자 부분일치) → 15초 간격 3회 재조회, 그래도 없을 때만 required 없음으로 M6(이유: done push 직후 check run 미등록 레이스로 CI 를 건너뛸 수 있다) / 그 외 exit 1 → REJECTED.
 - **M6 머지 + 결과 분류 + fetch(hard invariant)**: 머지 직전 `mergeable`/`mergeStateStatus` 재확인(CONFLICTING → REJECTED, BEHIND·BLOCKED 가 남아 있으면 REJECTED — checks 통과 후에도 남았다면 branch protection 미충족) → `gh pr merge <N> --merge --match-head-commit <M5 시점 headRefOid>`(head 불일치 거부 → 중단·보고, 복구 아님). **`--delete-branch` 금지**(CLAUDE.md §8 — 원격 삭제 분리 승인 우회 + worktree 에서 로컬 삭제 실패). repo 가 merge 커밋을 불허하면(M1 의 `gh repo view` 로 읽은 설정) `--squash`. 결과를 넷으로 분류: **MERGED**(`gh pr view` 의 `mergedAt` non-null) → `git fetch origin <default>` 후 5단계로 / **QUEUED**(명령 성공인데 `mergedAt` null — merge queue) → plan 무변경, "큐 대기, 완료 후 `/e merge` 재실행" 보고·중단(복구 push 금지 — head 가 바뀌면 큐가 무효) / **REJECTED**(merge 명령 실패·권한 프롬프트 거절) → 복구 규칙 / **UNKNOWN**(확인·fetch 명령 실패) → plan 무변경, 재조회 안내·중단. 그 외 오류는 전부 plan 무변경 중단. **확인된 `mergedAt` 은 7단계 조건4 를 직접 충족**한다(squash 면 git 신호가 false 여도 재유도하지 않는다) — `collect-state.sh` 는 fetch 하지 않으므로 fetch 없이는 서버 머지를 영원히 못 본다. 재실행은 M2 에서 MERGED 를 재사용하지 않으므로 merge 를 재호출하지 않는다.
-- 원격 브랜치 삭제는 여기서 하지 않는다 — 7단계 자동 정리가 끝난 뒤 머지 모드에선 **항상 1회** `AskUserQuestion`(§8(b). 사용자가 `--delete-branch` 로 지시했던 경우만 그 승인으로 갈음).
+- 원격 브랜치 삭제는 여기서 하지 않는다 — 7단계에서 로컬 정리를 마친 뒤 머지 모드에선 **항상 1회** `AskUserQuestion`(§8(b). 사용자가 `--delete-branch` 로 지시했던 경우만 그 승인으로 갈음). 로컬 정리를 생략했으면 원격 질문도 미룬다(7단계 원격 bullet).
 
 ### 5. Jira task 본문 작업내용 (사용자 승인 후)
 
@@ -75,19 +75,23 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 ### 6 전. worktree 밖으로 (비-메인 worktree 세션)
 세션이 비-메인 worktree 안이면 6단계 전에 "worktree 정리 규칙"의 값 캡처(`target_path`·`target_branch`·`main_path`)를 하고 `ExitWorktree(action: keep)` 를 시도한다. worktree 에 격리된 세션에서는 worktree 안의 `bash "$HOME/..."` 헬퍼(worklog·collect-state) 호출이 네이티브 Bash 가드에 거부된다(2026-09-30 실측 — `$HOME` 을 펼친 절대경로와 `uv run python "$HOME/..."` 는 통과했다. 하네스 버전에 따라 달라질 수 있다 — 공용 wiki `worktree-isolation-bash-guard`). 5단계까지는 지금처럼 worktree 안에서 돈다.
 - **복귀했으면**: 6·7단계를 원래 디렉토리(보통 main)에서 돌린다. worklog 는 미리보기·등록 모두 `<target_path>` 의 디렉터리 이름을 인자로 준다 — 빠뜨리면 main 이 대상이 된다. 7단계 재수집은 `(cd "<target_path>" && bash "$HOME/.claude/skills/e/collect-state.sh")`. 이후 `ExitWorktree` 를 다시 부르지 않는다.
-- **no-op 이면**(harness 가 worktree 에서 바로 시작): 지금처럼 worktree 안에서 6·7단계를 돌린다. 헬퍼가 거부되면 `$HOME` 을 펼친 절대경로로 한 번 다시 부른다. 그래도 worklog·collect-state 가 거부·실패했으면 7단계 정리를 생략한다(worklog 를 다시 돌릴 수 있게 worktree 를 남긴다).
+- **no-op 이면**(harness 가 worktree 에서 바로 시작): 지금처럼 worktree 안에서 6·7단계를 돌린다. 헬퍼는 `$HOME` 을 펼친 절대경로로 부른다(2단계 경로 표기). 그래도 worklog·collect-state 가 거부·실패했으면 7단계 정리를 생략한다(worklog 를 다시 돌릴 수 있게 worktree 를 남긴다).
 - 6·7단계 도중 멈췄으면 같은 세션은 캡처한 값으로 남은 단계를 잇고, 새 세션은 `/wt <이름>` 으로 들어가 다시 돌린다.
 
 ### 6. worklog 기록 (현재 worktree — **삭제 전**)
-마무리 시 이 worktree 에서 한 AI 작업시간을 Jira worklog 에 기록한다. **7단계 삭제보다 먼저** 실행한다 — worktree 를 지우면 `--all` 순회 대상에서 빠져 등록이 불가능해진다(표시만 된다). `~/.claude/skills/jira-worklog/` 없으면 이 단계 skip + "worklog 스킬 없음" 1줄.
+마무리 시 이 worktree 에서 한 AI 작업시간을 Jira worklog 에 기록한다. **7단계 삭제보다 먼저** 실행한다 — worktree 를 지우면 이름으로 고를 수 없어 등록이 불가능해진다(표시만 된다). `~/.claude/skills/jira-worklog/` 없으면 이 단계 skip + "worklog 스킬 없음" 1줄.
 - **실행**: POSIX에서는 `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh"`(dry-run), Windows PowerShell에서는 `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1"`(dry-run)로 날짜별 시간·대상 티켓 확인. launcher는 `uv` 우선, `python3`/`python` fallback(Windows는 `py` 포함)이다. 귀속은 줄 단위 cwd 기준이라 **main 으로 복귀한 뒤에 돌려도 그 worktree 시간이 정확히 잡힌다**(이름을 인자로 주면 된다) — 예전처럼 "복귀 전"일 필요는 없다. 다만 삭제 전이어야 한다는 제약은 그대로다.
 - **등록**: 티켓이 잡히고(worktree 이름 prefix) `~/.jira-kit/.env` 에 토큰 있으면 이어서 POSIX `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh" --register`, Windows PowerShell `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1" --register`(6 전 단계로 main 에 나왔으면 미리보기와 같은 `<이름>` 을 앞에 준다 — `run_worklog.sh <이름> --register`) — **그 worktree 의** 그날 항목 upsert(멱등, /e 반복해도 중복 없음. 같은 티켓의 다른 worktree 항목은 건드리지 않고 티켓 총합은 Jira 가 합산). **티켓 없음/토큰 없음/세션 활동 없음 → preview 만 하고 조용히 넘어감**(마무리 흐름 방해 금지). 사용자가 /e 에 이 동작을 넣은 것 = 등록 표준 동의(별도 AskUserQuestion 안 만듦, §3-6 1회 원칙).
-- **비차단**: 조회·네트워크 실패는 보고 1줄만 하고 마무리는 계속(worklog 실패가 /e 를 막지 않는다).
-- 보고 1줄: 등록 결과("ABC-1234 에 `<시간>` 등록" · "티켓 없음/토큰 없음 → preview 만" · "세션 활동 없음").
+- **비차단**: 조회·네트워크 실패는 보고 1줄만 하고 마무리는 계속한다(worklog 실패가 /e 를 막지 않는다). 다만 **7단계 정리는 막는다** — 지운 worktree 의 시간은 다시 등록할 수 없다. 다음이면 7단계 자동 정리를 생략한다.
+  - worklog 가 비0 으로 끝났다(사유 불문 — 예: 등록 차단·Jira 오류 1, 설정·git 오류 2, 실행기 없음 127).
+  - 2단계 경로 표기로 다시 불러도 헬퍼 호출이 거부됐다.
+  - `--register` 를 돌렸는데 "등록 불가" 경고가 나왔다(자격증명 불완전 — exit 0 이라 종료코드로는 안 잡힌다).
+  - 세션 활동 없음·티켓 없음·토큰 파일 없음은 exit 0 인 정상 skip 이라 정리를 계속한다. worklog 스킬이 없으면 이 조건은 없다.
+- 보고 1줄: 등록 결과("ABC-1234 에 `<시간>` 등록" · "티켓 없음/토큰 없음 → preview 만" · "세션 활동 없음"). 이름을 인자로 줬으면 출력 머리줄 `[<이름>]` 이 대상 worktree 인지 본다. 실패면 사유와 다음 명령을 함께 적는다 — 등록 차단이면 확인 뒤 `run_worklog.sh <이름> --register --allow-large-change`, 그다음 `/wt <이름>` 으로 들어가 `/e`. 시간을 포기하면 `/wt rm <이름>`.
 
 ### 7. worktree 정리 (조건부 — merged 면 무확인)
-마무리가 끝난 뒤, 현재 worktree 가 **역할을 다했고 안전하게 지울 수 있으면** 정리한다. 아래 조건이 **전부 충족되면 묻지 않고 worktree + 로컬 브랜치를 지운다**(CLAUDE.md §8(a) — 누가 머지했는지 불문). **원격 브랜치 삭제는 여기 포함되지 않는다 — 항상 AskUserQuestion**(§8(b)).
-- **자동 정리 조건 (6가지 모두 충족 = AND)**: 2단계 이후 WIP 커밋·plan write 로 상태가 바뀌므로 **삭제 직전 `bash skills/e/collect-state.sh` 를 한 번 더 실행**해 그 신호로 판정(2단계 스냅샷 재사용 금지 — 재수집 invariant). 6 전 단계로 main 에 나왔으면 `(cd "<target_path>" && bash "$HOME/.claude/skills/e/collect-state.sh")` 로 대상 worktree 의 신호를 받는다. **헬퍼 실패·필드 누락·파싱 불가면 정리 생략(보수)**.
+마무리가 끝난 뒤, 현재 worktree 가 **역할을 다했고 안전하게 지울 수 있으면** 정리한다. 6단계 worklog 가 실패로 끝났으면(6단계 비차단 bullet) 아래 조건을 판정하지 않고 정리를 생략한다. 그 밖에는 아래 조건이 **전부 충족되면 묻지 않고 worktree + 로컬 브랜치를 지운다**(CLAUDE.md §8(a) — 누가 머지했는지 불문). **원격 브랜치 삭제는 여기 포함되지 않는다 — 항상 AskUserQuestion**(§8(b)).
+- **자동 정리 조건 (6가지 모두 충족 = AND)**: 2단계 이후 WIP 커밋·plan write 로 상태가 바뀌므로 **삭제 직전 `bash skills/e/collect-state.sh` 를 한 번 더 실행**(경로 표기는 2단계와 같다)해 그 신호로 판정(2단계 스냅샷 재사용 금지 — 재수집 invariant). 6 전 단계로 main 에 나왔으면 `(cd "<target_path>" && bash "$HOME/.claude/skills/e/collect-state.sh")` 로 대상 worktree 의 신호를 받는다. **헬퍼 실패·필드 누락·파싱 불가면 정리 생략(보수)**.
   1. **비-메인 worktree**(`root` ≠ `mainWorktree`; 메인이면 제안 안 함)
   2. **`detached`=false + plan `status == done`**(4단계 확정)
   3. **working tree clean**(untracked 포함; `dirty`=unknown 이면 생략)
@@ -95,9 +99,9 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
   5. **미보존 산출물 안전**(`git worktree remove`/`--force` 가 gitignored `.env`·미커밋 plan 을 유실시킴 — 이 worktree `plans/` 에 이번 갱신한 미커밋 plan 있으면 정리 생략; `.env`·secret 후보 있으면 삭제 목록 명시; `ignoredStatus`=unknown 이면 생략)
   6. **worktree 를 잡고 있는 프로세스 없음** — 이 세션에서 검증용으로 띄운 서버·데몬이 살아 있으면 `git worktree remove` 가 OS 레벨에서 실패한다(Windows: "Invalid argument"·"Access is denied"). **내가 띄운 것은 삭제 전에 내가 회수한다**(경로로 대상을 특정해 종료 — 사용자 서버·다른 worktree 프로세스는 건드리지 않는다). 회수 못 하면 정리 생략 + 사유 보고.
   - **각 조건의 판정 git 명령·폴백·`inBase`/`patchInBase`/`remoteContainingHead` 세부·squash/rebase 한계는 `docs/worktree-lifecycle.md` §B**(삭제 판정 분기에서 Read).
-  - 하나라도 불충족/위험/헬퍼 불가 → 정리 생략 + 보고에 사유 한 줄("미머지 → 유지"·"dirty → 유지"·"plan 이 worktree 내부 → 유지").
+  - 하나라도 불충족/위험/헬퍼 불가이거나 6단계 worklog 가 실패로 끝났으면(6단계 비차단 bullet) → 정리 생략 + 보고에 사유 한 줄("미머지 → 유지"·"dirty → 유지"·"plan 이 worktree 내부 → 유지"·"worklog 실패 → 유지").
 - **실행**: 조건 충족 시 **묻지 않고** worktree → 로컬 `git branch -d` 순으로 정리하고, 삭제한 브랜치 tip sha 를 한 줄 보고(`git branch <name> <sha>` 로 복구 가능). `git worktree remove` 가 부분 성공(등록 해제 후 디렉터리 삭제 실패)할 수 있으니 **결과를 확인**하고, 잔여 디렉터리가 있으면 조건6 처리 후 마저 지운다. 실행 세부는 "worktree 정리 규칙"(+ `docs/worktree-lifecycle.md` §C).
-- **원격 브랜치는 별개** — 체크포인트 모드에선 지울 필요가 있다고 판단되면 그때만, 머지 모드에선 머지 성공 + 로컬 정리 완료 후 항상 1회 AskUserQuestion(§8(b)). 자동 정리에 얹지 않는다.
+- **원격 브랜치는 별개** — 체크포인트 모드에선 지울 필요가 있다고 판단되면 그때만, 머지 모드에선 머지 성공 + 로컬 정리 완료 후 항상 1회 AskUserQuestion(§8(b)). 자동 정리에 얹지 않는다. worklog 실패 등으로 로컬 정리를 생략했으면 원격 질문도 미루고, 보고에 "원격 브랜치 유지 — worktree 정리 때 확인" 1줄을 남긴다(원격은 로컬 삭제 뒤라는 순서를 지킨다).
 
 ### 8. 세션을 main worktree 로 복귀
 1~7단계 후 세션을 main worktree 로 되돌린다(작업 기록은 worktree 에 남기고 다음 작업은 main 에서). **비파괴적**(worktree·브랜치 보존)이라 자동 수행.
@@ -132,5 +136,5 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 - done **자동 전환 안 함** — 확정 완료 신호 + 사용자 확인 시만. 기본 in_progress 체크포인트. 머지 모드의 M4 done 은 `/e merge` 가 그 확인이며, 머지 실패 시 복구 규칙으로 되돌린다.
 - plan 갱신은 **사실 기반만**(§1) — git/파일로 확인된 것만. 추측으로 Progress/Decisions 채우지 않는다.
 - subagent 위임 아님 — plan single writer 는 메인. 메인이 직접 커밋/기록한다.
-- **worktree 정리는 7단계 조건(비-메인·done·clean·merged·미보존 산출물 없음·점유 프로세스 없음) 충족 시 무확인 실행** — 조건 하나라도 불충족이면 정리 생략(강행 금지). `--force`·`git branch -D`(미머지)·**원격 삭제(`git push origin --delete`)**는 여기 포함되지 않으며 명시 확인 없이 금지(§8).
+- **worktree 정리는 7단계 조건(비-메인·done·clean·merged·미보존 산출물 없음·점유 프로세스 없음) 충족 시 무확인 실행** — 조건 하나라도 불충족이거나 6단계 worklog 가 실패했으면 정리 생략(강행 금지). `--force`·`git branch -D`(미머지)·**원격 삭제(`git push origin --delete`)**는 여기 포함되지 않으며 명시 확인 없이 금지(§8).
 - **main 복귀(6 전·8단계)는 자동** — `ExitWorktree(action: keep)` 라 worktree·브랜치를 보존하는 비파괴 동작이라 확인 없이 수행. 단 삭제(remove)는 8단계 아닌 7단계 사안이고, no-op(harness 가 worktree 에서 시작)이면 강제 이동 없이 보고만.

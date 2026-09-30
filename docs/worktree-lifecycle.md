@@ -4,10 +4,10 @@
 
 > 이 파일은 자동 로드되지 않는다 — `/e` 가 **상태 수집·머지 모드(M1 진입)·worktree 삭제 판정/실행·복귀 pull 분기에 실제로 들어갔을 때** 이 파일을 Read 한다. 판정 골격(6조건 AND·자동삭제 금지·안전 게이트)은 SKILL 본문이 단일 소스이고, 여기는 "어떻게"만.
 
-> **범위**: 이 파일은 **CLAUDE.md §8(a) 자동 정리**(조건 충족 시 worktree + 로컬 브랜치를 **묻지 않고** 정리)와 **§8(b) 확인 경로**(원격 브랜치 삭제·안전조건 미충족·`wt rm <이름>` 직접 호출)의 판정 메커닉을 함께 다룬다. 조건 판정은 같고 **결과 처리만 갈린다** — 전부 충족이면 무확인 실행, 하나라도 불충족이면 정리 생략(강행 금지), 원격 삭제는 언제나 AskUserQuestion.
+> **범위**: 이 파일은 **CLAUDE.md §8(a) 자동 정리**(조건 충족 시 worktree + 로컬 브랜치를 **묻지 않고** 정리)와 **§8(b) 확인 경로**(원격 브랜치 삭제·안전조건 미충족·`wt rm <이름>` 직접 호출)의 판정 메커닉을 함께 다룬다. 조건 판정은 같고 **결과 처리만 갈린다** — 전부 충족이면 무확인 실행, 하나라도 불충족이면 정리 생략(강행 금지), 원격 삭제는 언제나 AskUserQuestion. `/e` 6단계 worklog 가 실패로 끝났으면 조건을 판정하지 않고 정리를 생략한다(SKILL 6단계 비차단 bullet).
 
 ## A. collect-state 필드 카탈로그·파싱 (SKILL §2)
-`bash skills/e/collect-state.sh` 가 개별 git 10+ 호출을 1회로 묶어 평문 `key: value` 로 반환하는 신호:
+`bash skills/e/collect-state.sh`(다른 repo·격리 세션에서 부르는 형태는 SKILL 2단계)가 개별 git 10+ 호출을 1회로 묶어 평문 `key: value` 로 반환하는 신호:
 `root·branch·detached·mainWorktree·dirty·status·upstreamStatus·upstream·unpushedStatus·unpushed·base·baseValid·inBase·patchInBase·localDefault·mergedToLocalBase·remoteContainingHead·ignoredStatus·ignored`.
 - 각 라인은 **첫 `: ` 1회로만 split**(경로 `C:/`·커밋 subject 의 `:` 보존). list 필드(`status`·`unpushed`·`remoteContainingHead`·`ignored`)는 들여쓰기 라인.
 - `git log --oneline`(plan 시작 이후 새 커밋)은 헬퍼 밖 별도.
@@ -32,7 +32,7 @@ SKILL 은 "6조건 AND + 하나라도 불충족/헬퍼불가면 제안 생략(�
 
 **결과 처리**:
 - **조건 전부 충족 → 무확인 실행**: worktree → 로컬 `git branch -d`. 삭제한 브랜치 tip sha 를 한 줄 보고(`git branch <name> <sha>` 로 복구 가능). 묻지 않는다(§8(a)).
-- **하나라도 불충족 → 정리 생략** + 사유 한 줄("미머지 → 유지"·"dirty → 유지"·"plan 이 worktree 내부 → 유지"). 강행하지 않는다.
+- **하나라도 불충족 → 정리 생략** + 사유 한 줄("미머지 → 유지"·"dirty → 유지"·"plan 이 worktree 내부 → 유지"). 6단계 worklog 실패도 같다("worklog 실패 → 유지" + 다음 명령 — SKILL 6단계 보고). 강행하지 않는다.
 - **원격 브랜치 삭제**(`git push origin --delete`)는 위 자동 실행에 **포함하지 않는다** — 필요하다고 판단되면 그때만 AskUserQuestion(§8(b)). `--force`·`git branch -D`(미머지)도 동일.
 - **`wt rm <이름>` 직접 호출**은 사용자가 대상을 지목한 경로라 조건 충족 여부와 무관하게 **항상 확인**(오타로 엉뚱한 worktree 를 지울 수 있다).
 
