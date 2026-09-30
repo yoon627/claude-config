@@ -21,25 +21,26 @@ function readCodexModel() {
   }
 }
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
-// "53%(20:30)" — 남은 %(100 - used)와 리셋 시각(epoch 초, 로컬 시각). 주간 창은 리셋이 최대 7일 뒤라
-// 시각만으로는 날을 알 수 없어 요일을 붙인다. 숫자가 아닌 값은 없는 것으로 보고, 둘 다 없으면 ''.
-function windowPiece(usedPct, resetsAt, withDay) {
+// "53%" — 남은 %(100 - used). 숫자가 아니면 ''.
+function remainingPct(usedPct) {
   const used = num(usedPct);
-  const pct = used != null ? Math.round(Math.max(0, 100 - used)) + '%' : '';
+  return used != null ? Math.round(Math.max(0, 100 - used)) + '%' : '';
+}
+
+// "53%(20:30)" — 남은 %와 리셋 시각(epoch 초, 로컬 시각). 숫자가 아닌 값은 없는 것으로 보고, 둘 다 없으면 ''.
+function windowPiece(usedPct, resetsAt) {
+  const pct = remainingPct(usedPct);
   const reset = num(resetsAt);
   const d = reset != null ? new Date(reset * 1000) : null;
-  let tm = '';
-  if (d && !Number.isNaN(d.getTime())) {
-    tm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-    if (withDay) tm = WEEKDAYS[d.getDay()] + ' ' + tm;
-  }
+  const tm = d && !Number.isNaN(d.getTime())
+    ? String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')
+    : '';
   return pct && tm ? `${pct}(${tm})` : pct || (tm ? `(${tm})` : '');
 }
 
-// "<label> 53%(20:30) wk 72%(Sat 13:00)" — 5시간 창 뒤에 주간 창. 둘 다 비면 ''.
+// "<label> 53%(20:30) wk 72%" — 5시간 창 뒤에 주간 창(남은 % 만). 둘 다 비면 ''.
 function quotaPiece(label, fiveHour, weekly) {
   const body = [fiveHour, weekly && 'wk ' + weekly].filter(Boolean).join(' ');
   return body ? `${label} ${body}` : '';
@@ -62,16 +63,17 @@ process.stdin.on('end', () => {
 
   const parts = [];
 
-  // 1. 5-hour + weekly rate limits: "Opus 53%(20:30) wk 72%(Sat 13:00)"
-  //    두 창은 서로 독립적으로 없을 수 있다(리셋 시각이 지나면 Claude Code 가 그 창을 뺀다).
+  // 1. 5-hour + weekly rate limits: "Opus 53%(20:30) wk 72%"
+  //    두 창은 서로 독립적으로 없을 수 있다 — Claude Code 는 최신 API 응답에 그 창의 헤더가 없거나
+  //    리셋 시각이 지나면 그 창을 뺀다.
   const rl = input.rate_limits || {};
   const fiveHour = rl.five_hour || {};
   const sevenDay = rl.seven_day || {};
   // 레이블 'claude' 대신 현재 모델명(stdin 의 model.display_name). 없으면 'claude' 폴백.
   const model = input.model && input.model.display_name;
   const claudePiece = quotaPiece(typeof model === 'string' && model ? model : 'claude',
-    windowPiece(fiveHour.used_percentage, fiveHour.resets_at, false),
-    windowPiece(sevenDay.used_percentage, sevenDay.resets_at, true));
+    windowPiece(fiveHour.used_percentage, fiveHour.resets_at),
+    remainingPct(sevenDay.used_percentage));
   if (claudePiece) parts.push(claudePiece);
 
   // 1b. Codex 5-hour + weekly limits (cached; refreshed in background when stale).
@@ -114,8 +116,8 @@ process.stdin.on('end', () => {
     if (cdx) {
       const fiveWin = codexWindow(cdx, 300, 0);
       const weekWin = codexWindow(cdx, 10080, 1);
-      const five = windowPiece(fiveWin.usedPercent, fiveWin.resetsAt, false);
-      const week = windowPiece(weekWin.usedPercent, weekWin.resetsAt, true);
+      const five = windowPiece(fiveWin.usedPercent, fiveWin.resetsAt);
+      const week = remainingPct(weekWin.usedPercent);
       // 레이블 'codex' 대신 codex 설정 모델명. 못 읽으면 'codex' 폴백 — 표시할 창이 없으면 config 를 읽지 않는다.
       if (five || week) parts.push(quotaPiece(readCodexModel() || 'codex', five, week));
     }

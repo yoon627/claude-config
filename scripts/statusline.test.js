@@ -81,15 +81,13 @@ ok('claude 쿼터: 남은 % 와 리셋 시각, 둘 중 하나만 있으면 그�
   assert.ok(!runStatus({ model, rate_limits: { five_hour: {} } }).includes('Opus'));
 });
 
-// 2026-01-01 은 목요일 — 이틀 뒤가 토요일.
-const sat2030 = at2030 + 2 * 86400;
-
-ok('claude 주간 쿼터: 5시간 조각 뒤에 wk 남은 %(요일 HH:MM), 5시간 창이 없어도 레이블은 붙인다', () => {
+ok('claude 주간 쿼터: 5시간 조각 뒤에 wk 남은 % 만(리셋 시각 없이), 5시간 창이 없어도 레이블은 붙인다', () => {
   const model = { display_name: 'Opus' };
-  const seven_day = { used_percentage: 28, resets_at: sat2030 };
-  assert.ok(runStatus({ model, rate_limits: { five_hour: { used_percentage: 47.4, resets_at: at2030 }, seven_day } })
-    .startsWith('Opus 53%(20:30) wk 72%(Sat 20:30)'));
-  assert.ok(runStatus({ model, rate_limits: { seven_day } }).startsWith('Opus wk 72%(Sat 20:30)'));
+  const seven_day = { used_percentage: 28, resets_at: at2030 };
+  assert.strictEqual(runStatus({ model, rate_limits: { five_hour: { used_percentage: 47.4, resets_at: at2030 }, seven_day } }),
+    'Opus 53%(20:30) wk 72%');
+  assert.strictEqual(runStatus({ model, rate_limits: { seven_day } }), 'Opus wk 72%');
+  assert.strictEqual(runStatus({ model, rate_limits: { seven_day: { resets_at: at2030 } } }), '');
   // 숫자가 아닌 값은 없는 것으로 본다 — 그 창만 빠지고 다른 창은 남는다.
   assert.strictEqual(runStatus({ model, rate_limits: { five_hour: { used_percentage: 47.4, resets_at: at2030 },
     seven_day: { used_percentage: { toString: 1 }, resets_at: '2026-01-03' } } }), 'Opus 53%(20:30)');
@@ -101,17 +99,17 @@ ok('codex 쿼터: 신선한 캐시의 primary 와 secondary(주간)를 같은 �
     fs.mkdirSync(path.join(home, '.claude', 'cache'), { recursive: true });
     fs.writeFileSync(path.join(home, '.claude', 'cache', 'codex-quota.json'),
       JSON.stringify({ fetchedAt: Date.now(), primary: { usedPercent: 20, resetsAt: at2030 },
-        secondary: { usedPercent: 79, resetsAt: sat2030 } }));
-    assert.ok(runStatus({}, home).includes('codex 80%(20:30) wk 21%(Sat 20:30)'));
+        secondary: { usedPercent: 79, resetsAt: at2030 } }));
+    assert.ok(runStatus({}, home).endsWith('codex 80%(20:30) wk 21%'));
     const cache = (data) => fs.writeFileSync(path.join(home, '.claude', 'cache', 'codex-quota.json'),
       JSON.stringify({ fetchedAt: Date.now(), ...data }));
     cache({ primary: { resetsAt: at2030 } });
     assert.ok(runStatus({}, home).includes('codex (20:30)'));
     // 위치가 아니라 windowDurationMins 로 창을 고른다 — 주간 창만 primary 로 오는 계정, 5시간·주간이 아닌 창.
-    cache({ primary: { usedPercent: 79, resetsAt: sat2030, windowDurationMins: 10080 }, secondary: null });
-    assert.ok(runStatus({}, home).includes('codex wk 21%(Sat 20:30)'));
+    cache({ primary: { usedPercent: 79, resetsAt: at2030, windowDurationMins: 10080 }, secondary: null });
+    assert.ok(runStatus({}, home).endsWith('codex wk 21%'));
     cache({ primary: { usedPercent: 20, resetsAt: at2030, windowDurationMins: 300 },
-      secondary: { usedPercent: 50, resetsAt: sat2030, windowDurationMins: 1440 } });
+      secondary: { usedPercent: 50, resetsAt: at2030, windowDurationMins: 1440 } });
     assert.ok(runStatus({}, home).endsWith('codex 80%(20:30)'));
     cache({ primary: { usedPercent: 20, resetsAt: at2030 }, secondary: { usedPercent: { toString: null } } });
     assert.ok(runStatus({}, home).endsWith('codex 80%(20:30)'));
