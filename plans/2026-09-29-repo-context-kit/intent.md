@@ -2,7 +2,7 @@
 title: repo-context-kit — consumer repo 마다 LLM 이 코드를 이해할 맥락을 세우고 코드와 어긋나지 않게 유지하는 공용 킷
 status: open
 started: 2026-09-29
-updated: 2026-09-30
+updated: 2026-10-01
 ---
 
 # Problem
@@ -32,7 +32,7 @@ consumer repo 가 한 번의 초기화로 맥락 킷을 세우고, 킷이 코드
 - 스크립트는 stdlib 만 쓰고 `uv run --no-project python <script>` 로 돈다(`check_links.py` 와 같은 실행 방식). 파일 하나만 복사해도 동작해야 한다 — Open questions 의 배포 형태가 vendoring 으로 정해져도 막히지 않게.
   - 예외: `wiki_search.py` 는 frontmatter·본문 파서를 두 벌로 두지 않으려고 `wiki_check.py` 를 import 한다(#219). vendoring 할 때는 두 파일을 함께 옮긴다.
 - Stop hook 모드는 fail-open 이다(도구 오류로 세션을 막지 않는다). 다만 도구 실패는 사용자에게 보이게 알린다 — 조용히 넘기면 config 오타나 Python 버전 문제로 게이트가 꺼져도 아무도 모른다. 보고·CI 모드는 fail-closed 다(검사할 수 없는 상태를 통과로 보고하지 않는다).
-- 실행해 볼 수 없는 플랫폼(Windows)의 동작에는 추정 스위치를 넣지 않고 미검증으로 적는다.
+- 실행해 볼 수 없는 플랫폼의 동작에는 추정 스위치를 넣지 않고 미검증으로 적는다. Windows 는 실행해 볼 머신이 있다 — wiki-tests-windows-fix(2026-10-01)가 Windows 11 에서 wiki 테스트를 돌려 고쳤고, 확인한 범위는 `skills/wiki/SKILL.md` "Python" 절에 있다.
 - 전역 등록은 머지로 전달되지 않는다. `settings.json` 은 추적하지 않고(`.gitignore`, `README.md:7`) bootstrap 은 rtk hook 만 등록한다(`scripts/bootstrap/README.md` settings.json 행). hook·plugin 을 켜는 단위는 머신마다 할 절차를 문서로 내고, 켜기 전 상태에서도 문서끼리 모순되지 않게 한다.
 - 쓰이지 않아 걷어낸 장치(코드 그래프 색인, LSP plugin)를 되살리는 단위는 착수 전에 0회의 원인을 밝히거나 context-eval 로 필요를 보인다. 새 장치를 더하는 단위는 plan 에 사용 여부를 잴 방법(transcript 집계 등)을 적는다. 쓰이지 않는 장치가 매 세션 지침 토큰만 드는 일을 되풀이하지 않기 위해서다(공용 wiki `codegraph`).
 
@@ -101,3 +101,4 @@ consumer repo 가 한 번의 초기화로 맥락 킷을 세우고, 킷이 코드
     - consumer repo 의 CI 와 다른 사람은 `~/.claude` 아래를 볼 수 없다.
   - 사용자 목적은 "한 곳에서 보고 검색하기"로 확인했다.
 - `plans/2026-09-30-check-links-alias/check-links-alias-plan.md` — wiki-graph-search # Deferred 후속, 규모 small. `check_links.py` 가 별칭 링크 `[[a|b]]` 도 링크로 읽는다. 호출 계약은 그대로이고 판정만 정확해진다(Constraints 첫째 항목의 문구를 이때 분명히 했다).
+- `plans/2026-10-01-wiki-tests-windows-fix/wiki-tests-windows-fix-plan.md` — 사용자 요청, 규모 medium. Windows 에서 실패하던 wiki 테스트 5건을 고친다 — Stop hook stdin 의 시한·크기 제한, 닫힌 stdout 의 EINVAL, wiki_search 오류 문구의 경로 표기, 대소문자 인자 테스트의 플랫폼 가정. 호출 계약은 그대로다. Constraints 의 Windows 전제를 이때 고쳤다.
