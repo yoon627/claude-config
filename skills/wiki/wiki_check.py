@@ -1340,6 +1340,19 @@ def _rewrap(stream, cls):
     return cls(stream.detach(), encoding="utf-8", errors="backslashreplace", **buffering)
 
 
+def setup_streams() -> None:
+    """CLI 의 표준 스트림을 맞춘다 — `__main__` 에서 한 번 부른다(wiki_search 도 쓴다). stdout 은 닫힌 pipe 를
+    `BrokenPipeError` 로 알리고, stderr 는 쓰기 실패를 삼키므로 main 이 받는 `BrokenPipeError` 는 stdout 의 것이다."""
+    if sys.stderr is None:
+        # 닫힌 stderr 는 None 이다 — 그대로 두면 오류 문구·traceback 을 쓰다 죽고, print(file=None) 은 stdout 으로 간다.
+        sys.stderr = open(os.devnull, "w")
+    # UTF-8 아닌 경로는 surrogateescape 로 들고 다닌다 — strict 면 출력에서 죽는다.
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout = _rewrap(sys.stdout, _Stdout)
+    if isinstance(sys.stderr, io.TextIOWrapper):
+        sys.stderr = _rewrap(sys.stderr, _QuietStderr)
+
+
 # ---------- verified_at 지문 (--report) ----------
 
 FP_VERSION = 1
@@ -1863,14 +1876,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    if sys.stderr is None:
-        # 닫힌 stderr 는 None 이다 — 그대로 두면 오류 문구·traceback 을 쓰다 죽는다.
-        sys.stderr = open(os.devnull, "w")
-    # UTF-8 아닌 경로는 surrogateescape 로 들고 다닌다 — strict 면 출력에서 죽는다.
-    if isinstance(sys.stdout, io.TextIOWrapper):
-        sys.stdout = _rewrap(sys.stdout, _Stdout)
-    if isinstance(sys.stderr, io.TextIOWrapper):
-        sys.stderr = _rewrap(sys.stderr, _QuietStderr)
+    setup_streams()
     if os.name != "nt":
         for sig in (signal.SIGTERM, signal.SIGHUP):
             if signal.getsignal(sig) == signal.SIG_DFL:
