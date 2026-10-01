@@ -10,7 +10,9 @@ Python 3.9·3.10 에는 tomllib 이 없어 config 파일을 읽는 테스트를 
 from __future__ import annotations
 
 import ast
+import errno
 import importlib.util
+import io
 import json
 import os
 import re
@@ -22,6 +24,7 @@ import time
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -190,7 +193,7 @@ class WikiTestCase(unittest.TestCase):
     def _run_code(self, code: str) -> subprocess.CompletedProcess:
         proc_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
         proc_env.update(self.env)
-        # -c 는 __main__ 의 stdout reconfigure 를 거치지 않는다.
+        # -c 는 __main__ 의 stdout 설정(UTF-8 로 다시 감싸기)을 거치지 않는다.
         proc_env["PYTHONIOENCODING"] = "utf-8"
         return subprocess.run(
             [sys.executable, "-c", code],
@@ -474,6 +477,37 @@ class SchemaTest(WikiTestCase):
             os.close(wfd)
         self.assertEqual(r.returncode, 1)
         self.assertEqual(r.stdout.decode().splitlines(), ["wiki/pages/concept/x.md: 필수 키 누락 — sources"])
+
+
+class StdoutTest(unittest.TestCase):
+    def test_einval_from_a_closed_pipe_is_a_broken_pipe_only_on_windows(self) -> None:
+        class FailingPipe(io.RawIOBase):
+            def __init__(self, err: int) -> None:
+                super().__init__()
+                self.err = err
+
+            def writable(self) -> bool:
+                return True
+
+            def write(self, b) -> int:
+                if self.err:
+                    raise OSError(self.err, os.strerror(self.err))
+                return len(b)
+
+        cases = (("nt", errno.EINVAL, BrokenPipeError), ("posix", errno.EINVAL, OSError), ("nt", errno.ENOSPC, OSError))
+        for name, err, want in cases:
+            for where in ("write", "flush"):
+                with self.subTest(os_name=name, errno=err, where=where):
+                    raw = FailingPipe(err)
+                    out = wiki_check._Stdout(io.BufferedWriter(raw), encoding="utf-8", write_through=where == "write")
+                    # os.name 은 write·flush 둘레에서만 바꾼다 — pathlib 도 실행 중에 읽는다.
+                    with self.assertRaises(OSError) as caught, mock.patch.object(wiki_check.os, "name", name):
+                        out.write("x" * (1 << 16) if where == "write" else "x")
+                        out.flush()
+                    raw.err = 0  # GC 가 닫으며 flush 할 때 'Exception ignored' 를 내지 않게
+                    self.assertIs(type(caught.exception), want)
+                    if want is BrokenPipeError:
+                        self.assertEqual(caught.exception.__cause__.errno, errno.EINVAL)
 
 
 class DiscoveryTest(WikiTestCase):

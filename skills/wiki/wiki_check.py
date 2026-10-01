@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import errno
 import fnmatch
 import hashlib
 import io
@@ -1271,6 +1272,38 @@ class _QuietStderr(io.TextIOWrapper):
                 super().flush()
 
 
+class _Stdout(io.TextIOWrapper):
+    """읽는 쪽이 닫은 pipe 에 쓰면 Windows 는 대개 BrokenPipeError 가 아니라 EINVAL 을 낸다 — CRT 가 ERROR_NO_DATA 를
+    errno 로 옮기지 못한다(CPython gh-79935, 경합에 따라 EPIPE 일 때도 있다. subprocess 의 _stdin_write 도 EINVAL 을
+    같은 뜻으로 본다). POSIX 와 같은 BrokenPipeError 로 바꿔 main 의 처리 한 곳으로 보낸다."""
+
+    def write(self, text):
+        try:
+            return super().write(text)
+        except OSError as e:
+            _raise_if_closed_pipe(e)
+            raise
+
+    def flush(self):
+        try:
+            super().flush()
+        except OSError as e:
+            _raise_if_closed_pipe(e)
+            raise
+
+
+def _raise_if_closed_pipe(e: OSError) -> None:
+    # POSIX 의 쓰기 EINVAL 은 다른 뜻이고, 닫힌 pipe 는 이미 BrokenPipeError 다.
+    if os.name == "nt" and e.errno == errno.EINVAL:
+        raise BrokenPipeError(errno.EPIPE, os.strerror(errno.EPIPE)) from e
+
+
+def _rewrap(stream, cls):
+    """같은 버퍼링으로 UTF-8·backslashreplace 인 cls 로 다시 감싼다."""
+    buffering = {"line_buffering": stream.line_buffering, "write_through": stream.write_through}
+    return cls(stream.detach(), encoding="utf-8", errors="backslashreplace", **buffering)
+
+
 # ---------- verified_at 지문 (--report) ----------
 
 FP_VERSION = 1
@@ -1798,11 +1831,10 @@ if __name__ == "__main__":
         # 닫힌 stderr 는 None 이다 — 그대로 두면 오류 문구·traceback 을 쓰다 죽는다.
         sys.stderr = open(os.devnull, "w")
     # UTF-8 아닌 경로는 surrogateescape 로 들고 다닌다 — strict 면 출력에서 죽는다.
-    if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
-    if hasattr(sys.stderr, "detach"):
-        buffering = {"line_buffering": sys.stderr.line_buffering, "write_through": sys.stderr.write_through}
-        sys.stderr = _QuietStderr(sys.stderr.detach(), encoding="utf-8", errors="backslashreplace", **buffering)
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout = _rewrap(sys.stdout, _Stdout)
+    if isinstance(sys.stderr, io.TextIOWrapper):
+        sys.stderr = _rewrap(sys.stderr, _QuietStderr)
     if os.name != "nt":
         for sig in (signal.SIGTERM, signal.SIGHUP):
             if signal.getsignal(sig) == signal.SIG_DFL:
