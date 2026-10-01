@@ -1,8 +1,8 @@
 ---
 title: wiki-windows-followups — wiki 도구 후속 4건(wiki_search 닫힌 stdout·OSError 문구·check_links 읽기 오류·hook 닫힌 stdout 테스트의 Windows 실행)
-status: in_progress
+status: done
 started: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-02
 intent: plans/2026-09-29-repo-context-kit/intent.md
 ---
 
@@ -42,8 +42,9 @@ intent: plans/2026-09-29-repo-context-kit/intent.md
 
 - 2026-10-01: 로컬 main(`a76a9c9` — 런처 수정) 위로 rebase. 정상 출력 9경우(wiki_search 결과·없음·`--open`·`--links-to`·사용 오류, check_links clean·위반(CRLF·BOM·한글 파일 이름·별칭 안 lone CR), schema clean·위반)가 base 와 바이트 동일 — Windows·WSL. skills/wiki 전체 Windows 3.9.25 188 OK(skip 33)·WSL 3.12.3 ext4 188 OK(skip 2). 최종 검증(격리 runner, 단독 실행) `bash scripts/verify.sh` exit 0 `ALL PASS (skip: install-hooks.test.js(case) record-verified.test.sh)` — skip 은 기존 환경 사유(git 2.30 이하 케이스의 sh shim, jq 없음)로 이 변경 경로가 아니다. evidence gate: Acceptance 1~10 충족 → DONE(status 는 머지 때 done).
 
+- 2026-10-02: 사용자 승인으로 commit-check 재구성(커밋 10 → 4, 최종 tree 동일) → `/e merge` — PR #229(로컬 main 의 `2951118`·`a76a9c9` 도 함께 실림).
+
 # Next
-- 사용자 결정 대기: commit-check 재구성(fixup 5개 합치기 + 단위 1·3·4 메시지 갱신) 승인, `/e merge`(push·PR·머지 — 로컬 main 의 미push 2커밋 `2951118`·`a76a9c9` 도 함께 실린다) 여부.
 
 # Decisions
 - wiki decision 조회: `wiki-search-design`(exit 0/1/2 계약 — 따른다, exit 2 에 "출력을 끝까지 못 냄"을 더한다), `python-windows-closed-pipe-einval`(변환은 스트림에서·main 은 `BrokenPipeError` 만 — 따른다).
