@@ -1327,15 +1327,21 @@ class StaleBranchTest(GitWikiTestCase):
         self.commit("page")
         self.assertEqual(self._branch().returncode, 0)
 
-    def test_case_mismatched_wiki_argument_is_refused(self) -> None:
+    def test_case_mismatched_wiki_argument_is_refused_or_judged_the_same(self) -> None:
+        # git 과 다른 표기로 판정하면 같은 commit 의 페이지 변경을 못 봐 거짓 stale 이 난다. resolve() 가 인자 표기를
+        # 그대로 두면 거부해야 하고, 디스크 표기로 되돌리면(Windows) 올바른 표기와 같은 판정이어야 한다.
         if not (self.root / "WIKI").exists():
             self.skipTest("대소문자를 가리는 파일시스템")
         self._page("concept/api.md", covers_page("src/api/*") + "upd\n")
         self.write("src/api/x.py", "v2\n")
         self.commit("code+page")
-        self.assertEqual(self._branch().returncode, 0)
+        want = self._branch()
+        self.assertEqual(want.returncode, 0, want.stdout + want.stderr)
         r = self._branch("Wiki")
-        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        if r.returncode == 2:
+            self.assertIn("git 은 wiki", r.stderr)
+        else:
+            self.assertEqual((r.returncode, r.stdout), (want.returncode, want.stdout), r.stderr)
 
 
 class StaleReportTest(GitWikiTestCase):
