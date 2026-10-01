@@ -308,11 +308,13 @@ class ExitCodeTest(SearchCase):
                 self.assertIn(reason, err)
 
     def test_unreadable_index_exit_2(self):
-        (self.shared / "index.md").unlink()
-        (self.shared / "index.md").mkdir()
-        code, out, err = self.run_main("clone")
+        # POSIX 에서 `\` 는 이름의 글자라, 경로를 repr 로 내면 Windows 처럼 역슬래시가 겹쳐 POSIX 에서도 실패한다.
+        shared = make_wiki(self.tmp / "sha\\red", SHARED_PAGES, SHARED_INDEX)
+        (shared / "index.md").unlink()
+        (shared / "index.md").mkdir()
+        code, out, err = self.run_main("clone", env=dict(self.env, CLAUDE_SHARED_WIKI=str(shared)))
         self.assertEqual((code, out), (2, ""))
-        self.assertIn(str(self.shared / "index.md"), err)
+        self.assertIn(str(shared / "index.md"), err)
 
     @unittest.skipIf(os.name == "nt" or os.geteuid() == 0, "권한으로 디렉터리 읽기를 막을 수 없다")
     def test_unreadable_pages_directory_exit_2(self):
