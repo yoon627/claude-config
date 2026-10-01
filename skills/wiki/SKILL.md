@@ -83,7 +83,7 @@ wiki 는 두 계층이다(CLAUDE.md §11 이 배치 규칙의 단일 소스):
 - 모순(`[!conflict]` 미해소)·오래된 entity 버전(외부 사실의 버전 낡음 — `wiki_check.py stale` 과 다르다) 후보. 공용 wiki 면 공개 점검 위반 후보도.
 
 기계 점검은 아래 스크립트가 하고(stdlib 만 쓴다), 의미 점검(모순·오래된 entity 버전·공개)은 LLM 이 한다.
-- `check_links.py` — dead link·orphan·outbound<2·index 동기화: `uv run --no-project python "${CLAUDE_SKILL_DIR}/check_links.py" [wiki 경로]`(인자가 없으면 현재 repo 의 wiki). 별칭 `[[a|b]]` 도 `a` 로의 링크로 센다. 다만 index 등재는 별칭 없는 `[[a]]` 만 인정한다(smoke 와 같은 기준).
+- `check_links.py` — dead link·orphan·outbound<2·index 동기화: `uv run --no-project python "${CLAUDE_SKILL_DIR}/check_links.py" [wiki 경로]`(인자가 없으면 현재 repo 의 wiki). 별칭 `[[a|b]]` 도 `a` 로의 링크로 센다. 다만 index 등재는 별칭 없는 `[[a]]` 만 인정한다(smoke 와 같은 기준). exit 0 clean, 1 위반 — UTF-8 이 아닌 페이지·index 는 `UTF-8 아님` 위반을 내고 나머지를 판정한다(페이지는 schema 와 같은 값), 2 pages 디렉터리 없음이나 읽기 실패(권한·하위 디렉터리 — 위반 목록 없이 `check_links: 읽기 실패 — <경로>: <이유>`).
 - `wiki_check.py schema` — frontmatter 형식: `uv run --no-project python "${CLAUDE_SKILL_DIR}/wiki_check.py" schema [wiki 경로] [--config 파일]`.
   - wiki 경로가 없으면 현재 디렉터리에서 repo 루트까지 올라가며 `wiki/` 를 찾는다. `docs/wiki` 처럼 그 밖에 있는 wiki 는 경로를 넘긴다.
   - exit 0 통과, 1 위반(`<경로>: <규칙> — <내용>` 한 줄씩, 경로는 repo 루트 기준이고 repo 밖이면 wiki 의 부모 기준), 2 사용·설정·환경 오류.
