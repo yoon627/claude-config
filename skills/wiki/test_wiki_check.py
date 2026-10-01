@@ -818,6 +818,15 @@ class FingerprintTest(unittest.TestCase):
 
 
 class GitAdapterTest(GitWikiTestCase):
+    def test_start_failure_names_the_directory_once(self) -> None:
+        # Windows 의 Popen 실패는 filename 이 없어(WinError 267·2) 어느 디렉터리였는지 문구가 실어야 한다.
+        # POSIX 에서 이름의 `\` 는 글자라, 경로를 repr 로 내면 역슬래시가 겹친다.
+        missing = self.root / ("missing" if os.name == "nt" else "mis\\sing")
+        with self.assertRaises(wiki_check.GitError) as cm:
+            wiki_check.Git(missing, self.env).out("status")
+        self.assertIn(f"(cwd {missing})", str(cm.exception))
+        self.assertNotIn("\\\\", str(cm.exception))
+
     @unittest.skipIf(os.name == "nt", "가짜 git 이 sh 스크립트다")
     def test_deadline_bounds_each_call(self) -> None:
         fake = self._temp_dir()
@@ -1758,6 +1767,15 @@ class StopHookTest(GitWikiTestCase):
         self.assertIn("예상 밖 오류", out["systemMessage"])
         out = self._hook_code("wiki_check.HOOK_BUDGET = 0.0")
         self.assertIn("초", out["systemMessage"])
+
+    def test_unexpected_oserror_names_the_path_once(self) -> None:
+        # str(OSError) 는 경로를 repr 로 붙여 Windows 경로의 역슬래시가 systemMessage 에 겹쳐 보인다.
+        out = self._hook_code(
+            "def _fail(*a, **k):\n"
+            "    raise FileNotFoundError(2, 'No such file or directory', 'C:\\\\w\\\\x.md')\n"
+            "wiki_check.changed_files = _fail"
+        )
+        self.assertIn("예상 밖 오류 — FileNotFoundError: C:\\w\\x.md: No such file or directory", out["systemMessage"])
 
     @unittest.skipIf(os.name == "nt", "가짜 git 이 sh 스크립트다")
     def test_git_timeout_gives_system_message_within_budget(self) -> None:

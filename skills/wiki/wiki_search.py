@@ -416,9 +416,7 @@ def _main(argv: list[str] | None, *, env: Mapping[str, str] | None, cwd: Path | 
     try:
         pages = [page for tier, root in targets for page in load_pages(tier, root)]
     except OSError as e:
-        # str(OSError) 는 경로를 repr 로 붙여 Windows 경로의 역슬래시가 겹친다.
-        detail = f"{e.filename}: {e.strerror}" if e.filename and e.strerror else e
-        print(f"wiki_search: 읽기 실패 — {detail}", file=sys.stderr)
+        print(f"wiki_search: 읽기 실패 — {wiki_check.describe_oserror(e)}", file=sys.stderr)
         return 2
     if missing:
         print(f"wiki_search: 공용 wiki 없음 — {shared}: {missing}. clone 방법은 ~/.claude README Install E", file=sys.stderr)

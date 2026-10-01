@@ -709,6 +709,12 @@ class OutOfTime(GitError):
     """시간 제한 안에 끝나지 않았다."""
 
 
+def describe_oserror(e: OSError) -> str:
+    """`<경로>: <이유>` — str(e) 는 경로를 repr 로 붙여 역슬래시가 겹친다(Path 면 `PosixPath('…')`). 경로나
+    이유가 없으면(Windows 의 Popen 실패) str(e) 다. filename2 는 싣지 않는다."""
+    return f"{e.filename}: {e.strerror}" if e.filename and e.strerror else str(e)
+
+
 class Git:
     """모든 호출에 GIT_OPTIONAL_LOCKS=0 과 GIT_LITERAL_PATHSPECS=1 을 준다. status 가 index 를 다시 쓰며
     잠금을 잡으면 같은 때의 git add·commit 과 부딪치고, 페이지 경로의 `[`·`:` 가 pathspec 문법으로 읽히면
@@ -768,7 +774,7 @@ class Git:
                 start_new_session=os.name != "nt",
             )
         except OSError as e:
-            raise GitError(f"git 을 실행하지 못했다 — {e}") from None
+            raise GitError(f"git 을 실행하지 못했다(cwd {self.cwd}) — {describe_oserror(e)}") from None
         try:
             out, err = proc.communicate(input, timeout=limit)
         except BaseException as e:
@@ -1270,7 +1276,8 @@ def hook_main(argv: list[str]) -> int:
         out = _warn(str(e))
     except BaseException as e:
         traceback.print_exc()
-        out = _warn(f"예상 밖 오류 — {type(e).__name__}: {e}")
+        detail = describe_oserror(e) if isinstance(e, OSError) else e
+        out = _warn(f"예상 밖 오류 — {type(e).__name__}: {detail}")
     if out is not None:
         try:
             print(json.dumps(out))
