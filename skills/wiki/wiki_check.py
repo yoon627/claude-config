@@ -32,11 +32,13 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import errno
 import fnmatch
 import hashlib
 import io
 import json
 import os
+import queue
 import re
 import select
 import shutil
@@ -44,6 +46,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import traceback
 from collections.abc import Callable, Mapping
@@ -1102,17 +1105,51 @@ def render_context(stale: list[tuple[str, list[str]]]) -> str:
     return "\n".join(lines)
 
 
+def _read_in_thread(fd: int, wait: float) -> tuple[str, bytes]:
+    """read_stdin 의 Windows 판 — select 가 소켓만 받아 막히는 읽기를 daemon 스레드에 맡기고 기다림에만 시한을
+    둔다. timeout 이면 스레드는 읽기에 막힌 채 남아 프로세스와 함께 끝난다(daemon 이 아니면 종료가 그 스레드를
+    기다려 멈춘다). sys.stdin.buffer 를 읽으면 종료 때 그 lock 을 쥔 스레드가 남는다."""
+    done: queue.Queue = queue.Queue()
+
+    def pump() -> None:
+        chunks = []
+        size = 0
+        try:
+            while True:
+                chunk = os.read(fd, 1 << 16)
+                if not chunk:
+                    done.put(("eof", b"".join(chunks)))
+                    return
+                size += len(chunk)
+                if size > STDIN_MAX:
+                    done.put(("toolarge", b""))
+                    return
+                chunks.append(chunk)
+        except BaseException as e:
+            done.put(e)
+
+    threading.Thread(target=pump, name="wiki_check-stdin", daemon=True).start()
+    try:
+        outcome = done.get(timeout=wait)
+    except queue.Empty:
+        return "timeout", b""
+    if isinstance(outcome, BaseException):
+        raise outcome
+    return outcome
+
+
 def read_stdin(wait: float) -> tuple[str, bytes]:
-    """("tty" | "eof" | "timeout" | "toolarge", 읽은 바이트). EOF 가 wait 초 안에 오지 않으면 timeout, STDIN_MAX
-    바이트를 넘으면 toolarge 다."""
+    """("tty" | "eof" | "timeout" | "toolarge", 읽은 바이트 — 입력으로 쓰는 것은 eof 일 때뿐이다). EOF 가 wait 초
+    안에 오지 않으면 timeout, STDIN_MAX 바이트를 넘으면 toolarge 다. Windows 의 timeout 뒤에는 읽기 스레드가 stdin 을
+    쥐고 있어, 쓰는 쪽이 닫을 때까지 fd 0 을 닫거나 stdin 을 물려받는 자식(git)을 띄우면 시한 없이 막힌다(실측) —
+    timeout 이면 곧바로 끝낸다."""
     if sys.stdin is None:
         return "eof", b""
     fd = sys.stdin.fileno()
     if os.isatty(fd):
         return "tty", b""
     if os.name == "nt":
-        # select 는 Windows 에서 소켓만 받는다 — 막히는 읽기로 둔다(미검증).
-        return "eof", sys.stdin.buffer.read()
+        return _read_in_thread(fd, wait)
     chunks = []
     size = 0
     deadline = time.monotonic() + wait
@@ -1269,6 +1306,38 @@ class _QuietStderr(io.TextIOWrapper):
             _discard(self)
             with contextlib.suppress(OSError):
                 super().flush()
+
+
+class _Stdout(io.TextIOWrapper):
+    """읽는 쪽이 닫은 pipe 에 쓰면 Windows 는 대개 BrokenPipeError 가 아니라 EINVAL 을 낸다 — CRT 가 ERROR_NO_DATA 를
+    errno 로 옮기지 못한다(CPython gh-79935, 경합에 따라 EPIPE 일 때도 있다. subprocess 의 _stdin_write 도 EINVAL 을
+    같은 뜻으로 본다). POSIX 와 같은 BrokenPipeError 로 바꿔 main 의 처리 한 곳으로 보낸다."""
+
+    def write(self, text):
+        try:
+            return super().write(text)
+        except OSError as e:
+            _raise_if_closed_pipe(e)
+            raise
+
+    def flush(self):
+        try:
+            super().flush()
+        except OSError as e:
+            _raise_if_closed_pipe(e)
+            raise
+
+
+def _raise_if_closed_pipe(e: OSError) -> None:
+    # POSIX 의 쓰기 EINVAL 은 다른 뜻이고, 닫힌 pipe 는 이미 BrokenPipeError 다.
+    if os.name == "nt" and e.errno == errno.EINVAL:
+        raise BrokenPipeError(errno.EPIPE, os.strerror(errno.EPIPE)) from e
+
+
+def _rewrap(stream, cls):
+    """같은 버퍼링으로 UTF-8·backslashreplace 인 cls 로 다시 감싼다."""
+    buffering = {"line_buffering": stream.line_buffering, "write_through": stream.write_through}
+    return cls(stream.detach(), encoding="utf-8", errors="backslashreplace", **buffering)
 
 
 # ---------- verified_at 지문 (--report) ----------
@@ -1798,11 +1867,10 @@ if __name__ == "__main__":
         # 닫힌 stderr 는 None 이다 — 그대로 두면 오류 문구·traceback 을 쓰다 죽는다.
         sys.stderr = open(os.devnull, "w")
     # UTF-8 아닌 경로는 surrogateescape 로 들고 다닌다 — strict 면 출력에서 죽는다.
-    if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
-    if hasattr(sys.stderr, "detach"):
-        buffering = {"line_buffering": sys.stderr.line_buffering, "write_through": sys.stderr.write_through}
-        sys.stderr = _QuietStderr(sys.stderr.detach(), encoding="utf-8", errors="backslashreplace", **buffering)
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout = _rewrap(sys.stdout, _Stdout)
+    if isinstance(sys.stderr, io.TextIOWrapper):
+        sys.stderr = _rewrap(sys.stderr, _QuietStderr)
     if os.name != "nt":
         for sig in (signal.SIGTERM, signal.SIGHUP):
             if signal.getsignal(sig) == signal.SIG_DFL:

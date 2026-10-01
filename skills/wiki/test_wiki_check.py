@@ -10,7 +10,9 @@ Python 3.9·3.10 에는 tomllib 이 없어 config 파일을 읽는 테스트를 
 from __future__ import annotations
 
 import ast
+import errno
 import importlib.util
+import io
 import json
 import os
 import re
@@ -18,10 +20,12 @@ import shutil
 import signal
 import subprocess
 import sys
+import threading
 import time
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -190,7 +194,7 @@ class WikiTestCase(unittest.TestCase):
     def _run_code(self, code: str) -> subprocess.CompletedProcess:
         proc_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
         proc_env.update(self.env)
-        # -c 는 __main__ 의 stdout reconfigure 를 거치지 않는다.
+        # -c 는 __main__ 의 stdout 설정(UTF-8 로 다시 감싸기)을 거치지 않는다.
         proc_env["PYTHONIOENCODING"] = "utf-8"
         return subprocess.run(
             [sys.executable, "-c", code],
@@ -474,6 +478,37 @@ class SchemaTest(WikiTestCase):
             os.close(wfd)
         self.assertEqual(r.returncode, 1)
         self.assertEqual(r.stdout.decode().splitlines(), ["wiki/pages/concept/x.md: 필수 키 누락 — sources"])
+
+
+class StdoutTest(unittest.TestCase):
+    def test_einval_from_a_closed_pipe_is_a_broken_pipe_only_on_windows(self) -> None:
+        class FailingPipe(io.RawIOBase):
+            def __init__(self, err: int) -> None:
+                super().__init__()
+                self.err = err
+
+            def writable(self) -> bool:
+                return True
+
+            def write(self, b) -> int:
+                if self.err:
+                    raise OSError(self.err, os.strerror(self.err))
+                return len(b)
+
+        cases = (("nt", errno.EINVAL, BrokenPipeError), ("posix", errno.EINVAL, OSError), ("nt", errno.ENOSPC, OSError))
+        for name, err, want in cases:
+            for where in ("write", "flush"):
+                with self.subTest(os_name=name, errno=err, where=where):
+                    raw = FailingPipe(err)
+                    out = wiki_check._Stdout(io.BufferedWriter(raw), encoding="utf-8", write_through=where == "write")
+                    # os.name 은 write·flush 둘레에서만 바꾼다 — pathlib 도 실행 중에 읽는다.
+                    with self.assertRaises(OSError) as caught, mock.patch.object(wiki_check.os, "name", name):
+                        out.write("x" * (1 << 16) if where == "write" else "x")
+                        out.flush()
+                    raw.err = 0  # GC 가 닫으며 flush 할 때 'Exception ignored' 를 내지 않게
+                    self.assertIs(type(caught.exception), want)
+                    if want is BrokenPipeError:
+                        self.assertEqual(caught.exception.__cause__.errno, errno.EINVAL)
 
 
 class DiscoveryTest(WikiTestCase):
@@ -1292,15 +1327,21 @@ class StaleBranchTest(GitWikiTestCase):
         self.commit("page")
         self.assertEqual(self._branch().returncode, 0)
 
-    def test_case_mismatched_wiki_argument_is_refused(self) -> None:
+    def test_case_mismatched_wiki_argument_is_refused_or_judged_the_same(self) -> None:
+        # git 과 다른 표기로 판정하면 같은 commit 의 페이지 변경을 못 봐 거짓 stale 이 난다. resolve() 가 인자 표기를
+        # 그대로 두면 거부해야 하고, 디스크 표기로 되돌리면(Windows) 올바른 표기와 같은 판정이어야 한다.
         if not (self.root / "WIKI").exists():
             self.skipTest("대소문자를 가리는 파일시스템")
         self._page("concept/api.md", covers_page("src/api/*") + "upd\n")
         self.write("src/api/x.py", "v2\n")
         self.commit("code+page")
-        self.assertEqual(self._branch().returncode, 0)
+        want = self._branch()
+        self.assertEqual(want.returncode, 0, want.stdout + want.stderr)
         r = self._branch("Wiki")
-        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        if r.returncode == 2:
+            self.assertIn("git 은 wiki", r.stderr)
+        else:
+            self.assertEqual((r.returncode, r.stdout), (want.returncode, want.stdout), r.stderr)
 
 
 class StaleReportTest(GitWikiTestCase):
@@ -1980,6 +2021,72 @@ class StopHookTest(GitWikiTestCase):
         src = self.root / "src"
         out, _ = self._hook({"cwd": str(src)}, ("docs/wiki",), cwd=src)
         self.assertIn("docs/wiki/pages/concept/d.md", out["hookSpecificOutput"]["additionalContext"])
+
+
+class ThreadStdinTest(unittest.TestCase):
+    """Windows 의 stdin 읽기(_read_in_thread)를 os.pipe 로 프로세스 안에서 돈다 — POSIX CI 에서도 덮인다."""
+
+    def _pipe(self) -> tuple[int, int]:
+        """(읽는 fd, 쓰는 fd). 쓰는 쪽은 self.close_write() 로 한 번만 닫는다. Windows 는 다른 스레드가 읽는 중인 fd 의
+        os.close 를 그 읽기가 끝날 때까지 막는다 — 정리는 쓰는 쪽 → 새로 생긴 스레드 → 읽는 쪽 순이고, 쓰는 쪽은 5초 뒤
+        타이머도 닫아 시한 없이 막히는 회귀가 멈춤이 아니라 실패가 된다."""
+        before = set(threading.enumerate())
+        r, w = os.pipe()
+        lock = threading.Lock()
+        is_open = True
+
+        def close_write() -> None:
+            nonlocal is_open
+            with lock:
+                if is_open:
+                    is_open = False
+                    os.close(w)
+
+        def join_new() -> None:
+            for t in set(threading.enumerate()) - before:
+                t.join(5)
+
+        timer = threading.Timer(5, close_write)
+        self.addCleanup(os.close, r)
+        self.addCleanup(join_new)
+        self.addCleanup(close_write)
+        self.addCleanup(timer.cancel)
+        timer.start()
+        self.close_write = close_write
+        return r, w
+
+    def test_chunks_are_read_until_eof(self) -> None:
+        r, w = self._pipe()
+
+        def feed() -> None:
+            for part in (b'{"cwd": ', b'"x"', b"}"):
+                os.write(w, part)
+                time.sleep(0.2)
+            self.close_write()
+
+        threading.Thread(target=feed).start()
+        self.assertEqual(wiki_check._read_in_thread(r, 3.0), ("eof", b'{"cwd": "x"}'))
+
+    def test_no_eof_within_wait_is_timeout(self) -> None:
+        r, w = self._pipe()
+        os.write(w, b'{"cwd": ')
+        start = time.monotonic()
+        self.assertEqual(wiki_check._read_in_thread(r, 0.3), ("timeout", b""))
+        self.assertLess(time.monotonic() - start, 2)
+        # 아직 읽기에 막혀 있는 리더가 daemon 이 아니면 실제 hook 은 종료하며 그것을 기다려 멈춘다.
+        readers = [t for t in threading.enumerate() if t.name == "wiki_check-stdin"]
+        self.assertTrue(readers and all(t.daemon for t in readers), readers)
+
+    def test_over_stdin_max_is_toolarge(self) -> None:
+        self.addCleanup(setattr, wiki_check, "STDIN_MAX", wiki_check.STDIN_MAX)
+        wiki_check.STDIN_MAX = 4
+        r, w = self._pipe()
+        os.write(w, b"12345")
+        self.assertEqual(wiki_check._read_in_thread(r, 3.0), ("toolarge", b""))
+
+    def test_read_error_is_raised_in_the_caller(self) -> None:
+        with self.assertRaises(OSError):
+            wiki_check._read_in_thread(-1, 3.0)
 
 
 class SmokeTest(WikiTestCase):
