@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// session-brief.js 테스트 — K(머지대기 브랜치) + L(improve nudge) + M(닫히지 않은 plan).
+// session-brief.js 테스트 — K(머지대기 브랜치) + L(improve nudge) + M(닫히지 않은 plan) + N(자동 pull 밀림) + O(세션 repo 밀림).
 // git fixture(origin/main + ahead 브랜치) spawn / SIGNAL_DIR 주입 jsonl 로 판정 관찰.
 // 신호 격리: CLAUDE_DLC_SIGNAL_DIR 로 telemetry 를 fixture 로 돌린다.
 'use strict';
