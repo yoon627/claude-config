@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+# 실행기를 고르기 전에는 외부 명령(dirname 등)을 부르지 않는다 — PATH 에 아무것도 없어도 127 로 끝나야 한다.
+# `\` 도 구분자로 본다: Git Bash 는 C:\… 경로로도 실행된다.
+script_name=${BASH_SOURCE[0]##*[\\/]}
+script_dir=${BASH_SOURCE[0]%"$script_name"}
+script_dir="$(cd "${script_dir:-.}" && pwd -P)"
 script_path="$script_dir/jira_worklog.py"
 
 if command -v uv >/dev/null 2>&1; then
