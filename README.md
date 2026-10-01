@@ -386,7 +386,7 @@ AI 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex/sessions`)
 - **삭제된 worktree**: `<root>/.claude/worktrees/<name>` 규약으로 이름을 복원해 **표시만** 하고 등록하지 않는다. 등록 가능 여부는 이름이 아니라 `Bucket.kind` 로 판정한다 — 죽은 worktree 이름이 티켓형(`ABC-1234-…`)이면 이름 기준 필터로는 샌다. main 은 모든 worktree 의 조상이라 **조상 폴백을 하지 않는다**(하면 삭제된 worktree 시간이 통째로 main 에 흡수된다).
 - **Codex 는 파일 단위 귀속** — rollout 전수에서 세션 중 cwd 이동이 0건이라 나눌 것이 없다. 단 **소속 판정은 Claude 와 같은 분류기**(`WorktreeIndex.classify`)를 태운다 — worktree 하위 디렉토리에서 시작한 세션도 그 worktree 로 잡힌다(예전엔 정확일치라 26건이 어디에도 못 가고 사라졌다). "파일 단위"는 *한 rollout 을 쪼개지 않는다*는 뜻이지 매칭이 엄격하다는 뜻이 아니다.
 - **등록 게이트**(게이트까지 all-or-nothing — 통과 후 HTTP 실패는 부분 반영 가능, Jira 에 트랜잭션 없음): 전 날짜 `old → new` diff 출력 후, 30분 이상 & 50% 초과 변동(**증가·감소 양쪽**)이나 rename 의심(같은 날 내 다른 worktree 항목 존재 + 이 마커 없음)이면 **한 건도 쓰지 않고** 중단. `--allow-large-change` 로 진행하며, 직전 값·worklog id 는 `~/.claude/logs/jira-worklog-<날짜>.jsonl` 에 남는다(Jira 쓰기는 code revert 로 복구 불가).
-- 대상 티켓은 **worktree 디렉토리 이름 prefix**(anchored)에서 우선 추출, 없으면 브랜치명 fallback. 어느 쪽에도 없으면 등록 skip(안전).
+- 대상 티켓은 **worktree 디렉토리 이름 prefix**(anchored)에서 우선 추출, 없으면 브랜치명 fallback. 어느 쪽에도 없으면 등록 skip(안전). 기본 패턴은 `[A-Z][A-Z0-9]+-\d+` 이고, 조직 고유 키로 좁히는 패턴은 머신별 `~/.jira-kit/jira-kit.toml`(`[worklog]` `ticket_pattern`, 작은따옴표 리터럴 문자열 — cwd 위에 프로젝트 `jira-kit.toml` 이 있으면 전역 대신 그것만 읽는다) 또는 `JIRA_TICKET_PATTERN` 에 둔다. 공개 repo 에는 넣지 않는다. jira-task 도 같은 키를 읽는다(우선순위·주의는 SKILL.md).
 - **worklog 항목은 세션 단위**: 마커 `[jira-kit] worklog <티켓> <날짜> (<worktree>) [<세션>]` 로 그 세션의 그날 항목만 upsert 한다(멱등). 세션 id 자체가 분할 키라 "어디까지 등록했나" 워터마크 없이 재실행이 안전하다. 세션이 끝날 때마다 실행하면 그 몫이 독립 항목으로 남고 **티켓 총 작업시간은 Jira 가 합산** — 대신 한 티켓에 항목이 여러 줄 쌓인다(실측 한 티켓: 3항목 → 22항목). 한 세션이 여러 worktree 를 오가면 worktree 마다 항목을 갖는다(세션은 등록 단위이지 귀속 단위가 아니다).
 - **세션 id 는 uuid 의 뒤 8자**(`claude:e7173e9a`). 앞이 아니라 뒤인 이유는 Codex rollout id 가 UUIDv7 이라 앞 48비트가 timestamp 여서다 — 앞 8자로 줄이면 수 초 안에 시작된 세션끼리 그대로 겹친다(실측 수십 건이 한 항목으로 합쳐졌다). 그래도 겹치면 등록 전에 감지해 경고한다.
 - **겹침 union 은 세션 안에서만** 일어난다. 두 세션을 같은 시각에 병렬로 돌리면 겹치는 시간이 양쪽에 잡혀 합계가 실제 경과시간보다 커진다 — 실측(회사 repo) 등록 대상 worktree 기준 과다분 합계 약 2.3h, worktree 94개 중 89개는 겹침 0.
@@ -702,6 +702,7 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │       ├── test_session_time.py    # cwd → bucket 귀속·구간 발행 테스트 (CI)
 │       ├── test_register_gate.py   # 등록 diff·게이트 판정 테스트 (CI)
 │       ├── test_exit_contract.py   # /e 정리 게이트가 기대는 CLI 종료코드 계약 테스트 (CI)
+│       ├── test_ticket_pattern.py  # 범용 기본 티켓 패턴·머신별 패턴 설정(toml) 테스트 (CI)
 │       └── test_launcher.sh        # launcher 의 Python fallback·인자 전달·종료코드(127·전달) 테스트 (CI)
 │   └── jira-task/
 │       ├── SKILL.md                # Claude·Codex 작업내용 → Jira task description (dry-run 기본)

@@ -21,7 +21,7 @@ from .jira_client import JiraConfig, api_base_for, fetch_cloud_id
 # 끌어오게 된다.
 from .session_time import DEFAULT_MAX_GAP_MINUTES
 
-_DEFAULT_TICKET_PATTERN = r"[A-Z][A-Z0-9]+-\d+"  # 범용 Jira 키(CSTP1-2251 등도 매칭)
+_DEFAULT_TICKET_PATTERN = r"[A-Z][A-Z0-9]+-\d+"  # 범용 Jira 키(프로젝트 키에 숫자가 든 AB1-22 등도 매칭)
 _DEFAULT_TIMEZONE = "Asia/Seoul"
 
 

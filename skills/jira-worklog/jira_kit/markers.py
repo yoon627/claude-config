@@ -5,7 +5,7 @@ Jira worklog POST 는 비멱등이라, worklog comment 에 (ticket, date, worktr
 찾고(``find_worklogs_by_marker``), 없으면 생성·있으면 시간만 갱신한다(upsert, ``worklog_register``).
 
 마커가 좁아질 때마다 이유가 있었다. worktree 가 없으면 같은 티켓의 두 worktree
-(``CSTP1-1234-abc``/``-def``)가 같은 항목을 자기 것으로 잡아 나중 등록이 이전 시간을 덮는다.
+(``ABC-1234-abc``/``-def``)가 같은 항목을 자기 것으로 잡아 나중 등록이 이전 시간을 덮는다.
 세션이 없으면 등록 단위를 세션으로 나눌 수 없다. 그래서 마커는 **세션까지** 포함하고, 티켓
 총합은 Jira 의 worklog 합계에 맡긴다.
 

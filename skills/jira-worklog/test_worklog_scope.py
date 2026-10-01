@@ -35,7 +35,7 @@ from jira_kit.markers import (  # noqa: E402
 )
 from jira_kit.worklog_core import DayWorklog  # noqa: E402
 
-TICKET = "CSTP1-1234"
+TICKET = "ABC-1234"
 DAY = date(2026, 7, 22)
 ME = "account-me"
 OTHER = "account-other"
@@ -82,7 +82,7 @@ class AdfLinesTest(unittest.TestCase):
     이 방향의 회귀가 더 위험하다.
     """
 
-    MARKER = worklog_marker(TICKET, DAY, "CSTP1-1234-abc", SESSION)
+    MARKER = worklog_marker(TICKET, DAY, "ABC-1234-abc", SESSION)
 
     def assert_finds(self, comment: dict) -> None:
         self.assertEqual(
@@ -159,36 +159,36 @@ class UpsertScopeTest(unittest.TestCase):
 
     def test_other_worktree_entry_is_not_overwritten(self) -> None:
         """다른 worktree 항목이 있어도 새로 만들 뿐 그 항목을 갱신하지 않는다."""
-        existing = [entry_for("CSTP1-1234-abc", seconds=2 * 3600)]
+        existing = [entry_for("ABC-1234-abc", seconds=2 * 3600)]
 
-        result = self.upsert("CSTP1-1234-def", day_worklog(3), existing)
+        result = self.upsert("ABC-1234-def", day_worklog(3), existing)
 
         self.assertEqual(result, "created")
         self.add_worklog.assert_called_once()
         self.update_worklog.assert_not_called()
 
     def test_created_comment_carries_own_scope_marker(self) -> None:
-        self.upsert("CSTP1-1234-def", day_worklog(3), [])
+        self.upsert("ABC-1234-def", day_worklog(3), [])
 
         comment = self.add_worklog.call_args.kwargs["comment"]
-        self.assertIn(worklog_marker(TICKET, DAY, "CSTP1-1234-def", SESSION), comment.splitlines())
+        self.assertIn(worklog_marker(TICKET, DAY, "ABC-1234-def", SESSION), comment.splitlines())
 
     def test_same_worktree_rerun_updates_only_its_entry(self) -> None:
         existing = [
-            entry_for("CSTP1-1234-abc", seconds=2 * 3600, id_="abc-1"),
-            entry_for("CSTP1-1234-def", seconds=1 * 3600, id_="def-1"),
+            entry_for("ABC-1234-abc", seconds=2 * 3600, id_="abc-1"),
+            entry_for("ABC-1234-def", seconds=1 * 3600, id_="def-1"),
         ]
 
-        result = self.upsert("CSTP1-1234-def", day_worklog(3), existing)
+        result = self.upsert("ABC-1234-def", day_worklog(3), existing)
 
         self.assertEqual(result, "updated")
         self.add_worklog.assert_not_called()
         self.assertEqual(self.update_worklog.call_args.args[2], "def-1")
 
     def test_same_worktree_same_seconds_is_unchanged(self) -> None:
-        existing = [entry_for("CSTP1-1234-def", seconds=3 * 3600)]
+        existing = [entry_for("ABC-1234-def", seconds=3 * 3600)]
 
-        result = self.upsert("CSTP1-1234-def", day_worklog(3), existing)
+        result = self.upsert("ABC-1234-def", day_worklog(3), existing)
 
         self.assertEqual(result, "unchanged")
         self.add_worklog.assert_not_called()
@@ -200,31 +200,31 @@ class UpsertScopeTest(unittest.TestCase):
         사용자 `--comment` 나 Jira UI 수동 편집으로 생길 수 있는 형태다. 줄 정확일치라
         본문 줄과 구분된다(부분문자열 매칭으로 되돌리면 이 테스트가 Red).
         """
-        marker = worklog_marker(TICKET, DAY, "CSTP1-1234-def", SESSION)
+        marker = worklog_marker(TICKET, DAY, "ABC-1234-def", SESSION)
         for body in (f"참고: {marker} 로 기록됨", f"{marker}-2", f"x{marker}"):
             with self.subTest(body):
                 self.add_worklog.reset_mock()
                 self.update_worklog.reset_mock()
                 existing = [worklog(body, seconds=2 * 3600, id_="note-1")]
 
-                result = self.upsert("CSTP1-1234-def", day_worklog(3), existing)
+                result = self.upsert("ABC-1234-def", day_worklog(3), existing)
 
                 self.assertEqual(result, "created")
                 self.update_worklog.assert_not_called()
 
     def test_other_author_entry_is_ignored(self) -> None:
-        existing = [entry_for("CSTP1-1234-def", seconds=2 * 3600, author=OTHER)]
+        existing = [entry_for("ABC-1234-def", seconds=2 * 3600, author=OTHER)]
 
-        result = self.upsert("CSTP1-1234-def", day_worklog(3), existing)
+        result = self.upsert("ABC-1234-def", day_worklog(3), existing)
 
         self.assertEqual(result, "created")
         self.update_worklog.assert_not_called()
 
     def test_other_session_entry_is_not_overwritten(self) -> None:
         """같은 worktree 라도 다른 세션 항목은 건드리지 않는다 — 등록 단위가 세션이다."""
-        existing = [entry_for("CSTP1-1234-def", seconds=2 * 3600, session=SESSION2)]
+        existing = [entry_for("ABC-1234-def", seconds=2 * 3600, session=SESSION2)]
 
-        result = self.upsert("CSTP1-1234-def", day_worklog(3), existing)
+        result = self.upsert("ABC-1234-def", day_worklog(3), existing)
 
         self.assertEqual(result, "created")
         self.update_worklog.assert_not_called()
@@ -232,11 +232,11 @@ class UpsertScopeTest(unittest.TestCase):
     def test_same_session_rerun_updates_only_that_entry(self) -> None:
         """세션마다 항목이 생겨도 재실행은 자기 항목만 갱신한다(워터마크 없이 멱등)."""
         existing = [
-            entry_for("CSTP1-1234-def", seconds=1 * 3600, id_="s1", session=SESSION),
-            entry_for("CSTP1-1234-def", seconds=2 * 3600, id_="s2", session=SESSION2),
+            entry_for("ABC-1234-def", seconds=1 * 3600, id_="s1", session=SESSION),
+            entry_for("ABC-1234-def", seconds=2 * 3600, id_="s2", session=SESSION2),
         ]
 
-        result = self.upsert("CSTP1-1234-def", day_worklog(3), existing)
+        result = self.upsert("ABC-1234-def", day_worklog(3), existing)
 
         self.assertEqual(result, "updated")
         self.add_worklog.assert_not_called()
@@ -244,18 +244,18 @@ class UpsertScopeTest(unittest.TestCase):
 
     def test_duplicate_own_markers_abort(self) -> None:
         existing = [
-            entry_for("CSTP1-1234-def", seconds=2 * 3600, id_="a"),
-            entry_for("CSTP1-1234-def", seconds=1 * 3600, id_="b"),
+            entry_for("ABC-1234-def", seconds=2 * 3600, id_="a"),
+            entry_for("ABC-1234-def", seconds=1 * 3600, id_="b"),
         ]
 
         with self.assertRaises(JiraError):
-            self.upsert("CSTP1-1234-def", day_worklog(3), existing)
+            self.upsert("ABC-1234-def", day_worklog(3), existing)
         self.add_worklog.assert_not_called()
         self.update_worklog.assert_not_called()
 
     def test_missing_account_id_aborts(self) -> None:
         with self.assertRaises(JiraError):
-            self.upsert("CSTP1-1234-def", day_worklog(3), [], account_id=None)
+            self.upsert("ABC-1234-def", day_worklog(3), [], account_id=None)
         self.add_worklog.assert_not_called()
 
 
@@ -273,7 +273,7 @@ class LegacyMarkerTest(unittest.TestCase):
     def upsert(self, existing: list[dict]) -> str:
         return worklog_register.upsert_worklog(
             CONFIG, TICKET, day_worklog(3), existing, ME,
-            worktree="CSTP1-1234-def", session=SESSION
+            worktree="ABC-1234-def", session=SESSION
         )
 
     def test_own_legacy_entry_aborts(self) -> None:
@@ -284,7 +284,7 @@ class LegacyMarkerTest(unittest.TestCase):
         self.add_worklog.assert_not_called()
         self.update_worklog.assert_not_called()
         # 안내대로 따라하면 이중계상이 안 되도록, 교체할 정확한 마커를 메시지에 담는다.
-        self.assertIn(worklog_marker(TICKET, DAY, "CSTP1-1234-def", SESSION), str(caught.exception))
+        self.assertIn(worklog_marker(TICKET, DAY, "ABC-1234-def", SESSION), str(caught.exception))
 
     def test_other_author_legacy_entry_does_not_abort(self) -> None:
         """타인의 구 마커 항목까지 막으면 영구 중단된다."""
@@ -297,25 +297,25 @@ class LegacyMarkerTest(unittest.TestCase):
 
     def test_scoped_entry_is_not_seen_as_legacy(self) -> None:
         """새 형식 항목은 구 마커를 prefix 로 포함하지만 legacy 로 잡히면 안 된다."""
-        existing = [entry_for("CSTP1-1234-def", seconds=3 * 3600)]
+        existing = [entry_for("ABC-1234-def", seconds=3 * 3600)]
 
         self.assertEqual(self.upsert(existing), "unchanged")
 
     def test_sessionless_entry_does_not_abort(self) -> None:
         """세션 없는 구 형식은 귀속이 명확해 멈추지 않는다 — 경고는 CLI 몫이다."""
-        existing = [worklog(worktree_worklog_marker(TICKET, DAY, "CSTP1-1234-def"),
+        existing = [worklog(worktree_worklog_marker(TICKET, DAY, "ABC-1234-def"),
                             seconds=2 * 3600, id_="old")]
 
         self.assertEqual(self.upsert(existing), "created")
 
     def test_sessionless_entry_is_reported_for_warning(self) -> None:
         """중단하지 않는 대신 id 를 내어 CLI 가 경고할 수 있게 한다 — 안 보이면 정리도 못 한다."""
-        existing = [worklog(worktree_worklog_marker(TICKET, DAY, "CSTP1-1234-def"),
+        existing = [worklog(worktree_worklog_marker(TICKET, DAY, "ABC-1234-def"),
                             seconds=2 * 3600, id_="old")]
 
         self.assertEqual(
             worklog_register.sessionless_worklog_ids(
-                existing, TICKET, DAY, "CSTP1-1234-def", ME
+                existing, TICKET, DAY, "ABC-1234-def", ME
             ),
             ("old",),
         )
@@ -337,22 +337,22 @@ class MarkerValidationTest(unittest.TestCase):
     def test_empty_session_rejected(self) -> None:
         """빈 세션이면 마커가 세션 없는 구 형식과 겹쳐 그 검사에 자기가 걸린다."""
         with self.assertRaises(ValueError):
-            worklog_marker(TICKET, DAY, "CSTP1-1234-def", "")
+            worklog_marker(TICKET, DAY, "ABC-1234-def", "")
 
 
 class ParseScopeTest(unittest.TestCase):
     """마커 조립과 해체가 갈리면 rival 판정이 조용히 틀린다."""
 
     def test_round_trip(self) -> None:
-        line = worklog_marker(TICKET, DAY, "CSTP1-1234-def", SESSION)
-        self.assertEqual(parse_scope(line, TICKET, DAY), ("CSTP1-1234-def", SESSION))
+        line = worklog_marker(TICKET, DAY, "ABC-1234-def", SESSION)
+        self.assertEqual(parse_scope(line, TICKET, DAY), ("ABC-1234-def", SESSION))
 
     def test_sessionless_marker_is_not_parsed(self) -> None:
-        line = worktree_worklog_marker(TICKET, DAY, "CSTP1-1234-def")
+        line = worktree_worklog_marker(TICKET, DAY, "ABC-1234-def")
         self.assertIsNone(parse_scope(line, TICKET, DAY))
 
     def test_other_day_is_not_parsed(self) -> None:
-        line = worklog_marker(TICKET, date(2026, 7, 23), "CSTP1-1234-def", SESSION)
+        line = worklog_marker(TICKET, date(2026, 7, 23), "ABC-1234-def", SESSION)
         self.assertIsNone(parse_scope(line, TICKET, DAY))
 
 

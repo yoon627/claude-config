@@ -367,9 +367,9 @@ class NestedAndOutOfRootTest(unittest.TestCase):
     def test_bucket_name_preserves_case(self):
         # 소문자화되면 extract_ticket 의 대문자 패턴이 어긋나 조용히 미등록된다.
         bucket = classify_cwd(
-            "/repo/.claude/worktrees/CSTP1-2812-Foo", ROOT, [ROOT],
+            "/repo/.claude/worktrees/ABC-2812-Foo", ROOT, [ROOT],
         )
-        self.assertEqual(bucket.name, "CSTP1-2812-Foo")
+        self.assertEqual(bucket.name, "ABC-2812-Foo")
 
     def test_malformed_cwd_does_not_abort(self):
         # cwd 는 로그에서 온 외부 입력이다. 한 줄이 전체 집계를 죽이면 안 된다.

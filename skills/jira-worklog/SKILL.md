@@ -68,7 +68,15 @@ JIRA_API_TOKEN=<Atlassian API token>
 - 발급: https://id.atlassian.com/manage-profile/security/api-tokens (앱 = **Jira**). 토큰은 프롬프트에 넣지 말 것.
 - scoped 토큰이면 cloudId 자동 조회(`api.atlassian.com/ex/jira/{cloudId}`). 조회 skip 하려면 `JIRA_CLOUD_ID` 설정.
 - 정확한 IANA 타임존이 필요하면 `pip install tzdata`(없으면 시스템 로컬 tz fallback).
-- 비민감 설정(ticket_pattern/timezone/max_gap)은 선택 — `~/.jira-kit/jira-kit.toml`.
+- 비민감 설정(`[worklog]` 테이블의 `ticket_pattern`·`timezone`·`max_gap_minutes`)은 선택 — `~/.jira-kit/jira-kit.toml`. cwd 위에서 찾은 프로젝트 `jira-kit.toml` 이 있으면 전역 파일 대신 그것만 읽는다(병합 아님).
+- 조직 고유 티켓 키로 좁히는 패턴은 그 머신의 `jira-kit.toml`(또는 `JIRA_TICKET_PATTERN`)에 둔다 — 조직 고유 값은 이 공개 repo 에 넣지 않는다. 우선순위는 `--ticket-pattern` > 환경변수 `JIRA_TICKET_PATTERN` > `.env`(프로젝트 > 전역) > `jira-kit.toml` > 기본값이다. jira-task 도 같은 파일·키를 같은 순서로 읽는다(`--ticket-pattern` 은 없다). 좁힌 패턴과 맞지 않으면 jira-task 는 skip 하지 않고 `--ticket` 지정을 요구한다.
+
+  ```toml
+  [worklog]
+  ticket_pattern = 'ABC-\d+'
+  ```
+
+  정규식은 작은따옴표(리터럴 문자열)로 쓴다. 큰따옴표면 `\d` 는 TOML 파싱 오류다 — jira-worklog 는 exit 2 로 끝나 `/e` 6단계가 실패하고 worktree 정리를 건너뛰며, 같은 파일을 읽는 jira-task 도 실패한다. `\b` 처럼 TOML 이 아는 이스케이프는 오류 없이 다른 문자로 바뀐다. 패턴이 이름과 맞지 않으면 티켓 없음으로 exit 0 skip 이고 `/e` 는 정리를 계속하므로, 설정한 뒤 세션 기록이 있는 worktree 에서 미리보기를 돌려 머리줄의 `ticket=` 이 `(없음)` 이 아닌지 확인한다(세션 기록이 없으면 그 머리줄 없이 `세션 활동 없음` 만 나온다).
 
 ## 동작·옵션
 
@@ -82,11 +90,11 @@ JIRA_API_TOKEN=<Atlassian API token>
   - 같은 (티켓, 날짜)에 **내 다른 worktree 항목**이 있는데 이 worktree 마커는 없는 경우 — worktree rename 이면 새로 만들 때 이중계상된다.
   - rival 신호는 rename 과 **정상적인 병렬 worktree 작업**(같은 티켓 두 worktree 를 같은 날)을 구분하지 못한다 — 후자면 그대로 `--allow-large-change` 로 진행하면 된다.
   - 확인했으면 `--allow-large-change` 로 진행(강행 시에도 사유는 출력된다). 등록 직전 값·worklog id 는 `~/.claude/logs/jira-worklog-<날짜>.jsonl` 에 남아 수동 복구의 근거가 된다.
-- **등록 단위는 세션이다**: 세션 하나가 worklog 항목 하나다. 마커는 `[jira-kit] worklog <티켓> <날짜> (<worktree>) [<세션>]`. 세션이 끝날 때마다 실행하면 그 세션 몫이 독립 항목으로 남아 "이 작업을 언제 얼마나 했나"를 세션 단위로 되짚을 수 있다. 대신 한 티켓에 항목이 여러 줄 쌓인다(실측 CSTP1-2812: 날짜 3일 = 3항목 → 세션 21개 = 22항목).
+- **등록 단위는 세션이다**: 세션 하나가 worklog 항목 하나다. 마커는 `[jira-kit] worklog <티켓> <날짜> (<worktree>) [<세션>]`. 세션이 끝날 때마다 실행하면 그 세션 몫이 독립 항목으로 남아 "이 작업을 언제 얼마나 했나"를 세션 단위로 되짚을 수 있다. 대신 한 티켓에 항목이 여러 줄 쌓인다(실측 한 티켓: 날짜 3일 = 3항목 → 세션 21개 = 22항목).
 - **upsert(멱등)**: 그 마커로 **그 세션의** 본인 worklog 를 찾아 없으면 생성, 있으면 시간만 갱신한다(재실행해도 중복 없음). 세션 id 자체가 분할 키라 "어디까지 등록했나" 워터마크가 필요 없다. 갱신 시 기존 comment 는 보존. 타인의 worklog(같은 마커·다른 author)는 건드리지 않는다.
 - **세션 id 는 파일명 uuid 의 뒤 8자**(`claude:e7173e9a`·`codex:36ff21cc`). 앞이 아니라 **뒤**를 쓰는 건 Codex rollout id 가 UUIDv7 이라 앞 48비트가 timestamp 이기 때문이다 — 앞 8자로 줄이면 수 초 안에 시작된 세션끼리 그대로 겹친다(실측 수십 건). 그래도 겹치면 두 세션이 한 항목으로 합쳐지므로(시간은 합산되어 남는다) 등록 전에 감지해 경고한다.
 - **한 세션이 여러 worktree 를 오가면** worktree 마다 자기 몫의 항목을 갖는다 — 세션은 등록 단위이지 귀속 단위가 아니다.
-- **합계는 실제 경과시간보다 클 수 있다**: 겹침 제거(union)가 세션 안에서만 일어나므로 두 세션을 같은 시각에 병렬로 돌리면 겹치는 시간이 양쪽에 각각 잡힌다. 실측(knowledge_base) 등록 대상 worktree 기준 과다분은 합계 약 2.3시간이고 worktree 94개 중 89개는 겹침이 0이다.
+- **합계는 실제 경과시간보다 클 수 있다**: 겹침 제거(union)가 세션 안에서만 일어나므로 두 세션을 같은 시각에 병렬로 돌리면 겹치는 시간이 양쪽에 각각 잡힌다. 실측(회사 repo) 등록 대상 worktree 기준 과다분은 합계 약 2.3시간이고 worktree 94개 중 89개는 겹침이 0이다.
 - worktree 를 지워도 그 항목은 Jira 에 남는다(코드가 정정·삭제하지 않음 — 필요하면 수동 정리). 구 형식 항목은 둘로 갈린다: **worktree 없는** 형식은 귀속을 알 수 없어 그 (티켓, 날짜) 등록을 **중단**하고, **세션 없는** 형식은 귀속이 명확하므로 **경고만** 하고 진행한다(새 항목과 겹쳐 계상되니 수동 정리 대상).
 - Jira UI 에서 worklog 코멘트를 수동 편집해 마커 줄을 지우면 다음 실행이 같은 날 항목을 새로 만든다.
 
