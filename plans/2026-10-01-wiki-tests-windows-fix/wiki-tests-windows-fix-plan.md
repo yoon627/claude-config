@@ -1,6 +1,6 @@
 ---
 title: wiki-tests-windows-fix — Windows 에서 실패하는 wiki 테스트 5건의 원인을 고쳐 wiki_check·wiki_search 테스트가 Windows 에서 통과한다
-status: in_progress
+status: done
 started: 2026-10-01
 updated: 2026-10-01
 intent: plans/2026-09-29-repo-context-kit/intent.md
@@ -56,9 +56,10 @@ Windows(이 머신 — Windows 11, Python 3.13.15)에서 `skills/wiki/test_wiki_
 - 2026-10-01 최종 검증(격리 runner, 명령 14개): `bash scripts/verify.sh` 전체(Windows) `FAILED: 1` — wiki 3파일·python 12파일·node·syntax·shellcheck 는 ok, 실패는 `skills/jira-worklog/test_launcher.sh` 하나(아래), skip 은 `record-verified.test.sh`(jq 없음)·`install-hooks.test.js` 의 `[ps1]` 케이스. `improve.sh --ci` exit 0(error 0·warn 0), plan-lint 0, 3.9.25 wiki_check 131 OK(skip 31)·wiki_search 32 OK·check_links 13 OK, WSL 176 OK(skip 2), `hookreal`(python 20회 최대 1.13초·`uv run` 10회 최대 2.29초·Node end/hang)·`closedout`·`bytecmp`(양쪽)·`mutate` stdin/stdout/case(양쪽)·콘솔 probe 모두 기대대로. runner 가 출력 한계로 못 본 항목(Acceptance 1·2·4·8 의 개수·skip 이름·`test_unreadable_index_exit_2` 실행)은 메인이 `counts.sh` 로 직접 확인 — Windows 3.13 wiki_check 131 OK(skip 14 — 기준선과 같은 14건)·wiki_search 32 OK(skip 1 = 권한 테스트, `test_unreadable_index_exit_2` ok), WSL 131 OK(skip 2 — 기준선과 같은 두 테스트)·32 OK·13 OK. runner 관찰과 어긋나는 판정은 없다.
 - 2026-10-01 `test_launcher.sh` 실패 입증: base `c9eb5d5` 의 `skills/jira-worklog` 를 scratch 에 꺼내 Git Bash 로 돌려도 같은 단언(`test 1 -eq 127`)에서 실패한다. 이 브랜치는 jira-worklog 를 건드리지 않았다(`git diff c9eb5d5 HEAD -- skills/jira-worklog` 빈 값). WSL bash 에서는 통과한다 → Deferred.
 - 2026-10-01 evidence gate: Acceptance 1~13 전 항목 증거로 충족 → **DONE**(13 은 base 에서 입증된 범위 밖 실패 하나를 Deferred 로). status 는 머지 때 done(§10).
+- 2026-10-01 단위 5 docs 커밋 → commit-check(사용자 승인): fixup 3개를 대상 커밋에 합치고 두 커밋 메시지를 리뷰 반영 내용으로 갱신 — 최종 tree 는 재구성 전과 같고, 재구성된 중간 커밋 4개는 각각 POSIX 에서 wiki 테스트 통과. 사용자 선택으로 `/e merge` 착수.
+- 2026-10-01 `/e merge`: push → PR #228(MERGEABLE) → plan done. 묶음 `repo-context-kit` 은 `# Plans` 에 미착수 단위가 남아 open 유지.
 
 # Next
-- 단위 5 docs 커밋(SKILL.md·intent·plan) → commit-check(fixup 3개를 대상에 합치고 bf5082e·0d2dbdc 메시지 갱신 — 사용자 승인) → Report → 마무리 선택(`/e merge` 등).
 
 # Decisions
 - 계획 전 wiki 조회(`windows wiki_check`·`stdin stop-hook`·`wiki_check stale hook covers`): [[lesson-no-speculative-platform-switch]](실행해 보지 못한 플랫폼 분기 금지 — 이번엔 대상 플랫폼에서 직접 실행해 확인한다), [[python-subprocess-text-stdin-windows]](Windows 의 subprocess stdin 쓰기는 EINVAL 을 "읽는 쪽이 닫음"으로 본다 — CPython `_stdin_write` 선례), [[windows-bash-tool-orphan-processes]](Windows verify.sh 는 오래 걸린다 — background 실행). 셋 다 따른다. Stop hook 전용 결정 페이지는 없다.
