@@ -11,10 +11,14 @@ index.md ↔ pages/ 동기화.
 
 from __future__ import annotations
 
+import contextlib
+import io
+import os
 import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import check_links  # noqa: E402
@@ -138,6 +142,90 @@ class CheckWikiTest(unittest.TestCase):
                 "index dead link: [[zzz]] (index.md 에 있으나 페이지 없음)",
             ],
         )
+
+    def _main(self) -> tuple[int, str, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = check_links.main(["check_links.py", str(self.root)])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_non_utf8_page_and_index_are_violations_and_the_rest_is_judged(self) -> None:
+        # wiki_check schema 처럼 위반(1)이다. 링크 문법은 ASCII 라 깨진 바이트를 바꿔 읽어도 판정이 같다.
+        self._clean()
+        for path in (self.root / "pages" / "concept" / "a.md", self.root / "index.md"):
+            path.write_bytes(path.read_bytes() + b"\xff\n")
+        code, out, _ = self._main()
+        self.assertEqual(code, 1)
+        self.assertEqual([line.split(" (")[0] for line in out.splitlines()], ["UTF-8 아님: a", "UTF-8 아님: index.md"])
+
+    def test_read_error_exits_2_without_a_verdict(self) -> None:
+        # 일부만 읽은 판정은 판정이 아니다 — 위반(1)이 아니라 점검 불가(2). read() 단계의 실패(EIO)는 경로를 싣지 않는다.
+        self._clean()
+        target = self.root / "pages" / "concept" / "b.md"
+        for error in (PermissionError(13, "Permission denied", str(target)), OSError(5, "Input/output error")):
+            with self.subTest(error=error):
+
+                def fail_on_target(real):
+                    def read(path, *args, **kwargs):
+                        if path == target:
+                            raise error
+                        return real(path, *args, **kwargs)
+
+                    return read
+
+                with mock.patch.object(Path, "read_bytes", fail_on_target(Path.read_bytes)), mock.patch.object(
+                    Path, "read_text", fail_on_target(Path.read_text)
+                ):
+                    code, out, err = self._main()
+                self.assertEqual((code, out), (2, ""))
+                self.assertIn(f"check_links: 읽기 실패 — {target}: {error.strerror}", err)
+
+    def test_non_regular_md_entries_are_not_pages(self) -> None:
+        # 일반 파일만 페이지다(wiki_check 와 같다). 도는 symlink 를 읽으면 오류, FIFO 는 쓰는 쪽을 기다리며 멈춘다.
+        self._clean()
+        concept = self.root / "pages" / "concept"
+        (concept / "notes.md").mkdir()
+        with contextlib.suppress(OSError):  # Windows 는 권한·개발자 모드 없이는 symlink 를 만들지 못한다
+            os.symlink(concept / "missing.md", concept / "broken.md")
+            os.symlink(concept / "loop.md", concept / "loop.md")
+        if hasattr(os, "mkfifo"):
+            os.mkfifo(concept / "fifo.md")
+        self.assertEqual(self._main()[:2], (0, "wiki link check: clean\n"))
+
+    def test_permission_error_on_a_page_is_reported_not_skipped(self) -> None:
+        # Python 3.14 의 is_file() 은 stat 의 권한 오류를 False 로 삼킨다 — 그 페이지가 빠진 판정이 아니라 2 여야 한다.
+        self._clean()
+        target = self.root / "pages" / "concept" / "b.md"
+        real_stat = Path.stat
+
+        def fake_stat(path, *args, **kwargs):
+            if path == target:
+                raise PermissionError(13, "Permission denied", str(target))
+            return real_stat(path, *args, **kwargs)
+
+        with mock.patch.object(Path, "stat", fake_stat):
+            code, out, err = self._main()
+        self.assertEqual((code, out), (2, ""))
+        self.assertIn(f"check_links: 읽기 실패 — {target}: Permission denied", err)
+
+    def test_lone_cr_ends_a_line_like_text_mode(self) -> None:
+        # 텍스트 모드로 읽던 때처럼 lone CR 도 줄바꿈이다 — 별칭 안에 있으면 링크가 아니다.
+        self._clean()
+        page = self.root / "pages" / "concept" / "a.md"
+        page.write_bytes(page.read_bytes() + b"[[zzz|x\ry]]\n")
+        self.assertEqual(self._main()[:2], (0, "wiki link check: clean\n"))
+
+    @unittest.skipIf(os.name == "nt" or os.geteuid() == 0, "권한으로 디렉터리 읽기를 막을 수 없다")
+    def test_unreadable_subdirectory_exits_2(self) -> None:
+        # rglob 은 읽지 못한 하위 디렉터리를 조용히 건너뛰어 그 아래 페이지가 빠진 채 판정한다.
+        self._clean()
+        sub = self.root / "pages" / "entity"
+        sub.mkdir()
+        sub.chmod(0)
+        self.addCleanup(sub.chmod, 0o755)
+        code, out, err = self._main()
+        self.assertEqual((code, out), (2, ""))
+        self.assertIn(f"check_links: 읽기 실패 — {sub}", err)
 
 
 class WikiLinkTest(unittest.TestCase):

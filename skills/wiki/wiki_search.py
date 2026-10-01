@@ -20,7 +20,7 @@
 stdlib 만 쓰고, frontmatter·BOM·CRLF 는 같은 디렉터리의 wiki_check.py 로 읽는다.
 
 exit: 0 결과 있음, 1 결과 없음, 2 찾을 wiki·단어·category·stem 이 없음·질의 모드 사용 오류·`CLAUDE_SHARED_WIKI` 가
-wiki 가 아님·읽기 오류.
+wiki 가 아님·읽기 오류·stdout 을 읽는 쪽이 먼저 닫아 출력을 끝까지 내지 못함·예상 밖 오류.
 
 Usage (어디서든, 옵션은 질의어 사이 어디든 된다. `-` 로 시작하는 단어는 앞의 `-` 를 떼고 넣는다 — 토큰은
 영문·숫자부터라 결과가 같고, 3.12 까지의 argparse 는 섞인 옵션과 `--` 를 함께 처리하지 못한다):
@@ -36,6 +36,7 @@ import math
 import os
 import re
 import sys
+import traceback
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -357,6 +358,29 @@ def main(
     cwd: Path | None = None,
     home: Path | None = None,
 ) -> int:
+    try:
+        code = _main(argv, env=env, cwd=cwd, home=home)
+        if sys.stdout is not None:
+            sys.stdout.flush()
+        return code
+    except BrokenPipeError:
+        # 결과를 끝까지 내지 못했으니 결과 유무(0·1)가 아니다. stderr 는 _QuietStderr 라 여기 오는 것은 stdout 이다.
+        wiki_check._discard(sys.stdout)
+        print("wiki_search: 출력을 끝까지 내지 못했다 — stdout 을 읽는 쪽이 먼저 닫았다", file=sys.stderr)
+        return 2
+    except Exception:
+        # 파이썬 기본 exit 1 은 "결과 없음" 과 겹친다. stdout 쓰기 자체가 실패했으면 버퍼를 버린다 — 남기면 종료 때의
+        # flush 가 다시 실패해 120 이다.
+        traceback.print_exc()
+        try:
+            if sys.stdout is not None:
+                sys.stdout.flush()
+        except OSError:
+            wiki_check._discard(sys.stdout)
+        return 2
+
+
+def _main(argv: list[str] | None, *, env: Mapping[str, str] | None, cwd: Path | None, home: Path | None) -> int:
     env = os.environ if env is None else env
     cwd = Path.cwd() if cwd is None else Path(cwd)
     parser = build_parser()
@@ -392,9 +416,7 @@ def main(
     try:
         pages = [page for tier, root in targets for page in load_pages(tier, root)]
     except OSError as e:
-        # str(OSError) 는 경로를 repr 로 붙여 Windows 경로의 역슬래시가 겹친다.
-        detail = f"{e.filename}: {e.strerror}" if e.filename and e.strerror else e
-        print(f"wiki_search: 읽기 실패 — {detail}", file=sys.stderr)
+        print(f"wiki_search: 읽기 실패 — {wiki_check.describe_oserror(e)}", file=sys.stderr)
         return 2
     if missing:
         print(f"wiki_search: 공용 wiki 없음 — {shared}: {missing}. clone 방법은 ~/.claude README Install E", file=sys.stderr)
@@ -443,8 +465,5 @@ def main(
 
 
 if __name__ == "__main__":
-    # Windows 콘솔 기본 인코딩에서 한국어 출력이 죽지 않게 한다(wiki_check.py 와 같다).
-    for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
-            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+    wiki_check.setup_streams()
     sys.exit(main())

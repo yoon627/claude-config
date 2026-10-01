@@ -18,6 +18,7 @@ import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -84,7 +85,7 @@ class SearchCase(unittest.TestCase):
         # fixture 밖의 `.git` 을 repo 루트로 잡지 않는다.
         self.env = {"CLAUDE_SHARED_WIKI": str(self.shared), "GIT_CEILING_DIRECTORIES": str(self.tmp)}
 
-    def run_main(self, *argv: str, cwd: Path | None = None, env: dict[str, str] | None = None):
+    def run_main(self, *argv: str, cwd: Path | None = None, env: dict[str, str] | None = None, crash: bool = False):
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             try:
@@ -93,6 +94,9 @@ class SearchCase(unittest.TestCase):
                 )
             except SystemExit as e:  # argparse 사용 오류
                 code = e.code
+        # main 은 예상 밖 예외도 exit 2 로 받는다 — traceback 이 있으면 처리된 2 가 아니라 crash 다.
+        if not crash:
+            self.assertNotIn("Traceback", err.getvalue())
         return code, out.getvalue(), err.getvalue()
 
     def ranked_stems(self, *argv: str, **kwargs) -> list[str]:
@@ -336,6 +340,56 @@ class ExitCodeTest(SearchCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("1. [공용] decision/wiki-storage ", result.stdout)
+
+    def test_closed_stdout_exits_2_with_a_reason_and_no_traceback(self):
+        # 결과를 끝까지 내지 못했으면 결과 유무(0·1)를 말할 수 없다. 작은 출력은 끝의 flush 에서, 큰 출력은 print 안에서 실패한다.
+        todo = "\n".join(f"> [!open] 할 일 {i} {'x' * 60}" for i in range(2000))
+        many = make_wiki(self.tmp / "many", {"concept/todo.md": page("todo", "concept", todo)}, {"todo": "할 일 목록"})
+        for name, argv, shared in (("결과 있음", ["보관방식을"], self.shared), ("결과 없음", ["없는단어"], self.shared), ("큰 출력", ["--open"], many)):
+            with self.subTest(name):
+                rfd, wfd = os.pipe()
+                os.close(rfd)
+                try:
+                    r = subprocess.run(
+                        [sys.executable, str(SCRIPT), *argv],
+                        stdout=wfd,
+                        stderr=subprocess.PIPE,
+                        cwd=self.outside,
+                        env={**os.environ, "HOME": str(self.home), **self.env, "CLAUDE_SHARED_WIKI": str(shared)},
+                    )
+                finally:
+                    os.close(wfd)
+                err = r.stderr.decode("utf-8", "replace")
+                self.assertEqual(r.returncode, 2, err)
+                self.assertNotIn("Traceback", err)
+                self.assertNotIn("Exception ignored", err)
+                self.assertIn("출력을 끝까지 내지 못했다", err)
+
+    def test_unexpected_error_exits_2_not_1(self):
+        # 1 은 "결과 없음" 이다 — 예상 밖 오류가 그 값으로 끝나면 호출자는 빈손이었다고 읽는다.
+        with mock.patch.object(wiki_search, "rank", side_effect=RuntimeError("boom")):
+            code, _, err = self.run_main("clone", crash=True)
+        self.assertEqual(code, 2)
+        self.assertIn("Traceback", err)
+        self.assertIn("RuntimeError: boom", err)
+
+    def test_unwritable_stdout_exits_2_not_120(self):
+        # 닫힌 pipe 가 아닌 쓰기 실패(디스크 가득·잘못 연 리디렉트)도 예상 밖 오류다 — 버퍼를 남기면 종료 때의 flush 가
+        # 다시 실패해 "Exception ignored" 와 120 이 된다.
+        readonly = self.tmp / "readonly.txt"
+        readonly.write_bytes(b"")
+        with readonly.open("rb") as stdout:
+            r = subprocess.run(
+                [sys.executable, str(SCRIPT), "보관방식을"],
+                stdout=stdout,
+                stderr=subprocess.PIPE,
+                cwd=self.outside,
+                env={**os.environ, "HOME": str(self.home), **self.env},
+            )
+        err = r.stderr.decode("utf-8", "replace")
+        self.assertEqual(r.returncode, 2, err)
+        self.assertIn("Traceback", err)  # 닫힌 pipe 분기가 아니라 예상 밖 오류 분기다
+        self.assertNotIn("Exception ignored", err)
 
 
 class StructureTest(unittest.TestCase):

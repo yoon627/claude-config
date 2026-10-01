@@ -709,6 +709,12 @@ class OutOfTime(GitError):
     """시간 제한 안에 끝나지 않았다."""
 
 
+def describe_oserror(e: OSError) -> str:
+    """`<경로>: <이유>` — str(e) 는 경로를 repr 로 붙여 역슬래시가 겹친다(Path 면 `PosixPath('…')`). 경로나
+    이유가 없으면(Windows 의 Popen 실패) str(e) 다. filename2 는 싣지 않는다."""
+    return f"{e.filename}: {e.strerror}" if e.filename and e.strerror else str(e)
+
+
 class Git:
     """모든 호출에 GIT_OPTIONAL_LOCKS=0 과 GIT_LITERAL_PATHSPECS=1 을 준다. status 가 index 를 다시 쓰며
     잠금을 잡으면 같은 때의 git add·commit 과 부딪치고, 페이지 경로의 `[`·`:` 가 pathspec 문법으로 읽히면
@@ -768,7 +774,7 @@ class Git:
                 start_new_session=os.name != "nt",
             )
         except OSError as e:
-            raise GitError(f"git 을 실행하지 못했다 — {e}") from None
+            raise GitError(f"git 을 실행하지 못했다(cwd {self.cwd}) — {describe_oserror(e)}") from None
         try:
             out, err = proc.communicate(input, timeout=limit)
         except BaseException as e:
@@ -1270,7 +1276,8 @@ def hook_main(argv: list[str]) -> int:
         out = _warn(str(e))
     except BaseException as e:
         traceback.print_exc()
-        out = _warn(f"예상 밖 오류 — {type(e).__name__}: {e}")
+        detail = describe_oserror(e) if isinstance(e, OSError) else e
+        out = _warn(f"예상 밖 오류 — {type(e).__name__}: {detail}")
     if out is not None:
         try:
             print(json.dumps(out))
@@ -1338,6 +1345,19 @@ def _rewrap(stream, cls):
     """같은 버퍼링으로 UTF-8·backslashreplace 인 cls 로 다시 감싼다."""
     buffering = {"line_buffering": stream.line_buffering, "write_through": stream.write_through}
     return cls(stream.detach(), encoding="utf-8", errors="backslashreplace", **buffering)
+
+
+def setup_streams() -> None:
+    """CLI 의 표준 스트림을 맞춘다 — `__main__` 에서 한 번 부른다(wiki_search 도 쓴다). stdout 은 닫힌 pipe 를
+    `BrokenPipeError` 로 알리고, stderr 는 쓰기 실패를 삼키므로 main 이 받는 `BrokenPipeError` 는 stdout 의 것이다."""
+    if sys.stderr is None:
+        # 닫힌 stderr 는 None 이다 — 그대로 두면 오류 문구·traceback 을 쓰다 죽고, print(file=None) 은 stdout 으로 간다.
+        sys.stderr = open(os.devnull, "w")
+    # UTF-8 아닌 경로는 surrogateescape 로 들고 다닌다 — strict 면 출력에서 죽는다.
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout = _rewrap(sys.stdout, _Stdout)
+    if isinstance(sys.stderr, io.TextIOWrapper):
+        sys.stderr = _rewrap(sys.stderr, _QuietStderr)
 
 
 # ---------- verified_at 지문 (--report) ----------
@@ -1863,14 +1883,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    if sys.stderr is None:
-        # 닫힌 stderr 는 None 이다 — 그대로 두면 오류 문구·traceback 을 쓰다 죽는다.
-        sys.stderr = open(os.devnull, "w")
-    # UTF-8 아닌 경로는 surrogateescape 로 들고 다닌다 — strict 면 출력에서 죽는다.
-    if isinstance(sys.stdout, io.TextIOWrapper):
-        sys.stdout = _rewrap(sys.stdout, _Stdout)
-    if isinstance(sys.stderr, io.TextIOWrapper):
-        sys.stderr = _rewrap(sys.stderr, _QuietStderr)
+    setup_streams()
     if os.name != "nt":
         for sig in (signal.SIGTERM, signal.SIGHUP):
             if signal.getsignal(sig) == signal.SIG_DFL:
