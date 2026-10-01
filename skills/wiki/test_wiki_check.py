@@ -20,6 +20,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -2014,6 +2015,72 @@ class StopHookTest(GitWikiTestCase):
         src = self.root / "src"
         out, _ = self._hook({"cwd": str(src)}, ("docs/wiki",), cwd=src)
         self.assertIn("docs/wiki/pages/concept/d.md", out["hookSpecificOutput"]["additionalContext"])
+
+
+class ThreadStdinTest(unittest.TestCase):
+    """Windows 의 stdin 읽기(_read_in_thread)를 os.pipe 로 프로세스 안에서 돈다 — POSIX CI 에서도 덮인다."""
+
+    def _pipe(self) -> tuple[int, int]:
+        """(읽는 fd, 쓰는 fd). 쓰는 쪽은 self.close_write() 로 한 번만 닫는다. Windows 는 다른 스레드가 읽는 중인 fd 의
+        os.close 를 그 읽기가 끝날 때까지 막는다 — 정리는 쓰는 쪽 → 새로 생긴 스레드 → 읽는 쪽 순이고, 쓰는 쪽은 5초 뒤
+        타이머도 닫아 시한 없이 막히는 회귀가 멈춤이 아니라 실패가 된다."""
+        before = set(threading.enumerate())
+        r, w = os.pipe()
+        lock = threading.Lock()
+        is_open = True
+
+        def close_write() -> None:
+            nonlocal is_open
+            with lock:
+                if is_open:
+                    is_open = False
+                    os.close(w)
+
+        def join_new() -> None:
+            for t in set(threading.enumerate()) - before:
+                t.join(5)
+
+        timer = threading.Timer(5, close_write)
+        self.addCleanup(os.close, r)
+        self.addCleanup(join_new)
+        self.addCleanup(close_write)
+        self.addCleanup(timer.cancel)
+        timer.start()
+        self.close_write = close_write
+        return r, w
+
+    def test_chunks_are_read_until_eof(self) -> None:
+        r, w = self._pipe()
+
+        def feed() -> None:
+            for part in (b'{"cwd": ', b'"x"', b"}"):
+                os.write(w, part)
+                time.sleep(0.2)
+            self.close_write()
+
+        threading.Thread(target=feed).start()
+        self.assertEqual(wiki_check._read_in_thread(r, 3.0), ("eof", b'{"cwd": "x"}'))
+
+    def test_no_eof_within_wait_is_timeout(self) -> None:
+        r, w = self._pipe()
+        os.write(w, b'{"cwd": ')
+        start = time.monotonic()
+        self.assertEqual(wiki_check._read_in_thread(r, 0.3), ("timeout", b""))
+        self.assertLess(time.monotonic() - start, 2)
+        # 아직 읽기에 막혀 있는 리더가 daemon 이 아니면 실제 hook 은 종료하며 그것을 기다려 멈춘다.
+        readers = [t for t in threading.enumerate() if t.name == "wiki_check-stdin"]
+        self.assertTrue(readers and all(t.daemon for t in readers), readers)
+
+    def test_over_stdin_max_is_toolarge(self) -> None:
+        self.addCleanup(setattr, wiki_check, "STDIN_MAX", wiki_check.STDIN_MAX)
+        wiki_check.STDIN_MAX = 4
+        r, w = self._pipe()
+        os.write(w, b"12345")
+        self.assertEqual(wiki_check._read_in_thread(r, 3.0), ("toolarge", b""))
+
+    def test_read_error_is_raised_in_the_caller(self) -> None:
+        with self.assertRaises(OSError):
+            wiki_check._read_in_thread(-1, 3.0)
 
 
 class SmokeTest(WikiTestCase):

@@ -38,6 +38,7 @@ import hashlib
 import io
 import json
 import os
+import queue
 import re
 import select
 import shutil
@@ -45,6 +46,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import traceback
 from collections.abc import Callable, Mapping
@@ -1103,17 +1105,51 @@ def render_context(stale: list[tuple[str, list[str]]]) -> str:
     return "\n".join(lines)
 
 
+def _read_in_thread(fd: int, wait: float) -> tuple[str, bytes]:
+    """read_stdin 의 Windows 판 — select 가 소켓만 받아 막히는 읽기를 daemon 스레드에 맡기고 기다림에만 시한을
+    둔다. timeout 이면 스레드는 읽기에 막힌 채 남아 프로세스와 함께 끝난다(daemon 이 아니면 종료가 그 스레드를
+    기다려 멈춘다). sys.stdin.buffer 를 읽으면 종료 때 그 lock 을 쥔 스레드가 남는다."""
+    done: queue.Queue = queue.Queue()
+
+    def pump() -> None:
+        chunks = []
+        size = 0
+        try:
+            while True:
+                chunk = os.read(fd, 1 << 16)
+                if not chunk:
+                    done.put(("eof", b"".join(chunks)))
+                    return
+                size += len(chunk)
+                if size > STDIN_MAX:
+                    done.put(("toolarge", b""))
+                    return
+                chunks.append(chunk)
+        except BaseException as e:
+            done.put(e)
+
+    threading.Thread(target=pump, name="wiki_check-stdin", daemon=True).start()
+    try:
+        outcome = done.get(timeout=wait)
+    except queue.Empty:
+        return "timeout", b""
+    if isinstance(outcome, BaseException):
+        raise outcome
+    return outcome
+
+
 def read_stdin(wait: float) -> tuple[str, bytes]:
-    """("tty" | "eof" | "timeout" | "toolarge", 읽은 바이트). EOF 가 wait 초 안에 오지 않으면 timeout, STDIN_MAX
-    바이트를 넘으면 toolarge 다."""
+    """("tty" | "eof" | "timeout" | "toolarge", 읽은 바이트 — 입력으로 쓰는 것은 eof 일 때뿐이다). EOF 가 wait 초
+    안에 오지 않으면 timeout, STDIN_MAX 바이트를 넘으면 toolarge 다. Windows 의 timeout 뒤에는 읽기 스레드가 stdin 을
+    쥐고 있어, 쓰는 쪽이 닫을 때까지 fd 0 을 닫거나 stdin 을 물려받는 자식(git)을 띄우면 시한 없이 막힌다(실측) —
+    timeout 이면 곧바로 끝낸다."""
     if sys.stdin is None:
         return "eof", b""
     fd = sys.stdin.fileno()
     if os.isatty(fd):
         return "tty", b""
     if os.name == "nt":
-        # select 는 Windows 에서 소켓만 받는다 — 막히는 읽기로 둔다(미검증).
-        return "eof", sys.stdin.buffer.read()
+        return _read_in_thread(fd, wait)
     chunks = []
     size = 0
     deadline = time.monotonic() + wait
