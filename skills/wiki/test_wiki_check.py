@@ -1903,12 +1903,16 @@ class StopHookTest(GitWikiTestCase):
                 self.assertEqual(r.returncode, 0, r.stderr)
                 if not data:
                     self.assertEqual(r.stdout, b"")
+
+    def test_stdout_pipe_closed_by_reader_still_exits_0(self) -> None:
+        proc_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        proc_env.update(self.env)
         rfd, wfd = os.pipe()
         os.close(rfd)
         try:
             r = subprocess.run(
                 [sys.executable, str(SCRIPT), "stale", "--stop-hook"],
-                input=payload,
+                input=json.dumps({"cwd": str(self.root)}).encode("utf-8"),
                 stdout=wfd,
                 stderr=subprocess.PIPE,
                 cwd=self.root,
