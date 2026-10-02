@@ -10,6 +10,7 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const FETCH = path.join(__dirname, 'session-fetch.js');
+const { TIME_SCALE_ENV } = require('./hook-cwd.js');
 
 for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE']) delete process.env[k];
 
@@ -52,9 +53,12 @@ function cloned() {
   git(work, ['config', 'commit.gpgsign', 'false']);
   return { remote, work };
 }
+// 부하에서 훅의 2초 상한이 만료돼 기능 단언이 흔들리지 않게 10배(hook-cwd.js scaleMs).
+// 바깥 값이 있으면 그것을 쓴다 — `=1` 로 돌리면 운영 상한 그대로다.
+const TIME_SCALE = { [TIME_SCALE_ENV]: process.env[TIME_SCALE_ENV] ?? '10' };
 function run(cwd, env) {
   const res = require('child_process').spawnSync('node', [FETCH], {
-    env: { ...process.env, CLAUDE_SESSION_FETCH_MIN_MINUTES: '0', ...env },
+    env: { ...process.env, CLAUDE_SESSION_FETCH_MIN_MINUTES: '0', ...TIME_SCALE, ...env },
     input: JSON.stringify({ hook_event_name: 'SessionStart', cwd }),
   });
   assert.strictEqual(res.status, 0, `fetch hook 은 항상 exit 0 이어야 한다 (got ${res.status})`);
@@ -148,7 +152,7 @@ ok('⑧ git repo 가 아니면 무음', () => {
 
 ok('⑨ cwd 가 비어 있어도 죽지 않는다', () => {
   const res = require('child_process').spawnSync('node', [FETCH], {
-    env: { ...process.env, CLAUDE_SESSION_FETCH_MIN_MINUTES: '0' },
+    env: { ...process.env, CLAUDE_SESSION_FETCH_MIN_MINUTES: '0', ...TIME_SCALE },
     input: '{}',
   });
   assert.strictEqual(res.status, 0);
