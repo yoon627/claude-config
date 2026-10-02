@@ -257,6 +257,28 @@ def find_wiki(start: Path, repo_root: Path | None) -> Path | None:
     return None
 
 
+def disk_case(path: Path, base: Path) -> Path:
+    """base 아래 path 의 이름마다 디스크 표기를 쓴다 — 그 이름이 있는데 부모 목록에 그대로 없으면(대소문자를 무시하는
+    FS), 대소문자만 다른 목록 이름이 하나뿐일 때 그 이름으로. 목록을 못 읽으면 path 그대로다. Windows 는 resolve() 가
+    이미 되돌리지만 Linux DrvFs 는 resolve()·getcwd·git 이 모두 친 표기를 내서, 페이지 경로가 index 경로와 어긋난다.
+    없는 이름(가리는 FS 의 오타)은 그대로다. 디스크 표기가 git 이 추적하는 표기와 다르면(대소문자만 바꾼 rename 뒤 남은
+    디렉터리) 여전히 어긋난다 — Windows 와 같은 한계다."""
+    out = base
+    for part in path.relative_to(base).parts:
+        nxt = out / part
+        if nxt.exists():
+            try:
+                names = os.listdir(out)
+            except OSError:
+                return path
+            if part not in names:
+                same = [n for n in names if n.casefold() == part.casefold()]
+                if len(same) == 1:
+                    nxt = out / same[0]
+        out = nxt
+    return out
+
+
 def resolve_context(
     start, wiki_arg=None, config_arg=None, *, env=None, relative_to_repo=False
 ) -> Context:
@@ -270,6 +292,8 @@ def resolve_context(
         wiki_root = (base / wiki_arg).resolve()
     else:
         wiki_root = find_wiki(start, repo_root)
+    if wiki_root is not None and repo_root is not None and wiki_root.is_relative_to(repo_root):
+        wiki_root = disk_case(wiki_root, repo_root)
     if config_arg is not None:
         config_path = (base / config_arg).resolve()
     elif wiki_root is not None and os.path.lexists(wiki_root / CONFIG_NAME):
@@ -840,8 +864,9 @@ REPO_ENV = frozenset(
 def open_repo(ctx: Context, env=None, *, deadline: float | None = None) -> Git:
     """시작점에서 git 최상위를 확인하고 최상위에서 부르는 Git 을 돌려준다. ls-files·diff 는 호출
     디렉터리 기준으로 낼 수 있어(diff.relative) 최상위에서만 부른다. 최상위가 탐색한 repo 루트 후보와
-    다르거나, wiki 가 그 밖이거나, git 이 wiki 를 다른 repo(중첩 repo)나 다른 경로(대소문자만 다른 인자)로
-    보면 GitError — 다른 repo 의 wiki 를 판정하면 결과가 그 안에서는 일관돼 오류가 숨는다."""
+    다르거나, wiki 가 그 밖이거나, git 이 wiki 를 다른 repo(중첩 repo)나 다른 경로(유니코드 정규화(macOS NFD)나,
+    resolve_context 가 디스크 표기를 정하지 못했을 때의 대소문자만 다른 경로)로 보면 GitError — 다른 repo 의 wiki 를
+    판정하면 결과가 그 안에서는 일관돼 오류가 숨는다."""
     env = {k: v for k, v in (os.environ if env is None else env).items() if k not in REPO_ENV}
     probe = Git(ctx.start, env, deadline=deadline)
     top = Path(os.fsdecode(probe.out("rev-parse", "--show-toplevel").rstrip(b"\r\n"))).resolve()
