@@ -1,6 +1,6 @@
 ---
 title: session-fetch-flake — SessionStart 훅 테스트가 부하에서 시간 상한에 흔들리지 않게(테스트 전용 시간 배수)
-status: in_progress
+status: done
 started: 2026-10-02
 updated: 2026-10-02
 ---
@@ -49,10 +49,9 @@ updated: 2026-10-02
 - 2026-10-02: 수정 뒤 확인 — 조용한 session-brief 95 통과. session-fetch 계측 8×1 `pass=8`, (a) 0·(b) 0/64·(c) 20000·80000 전부·(d) fetch 5.8초/80초·그 밖 3.8초/20초·예산 5.4초/20초. Acceptance 6(b) 미설정 경로 base·branch 출력·exit code 동일(fetch 한 줄, 브리프 K+O 두 줄), 6(a) `=1` 로 session-fetch 18·session-brief 95 통과. Acceptance 8 stdin 대기 — 미설정 1.69·1.58초, `=3` 3.36·3.60초.
 - 2026-10-02: 최종 검증(격리 runner, 단독 46분) `VERIFY_RC=0`, `ALL PASS (skip: install-hooks.test.js(case) record-verified.test.sh)`, FAIL 0. skip 두 건은 기존 환경 사유(git 2.30 이하 ps1 케이스의 sh shim·jq 없음)이고 두 훅·hook-cwd 를 참조하지 않는다. evidence gate — Acceptance 1·2·3·4·6·7·8·9 충족, 5 는 문구상 미충족(15/16 두 번, 실패 2건 모두 외부 종료·시간 상한 기인 실패 0) → NEEDS-HUMAN(기준 한정 승인 대기, 정식 완료 커밋 보류).
 - 2026-10-02: 사용자 승인 — Acceptance 5 기준 한정(# Decisions), 마무리는 로컬 main 위로 rebase 후 `/e merge`, 새 사실의 공용 wiki 적립은 머지 뒤 main 세션에서. evidence gate 전 항목 충족 → DONE(status 는 머지 때 done).
+- 2026-10-02: 정식 완료 커밋 → commit-check 이상 없음(커밋 1개, 한 목적, 관례 제목) → 로컬 main 위로 rebase(drvfs-case-stale 의 미push 커밋 2개 — `skills/wiki/`·plan 만이라 파일 겹침 없음, 문법·단위 재확인) → `/e merge` — PR #230(로컬 main 의 drvfs-case-stale 커밋 2개 포함).
 
 # Next
-- 정식 완료 커밋 → commit-check → 로컬 main 위로 rebase(로컬 main 의 미push 커밋 2개, drvfs-case-stale — 파일이 겹치지 않는다) → `/e merge`.
-- 머지 뒤 main 세션: 공용 wiki 적립(# Deferred 의 [wiki] 두 줄 + lesson-serialize-windows-verification·workflow-failures 갱신). Acceptance 5 는 외부 종료 2건으로 문구상 미충족 — 기준을 "시간 상한 기인 실패 0(probe 로 외부 종료가 확인된 실패 제외)"으로 한정할지 사용자 승인을 받는다.
 
 # Decisions
 - wiki decision 조회(`session-fetch session-brief 시간 예산 flake`):
