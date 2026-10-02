@@ -19,8 +19,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 let readHookCwd;
+let scaleMs = (ms) => ms;
 try {
-  ({ readHookCwd } = require('./hook-cwd.js'));
+  // scaleMs 기본값: 이 export 가 없는 옛 hook-cwd.js 와 섞인 checkout(되돌림 배포 중)에서도 죽지 않게.
+  ({ readHookCwd, scaleMs = (ms) => ms } = require('./hook-cwd.js'));
 } catch {
   readHookCwd = (cb) => cb(process.cwd()); // 모듈 부재 → 폴백(브리프가 죽는 것보다 낫다)
 }
@@ -49,7 +51,6 @@ const CWD_BUDGET_MS = 2000; // O 신호 전체 시간 상한(동기 hook — set
 // stat 상한. "가장 오래된 것"을 찾는 게 목적이라 너무 낮으면 어질러진 repo 일수록 검출이 죽는다
 // (사전순 앞 20개만 보면 21번째가 제일 오래돼도 못 찾는다). statSync 는 싸고, 진짜 상한은 예산이다.
 const CWD_STAT_CAP = 200;
-const STDIN_MS = 1000; // hook stdin 대기 상한. 형제 훅(dlc-early-stop.js)과 같은 값
 
 function git(repoDir, args) {
   // 상속된 GIT_* 는 `-C` 를 이긴다 — GIT_DIR 이 남아 있는 셸에서 세션이 열리면 stdin 이 지목한 repo 가
@@ -64,7 +65,7 @@ function git(repoDir, args) {
     // 실행돼선 안 된다(실측으로 실행되는 것을 확인했다). 빈 값으로 무력화한다.
     ['-c', 'core.fsmonitor=', '-C', repoDir, ...args],
     {
-      timeout: 2000,
+      timeout: scaleMs(2000),
       // 기본 maxBuffer(1MiB)를 넘으면 ENOBUFS 로 **신호가 통째로 사라진다**. 조용히 사라지는 것이
       // 가장 나쁜 실패라, 목록이 큰 repo 에서도 판정이 살아 있도록 넉넉히 잡는다.
       maxBuffer: 16 * 1024 * 1024,
@@ -501,7 +502,9 @@ function lastRefreshMs(commonDir, fullRef) {
 // 동기 hook 이라 시간 상한을 들고 다닌다: fail-open 은 예외 정책이지 시간 정책이 아니다.
 function currentRepoLine(cwd, repoDir, env, now) {
   if (!cwd) return null;
-  const deadline = Date.now() + CWD_BUDGET_MS;
+  // 예산 배수는 env 인자가 아니라 process.env 를 본다 — git() 의 호출 timeout 이 process.env 만 볼 수 있어서,
+  // 둘이 다른 출처를 따르면 예산과 호출 timeout 의 배수가 갈린다.
+  const deadline = Date.now() + scaleMs(CWD_BUDGET_MS);
   const spent = () => Date.now() > deadline;
 
   let top;
@@ -656,7 +659,7 @@ function main(cwd) {
 if (require.main === module) {
   try {
     // kill switch 는 stdin 을 기다리기 **전에** 본다. 뒤에 두면 꺼 둔 기능이 stdin 대기만큼
-    // (최대 STDIN_MS) 세션 시작을 잡는다 — 껐는데 비용을 무는 모양은 계약과 어긋난다.
+    // (hook-cwd.js 의 대기 상한) 세션 시작을 잡는다 — 껐는데 비용을 무는 모양은 계약과 어긋난다.
     if (process.env.CLAUDE_SESSION_BRIEF_OFF === '1') {
       process.exit(0);
     } else {
@@ -671,7 +674,7 @@ if (require.main === module) {
         if (!out) {
           process.exit(0);
         } else {
-          const backstop = setTimeout(() => process.exit(0), 2000); // 콜백이 안 와도 세션을 잡지 않는다
+          const backstop = setTimeout(() => process.exit(0), scaleMs(2000)); // 콜백이 안 와도 세션을 잡지 않는다
           process.stdout.write(out, () => {
             clearTimeout(backstop);
             process.exit(0);

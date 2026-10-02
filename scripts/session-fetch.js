@@ -22,8 +22,10 @@ const os = require('os');
 const path = require('path');
 
 let readHookCwd;
+let scaleMs = (ms) => ms;
 try {
-  ({ readHookCwd } = require('./hook-cwd.js'));
+  // scaleMs 기본값: 이 export 가 없는 옛 hook-cwd.js 와 섞인 checkout(되돌림 배포 중)에서도 죽지 않게.
+  ({ readHookCwd, scaleMs = (ms) => ms } = require('./hook-cwd.js'));
 } catch {
   readHookCwd = (cb) => cb(process.cwd()); // 모듈 부재 → 폴백(훅이 죽는 것보다 낫다)
 }
@@ -40,7 +42,8 @@ const GIT_LOCAL_ENV = (brief && brief.GIT_LOCAL_ENV) || ['GIT_DIR', 'GIT_WORK_TR
 // settings 의 훅 timeout 은 30s 다. 러너가 30s 에 Node 를 죽이면 git·ssh 자식이 고아로 남아
 // 세션이 끝난 뒤에도 계속 돈다 → 최악 합이 30s 안에 들어오게 잡는다.
 // 실제 최악: stdin 1 + 사전 git 4회(rev-parse·symbolic-ref·for-each-ref·rev-parse) × 2 + fetch 8 +
-// 사후 rev-parse 2 + currentRepoLine 자체 예산 4(진행 중 호출 포함) ≈ 23s.
+// 사후 rev-parse 2 + currentRepoLine 자체 예산 4(진행 중 호출 포함) ≈ 23s. 이 합은 배수 1 기준이다 — 테스트
+// 전용 시간 배수(hook-cwd.js `scaleMs`)를 키우면 그만큼 커진다.
 const FETCH_MS = 8000;
 const GIT_MS = 2000;
 
@@ -78,7 +81,7 @@ function git(dir, args, ms) {
       ...args,
     ],
     {
-      timeout: ms || GIT_MS,
+      timeout: scaleMs(ms || GIT_MS),
       maxBuffer: 16 * 1024 * 1024,
       stdio: ['ignore', 'pipe', 'ignore'],
       env,
@@ -228,7 +231,7 @@ if (require.main === module) {
       if (!out) {
         process.exit(0);
       } else {
-        const backstop = setTimeout(() => process.exit(0), 2000);
+        const backstop = setTimeout(() => process.exit(0), scaleMs(2000));
         process.stdout.write(out, () => {
           clearTimeout(backstop);
           process.exit(0);

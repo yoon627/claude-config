@@ -558,6 +558,20 @@ class DiscoveryTest(WikiTestCase):
                 r = self._cli("schema", arg, cwd=cwd)
                 self.assertEqual((r.returncode, r.stdout.splitlines()), (1, want), r.stderr)
 
+    def test_wiki_root_takes_the_disk_case_where_the_typed_path_exists(self) -> None:
+        # 대소문자를 무시하는 FS 에서 친 표기가 디스크 표기와 다르면 페이지 경로가 git 의 index 경로와 어긋나 판정이
+        # 바뀐다 — 인자 `Wiki`, 그리고 디스크 이름이 `Wiki` 일 때 탐색이 붙이는 `wiki`. 가리는 FS 의 오타는 고치지 않는다.
+        # WindowsPath 의 == 는 대소문자를 무시해 이름 문자열로 비교한다.
+        (self.root / ".git").mkdir()
+        insensitive = (self.root / "WIKI").exists()
+        # resolve() 를 거치지 않은 직접 호출 — Windows 는 resolve() 가 이미 디스크 표기라 아래 단언만으로는 매핑을 안 탄다.
+        self.assertEqual(wiki_check.disk_case(self.root / "WIKI", self.root).name, "wiki" if insensitive else "WIKI")
+        ctx = wiki_check.resolve_context(self.root, "Wiki", env=self.env)
+        self.assertEqual(ctx.wiki_root.name, "wiki" if insensitive else "Wiki")
+        self.wiki.rename(self.root / "Wiki")
+        found = self._ctx(self.root).wiki_root
+        self.assertEqual(found.name if found else None, "Wiki" if insensitive else None)
+
 
 class ConfigTest(WikiTestCase):
     def _load(self, content: str | bytes) -> wiki_check.Config:
@@ -1337,8 +1351,8 @@ class StaleBranchTest(GitWikiTestCase):
         self.assertEqual(self._branch().returncode, 0)
 
     def test_case_mismatched_wiki_argument_is_refused_or_judged_the_same(self) -> None:
-        # git 과 다른 표기로 판정하면 같은 commit 의 페이지 변경을 못 봐 거짓 stale 이 난다. resolve() 가 인자 표기를
-        # 그대로 두면 거부해야 하고, 디스크 표기로 되돌리면(Windows) 올바른 표기와 같은 판정이어야 한다.
+        # git 과 다른 표기로 판정하면 같은 commit 의 페이지 변경을 못 봐 거짓 stale 이 난다. 대소문자를 무시하는 FS 에서는
+        # resolve_context 가 디스크 표기로 맞춰 올바른 표기와 같은 판정이어야 한다(거부도 이 불변식은 지킨다).
         if not (self.root / "WIKI").exists():
             self.skipTest("대소문자를 가리는 파일시스템")
         self._page("concept/api.md", covers_page("src/api/*") + "upd\n")

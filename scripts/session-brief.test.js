@@ -9,6 +9,7 @@ const os = require('os');
 const path = require('path');
 const { execFileSync, spawnSync } = require('child_process');
 const BRIEF = path.join(__dirname, 'session-brief.js');
+const { TIME_SCALE_ENV } = require('./hook-cwd.js');
 
 // CI 결정성: 상속된 GIT_* 가 fixture repo 판정을 오염시키지 않게 스크럽.
 for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE']) delete process.env[k];
@@ -53,13 +54,17 @@ function blankSignalDir() {
   return _blankSignalDir;
 }
 
+// 부하에서 git 호출별 2초 상한이 만료돼 신호 단언이 흔들리지 않게 10배(hook-cwd.js scaleMs).
+// 바깥 값이 있으면 그것을 쓴다 — `=1` 로 돌리면 운영 상한 그대로다.
+const TIME_SCALE = { [TIME_SCALE_ENV]: process.env[TIME_SCALE_ENV] ?? '10' };
+
 // run brief; returns stdout string.
 // hookCwd: O 신호가 보는 repo(= hook stdin JSON 의 cwd). 명시 안 하면 빈 fixture — 안 그러면
 // 모든 기존 테스트가 이 파일이 놓인 실 worktree 상태에 물든다(K/M/N 을 fixture 로 돌린 것과 같은 이유).
 // hookCwd 를 null 로 주면 stdin 을 비워 "JSON 없음" 경로(process.cwd() 폴백)를 탄다.
 // spawnCwd: 그 폴백이 무엇을 보는지 결정하는 프로세스 cwd.
 function run(env, hookCwd, spawnCwd) {
-  const merged = { ...process.env, ...env };
+  const merged = { ...process.env, ...TIME_SCALE, ...env };
   // 테스트가 명시하지 않은 입력은 실 환경이 아니라 빈 fixture 를 보게 한다
   // (process.env 에 값이 있어도 테스트 기본값이 이기도록 병합 후 덮어쓴다).
   if (!env || !env.CLAUDE_BRIEF_REPO) merged.CLAUDE_BRIEF_REPO = blankRepo();
@@ -374,14 +379,14 @@ ok('ⓥ plans 부재·루트 stray 파일(ENOTDIR)·frontmatter 불량 → 무�
   commit(r, 'base');
   git(r, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
   // stdin 을 안 주므로 O 는 process.cwd()(= 이 파일이 놓인 실 worktree)로 폴백한다 → 명시적으로 끈다.
-  const res1 = spawnSync('node', [BRIEF], { env: { ...process.env, CLAUDE_BRIEF_REPO: r, ...KLOFF, CLAUDE_BRIEF_CWD_OFF: '1' } });
+  const res1 = spawnSync('node', [BRIEF], { env: { ...process.env, ...TIME_SCALE, CLAUDE_BRIEF_REPO: r, ...KLOFF, CLAUDE_BRIEF_CWD_OFF: '1' } });
   assert.strictEqual(res1.status, 0);
   assert.strictEqual(res1.stdout.toString(), ''); // plans/ 없음
   fs.mkdirSync(path.join(r, 'plans'), { recursive: true });
   fs.writeFileSync(path.join(r, 'plans', 'stray.md'), '# not a plan dir\n'); // 디렉토리 아닌 파일
   fs.mkdirSync(path.join(r, 'plans', '2026-07-01-nofm'), { recursive: true });
   fs.writeFileSync(path.join(r, 'plans', '2026-07-01-nofm', 'nofm-plan.md'), 'no frontmatter here\n');
-  const res2 = spawnSync('node', [BRIEF], { env: { ...process.env, CLAUDE_BRIEF_REPO: r, ...KLOFF, CLAUDE_BRIEF_CWD_OFF: '1' } });
+  const res2 = spawnSync('node', [BRIEF], { env: { ...process.env, ...TIME_SCALE, CLAUDE_BRIEF_REPO: r, ...KLOFF, CLAUDE_BRIEF_CWD_OFF: '1' } });
   assert.strictEqual(res2.status, 0);
   assert.strictEqual(res2.stdout.toString(), '');
 });
