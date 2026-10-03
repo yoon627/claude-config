@@ -86,9 +86,9 @@ def _ticket_for(wt: Worktree, args: argparse.Namespace, config: Config) -> str |
     # AI 작업시간: 이 worktree 의 Claude·Codex 세션 로그에서 추정(사용자 대기 제외).
     # 티켓은 worktree 디렉토리 이름의 prefix 에서 우선 뽑는다(anchored) — worklog 는 그
     # worktree 세션 시간이라 대상 티켓도 worktree 자체로 정한다. dir prefix 규약
-    # (CSTP1-<id>-<slug>)을 앵커해 이름 중간에 박힌 다른 티켓의 오귀속(billable)을 막는다.
+    # (<티켓>-<slug>)을 앵커해 이름 중간에 박힌 다른 티켓의 오귀속(billable)을 막는다.
     # dir 이 prefix 로 티켓을 안 주면(비규약 이름·티켓 없음) 브랜치로 fallback 한다(부분일치).
-    # detached HEAD(브랜치 없음)도 dir prefix 로 잡히고, 기존 CSTP1 브랜치 worktree 는 회귀 없다.
+    # detached HEAD(브랜치 없음)도 dir prefix 로 잡힌다.
     pattern = args.ticket_pattern or config.ticket_pattern
     ticket = extract_ticket(Path(wt.path).name, pattern, anchored=True)
     if ticket is None and wt.branch:

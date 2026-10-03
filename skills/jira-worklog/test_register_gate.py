@@ -28,8 +28,8 @@ from jira_kit.worklog_register import (  # noqa: E402
 )
 
 ME = "acct-me"
-TICKET = "CSTP1-1234"
-WT = "CSTP1-1234-alpha"
+TICKET = "ABC-1234"
+WT = "ABC-1234-alpha"
 SESSION = "claude:5e4e564d"
 SESSION2 = "claude:8d8b5aff"
 DAY = date(2026, 8, 4)
@@ -84,9 +84,9 @@ class PlanTest(unittest.TestCase):
             plan_worklog_changes(TICKET, WT, {SESSION: [day_worklog(600)]}, [], None)
 
     def test_rival_worktree_marker_is_collected(self):
-        existing = [worklog(worklog_marker(TICKET, DAY, "CSTP1-1234-beta", SESSION), 600)]
+        existing = [worklog(worklog_marker(TICKET, DAY, "ABC-1234-beta", SESSION), 600)]
         [p] = plan_worklog_changes(TICKET, WT, {SESSION: [day_worklog(600)]}, existing, ME)
-        self.assertEqual(p.rival_worktrees, ("CSTP1-1234-beta",))
+        self.assertEqual(p.rival_worktrees, ("ABC-1234-beta",))
 
 
 class PreconditionTest(unittest.TestCase):
@@ -153,7 +153,7 @@ class GateTest(unittest.TestCase):
         self.assertEqual(gate_reasons(self.existing_update(300, 900)), [])
 
     def test_created_with_rival_worktree_blocks(self):
-        existing = [worklog(worklog_marker(TICKET, DAY, "CSTP1-1234-beta", SESSION), 600)]
+        existing = [worklog(worklog_marker(TICKET, DAY, "ABC-1234-beta", SESSION), 600)]
         plans = plan_worklog_changes(TICKET, WT, {SESSION: [day_worklog(600)]}, existing, ME)
         reasons = gate_reasons(plans)
         self.assertEqual(len(reasons), 1)
