@@ -3,13 +3,18 @@
 # Builds throwaway git repos with real commits and asserts the guard blocks/allows correctly.
 # A block only counts when the output carries "[BLOCKED]" and the expected reason, so a
 # crash (non-zero exit without a verdict) never passes as a block.
-# ps1 cases run when pwsh is found ($PWSH or PATH); otherwise they are reported as skipped.
+# ps1 cases run when pwsh is found ($PWSH or PATH); otherwise they are reported as skipped,
+# except in CI, where a missing pwsh fails the run so the ps1 engine cannot drop out silently.
 set -u
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 GUARD_SH="$DIR/pre-commit-check.sh"
 GUARD_PS1="$DIR/pre-commit-check.ps1"
 PWSH="${PWSH:-$(command -v pwsh 2>/dev/null || true)}"
+if [ -z "$PWSH" ] && [ -n "${CI:-}" ]; then
+  echo 'pre-commit-check.test.sh: pwsh is required in CI (set PWSH=<path>)'
+  exit 1
+fi
 ZERO=0000000000000000000000000000000000000000
 TOKEN='sk-ant-0123456789abcdefghij0123'
 
@@ -19,7 +24,7 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE FAKE_HOME GUARD_ENV
 T="$(mktemp -d)"
 trap 'rm -rf "$T"' EXIT
 
-pass=0; fail=0; ps1_ran=0
+pass=0; fail=0; ran_ps1=0; ran_ps51=0
 ENGINES=(sh); [ -n "$PWSH" ] && ENGINES+=(ps1)
 # Installed hooks run the guard with Windows PowerShell 5.1, and a UTF-8 console input code page
 # (the default here; "Beta: UTF-8" or chcp 65001) makes .NET Framework prefix redirected stdin
@@ -62,7 +67,7 @@ check() { # <engine> <block|allow|clean> <reason: substring, =violation line, or
 
 verdict() { # <engine> <expect> <reason> <desc> <output> <exit code>
   local engine="$1" expect="$2" reason="$3" desc="$4" out="$5" rc="$6" ok=0
-  [ "$engine" != sh ] && ps1_ran=$((ps1_ran+1))
+  case "$engine" in ps1) ran_ps1=$((ran_ps1+1)) ;; ps51) ran_ps51=$((ran_ps51+1)) ;; esac
   if [ "$expect" = allow ]; then
     [ "$rc" -eq 0 ] && [[ "$out" != *"[BLOCKED]"* ]] && has_reason "$out" "$reason" && ok=1
   elif [ "$expect" = clean ]; then
@@ -523,6 +528,8 @@ g checkout -q main; commit notes/b.md y >/dev/null; g merge -q --no-ff side -m m
 both block '=private term (list line 4) in pushed notes/a.md' 'term brought in by a merge' pre-push "$(line feat "$s" "$b")"
 unset FAKE_HOME FORBID
 
-if [ -n "$PWSH" ]; then printf 'ps1: ran %d\n' "$ps1_ran"; else printf 'ps1: skipped (no pwsh)\n'; fi
+# verify.sh shows NOTE lines under the test's ok line and counts SKIP lines as case skips.
+if [ -n "$PWSH" ]; then printf 'NOTE [ps1] ran %d\n' "$ran_ps1"; else printf 'SKIP [ps1] no pwsh (set PWSH=<path>)\n'; fi
+if [[ " ${ENGINES[*]} " == *" ps51 "* ]]; then printf 'NOTE [ps51] ran %d\n' "$ran_ps51"; fi
 printf '\npre-commit-check.test.sh: %d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

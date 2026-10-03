@@ -34,6 +34,8 @@ run() { # run <label> <command...> — 종료 코드 77 은 "필요한 도구 �
   rc=$?
   if [ "$rc" -eq 0 ]; then
     printf 'ok   %s\n' "$label"
+    # 무엇을 돌렸는지 알리는 `NOTE ` 줄(예: ps1 엔진 실행 수)은 보이기만 하고 skip 으로 세지 않는다.
+    printf '%s\n' "$out" | grep '^NOTE ' | sed 's/^/       /'
     # 통과한 테스트 안의 케이스 단위 skip(`SKIP ` 줄)도 요약에 남긴다.
     if printf '%s\n' "$out" | grep -q '^SKIP '; then
       printf '%s\n' "$out" | grep '^SKIP ' | sed 's/^/       /'
