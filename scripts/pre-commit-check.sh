@@ -119,6 +119,18 @@ scan_keys() {
   done
 }
 
+# Options the added-line scans share — the secret scan and the private-term scans. Every option
+# guards a way a scan could go blind: --full-history keeps side branches that net to no change;
+# log.diffMerges=separate makes -m show what a merge adds against each parent; log.showRoot=true
+# includes root commits; log.follow=false keeps a rename into a pathspec from being paired with
+# its source; --no-replace-objects reads the objects push actually sends; --text reads binary /
+# -diff / bigFileThreshold files as text; the color, prefix, textconv and external-diff flags
+# override diff config. git_global goes before the subcommand and git_walk is the subcommand,
+# both for the git log scans; git_patch shapes every patch, git diff --cached's included.
+git_global=(--no-replace-objects -c core.quotePath=false -c log.diffMerges=separate -c log.showRoot=true -c log.follow=false)
+git_walk=(log --stdin --full-history)
+git_patch=(-U0 --text --no-color --no-ext-diff --no-textconv --src-prefix=a/ --dst-prefix=b/)
+
 # rev_input — the revisions for `git log --stdin`: pushed commits, then exclusions marked
 # with `^`, deduplicated in order. They go on stdin because as arguments a new remote with
 # hundreds of refs exceeds the Windows command-line limit. `git log --stdin` falls back to
@@ -132,21 +144,12 @@ rev_input() {
 }
 
 # added_lines <pathspec> — lines added under <pathspec> by the pushed commits that the
-# destination refs do not already have. Every option guards a way the scan could go blind:
-# --full-history keeps side branches that net to no change; -m with log.diffMerges=separate
-# shows what a merge adds against each parent; log.showRoot=true includes root commits;
-# log.follow=false keeps a rename into the pathspec from being paired with its source;
-# --text reads binary / -diff / bigFileThreshold files as text; --no-replace-objects reads
-# the objects push actually sends; the color/prefix/textconv flags override diff config.
-# Each pathspec is scanned in its own call, so a file renamed into it from outside shows
-# its lines as added.
+# destination refs do not already have. Each pathspec is scanned in its own call, so a file
+# renamed into it from outside shows its lines as added.
 added_lines() {
   local out revs
   revs="$(rev_input)" && [ -n "$revs" ] || return 1
-  out="$(printf '%s\n' "$revs" | git --no-replace-objects -c core.quotePath=false \
-    -c log.diffMerges=separate -c log.showRoot=true -c log.follow=false \
-    log --stdin -p --text --no-color --no-ext-diff --no-textconv \
-    --full-history -m -U0 --src-prefix=a/ --dst-prefix=b/ --format= -- "$1")" || return 1
+  out="$(printf '%s\n' "$revs" | git "${git_global[@]}" "${git_walk[@]}" -p -m "${git_patch[@]}" --format= -- "$1")" || return 1
   # Header lines run from "diff --git" to the first "@@"; a body line starting with "++"
   # appears as "+++" and must not be mistaken for a header.
   printf '%s\n' "$out" | awk '/^diff --git /{h=1; next} /^@@/{h=0; next} !h && /^\+/{print substr($0, 2)}'
@@ -290,7 +293,7 @@ pt_scan_staged() {
   local paths patch hits
   set -- -c core.quotePath=false -c diff.renames=true diff --cached -M --no-ext-diff
   if ! paths="$(set -o pipefail; git "$@" --name-only -z --diff-filter=ACR | pt_new_paths P)" ||
-    ! patch="$(git "$@" -U0 --text --no-color --no-textconv --src-prefix=a/ --dst-prefix=b/)"; then
+    ! patch="$(git "$@" "${git_patch[@]}")"; then
     pt_violation "pre-commit: git diff failed while checking private terms (fail-closed)"
     return 0
   fi
@@ -316,9 +319,8 @@ private_rev_input() {
 pt_log() { # <git log args> — over the private push range, revisions on stdin
   local revs
   revs="$(private_rev_input)" && [ -n "$revs" ] || return 1
-  printf '%s\n' "$revs" | git --no-replace-objects -c core.quotePath=false -c diff.renames=true \
-    -c log.diffMerges=separate -c log.showRoot=true -c log.follow=false -c i18n.logOutputEncoding=UTF-8 \
-    log --stdin --full-history "$@"
+  printf '%s\n' "$revs" | git "${git_global[@]}" -c diff.renames=true -c i18n.logOutputEncoding=UTF-8 \
+    "${git_walk[@]}" "$@"
 }
 
 # pt_scan_pushed — ref names (every non-delete line), then the new paths, added lines, messages
@@ -327,7 +329,7 @@ pt_scan_pushed() {
   local paths='' patch='' msgs='' hits
   if [ ${#push_commits[@]} -gt 0 ]; then
     if ! paths="$(set -o pipefail; pt_log -m --name-only -z -M --diff-filter=ACR --no-ext-diff --format= | pt_new_paths p)" ||
-      ! patch="$(pt_log -m -p -M -U0 --text --no-color --no-ext-diff --no-textconv --src-prefix=a/ --dst-prefix=b/ --format=)" ||
+      ! patch="$(pt_log -m -p -M "${git_patch[@]}" --format=)" ||
       ! msgs="$(pt_log '--format=%x01%h%n%an%x20<%ae>%n%cn%x20<%ce>%n%B')"; then
       pt_violation "pre-push: git log failed while checking private terms (fail-closed)"
       return 0

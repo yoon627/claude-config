@@ -526,6 +526,27 @@ both clean - 'term only in what the destination already has' pre-push "$(line fe
 newclaude "$LIST"; b=$(commit README.md x); g checkout -q -b side; commit notes/a.md 'qqxk' >/dev/null
 g checkout -q main; commit notes/b.md y >/dev/null; g merge -q --no-ff side -m merged; s=$(git -C "$REPO" rev-parse HEAD)
 both block '=private term (list line 4) in pushed notes/a.md' 'term brought in by a merge' pre-push "$(line feat "$s" "$b")"
+
+# user config must not hide terms or misname paths in the term scans, which share the secret
+# scan's hardening options: each case fails if a term scan loses an option it depends on
+newclaude "$LIST"; g config color.ui always; g config diff.noprefix true; g config log.showRoot false
+s=$(commit b/notes.md 'zebracorp')
+both block '=private term (list line 3) in pushed b/notes.md' 'root commit with color.ui=always / noprefix / showRoot=false' pre-push "$(line feat "$s")"
+newclaude "$LIST"; b=$(commit notes/x.md a); g checkout -q -b side; commit side.txt s >/dev/null
+g checkout -q main; commit feat.txt f >/dev/null; g merge -q --no-ff --no-commit side >/dev/null
+printf '\nqqxk\n' >> "$REPO/notes/x.md"; g add notes/x.md; g commit -q -m merge; s=$(git -C "$REPO" rev-parse HEAD)
+g config log.diffMerges off
+both block '=private term (list line 4) in pushed notes/x.md' 'term only in a merge resolution with log.diffMerges=off' pre-push "$(line feat "$s" "$b")"
+newclaude "$LIST"; printf 'notes/** diff=hide\n' > "$REPO/.git/info/attributes"; g config diff.hide.textconv true
+b=$(commit README.md x); mkdir -p "$REPO/notes"; printf 'head\000\nzebracorp\n' > "$REPO/notes/a.md"; g add -f notes/a.md; g commit -q -m bin
+s=$(git -C "$REPO" rev-parse HEAD)
+both block '=private term (list line 3) in pushed notes/a.md' 'binary file under a textconv that prints nothing' pre-push "$(line feat "$s" "$b")"
+g config color.ui always; g config diff.mnemonicPrefix true; printf 'more\000\nqqxk\n' > "$REPO/notes/a.md"; g add notes/a.md
+both block '=private term (list line 4) in staged notes/a.md' 'staged binary under the same textconv, color.ui=always, mnemonicPrefix' pre-commit
+# patch headers quote non-ASCII path bytes unless core.quotePath=false, and a quoted path no
+# longer shows the term it must be hidden for
+newclaude "$LIST"; b=$(commit README.md x); s=$(commit 'notes/얼룩말사.md' 'qqxk')
+both block '=private term (list line 4) in pushed path (hidden)' 'content hit in a path holding a non-ASCII term' pre-push "$(line feat "$s" "$b")"
 unset FAKE_HOME FORBID
 
 # verify.sh shows NOTE lines under the test's ok line and counts SKIP lines as case skips.
