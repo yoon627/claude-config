@@ -1,6 +1,6 @@
 ---
 title: jira-232-docs-regex — 이슈 #232 1–3: jira-task 설정 소스 문서·load_config docstring·잘못된 티켓 패턴의 exit 2
-status: in_progress
+status: done
 started: 2026-10-03
 updated: 2026-10-03
 ---
@@ -17,9 +17,10 @@ updated: 2026-10-03
 - 2026-10-03: worktree 생성(base `origin/main@4ad0b02`). Explore — 설정 오류는 `설정 로드 실패:` + exit 2(`jira_worklog.py:343-347`), CLI 값 검증 선례는 `--max-gap` 의 argparse type(`_non_negative_int`), jira-task 는 패턴 오류를 `ConfigError("JIRA_TICKET_PATTERN 파싱 실패: …")` 로 감싼다(`jira_task.py:493-497`).
 - 2026-10-03: TDD Red(설정 쪽 `ConfigError not raised`, CLI 쪽 `re.PatternError` traceback) → 구현 → Green. 코드 리뷰(Workflow: 리뷰 1 + 반박 검증 1, Codex 미가용) APPROVE 수준, minor 1 real — 설정 패턴을 무조건 검사해 유효한 `--ticket-pattern` 으로도 우회하지 못함 → 검증을 `main` 으로 옮김(Red 재확인 후 Green). 실제 프로세스: 설정 오류 exit 2(한 줄), CLI 오류 exit 2(usage + 한 줄), 깨진 설정 + 유효한 CLI 값 exit 0.
 - 2026-10-03: 최종 검증(Workflow) — 격리 runner 는 `verify.sh` ALL PASS(skip: install-codex-skill.test.ps1)·Ran 14·2·29·19·71·19 를 관찰했다. 9번 명령은 메인이 `[` 를 따옴표 없이 넘겨 zsh 글롭 오류로 실행되지 않았고, 그 경로는 메인이 따옴표를 넣어 직접 관찰했다(exit 2). 반영분 재검토는 nit 3 → 반영. 우회 테스트의 설정을 실제 `resolve_config` 로 만들고, 검사를 `resolve_config` 로 되돌린 변형이 잡히는 것을 확인했다. evidence gate 1–7 충족 → DONE.
+- 2026-10-03: 커밋·commit-check 이상 없음 → 로컬 main 에 ff-merge. plan done.
 
 # Next
-- 커밋 → commit-check → 로컬 ff-merge·정리 → main push 는 사용자 확인.
+- 없음 (main push 와 #232 체크는 사용자 확인 후).
 
 # Decisions
 - 관련 wiki decision 없음 — #231 의 조회와 같은 범위(jira-worklog 티켓 패턴), 이번 변경은 그 후속이다.
