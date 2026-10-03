@@ -6,7 +6,7 @@
   0: 세션 활동 없음·미리보기·티켓 없음·자격증명 불완전(+ "등록 불가")·등록 성공
   1: 등록 게이트 차단·Jira 실패(조회·계획·일부 쓰기)·worktree 처리 중 git 오류·고를 수 없는 worktree
      (없는 이름, 이름 없이 worktree 최상위가 아닌 cwd — sys.exit 문자열)
-  2: 설정 오류·worktree 목록 git 오류
+  2: 설정 오류(잘못된 티켓 패턴 정규식 — 설정·`--ticket-pattern` — 포함)·worktree 목록 git 오류
 실행기 없음(127)과 launcher 의 종료코드 전달은 test_launcher.sh 가 본다.
 
 수동 실행 (이 디렉터리에서):
@@ -33,7 +33,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 import jira_worklog  # noqa: E402
-from jira_kit.config import Config, ConfigError  # noqa: E402
+from jira_kit.config import Config, ConfigError, resolve_config  # noqa: E402
 from jira_kit.git_util import GitError, Worktree  # noqa: E402
 from jira_kit.jira_client import JiraConfig, JiraError  # noqa: E402
 from jira_kit.session_time import AttributionStats  # noqa: E402
@@ -191,6 +191,27 @@ class ExitContractTest(unittest.TestCase):
             with self.subTest(raises=name), mock.patch.object(jira_worklog, name, side_effect=error):
                 code, _, _ = self.run_main("ABC-123-demo")
                 self.assertEqual(code, 2)
+
+    def test_invalid_ticket_pattern_setting_exits_2(self) -> None:
+        # 설정 패턴은 --ticket-pattern 이 없을 때만 쓰이므로 그때만 막는다. 설정은 실제 resolve_config 로
+        # 만든다 — 검사가 설정을 읽는 단계로 옮겨 가면 CLI 값으로 우회할 수 없게 되는데, 그것도 여기서 잡힌다.
+        self.config = replace(
+            resolve_config({"JIRA_TICKET_PATTERN": "["}, {}, {}),
+            jira=CREDENTIALS, timezone_name="UTC", max_gap_minutes=60,
+        )
+        code, _, err = self.run_main("ABC-123-demo")
+        self.assertEqual(code, 2)
+        self.assertIn("JIRA_TICKET_PATTERN", err)
+        code, out, _ = self.run_main("ABC-123-demo", "--ticket-pattern", PATTERN)
+        self.assertEqual(code, 0)
+        self.assertIn("ticket=ABC-123", out)
+
+    def test_invalid_ticket_pattern_option_exits_2(self) -> None:
+        err = io.StringIO()
+        with redirect_stderr(err), self.assertRaises(SystemExit) as caught:
+            jira_worklog.main(["ABC-123-demo", "--ticket-pattern", "["])
+        self.assertEqual(caught.exception.code, 2)
+        self.assertIn("--ticket-pattern", err.getvalue())
 
 
 class ProcessExitTest(unittest.TestCase):

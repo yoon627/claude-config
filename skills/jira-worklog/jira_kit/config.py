@@ -9,6 +9,7 @@ API_TOKEN 은 toml 에서 읽지 않는다(커밋 위험) — 환경변수/.env 
 from __future__ import annotations
 
 import os
+import re
 import tomllib
 from collections.abc import Callable
 from dataclasses import dataclass, replace
@@ -26,7 +27,7 @@ _DEFAULT_TIMEZONE = "Asia/Seoul"
 
 
 class ConfigError(RuntimeError):
-    """설정 파일(.env / jira-kit.toml) 로드·파싱 실패 (CLI 는 이를 잡아 exit code 로 처리)."""
+    """설정 로드·파싱 실패 — 파일(.env / jira-kit.toml) 읽기·문법, 티켓 패턴 정규식 (CLI 는 이를 잡아 exit code 로 처리)."""
 
 
 @dataclass(frozen=True)
@@ -104,6 +105,19 @@ def resolve_config(
     )
 
 
+def check_ticket_pattern(pattern: str) -> None:
+    """설정에서 온 티켓 패턴이 잘못된 정규식이면 ``ConfigError``.
+
+    worktree 를 처리하기 전에 걸러야 traceback 으로 끝나지 않는다.
+    """
+    try:
+        re.compile(pattern)
+    except re.error as exc:
+        raise ConfigError(
+            f"JIRA_TICKET_PATTERN(toml 은 [worklog] ticket_pattern) 파싱 실패: {exc}"
+        ) from None
+
+
 def resolve_timezone(name: str) -> tzinfo:
     """IANA 이름으로 tzinfo 를 만든다. tzdata 없으면(Windows 등) 시스템 로컬로 fallback.
 
@@ -160,7 +174,9 @@ def load_config(
 ) -> Config:
     """실제 파일/환경에서 설정을 읽어 Config 를 만든다.
 
-    우선순위: 환경변수 > 프로젝트 .env(cwd 상위) > 홈 전역 ``~/.jira-kit/`` > 기본값.
+    우선순위: 환경변수 > ``.env``(cwd 상위의 프로젝트 파일 > 홈 전역 ``~/.jira-kit/.env``)
+    > ``jira-kit.toml`` > 기본값. toml 은 cwd 상위의 프로젝트 파일이 있으면 그것만 읽고(홈 전역과
+    병합하지 않는다), 없을 때 ``~/.jira-kit/jira-kit.toml`` 을 읽는다.
     홈 전역 소스는 skill 이 여러 repo 에서 토큰을 한 곳에서 읽게 한다(프로젝트별 override 가능).
     """
     environ = dict(os.environ) if environ is None else environ

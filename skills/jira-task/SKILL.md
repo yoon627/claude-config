@@ -38,7 +38,7 @@ description: Update the current Jira task's description with a concise summary o
 
 ## Configuration
 
-`--post`에만 다음 설정이 필요하다. 우선순위는 process environment → project `.env` → `~/.jira-kit/.env`이며 기존 `jira-worklog`와 같은 경로를 사용한다.
+`--post`에만 다음 설정이 필요하다. 우선순위는 process environment → project `.env` → `~/.jira-kit/.env` → `jira-kit.toml`(cwd 위의 프로젝트 파일, 없으면 `~/.jira-kit/jira-kit.toml`)이며 기존 `jira-worklog`와 같은 경로를 사용한다. `jira-kit.toml` 에서는 `[jira]` 의 `base_url`·`email`·`cloud_id` 와 `[worklog]` 의 `timezone`·`ticket_pattern` 만 읽는다.
 
 ```text
 JIRA_BASE_URL=https://your-site.atlassian.net

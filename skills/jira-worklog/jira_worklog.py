@@ -26,6 +26,7 @@ import argparse
 import io
 import json
 import os
+import re
 import sys
 from datetime import date, datetime
 from pathlib import Path
@@ -40,7 +41,13 @@ if isinstance(sys.stderr, io.TextIOWrapper):
     sys.stderr.reconfigure(encoding="utf-8")
 
 from jira_kit.codex_session import find_codex_sessions  # noqa: E402
-from jira_kit.config import Config, ConfigError, load_config, resolve_timezone  # noqa: E402
+from jira_kit.config import (  # noqa: E402
+    Config,
+    ConfigError,
+    check_ticket_pattern,
+    load_config,
+    resolve_timezone,
+)
 from jira_kit.git_util import GitError, Worktree, current_worktree, list_worktrees  # noqa: E402
 from jira_kit.jira_client import JiraError, get_myself, get_worklogs  # noqa: E402
 from jira_kit.markers import worklog_marker  # noqa: E402
@@ -317,6 +324,14 @@ def _non_negative_int(value: str) -> int:
     return number
 
 
+def _regex(value: str) -> str:
+    try:
+        re.compile(value)
+    except re.error as exc:
+        raise argparse.ArgumentTypeError(f"정규식 파싱 실패: {exc}") from None
+    return value
+
+
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="worktree 작업시간 → Jira worklog 등록")
     parser.add_argument("name", nargs="?", help="worktree 이름(dir 또는 branch). 생략 시 현재 worktree")
@@ -324,7 +339,7 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--register", action="store_true", help="실제 Jira 등록(기본은 미리보기)")
     parser.add_argument("--max-gap", type=_non_negative_int, default=None, dest="max_gap",
                         help="세션 활동을 끊는 idle gap(분). 미지정 시 설정값")
-    parser.add_argument("--ticket-pattern", default=None, dest="ticket_pattern",
+    parser.add_argument("--ticket-pattern", type=_regex, default=None, dest="ticket_pattern",
                         help="티켓 추출 정규식. 미지정 시 설정값")
     parser.add_argument("--timezone", default=None, help="IANA 타임존(예: Asia/Seoul). 미지정 시 설정값")
     parser.add_argument("--comment", default=None, help="worklog 코멘트(마커와 함께 기록)")
@@ -342,6 +357,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         config = load_config(Path.cwd())
+        if not args.ticket_pattern:  # 비어 있지 않은 --ticket-pattern 이 있으면 설정 패턴은 쓰이지 않는다
+            check_ticket_pattern(config.ticket_pattern)
     except ConfigError as exc:
         print(f"설정 로드 실패: {exc}", file=sys.stderr)
         return 2
