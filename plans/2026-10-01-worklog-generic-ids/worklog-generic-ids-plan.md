@@ -1,8 +1,8 @@
 ---
 title: worklog-generic-ids — jira-worklog 의 회사 식별자를 일반 표기로 바꾸고 미사용 기본 티켓 패턴을 없앰
-status: in_progress
+status: done
 started: 2026-10-01
-updated: 2026-10-02
+updated: 2026-10-03
 ---
 
 # Goal
@@ -21,7 +21,7 @@ updated: 2026-10-02
   - 이미 Jira 에 등록된 worklog 마커 — 마커 형식과 런타임 추출이 그대로라 영향 없다.
   - 브랜치 fallback 의 범용 패턴 오탐(`fix-UTF-8-…`→`UTF-8`, `feature/ISO-8601`→`ISO-8601` — 리뷰어 재현) — #98 부터의 기존 동작이고 이 변경과 무관하다. 머신별 패턴으로 좁히면 줄어든다.
 - Open questions:
-  - (열림) 이 머신에 회사 패턴을 설정할지. 지금은 범용 기본값으로 돈다 — 확인 범위는 전역 설정까지다(`~/.jira-kit` 에 toml 없음, 전역 `.env` 에 키 없음, 환경변수 없음). `load_config` 는 실행 cwd 위로 프로젝트 `.env`·`jira-kit.toml` 도 찾는데(`jira_worklog.py` 가 `load_config(Path.cwd())` — `/e` 가 main 에서 이름 인자로 돌리면 main checkout 위) 회사 repo 쪽은 확인하지 않았다. 회사 패턴은 #98 이후 런타임에 적용된 적이 없어, 설정하면 이 머신의 모든 repo 와 jira-task 에서 자동 추출이 좁아지는 새 동작이다. repo 변경과 분리해 Report 에서 묻는다.
+  - (해소 — 두지 않음, 사용자 결정 2026-10-03) 이 머신에 회사 패턴을 설정할지. 지금은 범용 기본값으로 돈다 — 확인 범위는 전역 설정까지다(`~/.jira-kit` 에 toml 없음, 전역 `.env` 에 키 없음, 환경변수 없음). `load_config` 는 실행 cwd 위로 프로젝트 `.env`·`jira-kit.toml` 도 찾는데(`jira_worklog.py` 가 `load_config(Path.cwd())` — `/e` 가 main 에서 이름 인자로 돌리면 main checkout 위) 회사 repo 쪽은 확인하지 않았다. 회사 패턴은 #98 이후 런타임에 적용된 적이 없어, 설정하면 이 머신의 모든 repo 와 jira-task 에서 자동 추출이 좁아지는 새 동작이다. repo 변경과 분리해 Report 에서 묻는다.
 - 분할: 없음 — 단위 후보가 1개뿐이다. fixture·주석·예시 일반화와 미사용 기본값 제거는 모두 jira-worklog 의 회사 식별자 제거라는 한 목적이고, 어느 일부만으로는 적중 0 이 되지 않는다.
 
 # Progress
@@ -29,10 +29,11 @@ updated: 2026-10-02
 - 2026-10-01: plan 리뷰 CONDITIONAL(강 4·약 9) → 반영(# Review Disposition). Codex 는 이 세션에서 크레딧 소진(세션 마커)이라 병행 생략. 기존 테스트 수 기준값 실측: scope 29, gate 19, session_time 71.
 - 2026-10-02: 구현 — `test_ticket_pattern.py`(변경 전 코드에서도 통과 확인), `extract_ticket` 기본값 제거, fixture·주석·예시 일반화, SKILL.md·README 문서. Green: 비공개 용어 0(추적 파일·diff·untracked), 직접 실행 Ran 29·19·71·12·2 모두 OK(`-W error`). 코드 리뷰는 Workflow 로 세 관점(코드·문서 주장·낡은 참조) + nit 아닌 지적마다 반박 검증(agent 8개, Codex 미가용) → minor 3건 real, 나머지 nit — 반영(# Review Disposition).
 - 2026-10-02: simplify — 손댈 것 없음(코드 변경은 미사용 기본값 제거뿐). 최종 검증은 Workflow 로 격리 runner(명령 9개 모두 exit 0, `verify.sh` `ALL PASS (skip: install-codex-skill.test.ps1)`, python 축에 새 파일 ok, Ran 29·19·71·12·2)와 문서 재대조(nit 2 → 반영) 병렬. 마지막 편집 뒤 `verify.sh` 재실행 같은 결과, 비공개 용어 0(추적·diff·untracked·커밋 메시지 초안). evidence gate 1–5 충족, runner 보고와 판정 일치 → DONE.
+- 2026-10-03: 커밋 `e41541c`, commit-check 이상 없음. 사용자 결정 — 로컬 main 미게시 2커밋을 먼저 push 하고 `/e merge`, 이 머신에 회사 패턴은 두지 않음. main push 는 origin 에 다른 세션의 새 커밋 11개가 있어 거부 → 미게시 2커밋을 origin/main 위로 rebase(충돌 없음, `verify.sh` ALL PASS) 후 push. 이슈 #210 1번·#214 3번 체크. `/e merge` 시작.
+- 2026-10-03: PR #231 — 브랜치 push·PR 생성(본문 게시 전 목록 대조 0, mergeable). plan done.
 
 # Next
-- 커밋 → commit-check → Report(머신 설정 Open question 질문 포함) → `/e merge`. PR 제목·본문은 게시 전 목록 대조 0(Acceptance 1).
-- 머지 뒤: #206 완료 댓글·close — 외부 쓰기라 AskUserQuestion, 게시 전 본문 대조 0.
+- 없음 (머지 뒤 #206 완료 댓글·close 는 이 세션에서 사용자 확인 후 처리 — 게시 전 본문 대조 0).
 
 # Decisions
 - 관련 wiki decision 없음 — `wiki_search.py jira-worklog ticket pattern 티켓 패턴`(공용 76쪽, repo wiki 없음). 두 기본값은 스킬 도입 커밋 `aae9d6d`(#98)에서 온 그대로이고 이후 바꾼 결정이 없다(`git log -L`). `worklog-per-worktree` plan 의 "티켓 패턴이 단일 프로젝트라 수용" 리스크 판단은 런타임 패턴과 무관한 같은 이름 worktree 충돌 건이라 이 변경으로 바뀌지 않는다.
@@ -46,6 +47,7 @@ updated: 2026-10-02
 - 가장 위험한 단계: 훅이 보지 않는 공개 채널 — PR 제목·본문과 #206 댓글(README Install D 의 한계). 게시 전마다 같은 대조(0)를 거친다.
 - ⚠️ 묶음 intent 를 만들지 않는다 — §10 트리거 3("기존 plan 의 `# Deferred` 에서 새 plan 시작")과 상충할 수 있음 — 출처는 두 곳(`worklog-followups` # Deferred 110행, `wiki-private-repo` Out of scope 18행)이고 둘 다 #206 으로 넘긴 역참조다. `worklog-followups` 는 이미 닫힌 무관 묶음 `worklog-deletion-safety` 에 `intent:` 로 속해 있고 §10 의 `intent:` 는 스칼라라 트리거 3 절차(선행 plan 에 `intent:` 1줄 추가)를 적용할 수 없다. #206 의 앞선 plan(`private-terms-guard`·`wiki-private-repo`)도 묶음 없이 끝났다. 그래서 #206 이 묶음 역할을 하고, 머지 뒤 #206 완료 댓글·close 를 # Next 에 둔다.
 - 커밋 단위: 1개 — 모든 변경이 jira-worklog 의 회사 식별자 제거라는 한 목적이다.
+- 머신 패턴: 이 머신의 `~/.jira-kit` 에 회사 패턴을 두지 않는다(사용자 결정 2026-10-03). 범용 기본값이 회사 키도 잡아 지금 동작이 그대로이고, 회사 패턴은 #98 이후 런타임에 적용된 적이 없다. 기각: 회사 패턴 설정 — 이 머신의 모든 repo 와 jira-task 의 자동 추출이 좁아지는 새 동작이다.
 
 # Acceptance
 1. 비공개 용어 적중 0 — 로컬 목록 대조 스크립트(scratchpad, 용어 미출력)로 worktree 의 추적 파일 전체를 센다. 통과: "합계: 0 파일 0 줄". 커밋 직전 diff·untracked 대조도 0. 커밋 메시지·PR 제목·본문·#206 댓글 초안도 게시 직전에 같은 대조로 0(훅 밖 공개 채널).
