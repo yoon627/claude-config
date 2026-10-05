@@ -4,7 +4,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { spawnSync } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const STATUS = path.join(ROOT, 'statusline.js');
@@ -105,5 +105,37 @@ ok('codex 쿼터 캐시가 남아 있어도 codex 조각을 그리지 않고 ref
   }
 });
 
-fs.rmSync(HOME, { recursive: true, force: true });
-console.log(`statusline.test.js: ${n} tests passed`);
+// input 이 null 이면 stdin 의 쓰기 끝을 열어 둔다 — 하니스가 셸만 끝내고 stdin 을 닫지 않은 상황.
+// cwd 는 git repo 가 아닌 HOME — 정상 경로의 경과에 git 호출 시간이 섞이지 않게.
+function runTimed(script, input) {
+  return new Promise((resolve) => {
+    const start = performance.now();
+    const child = spawn(process.execPath, [script], { cwd: HOME, env: { ...process.env, HOME, USERPROFILE: HOME } });
+    let out = '';
+    let exit;
+    child.stdout.on('data', (d) => { out += d; });
+    if (input != null) child.stdin.end(input);
+    const cap = setTimeout(() => child.kill(), 15000);
+    child.on('exit', (code, signal) => {
+      exit = { code, signal, ms: Math.round(performance.now() - start) };
+      clearTimeout(cap);
+      child.stdin.destroy();
+    });
+    child.on('close', () => resolve({ script: path.basename(script), ...exit, out }));
+  });
+}
+const report = (r) => `${r.script}: code=${r.code} signal=${r.signal} ms=${r.ms} out=${JSON.stringify(r.out)}`;
+
+Promise.all([STATUS, SUB].flatMap((s) => [runTimed(s, null), runTimed(s, '{}')])).then((results) => {
+  for (const [open, closed] of [results.slice(0, 2), results.slice(2, 4)]) {
+    assert.ok(open.code === 0 && open.out === '' && open.ms >= 3000 && open.ms < 15000,
+      `닫히지 않는 stdin 이면 3초 시한에 출력 없이 exit 0 — ${report(open)}`);
+    assert.ok(closed.code === 0 && closed.ms < 3000, `stdin 이 닫히면 시한을 기다리지 않고 끝난다 — ${report(closed)}`);
+  }
+  n++;
+  fs.rmSync(HOME, { recursive: true, force: true });
+  console.log(`statusline.test.js: ${n} tests passed`);
+}).catch((e) => {
+  console.error(e);
+  process.exitCode = 1;
+});

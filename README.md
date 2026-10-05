@@ -295,13 +295,13 @@ Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline)
 - **Context window**: `ctx NN%` — 현재 세션의 컨텍스트 사용률
 - **Git branch + worktree**: `main` 또는 `feature-x @wt:gallant-hodgkin` — 현재 cwd 기준
 
-외부 의존은 git 뿐이고 try/catch 로 감싸져 있어 실패하면 branch 부분만 빠지고 나머지는 정상 동작. stdin 이 `null`·빈 값·깨진 JSON 이어도 exit 0.
+외부 의존은 git 뿐이고 try/catch 로 감싸져 있어 실패하면 branch 부분만 빠지고 나머지는 정상 동작. stdin 이 `null`·빈 값·깨진 JSON 이어도 exit 0. stdin 이 3초 안에 닫히지 않으면 출력 없이 exit 0 으로 끝난다. 시한이 없을 때 Windows 에서 부모 셸이 죽은 `node statusline.js` 가 며칠씩 남아 그 순간의 cwd(worktree)를 계속 잡는 것을 관찰했다(공용 wiki `windows-bash-tool-orphan-processes`). 하니스가 셸만 끝내고 stdin 을 닫지 않아 'end' 가 오지 않은 것으로 추정한다(하니스 내부는 확인하지 못했다). 그래서 터미널에서 직접 실행할 때는 입력을 넘긴다 — 예: `echo {} | node statusline.js`(넘기지 않으면 3초 뒤 빈 출력으로 끝난다).
 
 background task 표시(`✻ N bg`)는 2026-09-25 제거했다 — tasks 디렉토리에는 foreground Bash 출력도 쌓여 background 와 구분할 수 없고(`refreshInterval: 2` 라 Bash 를 돌릴 때마다 뜬다), macOS 에서는 경로도 틀려 한 번도 뜬 적이 없었다. background subagent 는 프롬프트 아래 subagent 패널과 `/tasks` 가 보여 준다.
 
 ### subagent-statusline.js — subagent statusline
 
-`subagentStatusLine` 으로 등록되어 subagent 패널의 행을 그린다. 입력은 `{columns, tasks[]}`(task 마다 `id`·`name`·`description`·`status`·`startTime`(epoch ms)·`tokenCount`·`contextWindowSize` 등), 출력은 행마다 `{"id","content"}` JSON 한 줄이다([문서](https://code.claude.com/docs/en/statusline#subagent-status-lines)). content 는 `name · description · status · <N>k tok (P%) · Xm Ys` — 없는 조각은 빼고(`name` 은 이름을 등록한 agent 에만 오며, 기본 표시가 대신 쓰는 agent 종류는 입력에 없다), 경과는 `running`·`pending` 일 때만 붙인다(입력에 종료 시각이 없어 끝난 행의 경과가 계속 늘기 때문). `columns` 를 넘으면 description 부터 줄인다(글자 단위, 한글·CJK·이모지는 2칸). 비율은 `tokenCount / contextWindowSize` 로, 출력 토큰이 겹쳐 세여 100% 에서 자르는 근사치다. 문자열 id 가 없는 task 와 `columns` 가 0 일 때는 기본 표시로 남긴다.
+`subagentStatusLine` 으로 등록되어 subagent 패널의 행을 그린다. 입력은 `{columns, tasks[]}`(task 마다 `id`·`name`·`description`·`status`·`startTime`(epoch ms)·`tokenCount`·`contextWindowSize` 등), 출력은 행마다 `{"id","content"}` JSON 한 줄이다([문서](https://code.claude.com/docs/en/statusline#subagent-status-lines)). content 는 `name · description · status · <N>k tok (P%) · Xm Ys` — 없는 조각은 빼고(`name` 은 이름을 등록한 agent 에만 오며, 기본 표시가 대신 쓰는 agent 종류는 입력에 없다), 경과는 `running`·`pending` 일 때만 붙인다(입력에 종료 시각이 없어 끝난 행의 경과가 계속 늘기 때문). `columns` 를 넘으면 description 부터 줄인다(글자 단위, 한글·CJK·이모지는 2칸). 비율은 `tokenCount / contextWindowSize` 로, 출력 토큰이 겹쳐 세여 100% 에서 자르는 근사치다. 문자열 id 가 없는 task 와 `columns` 가 0 일 때는 기본 표시로 남긴다. stdin 3초 시한은 `statusline.js` 와 같다(같은 대기 구조라 같은 고아 누수가 날 수 있다).
 
 ### agents/ — 4개 subagent
 

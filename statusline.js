@@ -28,9 +28,13 @@ function quotaPiece(label, fiveHour, weekly) {
   return body ? `${label} ${body}` : '';
 }
 
+// 하니스가 stdin 을 닫지 않고 떠나면 'end' 가 오지 않아 고아로 남아 그 cwd 를 잡는다 — 그릴 대상이 없으니 출력 없이 끝낸다.
+const STDIN_MS = 3000;
+const stdinTimer = setTimeout(() => process.exit(0), STDIN_MS);
 const chunks = [];
 process.stdin.on('data', d => chunks.push(d));
 process.stdin.on('end', () => {
+  clearTimeout(stdinTimer);
   let input = {};
   try { input = JSON.parse(Buffer.concat(chunks).toString()); } catch (_) {}
   if (!input || typeof input !== 'object') input = {};
