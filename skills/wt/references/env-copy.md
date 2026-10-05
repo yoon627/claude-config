@@ -13,7 +13,7 @@
   - **B. 권한 허용목록** — repo-relative 경로가 **정확히 `.claude/settings.local.json`** 인 행(앵커드 일치, basename 매칭 금지).
 
 ### B 를 앵커드 정확일치로 두는 이유
-Claude Code 의 `localSettings` 스코프는 `<canonical git root>/.claude/settings.local.json` **이 경로 하나**다. worktree 는 자기 자신이 git root 라 main 의 파일을 상속하지 않아, 복사하지 않으면 worktree 세션의 권한 허용목록이 **0개**로 시작한다(CLAUDE.md §8 이 worktree 작업을 강제하므로 실사용 경로가 전부 여기 해당).
+Claude Code 가 읽는 로컬 설정 파일의 repo 기준 상대경로는 `.claude/settings.local.json` **하나**다([settings](https://code.claude.com/docs/en/settings) "Where Claude Code keeps the local file in a git repository"). 2.1.211 부터 git repo 안에서는 repo 루트의 파일을 쓰고, worktree 세션은 main checkout 루트의 파일을 쓴다 — 그래서 아래 예외가 아니면 복사하지 않아도 main 의 권한 규칙이 걸린다(2.1.288 macOS 실측). 예외(Windows, repo 루트가 홈 디렉토리, git 밖, repo 루트나 그 `.git`·`.claude` 의 소유자가 현재 사용자가 아님)에서는 세션의 작업 디렉토리(`EnterWorktree`·`/cd` 로 옮긴 곳 포함)의 파일을 읽어, 복사하지 않으면 worktree 세션의 권한 허용목록이 **0개**로 시작한다(CLAUDE.md §8 이 worktree 작업을 강제하므로 실사용 경로가 전부 여기 해당) — 복사가 필요한 이유는 이 예외다. 그 밖의 경우 복사본은 보조다. 문서는 옛 버전이 시작 디렉토리에 남긴 파일도 루트 파일과 함께 읽고 권한 규칙은 둘 다 적용된다고 한다 — worktree 에서 바로 시작한 세션이면 복사본의 규칙도 더해지고, 그 사본은 만든 시점의 것이라 그 뒤 main 에서 지운 allow 도 남는다. `EnterWorktree` 로 들어간 세션이 복사본을 함께 읽는지는 문서에 없고 재지 않았다.
 
 basename 이나 접두 매칭으로 넓히면 실제로 엉뚱한 파일이 딸려온다 — 이 repo 실측에서 같은 listing 에 `.claude/settings.local.json.bak`(백업)과 `settings.local.json`(repo 루트 — cwd 가 `$HOME` 인 세션 전용이라 worktree 와 무관)이 함께 나온다. 중첩 worktree 사본(`.claude/worktrees/<other>/.claude/settings.local.json`)도 같은 이유로 배제된다.
 
