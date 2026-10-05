@@ -277,7 +277,7 @@ for (const e of ['sh', ...(PWSH ? ['ps1'] : [])]) {
     JSON.stringify(kept.map((f) => fs.readFileSync(path.join(hooksOf(b), f), 'utf8')).sort()) === '["first\\n","second\\n"]'
     && kept.every((f) => /^pre-commit\.bak\.\d{8}T\d{6}Z(\.\d+)?$/.test(f)));
 }
-console.log(PWSH ? `ps1: ran (${PWSH})` : 'ps1: skipped (pwsh not found — set PWSH=<path>)');
+console.log(PWSH ? `NOTE [ps1] ran (${PWSH})` : 'SKIP [ps1] pwsh not found (set PWSH=<path>)');
 
 fs.rmSync(TMP, { recursive: true, force: true });
 console.log(fail === 0 ? 'ALL PASS' : `${fail} FAIL`);

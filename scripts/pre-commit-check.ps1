@@ -185,6 +185,13 @@ function Scan-Keys([string]$Content) {
     }
 }
 
+# Options the added-line scans share; pre-commit-check.sh git_global / git_walk / git_patch say
+# what each one guards against.
+$gitGlobal = @('--no-replace-objects', '-c', 'core.quotePath=false', '-c', 'log.diffMerges=separate',
+    '-c', 'log.showRoot=true', '-c', 'log.follow=false')
+$gitWalk = @('log', '--stdin', '--full-history')
+$gitPatch = @('-U0', '--text', '--no-color', '--no-ext-diff', '--no-textconv', '--src-prefix=a/', '--dst-prefix=b/')
+
 # Get-RevInput: the revisions for `git log --stdin` — pushed commits, then exclusions marked
 # with `^`, deduplicated in order. They go on stdin because as arguments a new remote with
 # hundreds of refs exceeds the Windows command-line limit (32,767 chars). Mirrors
@@ -204,10 +211,7 @@ function Get-AddedLines([string]$Pathspec) {
     # `git log --stdin` falls back to HEAD on empty input or a leading blank line: block instead.
     $revs = Get-RevInput
     if (-not $revs) { return $null }
-    $gitArgs = @('--no-replace-objects', '-c', 'core.quotePath=false', '-c', 'log.diffMerges=separate',
-        '-c', 'log.showRoot=true', '-c', 'log.follow=false',
-        'log', '--stdin', '-p', '--text', '--no-color', '--no-ext-diff', '--no-textconv',
-        '--full-history', '-m', '-U0', '--src-prefix=a/', '--dst-prefix=b/', '--format=', '--', $Pathspec)
+    $gitArgs = $script:gitGlobal + $script:gitWalk + @('-p', '-m') + $script:gitPatch + @('--format=', '--', $Pathspec)
     $r = Invoke-Git $gitArgs -Stdin ($revs + "`n")
     if ($r.Code -ne 0) { return $null }
     $added = New-Object System.Collections.Generic.List[string]
@@ -388,7 +392,7 @@ function Invoke-PrivateStaged {
     $base = @('-c', 'core.quotePath=false', '-c', 'diff.renames=true', 'diff', '--cached', '-M', '--no-ext-diff')
     $names = Invoke-Git ($base + @('--name-only', '-z', '--diff-filter=ACR'))
     $patch = $null
-    if ($names.Code -eq 0) { $patch = Invoke-Git ($base + @('-U0', '--text', '--no-color', '--no-textconv', '--src-prefix=a/', '--dst-prefix=b/')) }
+    if ($names.Code -eq 0) { $patch = Invoke-Git ($base + $script:gitPatch) }
     if ($null -eq $patch -or $patch.Code -ne 0) {
         Add-PrivateViolation 'pre-commit: git diff failed while checking private terms (fail-closed)'
         return
@@ -413,9 +417,7 @@ function Get-PrivateRevInput {
 function Invoke-PrivateLog([string[]]$LogArgs) {
     $revs = Get-PrivateRevInput
     if (-not $revs) { return $null }
-    $gitArgs = @('--no-replace-objects', '-c', 'core.quotePath=false', '-c', 'diff.renames=true',
-        '-c', 'log.diffMerges=separate', '-c', 'log.showRoot=true', '-c', 'log.follow=false',
-        '-c', 'i18n.logOutputEncoding=UTF-8', 'log', '--stdin', '--full-history') + $LogArgs
+    $gitArgs = $script:gitGlobal + @('-c', 'diff.renames=true', '-c', 'i18n.logOutputEncoding=UTF-8') + $script:gitWalk + $LogArgs
     $r = Invoke-Git $gitArgs -Stdin ($revs + "`n")
     if ($r.Code -ne 0) { return $null }
     return $r.Out
@@ -428,7 +430,7 @@ function Invoke-PrivatePushed {
     if ($script:pushCommits.Count -gt 0) {
         $names = Invoke-PrivateLog @('-m', '--name-only', '-z', '-M', '--diff-filter=ACR', '--no-ext-diff', '--format=')
         $patch = $null; $msgs = $null
-        if ($null -ne $names) { $patch = Invoke-PrivateLog @('-m', '-p', '-M', '-U0', '--text', '--no-color', '--no-ext-diff', '--no-textconv', '--src-prefix=a/', '--dst-prefix=b/', '--format=') }
+        if ($null -ne $names) { $patch = Invoke-PrivateLog (@('-m', '-p', '-M') + $script:gitPatch + @('--format=')) }
         if ($null -ne $patch) { $msgs = Invoke-PrivateLog @('--format=%x01%h%n%an%x20<%ae>%n%cn%x20<%ce>%n%B') }
         if ($null -eq $msgs) {
             Add-PrivateViolation 'pre-push: git log failed while checking private terms (fail-closed)'
