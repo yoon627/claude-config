@@ -1,8 +1,8 @@
 ---
 title: guard-214-followups — #214 2·4·6: verify 요약의 ps1 실행 여부, 가드 git 옵션 공유, 용어 목록 Read 거부 절차
-status: in_progress
+status: done
 started: 2026-10-03
-updated: 2026-10-03
+updated: 2026-10-05
 ---
 
 # Goal
@@ -24,10 +24,10 @@ updated: 2026-10-03
 - 2026-10-03: worktree 생성(base `origin/main@8eeb8fd`). Explore — 옵션 중복 3곳(sh `added_lines`·`pt_log`/`pt_scan_pushed`·`pt_scan_staged`, ps1 `Get-AddedLines`·`Invoke-PrivateLog`/`Invoke-PrivatePushed`·`Invoke-PrivateStaged`), `verify.sh` `run()` 은 `^SKIP ` 만 요약. 이 Mac 의 사용자 설정에 `Read(~/.claude/private-terms.txt)` deny 를 넣고 미끼로 실측했다 — Read 도구는 막히고 Bash `cat`·`/bin/cat`·`head` 는 막히지 않았다(2.1.288, auto 모드). Bash deny 미끼 추가는 auto 모드 분류기가 [Self-Modification] 으로 거부해 시험하지 못했다.
 - 2026-10-03: plan-reviewer 반영 후 단위 1 커밋 — 이 Mac 의 verify 에서 두 테스트 `ok` 줄 아래 `SKIP [ps1] …`, 마지막 줄 `ALL PASS (skip: install-hooks.test.js(case) pre-commit-check.test.sh(case) install-codex-skill.test.ps1)`, test.sh 123 유지, `CI=1`·pwsh 없음 → exit 1, 가짜 repo 에서 `NOTE ` 줄이 skip 에 안 들어감을 관찰. 단위 2 — 적대 설정 회귀 케이스 4개를 먼저 넣어 리팩터 전 127 통과(특성화) → 묶음 리팩터 후 127 통과. sh 는 git shim 으로 변경 전후 argv 를 기록해 영역별 multiset 동일·출력 동일(staged 패치 `--no-ext-diff` 중복만 차이), ps1 은 배열을 정적으로 펼쳐 같은 결과. 변형 실행 진행 중.
 - 2026-10-03: 단위 2·3 커밋. 변형 실행(sh) — 비공개 용어 호출부에서 묶음을 뺀 변형 4종 모두 검출, 옵션 단위로는 동작이 같은 변형만 생존(Decisions), quotePath 케이스를 더해 그 변형도 검출. 코드 리뷰 workflow(리뷰어 3 + 반박 검증 2, Codex 미가용 — 2026-09-30 크레딧 소진 세션 캐시): 코드 결함 0, 문서 minor 1·nit 3 반영(fixup). simplify: `verify.sh` NOTE 블록 단순화(fixup). 최종 검증(격리 runner): `verify.sh` 마지막 줄 `ALL PASS (skip: install-hooks.test.js(case) pre-commit-check.test.sh(case) install-codex-skill.test.ps1)`, test.sh 128 passed, `CI=true`·pwsh 없음 → exit 1 과 안내문, README 문구 12개 확인. Acceptance 2 와 3 의 CI 부분은 PR CI 대기.
+- 2026-10-05: commit-check 로 커밋 7개 → 3개(fixup 흡수, 단위 2·3 메시지 갱신 — 사용자 승인, tree 동일 확인). 로컬 main 의 미게시 커밋을 사용자 승인으로 push(머지 뒤 main 자동 pull 이 ff 로 되도록). main 규칙은 `strict_required_status_checks_policy: false` 라 rebase 없이 `/e merge` 진행. PR #233.
 
 # Next
-- commit-check 로 `fixup!` 4개를 각 단위에 합친다(단위 2·3 은 fixup 내용이 들어간 메시지로 갱신) → `/e merge` 로 push·PR → M5 에서 CI 로그의 `pre-commit-check.test.sh`·`install-hooks.test.js` 아래 `NOTE [ps1] ran …` 확인(Acceptance 2, 3 의 CI 부분 — 없으면 머지하지 않고 원인 확인).
-- 머지 뒤 `~/.claude` main 세션: 사용자 설정의 `Read(~/.claude/private-terms.txt)` deny 를 `~/.claude/.claude/settings.local.json` 으로 옮기고(Decisions rollback 의 jq 처럼 항목 하나만) main·worktree 세션에서 Read 차단을 다시 잰다, 공용 wiki Deferred 처리.
+- 없음 (머지 뒤 #214 의 2·4·6 체크는 이 세션에서 사용자 승인으로 처리, main 세션 후속은 `# Deferred`).
 
 # Decisions
 - 관련 wiki: `git-log-added-lines-hardening`(각 옵션이 막는 실명 경로 — 리팩터 뒤에도 그대로 유지해야 할 목록), `lesson-agent-hook-if-best-effort`(가드는 실제 훅 경로로 시험). 뒤집는 결정 없음.
@@ -69,6 +69,7 @@ updated: 2026-10-03
 - [plan nit] `--full-history` 공통 — fix: 걷기 묶음에 포함. [nit] Open questions 없음 — fix. [nit] 형식 통일 — fix. [nit] Acceptance 6 기준선 — fix. [nit] 공용 wiki `git-log-added-lines-hardening` 의 "ps1 은 아직 argv" 가 낡음 — defer(# Deferred).
 
 # Deferred
+- `~/.claude` main 세션: 사용자 설정의 `Read(~/.claude/private-terms.txt)` deny 를 `~/.claude/.claude/settings.local.json` 으로 옮기고(Decisions rollback 의 jq 처럼 항목 하나만 — 파일 통째 복원 금지) main 세션과 worktree 세션에서 Read 차단을 다시 잰다. README Install D 의 "worktree 세션도 main checkout 의 파일을 읽는다" 실측이 이것으로 확인된다.
 - 공용 wiki `git-log-added-lines-hardening` 의 "ps1 은 아직 argv 로 넘긴다" 서술이 낡았다(지금은 `-Stdin`) — `~/.claude` main 세션에서 고친다. 같은 페이지에 이번에 확인한 사실도 더할 후보: git 2.54 에서 `git log -m` 은 `--full-history` 없이도 net-zero 사이드 브랜치를 걷는다(가드에서 `--full-history` 는 `-m` 과 겹치는 이중 장치), 옵션 묶음이 엔진마다 한 곳으로 모였다.
 - `/wt` 의 settings.local.json 복사 근거("worktree 는 자기 자신이 git root 라 localSettings 를 상속하지 않는다" — README `skills/wt/` 절, `skills/wt/SKILL.md`·`references/env-copy.md`)가 2.1.211 이전 모델이다. settings 문서상 macOS·Linux 는 main checkout 의 파일을 읽고 Windows 만 사본이 필요하다. 심각도 낮음(복사는 해롭지 않고 Windows 에는 필요) — 운영 자산(skill)이라 승인 후 별도 작업.
 
