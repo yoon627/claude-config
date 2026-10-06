@@ -1,6 +1,6 @@
 ---
 title: statusline-stdin-leak — 상태줄 스크립트가 닫히지 않는 stdin 을 기다리며 고아로 남지 않게
-status: in_progress
+status: done
 started: 2026-10-02
 updated: 2026-10-06
 ---
@@ -35,7 +35,7 @@ updated: 2026-10-06
 - 2026-10-06: code-reviewer(+codex) APPROVE → 처분(# Review Disposition) 반영, simplify 변경 없음. `bash scripts/verify.sh` 단독(격리 runner): exit 0, `ALL PASS (skip: install-hooks.test.js(case) record-verified.test.sh)` — skip 은 git `--path-format` 미지원 ps1 케이스·jq 미설치로 이 변경 경로가 아님, statusline 3파일 ok. evidence gate: Acceptance 1~7 충족 → DONE.
 
 # Next
-- 커밋 → commit-check(WIP plan 커밋 합치기) → main 에 `--ff-only` 반영 → worktree 정리.
+- 없음 — main 에 로컬 ff-merge 로 반영(push 는 요청 시). 하니스가 statusLine 의 빈 stdout(exit 0)을 어떻게 그리는지는 미확인(리뷰 open question — 시한 경로는 하니스가 이미 포기한 호출이라 영향 없다고 본다 ⚠️).
 
 # Decisions
 - wiki decision 조회(`statusline stdin 고아 누수`): `workflow-failures` 상태줄 고아 행의 제안(stdin 읽기 시한) — 따른다. `claude-code-statusline-input`(2초마다 새로 뜬다, null·깨진 입력에도 exit 0) — 따른다.
