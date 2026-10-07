@@ -29,21 +29,41 @@ class FormattingTests(unittest.TestCase):
 
         self.assertEqual(jira_task.adf_lines(body), ["기존 본문", "둘째 줄"])
 
-    def test_description_entry_contains_summary_and_marker(self) -> None:
-        entry = jira_task._description_entry(SUMMARY, MARKER)
+    def test_description_entry_lists_date_items_and_marker(self) -> None:
+        entry = jira_task._description_entry(f"{SUMMARY}\n\n테스트를 보강했다.", MARKER)
 
         self.assertEqual(
             jira_task.adf_lines({"content": [entry]}),
-            [f"작업 내용: {SUMMARY}", MARKER],
+            ["2026-08-13", f"- {SUMMARY}", "- 테스트를 보강했다.", MARKER],
         )
+        self.assertEqual(entry["content"][0]["marks"], [{"type": "strong"}])
 
-    def test_description_entry_does_not_duplicate_summary_prefix(self) -> None:
-        entry = jira_task._description_entry(f"작업 내용: {SUMMARY}", MARKER)
+    def test_description_entry_does_not_duplicate_item_prefixes(self) -> None:
+        entry = jira_task._description_entry(
+            f"작업 내용: {SUMMARY}\n* 둘째\n• 셋째\n1. 넷째\n- 작업 내용: 다섯째\n"
+            "2026. 10. 7 배포분",
+            MARKER,
+        )
 
         self.assertEqual(
-            jira_task.adf_lines({"content": [entry]}),
-            [f"작업 내용: {SUMMARY}", MARKER],
+            jira_task.adf_lines({"content": [entry]})[1:-1],
+            [
+                f"- {SUMMARY}",
+                "- 둘째",
+                "- 셋째",
+                "- 넷째",
+                "- 다섯째",
+                "- 2026. 10. 7 배포분",
+            ],
         )
+
+    def test_summary_without_items_is_rejected(self) -> None:
+        args = jira_task.parse_args(
+            ["--ticket", "ABC1-1234", "--summary", "-\n1.\n작업 내용:"]
+        )
+
+        with self.assertRaisesRegex(JiraTaskError, "작업 항목이 없습니다"):
+            jira_task._summary_from_args(args)
 
     def test_summary_rejects_secret_like_text(self) -> None:
         args = jira_task.parse_args(
@@ -73,7 +93,7 @@ class DescriptionBodyTests(unittest.TestCase):
         self.assertEqual(action, "added")
         self.assertEqual(
             jira_task.adf_lines(result),
-            ["사용자가 작성한 기존 본문", "작업 내용", f"작업 내용: {SUMMARY}", MARKER],
+            ["사용자가 작성한 기존 본문", "작업 내용", "2026-08-13", f"- {SUMMARY}", MARKER],
         )
 
     def test_same_marker_is_idempotent(self) -> None:
@@ -94,9 +114,34 @@ class DescriptionBodyTests(unittest.TestCase):
         result, action = jira_task.upsert_description_body(original, SUMMARY, MARKER)
 
         self.assertEqual(action, "updated")
-        self.assertIn(f"작업 내용: {SUMMARY}", jira_task.adf_lines(result))
-        self.assertNotIn("작업 내용: 이전 요약", jira_task.adf_lines(result))
+        self.assertIn(f"- {SUMMARY}", jira_task.adf_lines(result))
+        self.assertNotIn("- 이전 요약", jira_task.adf_lines(result))
         self.assertEqual(jira_task.adf_lines(result).count(MARKER), 1)
+
+    def test_same_marker_replaces_legacy_single_line_entry(self) -> None:
+        legacy = {
+            "type": "doc",
+            "version": 1,
+            "content": [
+                jira_task._description_heading(),
+                {
+                    "type": "paragraph",
+                    "content": [
+                        {"type": "text", "text": "작업 내용: 이전 요약"},
+                        {"type": "hardBreak"},
+                        {"type": "text", "text": MARKER},
+                    ],
+                },
+            ],
+        }
+
+        result, action = jira_task.upsert_description_body(legacy, SUMMARY, MARKER)
+
+        self.assertEqual(action, "updated")
+        self.assertEqual(
+            jira_task.adf_lines(result),
+            ["작업 내용", "2026-08-13", f"- {SUMMARY}", MARKER],
+        )
 
     def test_different_markers_append_entries_under_one_heading(self) -> None:
         first, _ = jira_task.upsert_description_body(None, "첫 작업", MARKER)
@@ -109,8 +154,8 @@ class DescriptionBodyTests(unittest.TestCase):
         self.assertEqual(action, "added")
         lines = jira_task.adf_lines(result)
         self.assertEqual(lines.count("작업 내용"), 1)
-        self.assertIn("작업 내용: 첫 작업", lines)
-        self.assertIn("작업 내용: 둘째 작업", lines)
+        self.assertIn("- 첫 작업", lines)
+        self.assertIn("- 둘째 작업", lines)
 
 
 class ApiTests(unittest.TestCase):

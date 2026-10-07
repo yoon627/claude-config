@@ -30,6 +30,8 @@ except (
 DEFAULT_TICKET_PATTERN = r"[A-Z][A-Z0-9]+-\d+"
 MARKER_PREFIX = "[jira-task]"
 DESCRIPTION_HEADING = "작업 내용"
+ITEM_PREFIX_RE = re.compile(r"^(?:[-*•]|\d{1,2}[.)])(?:\s+|$)")
+MARKER_DATE_RE = re.compile(r"\sdate=(\S+)")
 MAX_SUMMARY_LENGTH = 12_000
 SECRET_PATTERNS = (
     re.compile(r"(?i)JIRA_API_TOKEN\s*="),
@@ -315,20 +317,36 @@ def _description_content(description: dict[str, Any] | None) -> list[dict[str, A
     return content
 
 
+def _summary_items(summary: str) -> list[str]:
+    heading_prefix = f"{DESCRIPTION_HEADING}:"
+    items: list[str] = []
+    for raw in summary.splitlines():
+        line = ITEM_PREFIX_RE.sub("", raw.strip(), count=1).strip()
+        if line.startswith(heading_prefix):
+            line = line[len(heading_prefix) :].strip()
+        line = ITEM_PREFIX_RE.sub("", line, count=1).strip()
+        if line:
+            items.append(line)
+    return items
+
+
 def _description_entry_lines(summary: str, marker: str) -> list[str]:
-    summary_lines = summary.splitlines() or [""]
-    first = summary_lines[0]
-    prefix = f"{DESCRIPTION_HEADING}:"
-    if first.startswith(prefix):
-        first = first[len(prefix) :].lstrip()
-    return [f"{DESCRIPTION_HEADING}: {first}", *summary_lines[1:], marker]
+    match = MARKER_DATE_RE.search(marker)
+    if not match:
+        raise JiraTaskError("marker에 date가 없습니다")
+    items = [f"- {item}" for item in _summary_items(summary)]
+    return [match.group(1), *items, marker]
 
 
 def _description_entry(summary: str, marker: str) -> dict[str, Any]:
     lines = _description_entry_lines(summary, marker)
-    content: list[dict[str, str]] = []
+    content: list[dict[str, Any]] = []
     for index, line in enumerate(lines):
-        if line:
+        if index == 0:
+            content.append(
+                {"type": "text", "text": line, "marks": [{"type": "strong"}]}
+            )
+        else:
             content.append({"type": "text", "text": line})
         if index < len(lines) - 1:
             content.append({"type": "hardBreak"})
@@ -572,8 +590,10 @@ def _summary_from_args(args: argparse.Namespace) -> str:
         if content.strip():
             chunks.append(content.strip())
     summary = "\n".join(chunks).strip()
-    if not summary:
-        raise JiraTaskError("--summary 또는 --summary-file이 필요합니다")
+    if not _summary_items(summary):
+        raise JiraTaskError(
+            "적을 작업 항목이 없습니다 — --summary 또는 --summary-file에 항목을 한 줄씩 적으세요"
+        )
     if len(summary) > MAX_SUMMARY_LENGTH:
         raise JiraTaskError(f"summary가 너무 깁니다(최대 {MAX_SUMMARY_LENGTH}자)")
     if any(pattern.search(summary) for pattern in SECRET_PATTERNS):

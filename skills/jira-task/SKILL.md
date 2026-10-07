@@ -10,7 +10,11 @@ description: Update the current Jira task's description with a concise summary o
 ## Workflow
 
 1. 현재 worktree의 active plan과 작업 상태를 확인한다. WIP commit이 이미 있으면 그 commit의 diff와 plan의 `# Progress`를 기준으로 삼는다. 확인하지 못한 변경은 요약에 넣지 않는다.
-2. 실제로 추가·수정한 내용을 `작업 내용:` 한 줄, 최대 1~3문장으로 요약해 스크래치 파일에 적는다(`Write`). 요약을 명령 인자로 넣지 않는다 — backtick·`$` 같은 셸 메타문자가 POSIX 셸·PowerShell 에서 해석돼 요약이 바뀌거나 명령이 실행된다. 변경 파일 목록, 검증 명령, 작업시간, 내부 진행 과정은 task 본문에 넣지 않는다.
+2. 작업 내용을 줄 하나에 항목 하나로 스크래치 파일에 적는다(`Write`). 날짜와 `- ` 접두는 스크립트가 붙이므로 내용만 적는다(이미 붙인 `-`·`*`·`•`·`1.`·`1)` 목록 표시와 `작업 내용:` 접두는 벗겨진다). 요약을 명령 인자로 넣지 않는다 — backtick·`$` 같은 셸 메타문자가 POSIX 셸·PowerShell 에서 해석돼 요약이 바뀌거나 명령이 실행된다. 작성 규칙:
+   - task 목표에 해당하는 기능·동작 변경만 적는다. 리베이스·머지·CI·리뷰 반영·테스트 정비·리팩토링은 task 가 그 자체를 요구한 경우가 아니면 적지 않는다.
+   - 커밋 메시지처럼 구현 경위를 옮기지 말고, 무엇이 어떻게 달라졌는지 결과로 항목당 한 줄, 1~4개.
+   - 변경 파일 목록, 검증 명령, 작업시간, 내부 진행 과정은 넣지 않는다.
+   - 적을 항목이 없으면 description 을 갱신하지 않고 이 skill 을 끝낸다(preview 도 생략).
 3. 티켓을 worktree 디렉터리 이름 prefix 또는 branch에서 찾지 못하면 `--ticket`을 명시한다.
 4. 항상 preview를 먼저 실행한다. 기본 동작은 dry-run이며 Jira 외부 변경이 없다.
 
@@ -29,7 +33,7 @@ description: Update the current Jira task's description with a concise summary o
 ## Description behavior
 
 - Jira Cloud REST API v3로 현재 `description`을 조회한 뒤 기존 ADF 본문을 보존한다.
-- 본문에 `작업 내용` 섹션이 없으면 만들고, 작업 요약 항목을 추가한다.
+- 본문에 `작업 내용` 섹션이 없으면 만들고, 작업 요약 항목을 추가한다. 항목은 한 문단으로 `날짜`(굵게, marker 의 `date`) → `- 항목` 줄들 → marker 순이다.
 - 항목은 `[jira-task] ticket=... date=... worktree=... session=...` marker로 식별한다.
 - 같은 marker가 있으면 새 요약으로 그 항목만 갱신하고, 없으면 새 항목을 추가한다. 따라서 같은 `/e`를 반복해도 중복되지 않는다.
 - description PUT 후 다시 조회해 marker와 요약이 실제 저장됐는지 확인한다. 저장값이 다르면 성공으로 보고하지 않는다.

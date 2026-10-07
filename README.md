@@ -402,13 +402,13 @@ AI 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex/sessions`)
 
 ### skills/jira-task/ — Claude·Codex 작업내용 → Jira task description
 
-현재 worktree에서 추가·수정한 내용을 `작업 내용:` 한 줄, 최대 1~3문장으로 기존 Jira task description에 반영한다. 기본은 미리보기이며, `/e`에서 사용자 확인 후 `--post`를 붙여 기존 본문에 추가하거나 같은 marker 항목을 갱신한다. 별도 Jira comment는 생성하지 않는다. 인증 경로는 `jira-worklog`와 같은 `~/.jira-kit/.env`를 사용한다.
+현재 worktree의 작업 중 task 목표에 해당하는 변경만 날짜 줄 + 한 줄 항목 목록으로 기존 Jira task description의 `작업 내용` 섹션에 반영한다(리베이스·테스트 정비 같은 과정은 적지 않고, 적을 항목이 없으면 갱신하지 않는다). 기본은 미리보기이며, `/e`에서 사용자 확인 후 `--post`를 붙여 기존 본문에 추가하거나 같은 marker 항목을 갱신한다. 별도 Jira comment는 생성하지 않는다. 인증 경로는 `jira-worklog`와 같은 `~/.jira-kit/.env`를 사용한다.
 
 ```text
 uv run --no-project python "skills/jira-task/jira_task.py" --ticket ABC-1234 --summary-file "<요약 파일>"
 ```
 
-요약(`작업 내용: ...`)은 파일로 넘긴다 — 명령 인자로 넣으면 backtick·`$` 가 셸에서 해석된다.
+요약(줄 하나 = 항목 하나)은 파일로 넘긴다 — 명령 인자로 넣으면 backtick·`$` 가 셸에서 해석된다.
 
 preview 결과를 확인하고 `/e`에서 사용자 승인 후 동일 명령에 `--post`를 추가한다. 시간은 `jira-worklog`, 작업내용은 `jira-task`가 각각 Jira에 남긴다.
 
