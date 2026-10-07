@@ -311,6 +311,44 @@ newrepo; s1=$(commit plans/a/a-plan.md 'clean'); g checkout -q -b other; s2=$(co
 both block 'Anthropic key' 'two refs, one bad' pre-push "$(line feat "$s1")
 $(line other "$s2")"
 
+# All ref lines resolve in one batch: answers must stay paired with their lines, and violations
+# keep the line order, when deletions, unresolvable and malformed lines sit between them.
+newrepo; s=$(commit plans/a/a-plan.md 'clean'); tk=$(commit plans/a/a-plan.md "leak $TOKEN")
+b=$(printf 'x' | git -C "$REPO" hash-object -w --stdin); u1=1111111111111111111111111111111111111111
+mixed="(delete) $ZERO refs/heads/gone $b
+$(line x "$u1")
+refs/heads/feat $tk refs/heads/feat $s
+refs/heads/y beef refs/heads/y $ZERO
+$(line z "${u1//1/2}")"
+want="  - refs/heads/x: pushed object $u1 is not a resolvable commit
+  - pre-push: malformed ref line: refs/heads/y beef refs/heads/y $ZERO
+  - refs/heads/z: pushed object ${u1//1/2} is not a resolvable commit
+  - plans/*.md (pushed): token pattern (Anthropic key): ${TOKEN:0:30}..."
+for e in "${ENGINES[@]}"; do
+  out="$(run_guard "$e" pre-push "$mixed")"; rc=$?
+  got="$(printf '%s\n' "$out" | sed $'s/\033\\[[0-9;]*m//g' | tr -d '\r' | grep '^  - ')"
+  if [ "$got" = "$want" ]; then verdict "$e" block - 'mixed ref lines keep their answers and order' "$out" "$rc"; else
+    fail=$((fail+1)); printf '✗ [%s] mixed ref lines keep their answers and order (exit=%d)\n%s\n' "$e" "$rc" "$got"
+  fi
+done
+# A cat-file that fails after answering everything, or answers fewer lines than asked, resolves
+# nothing (sh engine shim): both pushed refs must block, the second one included.
+SHIM="$T/catfile-shim"; mkdir -p "$SHIM"; REAL_GIT="$(command -v git)"
+for mode in fail short; do
+  # shellcheck disable=SC2016 # the shim's own $REAL_GIT and $@, not this script's
+  if [ "$mode" = fail ]; then answer='"$REAL_GIT" "$@"; exit 1'; else answer='"$REAL_GIT" "$@" | head -n 1; exit 0'; fi
+  { printf '#!/usr/bin/env bash\nREAL_GIT=%q\n' "$REAL_GIT"
+    # shellcheck disable=SC2016
+    printf 'case " $* " in *" cat-file "*) %s ;; esac\nexec "$REAL_GIT" "$@"\n' "$answer"; } > "$SHIM/git"
+  chmod +x "$SHIM/git"
+  GUARD_ENV="PATH=$SHIM:$PATH"
+  two="$(line a "$tk")
+$(line b "$tk")"
+  check sh block "=refs/heads/a: pushed object $tk is not a resolvable commit" "cat-file $mode resolves nothing (first ref)" pre-push "$two"
+  check sh block "=refs/heads/b: pushed object $tk is not a resolvable commit" "cat-file $mode resolves nothing (second ref)" pre-push "$two"
+  unset GUARD_ENV
+done
+
 # patch parsing: a body line starting with "++" shows up as "+++ ..." in the patch
 newrepo; s=$(commit plans/a/a-plan.md "++ $TOKEN")
 both block 'Anthropic key' 'added line starting with ++' pre-push "$(line feat "$s")"

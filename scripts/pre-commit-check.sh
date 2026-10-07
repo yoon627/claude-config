@@ -91,11 +91,17 @@ patterns=(
   'Bearer token|[Bb]earer[[:space:]]+[A-Za-z0-9._~+/=-]{20,}'
   'Quoted secret assignment|(password|passwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|client[_-]?secret)"?[[:space:]]*[:=][[:space:]]*"[^"]{8,}"'
 )
+pattern_args=()
+for entry in "${patterns[@]}"; do pattern_args+=(-e "${entry#*|}"); done
 
 # scan_tokens <content> <label> — append token-pattern violations found in content.
 scan_tokens() {
-  local content="$1" label="$2" entry name rx match sample
+  local content="$1" label="$2" entry name rx match sample rc=0
   [ -z "$content" ] && return 0
+  # One grep over every pattern first: a process costs up to a second on Windows. No pattern can
+  # match an empty string, so exit 1 here means every per-pattern grep below would print nothing.
+  printf '%s' "$content" | grep -Eq "${pattern_args[@]}" || rc=$?
+  [ "$rc" -eq 1 ] && return 0
   for entry in "${patterns[@]}"; do
     name="${entry%%|*}"
     rx="${entry#*|}"
@@ -377,6 +383,34 @@ else
     sha256) oid='^[0-9a-fA-F]{64}$' ;;
     *) oid='^[0-9a-fA-F]{40}$' ;;
   esac
+  # Every object name is peeled to a commit by one cat-file call, which answers one line per
+  # query in order, instead of a rev-parse per name. A remote value that is not a commit here
+  # (not fetched, a blob or tree) excludes nothing; stderr is dropped because peeling a blob or
+  # tree prints an error. If cat-file fails, nothing resolves: pushed objects block and remote
+  # values exclude nothing.
+  queries=()
+  for _line in "${push_lines[@]+"${push_lines[@]}"}"; do
+    [ -z "${_line//[[:space:]]/}" ] && continue
+    read -r lref lsha rref rsha extra <<<"$_line" || true
+    if [ -n "${extra-}" ] || ! [[ "$lsha" =~ $oid ]] || ! [[ "${rsha-}" =~ $oid ]]; then continue; fi
+    [[ "$rsha" =~ ^0+$ ]] || queries+=("${rsha}^{commit}")
+    [[ "$lsha" =~ ^0+$ ]] || queries+=("${lsha}^{commit}")
+  done
+  answers=()
+  if [ ${#queries[@]} -gt 0 ] &&
+    _out="$(printf '%s\n' "${queries[@]}" | git cat-file --batch-check='%(objectname) %(objecttype)' 2>/dev/null)"; then
+    while IFS= read -r _a; do answers+=("$_a"); done <<<"$_out"
+    [ ${#answers[@]} -eq ${#queries[@]} ] || answers=()
+  fi
+  # next_peeled — set peeled to the commit the next query resolved to; fails when it did not.
+  # A function, not $(...): a subshell is another process per ref line.
+  q=0
+  next_peeled() {
+    local a="${answers[$q]-}"
+    q=$((q + 1))
+    peeled="${a%% *}"
+    [ "${a#* }" = commit ] && [[ "$peeled" =~ $oid ]]
+  }
   for _line in "${push_lines[@]+"${push_lines[@]}"}"; do
     [ -z "${_line//[[:space:]]/}" ] && continue
     read -r lref lsha rref rsha extra <<<"$_line" || true
@@ -384,18 +418,14 @@ else
       violations+=("pre-push: malformed ref line: ${_line}")
       continue
     fi
-    # A remote value that is not a commit here (not fetched, a blob or tree) excludes nothing.
-    # stderr is dropped because peeling a blob or tree prints an error even with --quiet.
-    if ! [[ "$rsha" =~ ^0+$ ]] && remote_commit="$(git rev-parse --verify --quiet "${rsha}^{commit}" 2>/dev/null)"; then
-      published+=("$remote_commit")
-    fi
+    if ! [[ "$rsha" =~ ^0+$ ]] && next_peeled; then published+=("$peeled"); fi
     [[ "$lsha" =~ ^0+$ ]] && continue
     pt_refs+=("$rref")
-    if ! commit="$(git rev-parse --verify --quiet "${lsha}^{commit}")"; then
+    if ! next_peeled; then
       violations+=("${lref}: pushed object ${lsha} is not a resolvable commit")
       continue
     fi
-    push_commits+=("$commit")
+    push_commits+=("$peeled")
   done
   if [ ${#push_commits[@]} -gt 0 ]; then
     scan_pushed 'settings.json' 'settings.json (pushed)' keys

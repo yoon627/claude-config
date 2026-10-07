@@ -52,13 +52,17 @@ function Invoke-Git([string[]]$GitArgs, [switch]$DropStderr, [string]$Stdin, [st
     } finally {
         if ($consoleIn) { [Console]::InputEncoding = $consoleIn }
     }
+    # Reading starts before stdin is written: git cat-file --batch-check answers each line as it
+    # comes, and with nobody reading, full pipes would leave git and this writer waiting on
+    # each other.
+    $err = $null
+    if ($DropStderr) { $err = $proc.StandardError.ReadToEndAsync() }
+    $out = $proc.StandardOutput.ReadToEndAsync()
     if ($withStdin) {
         $proc.StandardInput.Write($Stdin)
         $proc.StandardInput.Close()
     }
-    $err = $null
-    if ($DropStderr) { $err = $proc.StandardError.ReadToEndAsync() }
-    $out = $proc.StandardOutput.ReadToEnd()
+    $out = $out.Result
     $proc.WaitForExit()
     if ($err) { [void]$err.Result }
     return @{ Code = $proc.ExitCode; Out = $out }
@@ -471,26 +475,50 @@ if ($Mode -eq 'pre-commit') {
     $ptRefs = @()
     $oid = '^[0-9a-fA-F]{40}$'
     if ((Invoke-Git @('rev-parse', '--show-object-format') -DropStderr).Out.Trim() -eq 'sha256') { $oid = '^[0-9a-fA-F]{64}$' }
-    foreach ($line in $pushLines) {
-        $f = @($line.Trim() -split '\s+')
+    # Every object name is peeled to a commit by one cat-file call, which answers one line per
+    # query in order, instead of a rev-parse per name. A remote value that is not a commit here
+    # (not fetched, a blob or tree) excludes nothing; stderr is dropped because peeling a blob or
+    # tree prints an error. If cat-file fails, nothing resolves: pushed objects block and remote
+    # values exclude nothing.
+    $refLines = @(foreach ($line in $pushLines) { , @($line.Trim() -split '\s+') })
+    $queries = @(foreach ($f in $refLines) {
+        if ($f.Count -ne 4 -or $f[1] -notmatch $oid -or $f[3] -notmatch $oid) { continue }
+        if ($f[3] -notmatch '^0+$') { "$($f[3])^{commit}" }
+        if ($f[1] -notmatch '^0+$') { "$($f[1])^{commit}" }
+    })
+    $answers = @()
+    if ($queries.Count -gt 0) {
+        # The default "<oid> <type> <size>" format: Invoke-Git arguments cannot hold spaces.
+        $r = Invoke-Git @('cat-file', '--batch-check') -DropStderr -Stdin (($queries -join "`n") + "`n")
+        if ($r.Code -eq 0) {
+            $answers = @($r.Out.TrimEnd("`n") -split "`n" | ForEach-Object { $_.TrimEnd("`r") })
+            if ($answers.Count -ne $queries.Count) { $answers = @() }
+        }
+    }
+    $q = 0
+    $nextPeeled = {
+        $a = @(([string]$answers[$script:q]) -split ' ')
+        $script:q++
+        if ($a.Count -eq 3 -and $a[1] -eq 'commit' -and $a[0] -match $oid) { $a[0] } else { $null }
+    }
+    for ($i = 0; $i -lt $pushLines.Count; $i++) {
+        $f = $refLines[$i]
         if ($f.Count -ne 4 -or $f[1] -notmatch $oid -or $f[3] -notmatch $oid) {
-            $violations += "pre-push: malformed ref line: $line"
+            $violations += "pre-push: malformed ref line: $($pushLines[$i])"
             continue
         }
-        # A remote value that is not a commit here (not fetched, a blob or tree) excludes nothing.
-        # stderr is dropped because peeling a blob or tree prints an error even with --quiet.
         if ($f[3] -notmatch '^0+$') {
-            $r = Invoke-Git @('rev-parse', '--verify', '--quiet', "$($f[3])^{commit}") -DropStderr
-            if ($r.Code -eq 0) { $published += $r.Out.Trim() }
+            $c = & $nextPeeled
+            if ($c) { $published += $c }
         }
         if ($f[1] -match '^0+$') { continue }
         $ptRefs += $f[2]
-        $r = Invoke-Git @('rev-parse', '--verify', '--quiet', "$($f[1])^{commit}")
-        if ($r.Code -ne 0) {
+        $c = & $nextPeeled
+        if (-not $c) {
             $violations += "$($f[0]): pushed object $($f[1]) is not a resolvable commit"
             continue
         }
-        $pushCommits += $r.Out.Trim()
+        $pushCommits += $c
     }
     if ($pushCommits.Count -gt 0) {
         Scan-Pushed 'settings.json' 'settings.json (pushed)' $true
