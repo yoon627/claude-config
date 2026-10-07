@@ -106,7 +106,8 @@ skills/commit-check/test_commit_units.py|skills/commit-check/commit_units.py
 skills/wiki/test_wiki_check.py|skills/wiki/wiki_check.py skills/wiki/templates/*
 '
 slow_skipped=''
-slow_skip() { # slow_skip <테스트> — changed 축이고 VERIFY_SLOW 가 아니며 그 테스트·대상이 안 바뀌었으면 0(건너뜀)
+# 본문이 subshell 인 것은 호출부 루프도 f 를 쓰기 때문이다(POSIX sh 에는 local 이 없다).
+slow_skip() ( # slow_skip <테스트> — changed 축이고 VERIFY_SLOW 가 아니며 그 테스트·대상이 안 바뀌었으면 0(건너뜀)
   [ "$axis" = changed ] || return 1
   [ "${VERIFY_SLOW:-}" = 1 ] && return 1
   line=$(printf '%s\n' "$SLOW_TESTS" | grep -F "$1|") || return 1
@@ -121,9 +122,8 @@ slow_skip() { # slow_skip <테스트> — changed 축이고 VERIFY_SLOW 가 아�
   done <<EOF
 $files
 EOF
-  set +f
   return "$keep"
-}
+)
 skip_slow() { # skip_slow <테스트> — 건너뛸 테스트면 알리고 0
   slow_skip "$1" || return 1
   printf '[slow] %s — 로컬 changed 에서 건너뜀(VERIFY_SLOW=1 로 포함, CI·전 축은 돈다)\n' "$1"

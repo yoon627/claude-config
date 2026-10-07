@@ -92,5 +92,18 @@ if [ "$got" != "$ALL" ]; then
   fail=1
 fi
 
+# 대상이 바뀐 느린 테스트는 건너뛰지 않고 그 경로로 돌아야 한다(빈 경로로 돌면 "bash: : No such file").
+mkdir -p "$tmp/run/scripts"
+git init -q -b main "$tmp/run"
+cp "$REPO/scripts/verify.sh" "$tmp/run/scripts/verify.sh"
+printf 'echo slow-ran\n' >"$tmp/run/scripts/ci-secret-scan.test.sh"
+echo x >"$tmp/run/scripts/ci-secret-scan.sh"
+git -C "$tmp/run" add -A
+out=$(cd "$tmp/run" && VERIFY_CHANGED_FILES=scripts/ci-secret-scan.sh sh scripts/verify.sh changed 2>&1)
+case "$out" in
+  *'ok   scripts/ci-secret-scan.test.sh'*) ;;
+  *) echo "FAIL [slow 실행] 대상이 바뀐 느린 테스트가 그 경로로 돌지 않았다: $out"; fail=1 ;;
+esac
+
 [ "$fail" -eq 0 ] && echo 'verify-changed: ok'
 exit "$fail"
