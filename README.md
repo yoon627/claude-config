@@ -290,16 +290,16 @@ Opus 53%(20:30) wk 72% | ctx 12% | main
 
 ### statusline.js — 메인 statusline
 
-Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline) 으로 등록되어 약 2초 주기로 stdin 의 세션 JSON 을 받아 한 줄을 출력.
+Claude Code 의 [Custom Status Line](https://code.claude.com/docs/en/statusline) 으로 등록되어 세션 이벤트마다(300ms debounce) stdin 의 세션 JSON 을 받아 한 줄을 출력. `refreshInterval` 은 두지 않는다 — 표시 항목에 시계가 없고, 대가는 세션이 idle 인 동안 다른 터미널·background subagent 가 branch 를 바꾸면 다음 이벤트까지 옛 branch 가 보이는 것뿐이라 프로세스 수 감소와 맞바꿨다. Windows 에서는 매 실행이 Git Bash 래퍼(`bash` 2개) + `node` 를 띄우고, AMD 그래픽 드라이버(`amdkmdag.sys` 32.0.21030.2001)가 프로세스 종료마다 커널 `File` 객체를 하나씩 누수시키는 것을 관찰했다(2026-10-07, WPR pool 추적).
 
 표시 항목:
 - **Claude 5-hour + weekly rate limit**: `<모델명> NN%(HH:MM) wk NN%`(`model.display_name`, 없으면 `claude`) — 각 창(`rate_limits.five_hour`·`seven_day`)의 남은 percentage, 5시간 창은 reset 시각도. 두 창은 독립적으로 빠질 수 있다 — Claude Code 는 최신 API 응답에 그 창의 `anthropic-ratelimit-unified-5h-*`/`7d-*` 헤더가 없거나 reset 시각이 지나면 그 창을 입력에서 뺀다(2.1.285 바이너리 확인)
 - **Context window**: `ctx NN%` — 현재 세션의 컨텍스트 사용률
 - **Git branch + worktree**: `main` 또는 `feature-x @wt:gallant-hodgkin` — 현재 cwd 기준
 
-외부 의존은 git 뿐이고 try/catch 로 감싸져 있어 실패하면 branch 부분만 빠지고 나머지는 정상 동작. stdin 이 `null`·빈 값·깨진 JSON 이어도 exit 0. stdin 이 3초 안에 닫히지 않으면 출력 없이 exit 0 으로 끝난다. 시한이 없을 때 Windows 에서 부모 셸이 죽은 `node statusline.js` 가 며칠씩 남아 그 순간의 cwd(worktree)를 계속 잡는 것을 관찰했다(공용 wiki `windows-bash-tool-orphan-processes`). 하니스가 셸만 끝내고 stdin 을 닫지 않아 'end' 가 오지 않은 것으로 추정한다(하니스 내부는 확인하지 못했다). 그래서 터미널에서 직접 실행할 때는 입력을 넘긴다 — 예: `echo {} | node statusline.js`(넘기지 않으면 3초 뒤 빈 출력으로 끝난다).
+외부 프로세스를 띄우지 않는다 — branch·worktree 는 cwd 에서 위로 `.git` 을 찾아 `HEAD`(worktree 면 `.git` 파일의 `gitdir:` 가 가리키는 곳)를 직접 읽고, 그 gitdir 에 `commondir` 가 있으면 연결된 worktree 로 본다. detached HEAD·reftable 저장소·bare 저장소·읽기 실패·제어문자가 든 ref 면 branch 부분만 빠지고 나머지는 정상 동작. stdin 이 `null`·빈 값·깨진 JSON 이어도 exit 0. stdin 이 3초 안에 닫히지 않으면 출력 없이 exit 0 으로 끝난다. 시한이 없을 때 Windows 에서 부모 셸이 죽은 `node statusline.js` 가 며칠씩 남아 그 순간의 cwd(worktree)를 계속 잡는 것을 관찰했다(공용 wiki `windows-bash-tool-orphan-processes`). 하니스가 셸만 끝내고 stdin 을 닫지 않아 'end' 가 오지 않은 것으로 추정한다(하니스 내부는 확인하지 못했다). 그래서 터미널에서 직접 실행할 때는 입력을 넘긴다 — 예: `echo {} | node statusline.js`(넘기지 않으면 3초 뒤 빈 출력으로 끝난다).
 
-background task 표시(`✻ N bg`)는 2026-09-25 제거했다 — tasks 디렉토리에는 foreground Bash 출력도 쌓여 background 와 구분할 수 없고(`refreshInterval: 2` 라 Bash 를 돌릴 때마다 뜬다), macOS 에서는 경로도 틀려 한 번도 뜬 적이 없었다. background subagent 는 프롬프트 아래 subagent 패널과 `/tasks` 가 보여 준다.
+background task 표시(`✻ N bg`)는 2026-09-25 제거했다 — tasks 디렉토리에는 foreground Bash 출력도 쌓여 background 와 구분할 수 없고(당시 `refreshInterval: 2` 라 Bash 를 돌릴 때마다 떴다), macOS 에서는 경로도 틀려 한 번도 뜬 적이 없었다. background subagent 는 프롬프트 아래 subagent 패널과 `/tasks` 가 보여 준다.
 
 ### subagent-statusline.js — subagent statusline
 

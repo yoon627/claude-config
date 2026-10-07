@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // ~/.claude/statusline.js — Claude Code statusLine command (Windows/Node)
 
+const fs = require('fs');
 const path = require('path');
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
@@ -26,6 +27,46 @@ function windowPiece(usedPct, resetsAt) {
 function quotaPiece(label, fiveHour, weekly) {
   const body = [fiveHour, weekly && 'wk ' + weekly].filter(Boolean).join(' ');
   return body ? `${label} ${body}` : '';
+}
+
+// 없는 경로만 null — 권한 오류 등은 던져서 부모 repo 로 넘어가지 않게 한다.
+function statOrNull(p) {
+  try { return fs.statSync(p); } catch (e) {
+    if (e.code === 'ENOENT' || e.code === 'ENOTDIR') return null;
+    throw e;
+  }
+}
+
+// "main" / "feat @wt:<dir>" — cwd 에서 위로 .git 을 찾아 HEAD 를 직접 읽는다. 갱신마다 새로 뜨는
+// 프로세스라 git 을 띄우면 프로세스 생성이 갱신 수만큼 곱해진다. detached HEAD·repo 밖이면 ''.
+function gitLabel(cwd) {
+  let dir;
+  try { dir = fs.realpathSync.native(cwd); } catch (_) { dir = path.resolve(cwd); }
+  for (; ; dir = path.dirname(dir)) {
+    const dotGit = path.join(dir, '.git');
+    const stat = statOrNull(dotGit);
+    let gitDir = null;
+    if (stat && stat.isFile()) {
+      const m = /^gitdir:\s*(.+?)\s*$/m.exec(fs.readFileSync(dotGit, 'utf8'));
+      if (!m) return '';
+      gitDir = path.resolve(dir, m[1]);
+    } else if (stat && stat.isDirectory() && statOrNull(path.join(dotGit, 'HEAD'))) {
+      gitDir = dotGit; // HEAD 없는 빈 .git 디렉터리는 git 처럼 건너뛰고 계속 올라간다
+    }
+    if (gitDir) {
+      const head = path.join(gitDir, 'HEAD');
+      if (!fs.statSync(head).isFile()) return '';
+      const ref = /^ref: refs\/heads\/(.+)$/.exec(fs.readFileSync(head, 'utf8').trim());
+      // reftable 저장소의 HEAD 는 'refs/heads/.invalid' 자리표시자라 branch 를 알 수 없다.
+      // 출력은 터미널이 그대로 렌더하므로 ref 이름에 올 수 없는 제어문자·공백이 있으면 버린다.
+      if (!ref || ref[1] === '.invalid' || /[\x00-\x20\x7f]/.test(ref[1])) return '';
+      // 연결된 worktree 의 gitdir 에만 commondir 가 있다(submodule 의 .git/modules/<name> 에는 없다).
+      if (!fs.existsSync(path.join(gitDir, 'commondir'))) return ref[1];
+      const wtName = path.basename(dir);
+      return /[\x00-\x1f\x7f]/.test(wtName) ? ref[1] : `${ref[1]} @wt:${wtName}`;
+    }
+    if (path.dirname(dir) === dir) return '';
+  }
 }
 
 // 하니스가 stdin 을 닫지 않고 떠나면 'end' 가 오지 않아 고아로 남아 그 cwd 를 잡는다 — 그릴 대상이 없으니 출력 없이 끝낸다.
@@ -62,33 +103,10 @@ process.stdin.on('end', () => {
 
   // 3. Git branch + worktree indicator from workspace.current_dir
   const cwd = (input.workspace && input.workspace.current_dir) || (input.cwd || '');
-  if (cwd) {
-    const { execFileSync } = require('child_process');
-    // execFileSync (no shell): cwd is passed as a literal argv element, so a
-    // directory name containing shell metacharacters cannot inject commands.
-    const gitCmd = (argv) => execFileSync('git', ['-C', cwd, '--no-optional-locks', ...argv], {
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 2000
-    }).toString().trim();
-    try {
-      const branch = gitCmd(['rev-parse', '--abbrev-ref', 'HEAD']);
-      if (branch && branch !== 'HEAD') {
-        let label = branch;
-        // worktree 판별: --show-toplevel(현재 worktree root) vs
-        // dirname(--git-common-dir)(main repo root) 비교.
-        try {
-          const toplevel = gitCmd(['rev-parse', '--show-toplevel']);
-          const commonDir = gitCmd(['rev-parse', '--path-format=absolute', '--git-common-dir']);
-          const mainRoot = path.dirname(commonDir);
-          const norm = (p) => p.replace(/\\/g, '/').replace(/\/$/, '').toLowerCase();
-          if (norm(toplevel) !== norm(mainRoot)) {
-            const wtName = path.basename(toplevel);
-            label = branch + ' @wt:' + wtName;
-          }
-        } catch (_) { /* worktree 감지 실패 — branch 만 */ }
-        parts.push(label);
-      }
-    } catch (_) { /* not a git repo — omit */ }
+  if (typeof cwd === 'string' && cwd) {
+    let label = '';
+    try { label = gitLabel(cwd); } catch (_) { /* 읽을 수 없는 .git — branch 만 뺀다 */ }
+    if (label) parts.push(label);
   }
 
   process.stdout.write(parts.join(' | '));

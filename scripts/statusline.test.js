@@ -105,8 +105,59 @@ ok('codex 쿼터 캐시가 남아 있어도 codex 조각을 그리지 않고 ref
   }
 });
 
+// 상태줄은 갱신마다 새로 뜨므로 git 을 띄우면 프로세스가 갱신 수만큼 곱해진다 — GIT_TRACE 파일이 생기면 git 이 실행된 것.
+ok('git branch·worktree 표시를 git 프로세스 없이 만든다', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'statusline-git-'));
+  // 상위 git 환경(hook·rebase -x 안의 실행)이 fixture 명령을 실제 repo 로 돌리지 않게 지운다.
+  const env = { ...process.env, HOME, USERPROFILE: HOME };
+  for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR']) delete env[k];
+  try {
+    const git = (cwd, ...args) => {
+      const r = spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false',
+        '-c', 'init.defaultRefFormat=files', ...args], { cwd, env, encoding: 'utf8', timeout: 10000 });
+      assert.strictEqual(r.status, 0, r.stderr);
+    };
+    const repo = path.join(tmp, 'repo');
+    fs.mkdirSync(path.join(repo, 'sub'), { recursive: true });
+    git(repo, 'init', '-q', '-b', 'feat/x');
+    git(repo, 'commit', '-q', '--allow-empty', '-m', 'i');
+    const wt = path.join(tmp, 'wt-name');
+    git(repo, 'worktree', 'add', '-q', '-b', 'wt-branch', wt);
+    const unborn = path.join(tmp, 'unborn');
+    fs.mkdirSync(unborn);
+    git(unborn, 'init', '-q', '-b', 'fresh');
+
+    const trace = path.join(tmp, 'git-trace.log');
+    // 양성 대조: git 이 trace 파일을 못 열면 tracing 만 끄고 계속 돌아 아래 단언이 공허해진다.
+    spawnSync('git', ['version'], { env: { ...env, GIT_TRACE: trace }, timeout: 10000 });
+    assert.ok(fs.existsSync(trace), 'GIT_TRACE 가 파일을 쓰지 않아 git 실행을 감지할 수 없다');
+    fs.rmSync(trace);
+    const show = (cwd) => {
+      const r = spawnSync(process.execPath, [STATUS], {
+        input: JSON.stringify({ workspace: { current_dir: cwd } }),
+        env: { ...env, GIT_TRACE: trace }, encoding: 'utf8', timeout: 10000,
+      });
+      assert.strictEqual(r.status, 0, r.stderr);
+      assert.ok(!fs.existsSync(trace), 'statusline 이 git 을 실행했다');
+      return r.stdout;
+    };
+    assert.strictEqual(show(repo), 'feat/x');
+    assert.strictEqual(show(path.join(repo, 'sub')), 'feat/x');
+    assert.strictEqual(show(wt), 'wt-branch @wt:wt-name');
+    assert.strictEqual(show(tmp), ''); // repo 밖
+    assert.strictEqual(show(unborn), 'fresh'); // 커밋 전 branch 도 보인다
+    fs.writeFileSync(path.join(repo, '.git', 'HEAD'), 'ref: refs/heads/a\x1b]0;x\x07b\n');
+    assert.strictEqual(show(repo), ''); // 터미널 제어문자가 든 ref 는 출력하지 않는다
+    fs.writeFileSync(path.join(repo, '.git', 'HEAD'), 'ref: refs/heads/feat/x\n');
+    git(repo, 'checkout', '-q', '--detach');
+    assert.strictEqual(show(repo), ''); // detached HEAD 는 뺀다
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 // input 이 null 이면 stdin 의 쓰기 끝을 열어 둔다 — 하니스가 셸만 끝내고 stdin 을 닫지 않은 상황.
-// cwd 는 git repo 가 아닌 HOME — 정상 경로의 경과에 git 호출 시간이 섞이지 않게.
+// cwd 는 git repo 가 아닌 HOME — 정상 경로의 경과에 .git 탐색 I/O 가 섞이지 않게.
 function runTimed(script, input) {
   return new Promise((resolve) => {
     const start = performance.now();
