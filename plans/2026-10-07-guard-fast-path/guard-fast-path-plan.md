@@ -1,6 +1,6 @@
 ---
 title: guard-fast-path — 시크릿 가드의 프로세스 생성 수 줄이기
-status: in_progress
+status: done
 started: 2026-10-07
 updated: 2026-10-07
 ---
@@ -27,8 +27,10 @@ updated: 2026-10-07
 
 - 2026-10-07: `bash scripts/verify.sh changed` 전 축 ALL PASS (skip: record-verified.test.sh — jq 미설치, 이전과 같음), 총 553초. pre-commit-check.test.sh 450초(전: 30~50분+), ci-secret-scan.test.sh 22초(전: 97초). Acceptance 1~5 충족 → DONE, 커밋.
 
+- 2026-10-07: 사용자 선택으로 main 에 로컬 ff + push.
+
 # Next
-- 머지(`/e merge` 또는 로컬 ff) — 사용자 선택. 그 뒤 verify-speed `# Deferred` 다음 항목(session-* fixture 재사용).
+- 없음. 이어지는 작업은 verify-speed `# Deferred` 다음 항목(session-* fixture 재사용)과 이 plan `# Deferred`.
 
 # Decisions
 - wiki 조회: ci-secret-scan-backstop·git-log-added-lines-hardening 이 걸림 — 따른다(replace 무시는 두 스크립트의 `GIT_NO_REPLACE_OBJECTS=1` export 가 cat-file 에도 적용, 기존 replace 테스트가 지킨다).
