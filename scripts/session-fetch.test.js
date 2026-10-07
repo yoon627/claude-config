@@ -26,12 +26,15 @@ function git(dir, args, extraEnv) {
     env: { ...process.env, ...extraEnv },
   }).toString();
 }
+// git config 가 쓰는 것과 같은 바이트를 직접 덧붙인다(프로세스 절약).
+function setIdentity(dir, { withSignKey = true } = {}) {
+  const sign = withSignKey ? '[commit]\n\tgpgsign = false\n' : '';
+  fs.appendFileSync(path.join(dir, '.git', 'config'), `[user]\n\temail = t@t\n\tname = t\n${sign}`);
+}
 function initRepo(prefix) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix || 'sf-'));
   execFileSync('git', ['init', '-q', '-b', 'main', dir], { stdio: 'ignore' });
-  git(dir, ['config', 'user.email', 't@t']);
-  git(dir, ['config', 'user.name', 't']);
-  git(dir, ['config', 'commit.gpgsign', 'false']);
+  setIdentity(dir);
   return dir;
 }
 function commit(dir, msg) {
@@ -42,15 +45,33 @@ function commit(dir, msg) {
     GIT_COMMITTER_DATE: '2026-01-01T00:00:00',
   });
 }
+// 복사본의 origin 을 새 경로로 돌린다. 템플릿을 가리킨 채 남으면 케이스가 템플릿을 고쳐 뒤 케이스가
+// 오염되므로, 남은 흔적이 있으면 바로 실패시킨다.
+function pointOrigin(dir, url, template) {
+  git(dir, ['config', 'remote.origin.url', url]);
+  const text = fs.readFileSync(path.join(dir, '.git', 'config'), 'utf8');
+  assert.ok(!text.includes(path.basename(template)), `${dir} 의 설정이 아직 템플릿 ${template} 를 가리킨다`);
+}
 // origin(로컬 경로)에서 clone 한 작업 repo. clone 이라 upstream·remote 가 실제로 설정된다.
+// 케이스마다 고치므로 한 번 만든 템플릿을 복사해 준다(템플릿 자체는 넘기지 않는다).
+// 상대 링크를 템플릿 안을 가리키는 절대 링크로 바꾸지 않고, 전역 core.fsmonitor 가 띄운 데몬의
+// 소켓·쿠키(cpSync 가 소켓에서 실패한다)는 옮기지 않는다.
+const COPY = { recursive: true, verbatimSymlinks: true, filter: (src) => !path.basename(src).startsWith('fsmonitor--daemon') };
+let clonedTemplate;
 function cloned() {
-  const remote = initRepo('sf-remote-');
-  commit(remote, 'base');
+  if (!clonedTemplate) {
+    const remote = initRepo('sf-tremote-');
+    commit(remote, 'base');
+    const work = fs.mkdtempSync(path.join(os.tmpdir(), 'sf-twork-')) + '/w';
+    execFileSync('git', ['clone', '-q', remote, work], { stdio: 'ignore' });
+    setIdentity(work);
+    clonedTemplate = { remote, work };
+  }
+  const remote = fs.mkdtempSync(path.join(os.tmpdir(), 'sf-remote-'));
+  fs.cpSync(clonedTemplate.remote, remote, COPY);
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'sf-work-')) + '/w';
-  execFileSync('git', ['clone', '-q', remote, work], { stdio: 'ignore' });
-  git(work, ['config', 'user.email', 't@t']);
-  git(work, ['config', 'user.name', 't']);
-  git(work, ['config', 'commit.gpgsign', 'false']);
+  fs.cpSync(clonedTemplate.work, work, COPY);
+  pointOrigin(work, remote, clonedTemplate.remote);
   return { remote, work };
 }
 // 부하에서 훅의 2초 상한이 만료돼 기능 단언이 흔들리지 않게 10배(hook-cwd.js scaleMs).
@@ -258,8 +279,7 @@ ok('⑰ submodule 을 가진 repo 에서 submodule ref 까지 건드리지 않�
 
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'sf-superwork-')) + '/w';
   execFileSync('git', [...FILE_OK, 'clone', '-q', '--recurse-submodules', superRemote, work], { stdio: 'ignore' });
-  git(work, ['config', 'user.email', 't@t']);
-  git(work, ['config', 'user.name', 't']);
+  setIdentity(work, { withSignKey: false });
 
   // 원격 submodule 이 앞서고, superproject 가 그 포인터를 갱신한다(= on-demand 재귀 조건).
   commit(subRemote, 'sub-r1');

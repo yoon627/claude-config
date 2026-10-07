@@ -65,15 +65,39 @@ function pushRecord(other, content, { root = false } = {}) {
 // record: 'tip'(기본 — CI 가 origin/main tip 을 통과시킨 상태) · 'none' · 원격 커밋 번호(0부터).
 // command 가 `~/.claude` 를 쓰므로 HOME 만 갈아끼우면 실 repo 를 건드리지 않고 검증된다.
 // 스크립트도 같은 상대경로에 복사해 둬야 command 가 실제로 찾아간다.
+// 케이스마다 home 을 고치므로(dirty 파일·push·url 변경) 옵션 조합별 템플릿을 한 번 만들고 복사해 준다.
+// 템플릿 자체는 넘기지 않는다. 복사는 상대 링크를 템플릿 안을 가리키는 절대 링크로 바꾸지 않고, 전역
+// core.fsmonitor 가 띄운 데몬의 소켓·쿠키(cpSync 가 소켓에서 실패한다)는 옮기지 않는다.
+const COPY = { recursive: true, verbatimSymlinks: true, filter: (src) => !path.basename(src).startsWith('fsmonitor--daemon') };
+const homeTemplates = new Map();
 function makeHome({ withScript = true, remoteCommits = 1, record = 'tip' } = {}) {
+  const key = JSON.stringify({ withScript, remoteCommits, record });
+  if (!homeTemplates.has(key)) homeTemplates.set(key, buildHome({ withScript, remoteCommits, record }));
+  const t = homeTemplates.get(key);
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ssp-home-'));
+  fs.cpSync(t.home, home, COPY);
+  const bare = path.join(home, 'origin.git');
+  const repo = path.join(home, '.claude');
+  const other = path.join(home, 'other');
+  // 템플릿 origin 을 가리킨 채 남으면 케이스가 템플릿 bare 에 push 해 뒤 케이스가 오염된다.
+  for (const dir of [repo, other]) {
+    git(dir, ['config', 'remote.origin.url', bare]);
+    const text = fs.readFileSync(path.join(dir, '.git', 'config'), 'utf8');
+    assert.ok(!text.includes(path.basename(t.home)), `${dir} 의 설정이 아직 템플릿 ${t.home} 를 가리킨다`);
+  }
+  return { home, repo, other, commits: [...t.commits] };
+}
+// git config 가 쓰는 것과 같은 바이트를 직접 덧붙인다(프로세스 절약).
+function setIdentity(dir) {
+  fs.appendFileSync(path.join(dir, '.git', 'config'), '[user]\n\temail = t@t\n\tname = t\n[commit]\n\tgpgsign = false\n');
+}
+function buildHome({ withScript, remoteCommits, record }) {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ssp-thome-'));
   const bare = path.join(home, 'origin.git');
   const repo = path.join(home, '.claude');
   execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare], { stdio: 'ignore' });
   execFileSync('git', ['clone', '-q', bare, repo], { stdio: 'ignore' });
-  git(repo, ['config', 'user.email', 't@t']);
-  git(repo, ['config', 'user.name', 't']);
-  git(repo, ['config', 'commit.gpgsign', 'false']);
+  setIdentity(repo);
   fs.writeFileSync(path.join(repo, 'shared.txt'), 'a');
   fs.writeFileSync(path.join(repo, 'other.txt'), 'b');
   git(repo, ['add', '-A']);
@@ -87,9 +111,7 @@ function makeHome({ withScript = true, remoteCommits = 1, record = 'tip' } = {})
   // 원격을 remoteCommits 만큼 앞세운다(매번 shared.txt 변경).
   const other = path.join(home, 'other');
   execFileSync('git', ['clone', '-q', bare, other], { stdio: 'ignore' });
-  git(other, ['config', 'user.email', 't@t']);
-  git(other, ['config', 'user.name', 't']);
-  git(other, ['config', 'commit.gpgsign', 'false']);
+  setIdentity(other);
   const commits = [];
   for (let i = 0; i < remoteCommits; i++) {
     fs.writeFileSync(path.join(other, 'shared.txt'), `remote${i}`);

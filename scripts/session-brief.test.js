@@ -25,9 +25,8 @@ function git(dir, args, extraEnv) {
 function initRepo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sb-repo-'));
   execFileSync('git', ['init', '-b', 'main', dir], { stdio: 'ignore' });
-  git(dir, ['config', 'user.email', 't@t']);
-  git(dir, ['config', 'user.name', 't']);
-  git(dir, ['config', 'commit.gpgsign', 'false']);
+  // git config 가 쓰는 것과 같은 바이트를 직접 덧붙인다(프로세스 절약).
+  fs.appendFileSync(path.join(dir, '.git', 'config'), '[user]\n\temail = t@t\n\tname = t\n[commit]\n\tgpgsign = false\n');
   return dir;
 }
 function commit(dir, msg, date) {
