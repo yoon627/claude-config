@@ -101,7 +101,6 @@ scripts/session-start-pull.test.js|scripts/session-start-pull.sh
 scripts/session-brief.test.js|scripts/session-brief.js scripts/session-start-pull.sh scripts/hook-cwd.js
 scripts/session-fetch.test.js|scripts/session-fetch.js scripts/hook-cwd.js
 scripts/install-hooks.test.js|scripts/install-hooks.*
-scripts/native-overlap-lint.test.js|scripts/native-overlap-lint.js skills/improve/improve.sh
 skills/commit-check/test_commit_units.py|skills/commit-check/commit_units.py
 skills/wiki/test_wiki_check.py|skills/wiki/wiki_check.py skills/wiki/templates/*
 '

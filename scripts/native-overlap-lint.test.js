@@ -172,19 +172,45 @@ function joined(text, opts) { return run(text, opts).join(' | '); }
 // ---- improve.sh 점검 번호 계약 ----
 // 이 축을 처음 붙일 때 기본 점검 9 가 deep ⑨ 와 충돌해 `== 9.` 이 두 번 찍혔다(plan B1).
 // 헤더 수열이 1..N 유일함을 CI 가 지키게 해 같은 재발을 막는다.
+// 실행하지 않고 소스를 읽는다: 헤더가 전부 반복문 밖에서 한 줄에 하나씩 리터럴로 찍혀 소스 순서가
+// deep 출력 순서다. 헤더처럼 보이는 줄이 그 모양(줄 전체가 `echo "== N. …"`)이 아니면 셀 수 없으니
+// 실패시킨다. 반복문 안 헤더와 printf 인자로 쪼갠 헤더는 이 검사로 못 본다.
 {
-  const ROOT = path.join(__dirname, '..');
-  const r = spawnSync('bash', [path.join(ROOT, 'skills/improve/improve.sh'), 'deep'], {
-    cwd: ROOT, encoding: 'utf8', timeout: 120000,
-  });
-  const nums = (r.stdout || '').split('\n')
-    .map((l) => /^== (\d+)\./.exec(l))
-    .filter(Boolean)
-    .map((m) => Number(m[1]));
+  const headerProblems = (src) => {
+    const nums = [];
+    const problems = [];
+    for (const line of src.split(/\r?\n/)) {
+      if (/^\s*#/.test(line) || !/== \d|["']== /.test(line)) continue;
+      const m = /^\s*echo "== (\d+)\. [^"]*"\s*$/.exec(line);
+      if (m) nums.push(Number(m[1]));
+      else if (!/^\s*(\[[^\]]*\] && )?echo "== (요약|ci):[^"]*"\s*$/.test(line)) problems.push(`형식 밖 헤더: ${line.trim()}`);
+    }
+    if (nums.length === 0) problems.push('헤더 없음');
+    else if (!nums.every((n, i) => n === i + 1)) problems.push(`번호가 1..N 이 아님: ${nums.join(',')}`);
+    return { nums, problems };
+  };
+  const src = fs.readFileSync(path.join(__dirname, '..', 'skills/improve/improve.sh'), 'utf8');
+  const real = headerProblems(src);
+  ok(`improve.sh 점검 번호 1..N 유일 (${real.nums.join(',')})${real.problems.length ? ' — ' + real.problems.join('; ') : ''}`,
+    real.problems.length === 0);
 
-  ok('improve.sh deep → 헤더 수집됨', nums.length > 0);
-  ok('improve.sh 점검 번호 중복 없음', new Set(nums).size === nums.length);
-  ok('improve.sh 점검 번호가 1..N 연속', nums.every((n, i) => n === i + 1));
+  const flags = (body) => headerProblems(body).problems.length > 0;
+  const h = (n) => `echo "== ${n}. x =="`;
+  ok('헤더 검사: 들여쓴 deep 헤더도 센다', !flags([h(1), `  ${h(2)}`].join('\n')));
+  ok('헤더 검사: 같은 번호 두 번 → 실패', flags([h(1), h(9), h(9)].join('\n')));
+  ok('헤더 검사: 번호 건너뜀 → 실패', flags([h(1), h(3)].join('\n')));
+  ok('헤더 검사: 변수 번호 → 실패', flags([h(1), 'echo "== $n. x =="'].join('\n')));
+  ok('헤더 검사: printf 헤더 → 실패', flags([h(1), "printf '== 2. x ==\\n'"].join('\n')));
+  ok('헤더 검사: 작은따옴표 헤더 → 실패', flags([h(1), "echo '== 2. x =='"].join('\n')));
+  ok('헤더 검사: 조건부 한 줄 헤더 → 실패', flags([h(1), `[ -n "$x" ] && ${h(2)}`].join('\n')));
+  ok('헤더 검사: echo -e 헤더 → 실패', flags([h(1), 'echo -e "== 2. x =="'].join('\n')));
+  ok('헤더 검사: 따옴표 없는 헤더 → 실패', flags([h(1), 'echo == 1. x ==', h(2)].join('\n')));
+  ok('헤더 검사: 한 줄에 헤더 둘 → 실패', flags([`${h(1)}; ${h(1)}`, h(2)].join('\n')));
+  ok('헤더 검사: 리다이렉션 헤더 → 실패', flags([h(1), `${h(2)} >&2`, h(3)].join('\n')));
+  ok('헤더 검사: 요약 줄 뒤에 붙은 헤더 → 실패', flags([h(1), `echo "== 요약: x =="; ${h(1)}`].join('\n')));
+  ok('헤더 검사: 주석 안 헤더는 세지 않음', !flags([h(1), `# ${h(1)}`].join('\n')));
+  ok('헤더 검사: 요약·ci 줄은 허용', !flags([h(1), 'echo "== 요약: x =="', 'echo "== ci: x =="'].join('\n')));
+  ok('헤더 검사: 헤더 0개 → 실패', flags('echo hi'));
 }
 
 console.log(fail === 0 ? 'ALL PASS' : `${fail} FAIL`);

@@ -44,14 +44,13 @@ slow() { # slow <기대: 건너뛸 테스트 수> <꼭 돌려야 할 테스트(�
     fail=1
   fi
 }
-slow 9 - README.md
-slow 8 skills/wiki/test_wiki_check.py skills/wiki/templates/wiki-check.toml
-slow 8 skills/commit-check/test_commit_units.py skills/commit-check/commit_units.py
-slow 7 scripts/pre-commit-check.test.sh scripts/pre-commit-check.ps1
-slow 8 scripts/session-brief.test.js scripts/session-brief.js
-slow 6 scripts/session-start-pull.test.js scripts/session-start-pull.sh scripts/hook-cwd.js
-slow 8 scripts/native-overlap-lint.test.js skills/improve/improve.sh
-slow 8 scripts/install-hooks.test.js scripts/install-hooks.test.js
+slow 8 - README.md
+slow 7 skills/wiki/test_wiki_check.py skills/wiki/templates/wiki-check.toml
+slow 7 skills/commit-check/test_commit_units.py skills/commit-check/commit_units.py
+slow 6 scripts/pre-commit-check.test.sh scripts/pre-commit-check.ps1
+slow 7 scripts/session-brief.test.js scripts/session-brief.js
+slow 5 scripts/session-start-pull.test.js scripts/session-start-pull.sh scripts/hook-cwd.js
+slow 7 scripts/install-hooks.test.js scripts/install-hooks.test.js
 got=$(VERIFY_SLOW=1 VERIFY_PRINT_SLOW=1 VERIFY_CHANGED_FILES=README.md sh scripts/verify.sh changed)
 if [ -n "$got" ]; then
   echo "FAIL [VERIFY_SLOW=1] 건너뛰는 테스트가 없어야 한다: $got"
