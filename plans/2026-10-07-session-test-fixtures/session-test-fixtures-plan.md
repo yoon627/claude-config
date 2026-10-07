@@ -1,6 +1,6 @@
 ---
 title: session-test-fixtures — session-* 테스트의 fixture git 프로세스 줄이기
-status: in_progress
+status: done
 started: 2026-10-07
 updated: 2026-10-07
 ---
@@ -23,7 +23,7 @@ scripts/session-start-pull.test.js · session-brief.test.js · session-fetch.tes
 - 2026-10-07: code-reviewer(+codex) NEEDS DISCUSSION — 확정 Critical/Major 0, 조건부 2건·Nit 반영(복사 filter·verbatimSymlinks·주석). 정식 측정(단독 2회): fetch 12.1/12.9초(전 17.2/16.3), start-pull 49.1/51.7초(전 87.7/89.7), brief 52.2/51.2초(전 57.6/57.2) — 합계 약 163→115초, 케이스 수 동일. `bash scripts/verify.sh changed` ALL PASS(skip 없음, 158초). Acceptance 1~4 충족 → DONE.
 
 # Next
-- 머지(사용자 선택). 남은 verify-speed `# Deferred`: native-overlap-lint 헤더만 검사, watchdog·polling 프로세스 수(낮음).
+- 없음 — 사용자 선택으로 main 에 로컬 ff + push. 남은 verify-speed `# Deferred`: native-overlap-lint 헤더만 검사, watchdog·polling 프로세스 수(낮음).
 
 # Decisions
 - wiki 조회: decision/session-hook-test-time-scale 걸림 — 따른다(시간 배수 그대로).
