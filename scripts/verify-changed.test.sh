@@ -44,13 +44,13 @@ slow() { # slow <기대: 건너뛸 테스트 수> <꼭 돌려야 할 테스트(�
     fail=1
   fi
 }
-slow 8 - README.md
-slow 7 skills/wiki/test_wiki_check.py skills/wiki/templates/wiki-check.toml
-slow 7 skills/commit-check/test_commit_units.py skills/commit-check/commit_units.py
-slow 6 scripts/pre-commit-check.test.sh scripts/pre-commit-check.ps1
-slow 7 scripts/session-brief.test.js scripts/session-brief.js
-slow 5 scripts/session-start-pull.test.js scripts/session-start-pull.sh scripts/hook-cwd.js
-slow 7 scripts/install-hooks.test.js scripts/install-hooks.test.js
+slow 6 - README.md
+slow 5 skills/wiki/test_wiki_check.py skills/wiki/templates/wiki-check.toml
+slow 5 skills/commit-check/test_commit_units.py skills/commit-check/commit_units.py
+slow 5 scripts/pre-commit-check.test.sh scripts/pre-commit-check.ps1
+slow 5 scripts/session-brief.test.js scripts/session-brief.js
+slow 4 scripts/session-start-pull.test.js scripts/session-start-pull.sh scripts/hook-cwd.js
+slow 5 scripts/install-hooks.test.js scripts/install-hooks.test.js
 got=$(VERIFY_SLOW=1 VERIFY_PRINT_SLOW=1 VERIFY_CHANGED_FILES=README.md sh scripts/verify.sh changed)
 if [ -n "$got" ]; then
   echo "FAIL [VERIFY_SLOW=1] 건너뛰는 테스트가 없어야 한다: $got"
@@ -95,12 +95,18 @@ fi
 mkdir -p "$tmp/run/scripts"
 git init -q -b main "$tmp/run"
 cp "$REPO/scripts/verify.sh" "$tmp/run/scripts/verify.sh"
-printf 'echo slow-ran\n' >"$tmp/run/scripts/ci-secret-scan.test.sh"
-echo x >"$tmp/run/scripts/ci-secret-scan.sh"
+printf 'echo slow-ran\n' >"$tmp/run/scripts/pre-commit-check.test.sh"
+echo x >"$tmp/run/scripts/pre-commit-check.ps1"
 git -C "$tmp/run" add -A
-out=$(cd "$tmp/run" && VERIFY_CHANGED_FILES=scripts/ci-secret-scan.sh sh scripts/verify.sh changed 2>&1)
+# fixture 가 느린 목록에 있어야 이 검사가 뜻을 가진다(목록 밖이면 건너뛰기 경로를 아예 타지 않는다).
+listed=$(cd "$tmp/run" && VERIFY_PRINT_SLOW=1 VERIFY_CHANGED_FILES=README.md sh scripts/verify.sh changed)
+case "$listed" in
+  *scripts/pre-commit-check.test.sh*) ;;
+  *) echo "FAIL [slow 실행] fixture 가 느린 목록에 없다: $listed"; fail=1 ;;
+esac
+out=$(cd "$tmp/run" && VERIFY_CHANGED_FILES=scripts/pre-commit-check.ps1 sh scripts/verify.sh changed 2>&1)
 case "$out" in
-  *'ok   scripts/ci-secret-scan.test.sh'*) ;;
+  *'ok   scripts/pre-commit-check.test.sh'*) ;;
   *) echo "FAIL [slow 실행] 대상이 바뀐 느린 테스트가 그 경로로 돌지 않았다: $out"; fail=1 ;;
 esac
 

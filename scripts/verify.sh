@@ -91,15 +91,13 @@ case "$axis" in
     ;;
 esac
 want() { case " $axes " in *" $1 "*) return 0 ;; esac; return 1; }
-# 로컬 changed 에서 기본으로 건너뛰는 느린 테스트(Windows 단독 실측 30초 이상)와, 바뀌면 그래도 돌리는 경로.
+# 로컬 changed 에서 기본으로 건너뛰는 느린 테스트(Windows 단독 실측 약 30초 이상)와, 바뀌면 그래도 돌리는 경로.
 # 프로세스 생성 비용(이 머신 1회 0.4~0.9초)에 수백~수천 번의 git·bash 호출이 곱해져 느리다 — 줄이는 작업은 따로.
 # 형식: <테스트>|<그 테스트를 돌리게 하는 경로 패턴…>(테스트 자신은 자동 포함).
 SLOW_TESTS='
 scripts/pre-commit-check.test.sh|scripts/pre-commit-check.*
-scripts/ci-secret-scan.test.sh|scripts/ci-secret-scan.sh scripts/pre-commit-check.*
 scripts/session-start-pull.test.js|scripts/session-start-pull.sh
 scripts/session-brief.test.js|scripts/session-brief.js scripts/session-start-pull.sh scripts/hook-cwd.js
-scripts/session-fetch.test.js|scripts/session-fetch.js scripts/hook-cwd.js
 scripts/install-hooks.test.js|scripts/install-hooks.*
 skills/commit-check/test_commit_units.py|skills/commit-check/commit_units.py
 skills/wiki/test_wiki_check.py|skills/wiki/wiki_check.py skills/wiki/templates/*
