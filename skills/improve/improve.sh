@@ -101,10 +101,13 @@ for js in scripts/*.js; do
   [ "$ref" = no ] && I "scripts/$b: settings·require·문서·CI 어디에도 안 보임(죽은코드 후보 — 수동 확인)"
 done
 
-echo "== 6. wiki 비추적 · index ↔ pages 개수 (내부 무결성은 /wiki lint 권장) =="
+echo "== 6. wiki·docs 비추적 · index ↔ pages 개수 (내부 무결성은 /wiki lint 권장) =="
 # 공용 wiki 는 비공개 repo 의 별도 clone 이다. 이 repo 가 추적하면 공개 repo 로 push 된다(.gitignore 는 이미 추적된 경로·gitlink 를 막지 못한다).
 tracked=$(git ls-files -- wiki 2>/dev/null | head -1)
 if [ -n "$tracked" ]; then E "wiki/ 가 이 repo 에 추적됨($tracked …) — 공용 wiki 는 비공개 repo 의 별도 clone 이다. git rm -r --cached wiki"; else OK "wiki/ 비추적"; fi
+# 하네스 참조 문서도 비공개 wiki repo 의 docs/ 로 옮겼다 — 이 repo 의 docs/ 가 다시 추적되면 공개된다.
+tracked=$(git ls-files -- docs 2>/dev/null | head -1)
+if [ -n "$tracked" ]; then E "docs/ 가 이 repo 에 추적됨($tracked …) — 참조 문서는 ~/.claude/wiki/docs/ 에 둔다. git rm -r --cached docs"; else OK "docs/ 비추적"; fi
 WIKI=${CLAUDE_IMPROVE_WIKI:-$HOME/.claude/wiki}  # worktree·CI 에는 사본이 없다 — 이 머신의 clone 을 본다
 if [ -d "$WIKI/pages" ] && [ -f "$WIKI/index.md" ]; then
   pc=$(find "$WIKI/pages" -name '*.md' | wc -l | tr -d ' ')

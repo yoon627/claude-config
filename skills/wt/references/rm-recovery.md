@@ -19,5 +19,5 @@
 
 ## C. rm 실패 stderr 분기 — 파일 점유 (§6)
 `git worktree remove <path>` 실패 시 SKILL 본문 §6 이 stderr 로 분기한다. **안전 게이트·브랜치 삭제 순서(`--force`/`-D`/원격삭제 무확인 금지, remove 성공 후에만 branch 삭제)는 SKILL 본문(`## 주의`·rm §6)이 단일 소스** — 여기는 "파일 점유" 분기의 이유만:
-- **파일 점유 류**("Access is denied"·"being used by another process"·"Directory not empty"·Windows "Invalid argument" 등 OS 삭제 실패): 살아있는 프로세스가 worktree 파일(`.venv` 등)을 잡고 있다. `wt rm` 은 **자동 종료하지 않고 안내**한다 — 사용자가 직접 부르는 경로라 점유 프로세스를 띄운 세션이 이 세션인지 알 수 없고, 경로 필터만으로는 사용자 서버와 구분되지 않는다(`/e` 7단계는 같은 세션이 띄운 프로세스를 회수할 수 있다 — `docs/worktree-lifecycle.md` §C). (`--force` 는 git 레벨이라 OS 파일점유는 못 푼다.)
-- **부분 성공**(등록은 해제됐는데 디렉토리 잔존)은 점유와 별도 분기 — 확인·`prune` 절차는 `docs/worktree-lifecycle.md` §C.
+- **파일 점유 류**("Access is denied"·"being used by another process"·"Directory not empty"·Windows "Invalid argument" 등 OS 삭제 실패): 살아있는 프로세스가 worktree 파일(`.venv` 등)을 잡고 있다. `wt rm` 은 **자동 종료하지 않고 안내**한다 — 사용자가 직접 부르는 경로라 점유 프로세스를 띄운 세션이 이 세션인지 알 수 없고, 경로 필터만으로는 사용자 서버와 구분되지 않는다(`/e` 7단계는 같은 세션이 띄운 프로세스를 회수할 수 있다 — `~/.claude/wiki/docs/worktree-lifecycle.md` §C). (`--force` 는 git 레벨이라 OS 파일점유는 못 푼다.)
+- **부분 성공**(등록은 해제됐는데 디렉토리 잔존)은 점유와 별도 분기 — 확인·`prune` 절차는 `~/.claude/wiki/docs/worktree-lifecycle.md` §C.

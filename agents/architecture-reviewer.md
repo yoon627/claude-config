@@ -24,7 +24,7 @@ model: opus
 - 입력: plan 텍스트/파일 + 관련 기존 코드 + 예상 변경 symbol·계층 + non-goals + 제약 + (있으면) researcher 결과. git diff 기반 "입력 최소 번들" 수집은 건너뛴다.
 - 검토: 아래 "검토 관점" 8개를 **제안된 계획에 대해** 적용 — 계획대로 가면 의존 방향/레이어/생명주기/DI/테스트 가능성이 깨지는지.
 - 출력: "코드 문제" 가 아니라 **"plan 수정 요구"**. 아직 존재하지 않는 코드에 `file:line` 근거를 붙이지 않는다(기존 코드 인용은 허용).
-- codex 중첩 호출: planning 모드에선 **off**(같은 phase 의 plan-reviewer 가 codex owner — docs/codex-review.md §2).
+- codex 중첩 호출: planning 모드에선 **off**(같은 phase 의 plan-reviewer 가 codex owner — ~/.claude/wiki/docs/codex-review.md §2).
 - 적용 범위: dlc 은 structural 규모에서만 호출. 직접 호출 시에도 "구조 의사결정을 포함한 계획" 일 때만.
 
 ## 호출 트리거 (검토 시작 전 확인)
@@ -93,14 +93,14 @@ model: opus
 - destructive 명령 (rm, DB write, prod mutation, migration 실행) 금지. 리뷰는 read-only.
 
 ## Codex 병행 검토 (optional, 보수적)
-> 공통 호출 규약(preflight·phase owner·sandbox·Windows fallback·출력 처리·실패 fallback·통합·외부 codex 모드)은 **먼저 `~/.claude/docs/codex-review.md` 를 절대경로로 Read** 해 따른다(subagent 는 docs 를 자동 로드하지 않고, 상대경로는 프로젝트 cwd 에서 해석되지 않는다). 아래는 본 agent 고유의 트리거·프롬프트. 글로벌 CLAUDE.md §9 상 본 agent 는 "선택" 카테고리.
+> 공통 호출 규약(preflight·phase owner·sandbox·Windows fallback·출력 처리·실패 fallback·통합·외부 codex 모드)은 **먼저 `~/.claude/wiki/docs/codex-review.md` 를 절대경로로 Read** 해 따른다(subagent 는 docs 를 자동 로드하지 않고, 상대경로는 프로젝트 cwd 에서 해석되지 않는다). 아래는 본 agent 고유의 트리거·프롬프트. 글로벌 CLAUDE.md §9 상 본 agent 는 "선택" 카테고리.
 
 **호출 조건** (모두 만족 시만):
 - 다중 모듈 / 다중 레이어 영향이 있는 큰 구조 변경 (단순 신규 service 추가 정도는 호출 안 함)
-- 호출 측이 외부에서 codex 를 이미 호출 중이 아님 (프롬프트에 `docs/codex-review.md` §7 문구가 있으면 호출 생략)
-- `docs/codex-review.md` §1 preflight 통과(세션 마커 `<scratch>/codex-unavailable` 없음 + `codex --version` 성공)
+- 호출 측이 외부에서 codex 를 이미 호출 중이 아님 (프롬프트에 `~/.claude/wiki/docs/codex-review.md` §7 문구가 있으면 호출 생략)
+- `~/.claude/wiki/docs/codex-review.md` §1 preflight 통과(세션 마커 `<scratch>/codex-unavailable` 없음 + `codex --version` 성공)
 
-**호출 명령**은 `~/.claude/docs/codex-review.md` §3 정본 그대로(구조 검토는 effort `high`, 출력은 스크래치 파일로 리다이렉트 후 §5 대로 결론부만) — 여기엔 프롬프트 본문만 둔다. 프롬프트 파일을 Bash 로 만들 때 본문에 `git` 토큰을 넣지 않는다(§3):
+**호출 명령**은 `~/.claude/wiki/docs/codex-review.md` §3 정본 그대로(구조 검토는 effort `high`, 출력은 스크래치 파일로 리다이렉트 후 §5 대로 결론부만) — 여기엔 프롬프트 본문만 둔다. 프롬프트 파일을 Bash 로 만들 때 본문에 `git` 토큰을 넣지 않는다(§3):
 ```text
 다음 변경의 구조적 결정을 검토하라.
 
@@ -113,7 +113,7 @@ model: opus
 취향 기반 제안 금지.
 ```
 
-출력 처리·실패 fallback·통합·외부 codex 모드는 위 `docs/codex-review.md` 규약을 따른다.
+출력 처리·실패 fallback·통합·외부 codex 모드는 위 `~/.claude/wiki/docs/codex-review.md` 규약을 따른다.
 
 ## 심각도
 - **Critical** — 구조 결정이 즉시 운영/확장/테스트를 깬다(순환 import·역방향 레이어 의존·테스트가 외부 인프라 없이 불가). 머지 전 수정.

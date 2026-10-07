@@ -9,7 +9,7 @@
 - 한국어로 답한다. 코드 식별자·파일명·함수명·라이브러리명·에러 메시지는 원문 유지.
 - 답은 내용부터 시작한다("좋은 질문입니다"·"물론이죠" 같은 인사말 없이). 사용자는 도구 출력 원문을 따라 읽지 않으므로 사용자에게 보이는 텍스트를 이렇게 쓴다: 첫 도구 호출 전에 무엇을 할지 한 문장, 작업 중에는 중요한 것을 찾았거나 방향을 바꿀 때, 그리고 도구 호출이 길게 이어질 때 짧은 업데이트, 끝나면 결론 요약.
 - **비유·수사 대신 직설.** 문자 그대로의 표현이 있으면 그것을 쓴다 — "돌려볼 만한 다이얼" ❌ → "바꿔볼 만한 파라미터" ✅. 수사는 독자를 더 일하게 하고 뜻을 흐린다.
-- **항목 번호에 원문자(①②③) 금지** — 터미널에서 본문보다 작게 렌더돼 눈에 안 들어온다. 나열은 마크다운 `1.` 목록, 눈에 띄어야 하는 단계·선택지는 `## 1) 제목` heading, 문장 중 참조는 `1)`·`(1)`. 단 아직 원문자로 적힌 기존 문서(`skills/`·`docs/`·`plans/`)를 **인용**할 때는 대조 가능하도록 원문 그대로 둔다.
+- **항목 번호에 원문자(①②③) 금지** — 터미널에서 본문보다 작게 렌더돼 눈에 안 들어온다. 나열은 마크다운 `1.` 목록, 눈에 띄어야 하는 단계·선택지는 `## 1) 제목` heading, 문장 중 참조는 `1)`·`(1)`. 단 아직 원문자로 적힌 기존 문서(`skills/`·`wiki/docs/`·`plans/`)를 **인용**할 때는 대조 가능하도록 원문 그대로 둔다.
 
 ---
 
@@ -37,13 +37,13 @@
 - 코드베이스 조사·리서치는 **subagent 가용+이득 클 때** 위임(Agent 도구). 미지원·단순 조회면 직접 수행하되 읽는 파일 수 제한.
 - 잘못된 방향 감지 시 즉시 중단, `Esc`/`/rewind` 제안.
 - 여러 줄·명령치환·체인이 많은 셸 명령은 `Write` 로 스크립트 파일에 적고 한 줄로 실행한다(인용 오류와 권한 프롬프트가 줄고 재실행이 쉽다).
-- **Bash 재귀 텍스트 검색은 `grep -r` 대신 `rg`**(Grep 도구도 가능). 단순 명령의 `grep` 은 rtk 훅이 `rtk grep`(=시스템 grep)으로 바꿔 `.gitignore` 를 무시하므로 gitignored 대용량(`projects/` transcript 등)까지 뒤져 느리고 잡음 매치가 결과 상한을 채운다(파이프·루프 안은 내장 ugrep 이라 따른다 — 같은 명령이 모양에 따라 결과가 달라진다, [[claude-code-bash-tool-shims]]). `rg` 는 `rtk rg` 로 바뀌어 `.gitignore` 를 따르고 출력도 압축된다(독립 `rg` 실행 파일 필요 — macOS bootstrap 이 설치, Windows 는 수동). ignored 파일까지 찾을 때만 `rg -uu`.
+- **Bash 재귀 텍스트 검색은 `grep -r` 대신 `rg`**(Grep 도구도 가능). 단순 명령의 `grep` 은 rtk 훅이 `rtk grep`(=시스템 grep)으로 바꿔 `.gitignore` 를 무시하므로 gitignored 대용량(`projects/` transcript 등)까지 뒤져 느리고 잡음 매치가 결과 상한을 채운다(파이프·루프 안은 내장 ugrep 이라 따른다 — 같은 명령이 모양에 따라 결과가 달라진다, [[claude-code-bash-tool-shims]]). `rg` 는 `rtk rg` 로 바뀌어 `.gitignore` 를 따르고 출력도 압축된다(독립 `rg` 실행 파일 필요 — macOS bootstrap 이 설치, Windows 는 수동). ignored 파일까지 찾을 때만 `rg -uu`. `~/.claude` 의 `wiki/`(하네스 참조 문서 `wiki/docs/` 포함)도 ignored 라 루트 검색이 건너뛴다 — 영향 범위 조사에서는 그 경로를 명시해 검색한다(무매칭을 "영향 없음"으로 읽지 않는다).
 
 ---
 
 ## 3. 작업 흐름
 
-1. **Setup** (코드 변경/리뷰/레포 작업 시작 시) — `git status --short`. 프로젝트 컨텍스트는 per-repo `CLAUDE.md`(또는 `<repo>/.claude/CLAUDE.md`)에 명시, 없으면 비어있다고 판단. `.env`/key/token/cert 원문 출력 금지. **코드/파일 변경은 규모 불문(trivial 포함) worktree 밖이면 예외 없이 `wt` 를 먼저 경유해 그 안에서 dlc — main 직접 진행 금지**(`scripts/guard-worktree-edit.js` PreToolUse 가 main 추적파일 편집에 `ask` 를 건다 — **단 auto 모드에서는 `ask` 가 생략되므로 그때는 하드 게이트가 아니라 이 규약만 남는다. 게이트가 안 걸렸다고 worktree 를 건너뛰지 말 것**). 이미 작업 worktree 안이면 dlc self-check(skill 미진입으로 plan·검증 건너뛰기 방지). trivial 은 *절차*(리뷰·plan·TDD)만 즉시통과일 뿐 **worktree 는 똑같이 필요**하다. **예외 — worktree 사본이 없는 글로벌 상태**(`projects/…/memory/`·`MEMORY.md`·`settings.local.json`·공용 wiki `wiki/` — 비공개 repo 의 별도 clone, §11)**와 비-git 디렉토리는 worktree 를 만들지 않는다**(gitignored 라 만들어도 커밋될 것이 없다). 단 **이미 worktree 세션 안이면 하네스 네이티브 격리가 이들의 main 경로 편집도 거부**한다 — "worktree 사본을 편집하라"고 하지만 **그 사본은 존재하지 않는다**. `scripts/guard-worktree-edit.js` 는 allow 하나 네이티브 격리가 그 위에 있다. 따라서 **§12/§13 memory 적립과 공용 wiki 쓰기(§11)는 worktree 안에서 시도하지 말고 main 복귀 후** 수행한다(복귀는 `/e` 8단계가 맡는다 — 이 적립들은 `/e` 절차에 없으므로 복귀한 main 세션에서 직접 한다). 상세는 skills/dlc/SKILL.md.
+1. **Setup** (코드 변경/리뷰/레포 작업 시작 시) — `git status --short`. 프로젝트 컨텍스트는 per-repo `CLAUDE.md`(또는 `<repo>/.claude/CLAUDE.md`)에 명시, 없으면 비어있다고 판단. `.env`/key/token/cert 원문 출력 금지. **코드/파일 변경은 규모 불문(trivial 포함) worktree 밖이면 예외 없이 `wt` 를 먼저 경유해 그 안에서 dlc — main 직접 진행 금지**(`scripts/guard-worktree-edit.js` PreToolUse 가 main 추적파일 편집에 `ask` 를 건다 — **단 auto 모드에서는 `ask` 가 생략되므로 그때는 하드 게이트가 아니라 이 규약만 남는다. 게이트가 안 걸렸다고 worktree 를 건너뛰지 말 것**). 이미 작업 worktree 안이면 dlc self-check(skill 미진입으로 plan·검증 건너뛰기 방지). trivial 은 *절차*(리뷰·plan·TDD)만 즉시통과일 뿐 **worktree 는 똑같이 필요**하다. **예외 — worktree 사본이 없는 글로벌 상태**(`projects/…/memory/`·`MEMORY.md`·`settings.local.json`·공용 wiki `wiki/` — 비공개 repo 의 별도 clone, 하네스 참조 문서 `wiki/docs/` 포함, §11)**와 비-git 디렉토리는 worktree 를 만들지 않는다**(gitignored 라 만들어도 커밋될 것이 없다). 단 **이미 worktree 세션 안이면 하네스 네이티브 격리가 이들의 main 경로 편집도 거부**한다 — "worktree 사본을 편집하라"고 하지만 **그 사본은 존재하지 않는다**. `scripts/guard-worktree-edit.js` 는 allow 하나 네이티브 격리가 그 위에 있다. 따라서 **§12/§13 memory 적립과 공용 wiki 쓰기(§11 — `wiki/docs/` 편집 포함)는 worktree 안에서 시도하지 말고 main 복귀 후** 수행한다(복귀는 `/e` 8단계가 맡는다 — 이 적립들은 `/e` 절차에 없으므로 복귀한 main 세션에서 직접 한다). 상세는 skills/dlc/SKILL.md.
 2. **Explore** — 모호하면 질문 먼저. 관련 파일 + 호출부 read. 동일 디렉토리·같은 레이어 기존 파일 스타일 확인.
 3. **Plan** — 큰 변경(50줄 초과, 다중 파일, public API, DB schema, migration, 아키텍처/보안 영향)은 계획 먼저 제시·승인 후 진행. 작은 변경(오타, 로그 한 줄)은 즉시.
 4. **Implement** — 작은 단계로. 요청 범위 밖 "지나가는 김에" 수정 금지. 단, 빌드/테스트를 깨는 직접 원인이면 수정하고 이유 명시. **범위 밖 발견은 유실도 금지** — 고치지 말고(§1 자가수정·스코프 경계 → 별도 작업) active plan `# Deferred`(§10, plan 없으면 Report)에 한 줄(내용·심각도·파일) 기록 후 진행.
@@ -154,7 +154,7 @@ Workflow 스크립트의 `agent()` 는 `model` 을 생략하고(세션 모델 �
 사용자는 Claude 와 Codex 양쪽을 사용. 둘 다 같은 `plans/` 핸드오프 채널을 공유(경로 규약은 §10).
 
 - **역할**: Claude 는 plan 생성/갱신·메인 구현·통합. Codex 는 리뷰·보조 구현·검증. 최종 통합 책임은 항상 **현재 메인 에이전트**.
-- **호출**: 설치 확인 `codex --version`. **codex 는 반드시 Bash 도구로 호출한다**(PowerShell 은 stdin 미종료로 무한 hang — 재현). 호출 규약·effort·출력 처리 세부는 `docs/codex-review.md`.
+- **호출**: 설치 확인 `codex --version`. **codex 는 반드시 Bash 도구로 호출한다**(PowerShell 은 stdin 미종료로 무한 hang — 재현). 호출 규약·effort·출력 처리 세부는 `~/.claude/wiki/docs/codex-review.md`.
 - **리뷰 매트릭스**:
   - `plan-reviewer` / `code-reviewer` = **Claude subagent 필수 + Codex 가용 시 병행**. Codex 미가용이면 생략 사유를 Report 또는 plan `# Progress` 에.
   - `researcher` / 보조 구현 = 가용성·이득 있을 때 선택. (simplify 체크는 메인 직접 — 매트릭스 대상 아님)
@@ -226,6 +226,7 @@ updated: YYYY-MM-DD
 - **공용 wiki** `~/.claude/wiki/` — 여러 repo 에 쓸모 있는 **공개 가능한** 사실(도구·플랫폼·라이브러리 동작)과 전역 자산(dlc·hook·skill)의 결정·교훈. 이 문서·skill 이 가리키는 `[[…]]` 페이지는 여기 있다.
   - 비공개 GitHub repo 를 이 경로에 별도 clone 한 것이다. `~/.claude` 는 추적하지 않고 worktree 에는 사본이 없다.
   - 절대경로 `~/.claude/wiki` 로 읽는다. `~/.claude` 루트에서 돌린 `rg`·Grep 은 이 폴더를 건너뛰므로 경로를 명시한다.
+  - 하네스 참조 문서(codex 규약·dlc 상세·worktree 수명 주기)도 이 repo 의 `docs/` 에 있다 — skill·agent 가 `~/.claude/wiki/docs/<파일>` 로 직접 읽는다(자동 로드 안 됨, `wiki_search` 는 `pages/` 만 찾는다). 쓰기 경로와 공개 점검은 페이지와 같다.
   - 쓰기는 main 세션에서 하고, 그 repo 의 main 에 직접 커밋한다(§8 예외, push 는 요청 시). worktree 작업 중 생긴 공용 적립은 plan `# Deferred` 에 남기고 main 세션에서 처리한다.
   - 적는 기준은 그대로 공개 가능한 사실이다 — 저장소는 비공개여도 모든 repo 세션이 읽고 공개 repo 로 옮겨 적을 수 있다. 아래 공개 점검의 금지 목록은 wiki 페이지·`sources`·index·log·커밋 메시지에도 그대로 적용한다(그 repo 에는 `private-terms.txt` 백스톱이 없다).
 - **공개 점검** — `~/.claude` 는 공개 repo 다. 이 repo 에서 커밋·push 하는 **모든 것**(작업 종류 불문 — 코드·문서·plan·브랜치/worktree 이름·커밋 메시지·PR 제목/본문)에 회사·조직명, 내부 도메인·호스트·IP, 고객·제품 코드명·티켓 키, 비공개 repo 의 이름·경로·내부 도구명을 넣지 않는다(비공개 repo 는 "회사 repo" 로만). 비공개 출처(또는 출처 불명)를 적립할 때는 커밋 전 diff 를 보이고 확인받는다. 기계 백스톱: 추적하지 않는 머신별 목록 `~/.claude/private-terms.txt` 에 적은 이름은 `pre-commit-check` 가 이 repo 의 커밋·push 에서 막는다 — 목록 밖 이름·PR 제목/본문·웹 편집은 못 잡으니 이 점검이 먼저이고, 걸리면 목록을 도구로 읽지 말고 걸린 표현을 일반 표현으로 바꾼다.

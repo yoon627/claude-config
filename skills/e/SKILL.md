@@ -25,7 +25,7 @@ description: 진행 중이던 §10 plan 을 실제 git/코드 상태로 동기�
 - **fallback (매칭 0개)**: `status: in_progress|blocked` plan 을 `updated` 내림차순 목록 제시 → 사용자 선택. 추측으로 자동 선택하지 않는다. 전부 done/없음이면 "마무리할 plan 없음" — 그래도 2단계(임시 커밋)는 수행하고 보고만 한다.
 
 ### 2. 작업 상태 수집 + 임시 커밋
-- **수집 (`collect-state.sh` 1회)**: `bash skills/e/collect-state.sh` 로 읽기전용 상태 신호를 평문 `key: value` 로 받는다(개별 git 10+ 호출 1회 묶음). 이 상대경로는 cwd 가 `~/.claude`(또는 그 worktree) 루트일 때만 해석된다 — 다른 repo 에서는 `~/.claude/skills/e/collect-state.sh` 를 절대경로로 부르고, 격리 worktree 세션에서는 `bash "$HOME/…"` 형태가 거부될 수 있어(2026-09-30 실측) `$HOME` 을 펼친 절대경로로 쓴다. **헬퍼 실패·필드 누락이면** 보고에 명시하고 개별 git 명령으로 폴백. **필드 카탈로그·파싱 규칙(첫 `: ` split·list 필드)·조건별 폴백 명령은 `docs/worktree-lifecycle.md` §A**(상태 수집 분기에서 Read).
+- **수집 (`collect-state.sh` 1회)**: `bash skills/e/collect-state.sh` 로 읽기전용 상태 신호를 평문 `key: value` 로 받는다(개별 git 10+ 호출 1회 묶음). 이 상대경로는 cwd 가 `~/.claude`(또는 그 worktree) 루트일 때만 해석된다 — 다른 repo 에서는 `~/.claude/skills/e/collect-state.sh` 를 절대경로로 부르고, 격리 worktree 세션에서는 `bash "$HOME/…"` 형태가 거부될 수 있어(2026-09-30 실측) `$HOME` 을 펼친 절대경로로 쓴다. **헬퍼 실패·필드 누락이면** 보고에 명시하고 개별 git 명령으로 폴백. **필드 카탈로그·파싱 규칙(첫 `: ` split·list 필드)·조건별 폴백 명령은 `~/.claude/wiki/docs/worktree-lifecycle.md` §A**(상태 수집 분기에서 Read).
 - **임시 커밋**(아래 "임시 커밋 규칙"): uncommitted 있으면 작업 브랜치에 WIP 커밋으로 보존. 없으면 skip + "변경 없음" 명시. **머지 모드는 WIP 를 만들지 않는다** — uncommitted 가 있으면 `AskUserQuestion`(정식 메시지로 커밋 / 취소). 이건 §1 위험 확인이 아니라 "작업이 끝났는가" 방향 합의다(§1 단서).
 
 ### 3. plan 동기화 기록 (메인이 single writer; §10)
@@ -48,7 +48,7 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
 - **recap 형식(CLAUDE.md §3-6)**: 위 보고는 **맨 끝을 `## 결론` 블록(§3-6 답·근거·다음, 조건부 원인·주의)으로 닫는다**. **`/e` 호출 자체가 "마무리" 지시**이므로 §3-6 예외(사용자가 이미 다음 지시를 준 흐름 → 선택지 생략)에 따라 작업 선택지용 새 AskUserQuestion은 만들지 않는다. 단, 아래 5단계의 Jira task 본문 반영 승인은 외부 쓰기라 별도로 반드시 받는다. 마무리 액션은 아래 7단계 worktree 정리(조건 충족 시)과 8단계 "다음 세션 `/c`" 안내가 담당한다. **머지 모드에선 done 확인 질문을 생략한다** — `/e merge` 가 그 확인이다(§3-6 1회 원칙).
 
 ### 머지 모드 M1~M6 (`/e merge` 일 때만, 4단계 뒤 · 5단계 앞)
-gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-lifecycle.md` §E(진입 시 Read). 여기엔 게이트·순서·닫힌 목록만.
+gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `~/.claude/wiki/docs/worktree-lifecycle.md` §E(진입 시 Read). 여기엔 게이트·순서·닫힌 목록만.
 - **M1 진입 게이트(hard-stop, 닫힌 목록)** — 하나라도 걸리면 머지 모드 거부 + 사유 보고(체크포인트로 조용히 폴백하지 않는다): (1) 브랜치가 main/master 또는 detached (2) plan 없음 (3) `# Acceptance` 에 미체크 항목 — 섹션 자체가 없으면 통과·보고 1줄, `- [ ] [post-merge] …` 접두어 항목만 제외(의미 판정으로 제외하지 않는다) (4) `gh repo view` 실패(미인증·GitHub 아님·권한 없음). `<default>` = `git symbolic-ref --short refs/remotes/origin/HEAD` 에서 `origin/` 을 뗀 이름 → 실패 시 `gh repo view` 의 `defaultBranchRef.name` → 그것도 없으면 거부. `origin/main` 같은 remote-tracking ref 를 브랜치 이름 자리에 쓰지 않는다.
 - **M2 PR 조회 + 사전 점검(외부 쓰기 없음)**: 먼저 `git fetch origin <default>`(stale ref 로 오판 방지) 후 `gh pr list --head <branch> --base <default> --state all` — 후보 2개+ → 중단·보고. OPEN → 재사용(draft 면 중단·보고). **MERGED 또는 CLOSED → 재사용하지 않는다**(skip 경로로 두면 plan done 커밋을 실을 PR 이 없어 7단계 조건 2·3·5 를 넘지 못한다). **지름길**: `origin/<default>..HEAD` 커밋이 0개이고 plan 이 이미 `done` 이면 3단계가 쓴 plan 편집을 `git restore` 로 되돌리고(머지된 plan 이 단일 진실 — 브랜치를 base 보다 ahead 로 만들면 `git branch -d` 가 거부된다) M3~M5 없이 **M6 의 확인·fetch 로**.
 - **M3 선행 — 정리 안 된 커밋 검사**(push·"M4 먼저" 분기보다 앞. M2 지름길이면 건너뛴다): PR 에 `wip`·`fixup!` 류 커밋이 실리지 않게 한다 — 한 번 push 되면 commit-check 범위(미게시) 밖이라 고칠 수 없다.
@@ -98,9 +98,9 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
   4. **default 브랜치에 merged** — `mergedToLocalBase`=true(헬퍼가 `git branch --merged <localDefault>` 로 판정) **또는** `inBase`/`patchInBase`=true. **로컬 `main` 머지도 인정**한다(push 하지 않는 워크플로우에서는 `origin/<default>` 기준인 `inBase` 가 영영 false/unknown 이라 그것만 보면 자동 정리가 실효). 셋 다 false/unknown 이면 미머지로 보고 유지. squash merge 는 미감지 = 유지 방향이라 안전. **예외: 머지 모드에서 M6 가 `mergedAt` 을 확인했으면 이 조건은 충족** — git 신호가 false 여도 재유도하지 않는다.
   5. **미보존 산출물 안전**(`git worktree remove`/`--force` 가 gitignored `.env`·미커밋 plan 을 유실시킴 — 이 worktree `plans/` 에 이번 갱신한 미커밋 plan 있으면 정리 생략; `.env`·secret 후보 있으면 삭제 목록 명시; `ignoredStatus`=unknown 이면 생략)
   6. **worktree 를 잡고 있는 프로세스 없음** — 이 세션에서 검증용으로 띄운 서버·데몬이 살아 있으면 `git worktree remove` 가 OS 레벨에서 실패한다(Windows: "Invalid argument"·"Access is denied"). **내가 띄운 것은 삭제 전에 내가 회수한다**(경로로 대상을 특정해 종료 — 사용자 서버·다른 worktree 프로세스는 건드리지 않는다). 회수 못 하면 정리 생략 + 사유 보고.
-  - **각 조건의 판정 git 명령·폴백·`inBase`/`patchInBase`/`remoteContainingHead` 세부·squash/rebase 한계는 `docs/worktree-lifecycle.md` §B**(삭제 판정 분기에서 Read).
+  - **각 조건의 판정 git 명령·폴백·`inBase`/`patchInBase`/`remoteContainingHead` 세부·squash/rebase 한계는 `~/.claude/wiki/docs/worktree-lifecycle.md` §B**(삭제 판정 분기에서 Read).
   - 하나라도 불충족/위험/헬퍼 불가이거나 6단계 worklog 가 실패로 끝났으면(6단계 비차단 bullet) → 정리 생략 + 보고에 사유 한 줄("미머지 → 유지"·"dirty → 유지"·"plan 이 worktree 내부 → 유지"·"worklog 실패 → 유지").
-- **실행**: 조건 충족 시 **묻지 않고** worktree → 로컬 `git branch -d` 순으로 정리하고, 삭제한 브랜치 tip sha 를 한 줄 보고(`git branch <name> <sha>` 로 복구 가능). `git worktree remove` 가 부분 성공(등록 해제 후 디렉터리 삭제 실패)할 수 있으니 **결과를 확인**하고, 잔여 디렉터리가 있으면 조건6 처리 후 마저 지운다. 실행 세부는 "worktree 정리 규칙"(+ `docs/worktree-lifecycle.md` §C).
+- **실행**: 조건 충족 시 **묻지 않고** worktree → 로컬 `git branch -d` 순으로 정리하고, 삭제한 브랜치 tip sha 를 한 줄 보고(`git branch <name> <sha>` 로 복구 가능). `git worktree remove` 가 부분 성공(등록 해제 후 디렉터리 삭제 실패)할 수 있으니 **결과를 확인**하고, 잔여 디렉터리가 있으면 조건6 처리 후 마저 지운다. 실행 세부는 "worktree 정리 규칙"(+ `~/.claude/wiki/docs/worktree-lifecycle.md` §C).
 - **원격 브랜치는 별개** — 체크포인트 모드에선 지울 필요가 있다고 판단되면 그때만, 머지 모드에선 머지 성공 + 로컬 정리 완료 후 항상 1회 AskUserQuestion(§8(b)). 자동 정리에 얹지 않는다. worklog 실패 등으로 로컬 정리를 생략했으면 원격 질문도 미루고, 보고에 "원격 브랜치 유지 — worktree 정리 때 확인" 1줄을 남긴다(원격은 로컬 삭제 뒤라는 순서를 지킨다).
 
 ### 8. 세션을 main worktree 로 복귀
@@ -109,7 +109,7 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 - 7단계에서 worktree 를 **삭제한 경우**, 또는 6 전 단계에서 이미 나온 경우 → 이미 main 복귀됨 → skip(중복 `ExitWorktree` 금지). 아래 main 최신화는 그대로 한다.
 - 그 외(유지·제안 생략·조건 미충족) → `ExitWorktree(action: keep)` 로 원래 디렉토리(보통 main) 복귀. plan `status` 무관 — `in_progress` 체크포인트여도 세션만 빠지고 worktree·브랜치는 남는다(다음에 `/wt <name>` 로 들어가 `/c` 로 이어감).
 - **`ExitWorktree` 가 no-op**(harness 가 worktree 에서 바로 시작해 `EnterWorktree` 미경유) → in-session 복귀 불가. 강제 이동 금지 — "세션 종료하면 harness 가 worktree 를 놓는다"고 보고만(다른 worktree 로 우회하지 않는다).
-- **복귀 후 main 최신화 (main-autopull ⓑ)**: 세션이 **실제로 main 에 복귀했을 때만** — ① main worktree ② 현재 브랜치 ∈ {main, master} ③ clean **전부 충족 시** — `git pull --ff-only origin "$(현재 브랜치)"` 1회(하드코딩 `main` 금지 — master repo 오대응 방지). **no-op(feature 잔류)·dirty·ff 실패·origin 부재면 skip**(feature 에 origin/main merge 하는 파괴 방지). 자동 rebase·stash·force 없음(§8). 세부 `docs/worktree-lifecycle.md` §D.
+- **복귀 후 main 최신화 (main-autopull ⓑ)**: 세션이 **실제로 main 에 복귀했을 때만** — ① main worktree ② 현재 브랜치 ∈ {main, master} ③ clean **전부 충족 시** — `git pull --ff-only origin "$(현재 브랜치)"` 1회(하드코딩 `main` 금지 — master repo 오대응 방지). **no-op(feature 잔류)·dirty·ff 실패·origin 부재면 skip**(feature 에 origin/main merge 하는 파괴 방지). 자동 rebase·stash·force 없음(§8). 세부 `~/.claude/wiki/docs/worktree-lifecycle.md` §D.
 - 한 줄 보고: main 복귀 여부(또는 불가 사유).
 
 ## 임시 커밋 규칙
@@ -124,8 +124,8 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 ## worktree 정리 규칙
 7단계에서 worktree 를 삭제할 때만. **cwd 가 삭제 대상 안일 수 있어 순서 중요**(6 전 단계에서 나왔으면 이미 밖이다).
 - **이동 전 값 캡처**: `target_path`·`target_branch`·`main_path`(`git worktree list --porcelain` 첫 worktree)를 **세션 옮기기 전에** 고정(이동 후 재계산하면 엉뚱한 대상·main 가리킴).
-- **worktree 밖으로**: `ExitWorktree(action: keep)` 로 원래 디렉토리(보통 main) 복귀 — 대상 안에선 자기 remove 불가. 6 전 단계에서 이미 나왔으면 다시 부르지 않는다 — 그 재호출이 돌려주는 no-op 을 아래 no-op 폴백으로 처리하지 않는다. **`ExitWorktree` no-op**(harness 가 worktree 에서 시작)이면 폴백은 `docs/worktree-lifecycle.md` §C(다른 linked worktree 경유 or remove 생략+보고) — **강제 진행 금지**. 이동 실패로 cwd 가 대상 안이면 **중단+보고**(remove 금지).
-- **제거**: cwd 가 대상 밖 확인 후 `git worktree remove <target_path>`. 실패 시 stderr 분기(untracked→`--force`·파일점유·부분성공 prune) 세부는 `docs/worktree-lifecycle.md` §C.
+- **worktree 밖으로**: `ExitWorktree(action: keep)` 로 원래 디렉토리(보통 main) 복귀 — 대상 안에선 자기 remove 불가. 6 전 단계에서 이미 나왔으면 다시 부르지 않는다 — 그 재호출이 돌려주는 no-op 을 아래 no-op 폴백으로 처리하지 않는다. **`ExitWorktree` no-op**(harness 가 worktree 에서 시작)이면 폴백은 `~/.claude/wiki/docs/worktree-lifecycle.md` §C(다른 linked worktree 경유 or remove 생략+보고) — **강제 진행 금지**. 이동 실패로 cwd 가 대상 안이면 **중단+보고**(remove 금지).
+- **제거**: cwd 가 대상 밖 확인 후 `git worktree remove <target_path>`. 실패 시 stderr 분기(untracked→`--force`·파일점유·부분성공 prune) 세부는 `~/.claude/wiki/docs/worktree-lifecycle.md` §C.
 - **안전 게이트(§8) — 무확인 금지**: `--force`·`git branch -D`(미머지)·원격 `git push origin --delete` 는 **별도 AskUserQuestion 확인 후에만**.
 - **로컬 브랜치(옵션 ②·③)**: `git branch -d <target_branch>`(미머지 `-d` 거부 시 `-D` 는 확인 후). **원격(옵션 ③만)**: worktree·로컬 삭제 성공 후 `git push origin --delete <target_branch>`(원격 ref 부재 no-op). 조건5 확정 아님 → 사용자가 경고 보고 택한 경우만(orphan 방지). 그 외 push 안 함.
 - 한 줄 보고: 제거한 worktree·브랜치(또는 유지 사유).

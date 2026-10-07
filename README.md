@@ -15,7 +15,7 @@ Windows 에서 사용하는 `%USERPROFILE%\.claude\` 또는 macOS 에서 사용�
 - **Node.js** (LTS 권장) — `statusline.js`, `subagent-statusline.js` 가 Node 로 실행. `node --version` 으로 확인.
 - **Claude Code** 설치 — `~/.claude/` 위치를 자동으로 읽음. 설치 후 한 번이라도 실행하여 디렉토리 생성.
 - **Git** + **Git Bash** (Windows) — Claude Code 가 statusLine·hook command 를 Windows 에서 Git Bash 로 실행. `~` 확장에 필요 (Git Bash·sh 는 `~` 를 홈으로 확장; `$HOME` 은 PowerShell fallback 시 깨질 수 있어 `~` 사용). Git Bash 가 없으면 PowerShell fallback 인데 이때 `~` 확장이 보장되지 않으므로 Windows 는 Git Bash 설치 필수.
-- **(선택) Codex CLI** — reviewer subagent 의 Codex 병행 검토용(CLAUDE.md §9, `docs/codex-review.md`). 없으면 병행을 건너뛰고 Claude subagent 검토만 돈다.
+- **(선택) Codex CLI** — reviewer subagent 의 Codex 병행 검토용(CLAUDE.md §9, `~/.claude/wiki/docs/codex-review.md`). 없으면 병행을 건너뛰고 Claude subagent 검토만 돈다.
 - **(선택, Windows) PowerShell ExecutionPolicy** — Windows notify 는 `notify-hook.js` 가 `powershell.exe` 로 `notify-hook.ps1`(toast/flash) 를 spawn 하므로 `Restricted` 면 실행 안 됨. 아래 Install 참고. (macOS 는 PowerShell 불필요.)
 
 ---
@@ -47,13 +47,15 @@ cd $env:USERPROFILE\.claude
 # 6. (선택) 비공개 용어 목록 — 기존 머신의 ~/.claude/private-terms.txt 를 복사 (untracked).
 #    없으면 가드가 note 한 줄만 찍고 비공개 용어 검사를 건너뛴다 (아래 D 절).
 
-# 7. 공용 wiki — 이 repo 에는 없다(비공개 repo 의 별도 clone, 아래 E 절).
+# 7. 공용 wiki — 이 repo 에는 없다(비공개 repo 의 별도 clone, 아래 E 절). 하네스 참조 문서 wiki/docs/ 도 여기서 온다.
 git clone <비공개 wiki repo URL> $env:USERPROFILE\.claude\wiki
 
 # 8. Claude Code 재시작
 ```
 
 `settings.json` 은 **untracked** — clone 만으로는 오지 않으므로 위 5번을 건너뛰면 안 된다. 이유는 문서 맨 위 참조.
+
+하네스 참조 문서(`codex-review.md`·`dlc-details.md`·`worktree-lifecycle.md`·`headroom-proxy-session-lifecycle.md`)는 **비공개 wiki repo 의 `docs/`** 에 있다(2026-10-07~ 비공개 wiki repo 로 옮겼다). skill·agent 는 `~/.claude/wiki/docs/<파일>` 로 읽고, 편집·커밋은 공용 wiki 와 같이 main 세션에서 그 repo 에 한다(CLAUDE.md §11). 이 repo 의 `docs/` 는 ignored 이고 `improve.sh` 가 재추적을 error 로 막는다. 기존 머신은 이 repo 를 pull 하면 옛 `~/.claude/docs/` 가 지워지는데(추적 해제 커밋 — SessionStart 자동 pull 로 저절로 일어난다), 새 위치 `~/.claude/wiki/docs/` 는 wiki 를 **손으로** pull 해야 들어온다(wiki 는 자동 pull 이 없다, 아래 E 절). 그 사이 skill·agent 의 참조 Read 가 실패하므로 그 머신에서는 `git -C "$HOME/.claude/wiki" pull` 을 먼저 한다. 그 머신의 옛 `docs/` 에 커밋 안 된 수정이 있으면 git 이 pull 을 거부하고 SessionStart 자동 pull 은 출력 없이 멈춘다 — 수정본을 따로 보관하고 `git -C "$HOME/.claude" checkout -- docs` 로 되돌린 뒤 pull 한다(수정 내용은 wiki 쪽 `docs/` 에 옮겨 적는다).
 
 ### B. 이미 `~/.claude/` 가 있는 머신 — 기존 데이터 보존
 
@@ -82,7 +84,7 @@ git checkout origin/main -b main
 # 5) hooks 설치
 .\scripts\install-hooks.ps1
 
-# 6) 공용 wiki — 이 repo 에는 없다. 아래 E 절대로 clone 한다(wiki 가 있던 머신이면 E 절 1단계부터).
+# 6) 공용 wiki — 이 repo 에는 없다. 아래 E 절대로 clone 한다(wiki 가 있던 머신이면 E 절 1단계부터). 하네스 참조 문서 wiki/docs/ 도 여기서 온다.
 ```
 
 `.gitignore` 가 화이트리스트 방식이라 `.credentials.json`, `settings.local.json`, `history.jsonl`, `projects/`, `sessions/`, `cache/` 등 기존 개인 데이터는 git 이 건드리지 않음.
@@ -326,8 +328,8 @@ background task 표시(`✻ N bg`)는 2026-09-25 제거했다 — tasks 디렉�
 - **계획 전 decision 조회**(3단계 앞, 필수): 두 wiki index 를 대상 자산 이름·작업 종류로 조회해 걸린 결정을 plan `# Decisions` 첫 줄에서 따르거나 뒤집는다(뒤집으면 근거·사용자 승인). 같은 세션의 분석에서 이어진 계획이 Explore 조회를 건너뛰어 기존 결정과 충돌한 사례(2026-09-28) 대응.
 - simplify 체크(13단계)는 메인이 직접 수행 — 모든 격리 spoke 는 read-only. substantive 수정 시 targeted 재검증.
 - `<ROOT>/plans/<YYYY-MM-DD>-<slug>/<slug>-plan.md` 가 subagent 간 단일 공유 채널 (메인만 write). 경로 규약은 CLAUDE.md §10.
-- codex 병행 검토 호출 규약은 `docs/codex-review.md` (phase 당 codex owner 1개 지정으로 중복 호출 방지, Windows/PowerShell fallback 포함), 한도 오류는 세션 스크래치 마커 `codex-unavailable` 로 캐시해 같은 세션의 다음 reviewer 가 재시도하지 않음). 정본 명령은 프롬프트를 스크래치 파일로 넘기고 `--skip-git-repo-check` 를 쓰지 않는다(사유는 §3 — worktree 격리 가드).
-- SKILL 본문엔 진입 게이트·규모 gate·16단계 표·닫힌목록·안전 규칙만 두고, 특정 분기에서만 찾는 절차 상세(요구사항 명확화 심화·조사 프로토콜 elaboration·wiki 연계 메커닉·Workflow Findings 기록형식·격리 runner 계약/simplify 체크리스트)는 `docs/dlc-details.md` 로 분리(자동 로드 안 됨 — 해당 분기 진입 시 Read).
+- codex 병행 검토 호출 규약은 `~/.claude/wiki/docs/codex-review.md` (phase 당 codex owner 1개 지정으로 중복 호출 방지, Windows/PowerShell fallback 포함), 한도 오류는 세션 스크래치 마커 `codex-unavailable` 로 캐시해 같은 세션의 다음 reviewer 가 재시도하지 않음). 정본 명령은 프롬프트를 스크래치 파일로 넘기고 `--skip-git-repo-check` 를 쓰지 않는다(사유는 §3 — worktree 격리 가드).
+- SKILL 본문엔 진입 게이트·규모 gate·16단계 표·닫힌목록·안전 규칙만 두고, 특정 분기에서만 찾는 절차 상세(요구사항 명확화 심화·조사 프로토콜 elaboration·wiki 연계 메커닉·Workflow Findings 기록형식·격리 runner 계약/simplify 체크리스트)는 `~/.claude/wiki/docs/dlc-details.md` 로 분리(자동 로드 안 됨 — 해당 분기 진입 시 Read).
 - **목적 단위 커밋**(medium 이상·목적 2개+): draft plan 에 `커밋 단위:`(고유 제목)를 선언하고, 단위마다 targeted 검증 통과 후 그 경로만 커밋한다. 커밋된 단위의 후속 수정은 `git commit --fixup`, plan 등 기록 파일은 16단계 마지막 커밋에만(앞 단위에 넣으면 3-way 충돌). 공유 파일은 앞 단위가 동작하는 데 필요한 변경까지 앞 단위에. 단위 커밋이 있으면 리뷰·simplify 범위는 `<base>...HEAD`+작업트리.
 - **16단계 마무리에 커밋 편입**: `evidence gate → 판정(DONE/BLOCKED/NEEDS-HUMAN) → plan 업데이트 → 정식 완료 커밋(DONE 만) → commit-check → 알림(필요할 때 최대 1회) → Report`. **판정은 작업을 끝낼 때만** — 고치는 중이면 판정 대상이 아니다. DONE 은 acceptance 충족이지 plan 종결이 아니라 `status: done` 을 박지 않는다(§10 대로 머지·승인 시점. 미리 박으면 `/c` 가 통합 대기 작업을 건너뛴다). BLOCKED(자원·사실을 **받아야** 함)는 `status: blocked`, NEEDS-HUMAN(대안을 **골라야** 함)은 `status: in_progress` + `# Next` — 후자를 blocked 로 접으면 정상적인 결정 대기가 `plan-blocked` failure telemetry 로 집계된다. 둘 다 정식 완료 커밋 금지(§8 — 이미 만든 단위 커밋은 유지), 보존이 필요하면 `/e` WIP. no-progress 정지는 "1회차 뒤 전략 변경, 그러고도 개선 없으면 2회차에서 정지" + 테스트·acceptance 를 바꿔 카운터를 되돌리는 것 금지. 커밋 **규칙**(요청 없이 커밋·stage 범위·커밋 안 하는 경우·`--no-verify` 금지)은 CLAUDE.md §8 이 단일 소스이고 **전역**(dlc 를 안 타는 흐름·타 repo 에도 적용), SKILL 커밋 bullet 은 절차(경로 확정·메시지·실행 폴백)만 담는다. `/e` 의 `wip:` 체크포인트와 구분 — 여기는 검증 통과한 정식 커밋.
 - **evidence·라우팅 hook** (`scripts/dlc-*.js`, `settings.json` 등록, fail-open): `dlc-task-router`(UserPromptSubmit — 디버깅/render 키워드에 discipline 주입), `dlc-evidence-ledger`(PostToolUse — 변경·검증 기록 + 문서 drift dirty flag), `dlc-early-stop`(Stop — 변경 후 검증 누락 · **문서화 표면↔README/index drift**(판정은 `dlc-doc-drift.js`) · plan drift · 결론 블록 누락 시 capped 1회 경고). plan `# Acceptance` evidence gate 의 보조 누락방지망 — 검증 *성공* 판정은 acceptance(메인)가 단일 소스. `CLAUDE_DLC_EARLYSTOP_OFF=1`(검증)·`CLAUDE_DLC_DOCDRIFT_OFF=1`(문서)·`CLAUDE_DLC_PLANDRIFT_OFF=1`(plan)·`CLAUDE_DLC_CONCLUSION_OFF=1`(결론 블록) 로 각각 비활성(holdout — `settings.json` `env` 또는 셸 프로필에 세팅). syntax 검사 + 단위테스트는 CI `lint.yml`.
@@ -344,12 +346,12 @@ background task 표시(`✻ N bg`)는 2026-09-25 제거했다 — tasks 디렉�
 `/e` 로 진행 중이던 plan(§10)을 **실제 git/코드 상태로 동기화 기록**하고 작업을 마무리. c(이어가기)의 대칭.
 - **마무리 recap(CLAUDE.md §3-6)**: 최종 메시지는 **맨 끝을 `## 결론` 블록(§3-6 — `━` 40자 구분선 뒤, 굵은 라벨 답·근거·다음(조건부 원인·주의) 아래 음슴체 불릿, 결론만으로 판단 가능하게)으로**, 마무리 선택지(정리/이어가기/종료)는 아래 worktree 정리 제안 + 다음 세션 `/c` 안내가 겸한다. Jira task 본문 반영만은 외부 쓰기라 preview 후 별도 사용자 승인을 받는다.
 - 체크포인트 모드에서는 uncommitted 변경을 작업 브랜치에 **임시(WIP) 커밋**으로 보존 — `main`/`master` 직접 커밋·push 는 안 함(§8), `.env`·key 등 위험 파일은 커밋 보류 후 확인.
-- **머지 모드 `/e merge`**(`/e 머지` — 이 두 토큰만): PR 조회·사전 점검 → 정리 안 된 커밋 검사(`commit_units.py pending` — 미게시 `wip`·`fixup!` 류는 commit-check 제안·승인 후 정리하고 보류하면 중단, 게시분·로컬 ref 가 붙잡은 것·재구성할 수 없는 범위의 것은 진행 여부를 묻고, merge 커밋을 불허해 squash 하는 repo 면 보고만 한다) → push → PR(open 재사용, merged/closed 는 새로) → plan `done` 커밋 → `gh pr checks --watch`(exit code + bucket 재조회) → `gh pr merge --merge --match-head-commit`(`--delete-branch` 금지) → 결과를 MERGED/QUEUED/REJECTED/UNKNOWN 으로 분류, MERGED 면 `git fetch` 후 5~8단계. REJECTED 만 plan 을 `in_progress` 로 복구해 done 인 미머지 plan 을 남기지 않는다. 진입 게이트·닫힌 목록은 SKILL, gh 명령·시나리오 표는 `docs/worktree-lifecycle.md` §E.
+- **머지 모드 `/e merge`**(`/e 머지` — 이 두 토큰만): PR 조회·사전 점검 → 정리 안 된 커밋 검사(`commit_units.py pending` — 미게시 `wip`·`fixup!` 류는 commit-check 제안·승인 후 정리하고 보류하면 중단, 게시분·로컬 ref 가 붙잡은 것·재구성할 수 없는 범위의 것은 진행 여부를 묻고, merge 커밋을 불허해 squash 하는 repo 면 보고만 한다) → push → PR(open 재사용, merged/closed 는 새로) → plan `done` 커밋 → `gh pr checks --watch`(exit code + bucket 재조회) → `gh pr merge --merge --match-head-commit`(`--delete-branch` 금지) → 결과를 MERGED/QUEUED/REJECTED/UNKNOWN 으로 분류, MERGED 면 `git fetch` 후 5~8단계. REJECTED 만 plan 을 `in_progress` 로 복구해 done 인 미머지 plan 을 남기지 않는다. 진입 게이트·닫힌 목록은 SKILL, gh 명령·시나리오 표는 `~/.claude/wiki/docs/worktree-lifecycle.md` §E.
 - `# Progress`/`# Next`/`# Decisions`/`status`/`updated` 를 사실 기반으로 갱신 → 다음 세션이 `/c` 로 곧장 이어받음.
 - 체크포인트 모드에서는 done 자동 전환 안 함 (확정 완료 신호 + 사용자 확인 시만, 기본 `in_progress` 체크포인트; 머지 모드의 done 은 `/e merge` 가 그 확인). plan 없으면 새로 만들지 않음 — 임시 커밋 + 보고만.
 - worktree 에서 작업이 `done`·clean·merged 이고 내부에 잃을 ignored 산출물(plan·`.env`)이 없으면 **묻지 않고 worktree + 로컬 브랜치를 정리**한다(CLAUDE.md §8(a) — 누가 머지했는지 불문). merged 판정은 `origin/<default>` 뿐 아니라 **로컬 `main` 머지도 인정**한다(push 하지 않는 워크플로우에서 자동 정리가 실효되지 않도록). 격리된 worktree 세션에서는 worklog·상태 재수집 헬퍼가 worktree 안에서 가드에 거부될 수 있어, 6단계 전에 main 으로 먼저 나온 뒤 돌린다(나올 수 없는 세션은 전처럼 worktree 안에서). 6단계 worklog 가 실패로 끝났으면(비0 종료·헬퍼 거부·자격증명 불완전 — 세션·티켓·토큰 없음 같은 정상 skip 은 제외) 다시 등록할 수 있게 worktree 를 남긴다. 삭제한 브랜치 tip sha 를 보고(`git branch <name> <sha>` 로 복구 가능). **확인이 필요한 것(§8(b))**: **원격 브랜치 삭제**(`git push origin --delete`)는 항상, 그리고 안전조건 미충족/불확실(dirty·squash-merge·미보존 산출물)·`wt rm <이름>` 직접 호출·`--force`·`branch -D`. 삭제 시 main 으로 빠져나간 뒤 `git worktree remove`(내가 띄운 점유 프로세스는 먼저 회수). merge/done 후 정리를 방치하지 않는 규약은 CLAUDE.md §8.
 - **`collect-state.sh`** (헬퍼): 마무리 2단계·7단계의 읽기전용 git 신호(worktree 위치·dirty·upstream/unpushed·base merged·**로컬 default merged**(`localDefault`·`mergedToLocalBase`)·ignored)를 평문 `key:value` 로 1회에 수집 — 분산된 개별 git 호출의 왕복을 줄인다. read-only(판정·삭제·파괴 명령은 SKILL 메인), 각 점검 fail-safe(실패 필드 none/unknown), `unpushedStatus` 는 false 와 unknown 을 구분해 false-positive 삭제를 막는다.
-- **`docs/worktree-lifecycle.md`** (참조, 자동 로드 안 됨): `/e` 의 상태 수집 필드 카탈로그·머지 모드 gh 메커닉·시나리오 표(§E)·worktree 삭제 판정 6조건 메커닉·정리 실행 폴백·복귀 pull 의 git 세부를 담는다. SKILL 본문엔 게이트·닫힌목록·안전 규칙만 남기고 세부는 여기로 이관(해당 분기 진입 시 Read — `docs/codex-review.md` 와 같은 참조 패턴).
+- **`~/.claude/wiki/docs/worktree-lifecycle.md`** (참조, 자동 로드 안 됨): `/e` 의 상태 수집 필드 카탈로그·머지 모드 gh 메커닉·시나리오 표(§E)·worktree 삭제 판정 6조건 메커닉·정리 실행 폴백·복귀 pull 의 git 세부를 담는다. SKILL 본문엔 게이트·닫힌목록·안전 규칙만 남기고 세부는 여기로 이관(해당 분기 진입 시 Read — `~/.claude/wiki/docs/codex-review.md` 와 같은 참조 패턴).
 
 ### skills/wt/ — Git worktree 빠른 관리
 
@@ -360,7 +362,7 @@ background task 표시(`✻ N bg`)는 2026-09-25 제거했다 — tasks 디렉�
 - 정수·`rm`·기존 worktree 정확일치가 아닌 텍스트는 **요청사항**으로 간주 → 영문 kebab-case slug 파생 → **확인 없이 생성**(위험기반 승인 — CLAUDE.md §1: 로컬·가역이라 묻지 않고, base·`.env`·stale·near-miss·`/wt rm <slug>` 되돌리기를 보고) → 요청사항 원문을 `dlc` task 로 전달 (dlc 없는 빈 worktree 단순 생성은 폐지). 삭제 계열(`rm`·`--force`·`branch -D`·원격 삭제)은 비가역이라 확인 유지. `rm` 은 확인 질문 전에 그 worktree 의 worklog 미리보기로 등록할 AI 작업시간(티켓·합계)을 알린다(지운 worktree 의 시간은 등록할 수 없다)
 - 접두 `?` (`/wt ? <막연한 설명>`)는 **질문 모드** — AskUserQuestion 으로 요구사항을 구체화한 뒤 같은 요청사항 생성 경로로 합류 (접미 `?` 는 의문형 요청과 충돌해 미사용)
 - **신규 생성 시 ignored 설정 자동 복사**: main worktree 에서 ① basename 이 정확히 `.env` 인 파일 ② repo-relative 경로가 정확히 `.claude/settings.local.json` 인 파일을 동일 상대경로로 복사(이미 있으면 skip, 실패는 경고만·worktree 유지). ②가 필요한 곳은 Windows 등 repo 루트의 파일을 쓰지 않는 경우다(목록은 `skills/wt/references/env-copy.md`) — 로컬 설정을 세션의 작업 디렉토리(`EnterWorktree` 로 들어간 worktree)에서 읽어, 복사하지 않으면 **권한 허용목록이 0개**로 시작하는데, CLAUDE.md §8 이 코드 변경을 규모 불문 worktree 에서 하도록 강제하므로 실사용 경로가 전부 여기 해당한다. 그 밖의 경우(보통의 macOS·Linux)는 2.1.211 부터 worktree 세션도 main checkout 의 `.claude/settings.local.json` 을 읽으므로([settings](https://code.claude.com/docs/en/settings) 문서, 2.1.288 macOS 실측) 복사본은 보조다. predicate 는 **앵커드 정확일치**(basename 매칭이면 `.bak` 백업이나 repo 루트의 동명 파일까지 딸려온다). 신규 생성 경로만 덮으므로 그 예외 환경의 기존 worktree 는 수동 복사.
-- `references/` (자동 로드 안 됨): SKILL 본문엔 절차 스텝·안전 게이트만 두고, 상세 메커닉은 해당 분기 진입 시 Read 하는 참조 doc 으로 분리 — `env-copy.md`(자동 복사 후보/제외 — `.env` + `settings.local.json`)·`rm-recovery.md`(생성 git 시퀀스·self-heal·rm 실패 복구). `docs/codex-review.md`·`docs/worktree-lifecycle.md` 와 같은 참조 패턴.
+- `references/` (자동 로드 안 됨): SKILL 본문엔 절차 스텝·안전 게이트만 두고, 상세 메커닉은 해당 분기 진입 시 Read 하는 참조 doc 으로 분리 — `env-copy.md`(자동 복사 후보/제외 — `.env` + `settings.local.json`)·`rm-recovery.md`(생성 git 시퀀스·self-heal·rm 실패 복구). `~/.claude/wiki/docs/codex-review.md`·`~/.claude/wiki/docs/worktree-lifecycle.md` 와 같은 참조 패턴.
 
 ### skills/wiki/ — LLM Wiki (영속 프로젝트 메모리)
 
@@ -369,7 +371,7 @@ background task 표시(`✻ N bg`)는 2026-09-25 제거했다 — tasks 디렉�
 ### skills/improve/ — 자기개선 loop 분석 축 (구 /audit 흡수)
 
 `/improve` 로 ① 운영 자산(skills·agents·CLAUDE.md·settings.json·MEMORY.md·wiki)의 **자산 간 참조 정합**(구 `/audit` 승계)과 ② hook 이 자동 누적한 **dlc 신호(telemetry)** 를 함께 분석해 **개선 후보를 랭킹**으로 제시. **수정은 제안만**(§1 자가수정 금지) — 승인 시 wt→dlc 별도 작업. loop 구조: 수집(hook 자동, `dlc-signal.js`) → 분석·제안(`/improve`) → 반영(승인 후 wt→dlc) → 효과 확인(다음 `/improve` 의 신호 추이). 최종 보고 직전에 `node ~/.claude/scripts/dlc-signal.js mark` 로 `last-improve` 마커를 갱신해 SessionStart 의 "/improve 권장" 카운트를 0 부터 다시 센다(스킬 7단계 — `/improve` 의 유일한 write).
-- 기계 점검+집계 `skills/improve/improve.sh`(read-only): settings hooks↔scripts 실존 · MEMORY 인덱스↔파일 양방향 · CLAUDE.md 가 참조한 agent 실존 · skill·agent frontmatter 형식(`frontmatter-lint.js` — git 이 아는 파일만) · 죽은 스크립트 후보(require 그래프·수동유틸 화이트리스트로 오탐 차단, info 만) · **wiki 비추적 게이트**(이 repo 가 `wiki/` 를 추적하면 error — 공용 wiki 는 비공개 repo) · 공용 wiki(`~/.claude/wiki`, override `CLAUDE_IMPROVE_WIKI`) index↔pages 개수 · **plan-lint**(tracked plan 전수 §10 무결성) · **신호 집계**(`node scripts/dlc-signal.js summary` — failure/activity 축, session-unique 우선) · **네이티브 중복 대장 신선도**(⑨ — `node scripts/native-overlap-lint.js`, 아래 참조).
+- 기계 점검+집계 `skills/improve/improve.sh`(read-only): settings hooks↔scripts 실존 · MEMORY 인덱스↔파일 양방향 · CLAUDE.md 가 참조한 agent 실존 · skill·agent frontmatter 형식(`frontmatter-lint.js` — git 이 아는 파일만) · 죽은 스크립트 후보(require 그래프·수동유틸 화이트리스트로 오탐 차단, info 만) · **wiki·docs 비추적 게이트**(이 repo 가 `wiki/`·`docs/` 를 추적하면 error — 공용 wiki 와 참조 문서는 비공개 repo) · 공용 wiki(`~/.claude/wiki`, override `CLAUDE_IMPROVE_WIKI`) index↔pages 개수 · **plan-lint**(tracked plan 전수 §10 무결성) · **신호 집계**(`node scripts/dlc-signal.js summary` — failure/activity 축, session-unique 우선) · **네이티브 중복 대장 신선도**(⑨ — `node scripts/native-overlap-lint.js`, 아래 참조).
 - **`improve.sh deep`**(opt-in 광역 관측, 여전히 read-only·secret 미출력): ⑩ 주입·로드 표면 크기(`wc -c` — CLAUDE.md·SKILL·agent, 토큰 압박) · ⑪ 사용량 카운트(`node scripts/usage-count.js` — transcript JSONL 파싱해 skill·subagent·codex 호출 빈도, **카운트·slug 만**, 원문·파일명·경로·args 미출력) · ⑫ MCP 서버 인벤토리(`~/.claude.json` **이름만**, 값·env·secret 미출력) + ⑨ 가 delta 창을 한 줄 더 출력. 판단·제안 경로는 기본 4단계와 동일(측정→제안, 수정 금지).
 - **네이티브 중복 점검**(SKILL §6, deep 전용·주기): Claude Code 네이티브가 흡수한 기능과 겹치는 자작 부품을 `keep`/`watch`/`retire` 로 재판정해 wiki 대장 `~/.claude/wiki/pages/decision/native-overlap-ledger.md` 에 누적. 1~5 가 "자산이 서로 어긋났나"라면 이 축은 "자산이 **아직 필요한가**" — 유일하게 밖(네이티브)을 기준으로 삼는다. 대장 `checked_version` 이후 changelog 만 읽는 **delta 창** 방식이라 전수 조회를 피한다. 주기 임계 45일(`CLAUDE_IMPROVE_NATIVE_MAX_AGE_DAYS`, 근거: 실측 6주 36릴리스), 대장 경로 override `CLAUDE_IMPROVE_LEDGER`. **`/improve` 는 대장을 쓰지 않는다** — 판정은 초안, write 는 승인 후 `/wiki ingest`(§1·§11·§13 승인 게이트).
 - 의미 점검(LLM): 문서 간 모순 · 중복 trigger · 죽은 규칙 + wiki `workflow-failures` 표·MEMORY 인덱스·plan `# Workflow Findings` 대조.
@@ -670,11 +672,6 @@ git diff --staged | grep -iE '본인_username|내부_repo_이름|이메일도메
 │   ├── code-reviewer.md
 │   ├── plan-reviewer.md
 │   └── researcher.md
-├── docs/
-│   ├── codex-review.md             # codex 병행 검토 공유 규약
-│   ├── dlc-details.md              # /dlc 절차 상세·엣지 참조(자동 로드 안 됨)
-│   ├── headroom-proxy-session-lifecycle.md  # retired headroom proxy의 historical 운영 메모
-│   └── worktree-lifecycle.md       # /e 상태수집·worktree 정리 메커닉 참조(자동 로드 안 됨)
 ├── skills/
 │   ├── dlc/
 │   │   └── SKILL.md                # /dlc — 자동 개발 사이클

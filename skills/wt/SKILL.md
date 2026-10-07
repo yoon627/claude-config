@@ -120,7 +120,7 @@ worktree 생성은 로컬·비파괴이고 `/wt rm <slug>` 한 번으로 되돌�
 5. AskUserQuestion (옵션 1: worktree 만 / 옵션 2: worktree + 로컬 브랜치 / 옵션 3: worktree + 로컬·원격 브랜치 / 옵션 4: 취소). 경고(특히 unpushed·미머지·등록하지 않은 worklog 시간)는 question 본문에 명시 — 원격 삭제(옵션 3)는 그 경고를 본 사용자가 택할 때만.
 6. 실행: `git worktree remove <path>`. 실패 시 stderr 원인으로 분기:
    - **"modified or untracked files"/"use --force" 류**(변경·untracked 잔존): `--force` 적용 여부는 **별도 AskUserQuestion 후에만**(절대 묻지 않고 강제 실행 금지).
-   - **파일 점유 류**(OS 삭제 실패 — "Access is denied"·"being used"·"Directory not empty"·Windows "Invalid argument"): 살아있는 프로세스가 그 worktree 파일(`.venv` 등)을 잡고 있다. `wt rm` 은 사용자가 직접 부르는 경로라 점유 프로세스가 이 세션 것인지 알 수 없으므로 **자동 종료하지 않고** 점유 프로세스를 알려 소유자 종료 후 재시도하도록 안내(`--force` 는 OS 점유엔 무효). 부분 성공(등록만 해제·디렉토리 잔존) 확인·`prune` 은 `docs/worktree-lifecycle.md` §C.
+   - **파일 점유 류**(OS 삭제 실패 — "Access is denied"·"being used"·"Directory not empty"·Windows "Invalid argument"): 살아있는 프로세스가 그 worktree 파일(`.venv` 등)을 잡고 있다. `wt rm` 은 사용자가 직접 부르는 경로라 점유 프로세스가 이 세션 것인지 알 수 없으므로 **자동 종료하지 않고** 점유 프로세스를 알려 소유자 종료 후 재시도하도록 안내(`--force` 는 OS 점유엔 무효). 부분 성공(등록만 해제·디렉토리 잔존) 확인·`prune` 은 `~/.claude/wiki/docs/worktree-lifecycle.md` §C.
    - 옵션 2·3(로컬 브랜치 삭제): **remove 성공 후에만** `git branch -D <branch>` (remove 실패·거부 시 브랜치 보존).
    - 옵션 3(원격도 삭제): 로컬 삭제 후 `git push origin --delete <branch>` (원격 ref 부재면 no-op·경고만).
 7. 한 줄 보고.

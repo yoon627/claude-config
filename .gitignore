@@ -12,7 +12,6 @@
 !/README.md
 !/agents/
 !/commands/
-!/docs/
 !/plans/
 !/scripts/
 !/skills/
@@ -21,6 +20,9 @@
 
 # 공용 wiki(wiki/)는 비공개 repo 를 별도로 clone 한 것이라 이 repo 는 추적하지 않는다 — whitelist 에 다시 넣지 말 것.
 # 추적되면 skills/improve/improve.sh --ci 가 error 로 막는다. 근거: ~/.claude/wiki/pages/decision/wiki-shared-layer.md
+
+# docs/ 도 추적하지 않는다(2026-10-07). 하네스 참조 문서는 비공개 wiki repo 의 docs/ 로 옮겼고 skill·agent 는 ~/.claude/wiki/docs/ 절대경로로 읽는다 — 여기 docs/ 를 다시 만들지 말 것.
+# 추적되면 skills/improve/improve.sh --ci 가 error 로 막는다.
 
 # Claude Code plan mode 가 plans/ 루트에 남기는 랜덤 slug 산출물(다른 프로젝트 계획) — 추적하지 않는다.
 # §10 핸드오프 plan 은 plans/<YYYY-MM-DD>-<slug>/<slug>-plan.md 로 하위 디렉토리에 있어 이 패턴에 안 걸린다.

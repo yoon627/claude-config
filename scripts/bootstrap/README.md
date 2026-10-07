@@ -88,6 +88,7 @@ agent 정의(`Codex 연결 실패: … agents`)도 같은 규칙이다 — `agen
 | 셸 env | marker 블록(mac `~/.zshrc`) / User 레지스트리(win): `ANTHROPIC_MODEL`, PATH. `CLAUDE_CODE_EFFORT_LEVEL`은 제거/해제해 `/effort`가 동작하게 함. |
 | settings.json | **재현 안 함** — untracked(2026-09-07~)라 `git clone` 으로 오지 않는다. 기존 머신에서 직접 복사한다(루트 README Install A 의 settings.json 배치 단계 — Windows 5번, macOS 2번). 부트스트랩은 rtk hook 등록만. |
 | private-terms.txt | **재현 안 함** — 비공개 용어 목록이라 추적하지 않는다. 기존 머신에서 직접 복사한다(루트 README Install D 절). 없으면 `pre-commit-check` 가 note 한 줄 후 비공개 용어 검사를 건너뛴다. |
+| 참조 문서(`docs/`) | **재현 안 함** — 비공개 wiki repo 의 `docs/` 에 있어 공용 wiki clone(루트 README Install E 절)으로 온다. 없으면 skill·agent 의 `~/.claude/wiki/docs/` 참조 Read 가 실패한다. |
 | memory | `--memory-from`/`-MemoryFrom` 으로 기존 머신 경로 줄 때만 복원(아래 한계). |
 
 ## idempotent 동작
@@ -108,7 +109,7 @@ agent 정의(`Codex 연결 실패: … agents`)도 같은 규칙이다 — `agen
   - Codex skill junction 단계는 Windows에서 별도 helper 상태 행렬로 검증한다. 전체 bootstrap이 검증됐다는 뜻은 아니다.
   - Codex 연결 단계는 2026-09-29 Windows 11 에서 `setup.ps1 -DryRun`(PowerShell 5.1)으로 관찰했다: skill 7종 계획·기존 링크 인식·AGENTS.md·agent 정의 dry-run. 실제 생성은 helper 테스트 행렬(pwsh 7·5.1)로 검증했다.
 - **Codex 가 생성한 agent 정의를 실제로 읽는지는 확인하지 못했다**(2026-09-28, Codex 크레딧 소진). 형식은 Codex 앱 import 사본과 같은 키(`name`·`description`·`developer_instructions`)이고 researcher 에만 문서화된 `sandbox_mode` 를 더했다. `sandbox_mode = "read-only"` 가 researcher 의 웹 검색을 막는지도 미확인.
-- **headroom은 더 이상 bootstrap 대상이 아니다.** 기존 설치·proxy·MCP 상태는 자동으로 관리하거나 복구하지 않는다. 과거 운영 기록은 `docs/headroom-proxy-session-lifecycle.md`에 보존한다.
+- **headroom은 더 이상 bootstrap 대상이 아니다.** 기존 설치·proxy·MCP 상태는 자동으로 관리하거나 복구하지 않는다. 과거 운영 기록은 `~/.claude/wiki/docs/headroom-proxy-session-lifecycle.md`에 보존한다.
 - **memory 는 git 미추적** — `projects/*/memory/` 는 repo 에 안 들어간다(public repo 노출 방지). 따라서 새 머신 단독 실행 시 memory 는 비어있다. 기존 머신의 `~/.claude` 경로를 `--memory-from`/`-MemoryFrom` 으로 줘야 복원된다. 복원은 **overwrite**(소스에 없는 파일은 대상에 보존 — 순수 미러 아님).
 - **원격 설치 스크립트 신뢰 전제** — uv 설치에 astral 공식 `curl … | sh`(mac) / `irm … | iex`(win) 를 쓴다. checksum/버전 pinning 없이 원격 스크립트를 실행하므로 astral 도메인을 신뢰하는 전제다.
 - **conda 는 재현 안 함** — 의도적으로 비-conda 셋업이다. 기존 머신이 anaconda 기반이었어도 새 머신은 astral uv + 시스템 도구로 깔린다.
