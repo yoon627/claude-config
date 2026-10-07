@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import json
 import os
 import re
@@ -31,7 +32,8 @@ DEFAULT_TICKET_PATTERN = r"[A-Z][A-Z0-9]+-\d+"
 MARKER_PREFIX = "[jira-task]"
 DESCRIPTION_HEADING = "작업 내용"
 ITEM_PREFIX_RE = re.compile(r"^(?:[-*•]|\d{1,2}[.)])(?:\s+|$)")
-MARKER_DATE_RE = re.compile(r"\sdate=(\S+)")
+DATE_LINE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+LEGACY_MARKER_DATE_RE = re.compile(r"\sdate=(\S+)")
 MAX_SUMMARY_LENGTH = 12_000
 SECRET_PATTERNS = (
     re.compile(r"(?i)JIRA_API_TOKEN\s*="),
@@ -70,9 +72,7 @@ class JiraConfig:
 @dataclass(frozen=True)
 class TaskContext:
     ticket: str
-    worktree: str
     task_date: str
-    session: str
 
 
 def parse_env(text: str) -> dict[str, str]:
@@ -152,7 +152,6 @@ def load_settings(
         "JIRA_CLOUD_ID",
         "JIRA_TIMEZONE",
         "JIRA_TICKET_PATTERN",
-        "JIRA_TASK_SESSION",
     )
     for key in keys:
         for source in (environ, project_env, global_env, toml_values):
@@ -330,16 +329,12 @@ def _summary_items(summary: str) -> list[str]:
     return items
 
 
-def _description_entry_lines(summary: str, marker: str) -> list[str]:
-    match = MARKER_DATE_RE.search(marker)
-    if not match:
-        raise JiraTaskError("marker에 date가 없습니다")
-    items = [f"- {item}" for item in _summary_items(summary)]
-    return [match.group(1), *items, marker]
+def _description_entry_lines(summary: str, task_date: str) -> list[str]:
+    return [task_date, *(f"- {item}" for item in _summary_items(summary))]
 
 
-def _description_entry(summary: str, marker: str) -> dict[str, Any]:
-    lines = _description_entry_lines(summary, marker)
+def _description_entry(summary: str, task_date: str) -> dict[str, Any]:
+    lines = _description_entry_lines(summary, task_date)
     content: list[dict[str, Any]] = []
     for index, line in enumerate(lines):
         if index == 0:
@@ -361,36 +356,98 @@ def _description_heading() -> dict[str, Any]:
     }
 
 
-def _marker_block_index(content: list[dict[str, Any]], marker: str) -> int | None:
-    for index, block in enumerate(content):
-        lines = _adf_node_text(block).split("\n")
-        if any(line.strip() == marker for line in lines):
-            return index
+def _heading_level(block: dict[str, Any]) -> int | None:
+    if block.get("type") != "heading":
+        return None
+    attrs = block.get("attrs")
+    level = attrs.get("level") if isinstance(attrs, dict) else None
+    return level if isinstance(level, int) else 6
+
+
+def _section_range(content: list[dict[str, Any]]) -> tuple[int, int] | None:
+    """`작업 내용` heading 다음 블록부터 같은 레벨 이하의 다음 heading 직전까지."""
+    for start, block in enumerate(content):
+        level = _heading_level(block)
+        if level is None or _adf_node_text(block).strip() != DESCRIPTION_HEADING:
+            continue
+        for end in range(start + 1, len(content)):
+            other = _heading_level(content[end])
+            if other is not None and other <= level:
+                return start + 1, end
+        return start + 1, len(content)
     return None
 
 
-def _has_description_heading(content: list[dict[str, Any]]) -> bool:
-    return any(
-        _adf_node_text(block).strip() == DESCRIPTION_HEADING for block in content
+def _first_line(block: dict[str, Any]) -> str:
+    return _adf_node_text(block).split("\n", 1)[0].strip()
+
+
+def _legacy_marker_date(block: dict[str, Any]) -> str | None:
+    for line in _adf_node_text(block).split("\n"):
+        line = line.strip()
+        if line.startswith(MARKER_PREFIX):
+            match = LEGACY_MARKER_DATE_RE.search(line)
+            if match:
+                return match.group(1)
+    return None
+
+
+def _date_block_indices(content: list[dict[str, Any]], task_date: str) -> list[int]:
+    """섹션 안에서 그 날짜에 속한 블록 위치.
+
+    날짜 줄 블록부터 다음 날짜 줄·옛 marker 블록·하위 heading 직전까지와, 그 날짜의 옛 marker 블록.
+    """
+    section = _section_range(content)
+    if section is None:
+        return []
+    indices: list[int] = []
+    in_date = False
+    for index in range(*section):
+        block = content[index]
+        first = _first_line(block)
+        legacy_date = _legacy_marker_date(block)
+        if _heading_level(block) is not None:
+            in_date = False
+        elif DATE_LINE_RE.match(first):
+            in_date = first == task_date
+        elif legacy_date is not None:
+            in_date = False
+        if in_date or legacy_date == task_date:
+            indices.append(index)
+    return indices
+
+
+def existing_entry_text(description: dict[str, Any] | None, task_date: str) -> str:
+    content = _description_content(description)
+    return "\n".join(
+        _adf_node_text(content[index])
+        for index in _date_block_indices(content, task_date)
     )
 
 
+def entry_fingerprint(description: dict[str, Any] | None, task_date: str) -> str:
+    text = existing_entry_text(description, task_date)
+    if not text:
+        return "none"
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+
+
 def _description_matches(
-    description: dict[str, Any] | None, summary: str, marker: str
+    description: dict[str, Any] | None, summary: str, task_date: str
 ) -> bool:
     content = _description_content(description)
-    index = _marker_block_index(content, marker)
-    if index is None:
+    indices = _date_block_indices(content, task_date)
+    if len(indices) != 1:
         return False
-    return _adf_node_text(content[index]) == "\n".join(
-        _description_entry_lines(summary, marker)
+    return _adf_node_text(content[indices[0]]) == "\n".join(
+        _description_entry_lines(summary, task_date)
     )
 
 
 def upsert_description_body(
-    description: dict[str, Any] | None, summary: str, marker: str
+    description: dict[str, Any] | None, summary: str, task_date: str
 ) -> tuple[dict[str, Any], str]:
-    """기존 ADF 본문을 보존하고 marker 항목을 추가·갱신한다."""
+    """기존 ADF 본문을 보존하고 그 날짜 항목을 새 요약 하나로 추가·교체한다."""
     if description is None:
         result: dict[str, Any] = {"type": "doc", "version": 1, "content": []}
     else:
@@ -401,17 +458,23 @@ def upsert_description_body(
             raise JiraTaskError("Jira description의 ADF version이 없습니다")
 
     content = _description_content(result)
-    entry = _description_entry(summary, marker)
-    index = _marker_block_index(content, marker)
-    if index is not None:
-        if _adf_node_text(content[index]) == _adf_node_text(entry):
+    entry = _description_entry(summary, task_date)
+    indices = _date_block_indices(content, task_date)
+    if indices:
+        if len(indices) == 1 and _adf_node_text(content[indices[0]]) == _adf_node_text(
+            entry
+        ):
             return result, "unchanged"
-        content[index] = entry
+        content[indices[0]] = entry
+        for index in reversed(indices[1:]):
+            del content[index]
         return result, "updated"
 
-    if not _has_description_heading(content):
-        content.append(_description_heading())
-    content.append(entry)
+    section = _section_range(content)
+    if section is None:
+        content.extend([_description_heading(), entry])
+    else:
+        content.insert(section[1], entry)
     return result, "added"
 
 
@@ -419,20 +482,27 @@ def upsert_description(
     config: JiraConfig,
     issue_key: str,
     summary: str,
-    marker: str,
+    task_date: str,
+    expected_fingerprint: str,
     *,
     timeout: float = 15.0,
 ) -> tuple[str, dict[str, Any]]:
     current = get_issue_description(config, issue_key, timeout=timeout)
-    planned, action = upsert_description_body(current, summary, marker)
+    actual = entry_fingerprint(current, task_date)
+    if actual != expected_fingerprint:
+        raise JiraTaskError(
+            f"{task_date} 기존 항목 지문이 다릅니다(기대 {expected_fingerprint}, 현재 {actual}) — "
+            "preview를 다시 실행해 기존 항목을 읽고 요약을 다시 쓰세요"
+        )
+    planned, action = upsert_description_body(current, summary, task_date)
     if action == "unchanged":
         return action, current or planned
 
     update_issue_description(config, issue_key, planned, timeout=timeout)
     saved = get_issue_description(config, issue_key, timeout=timeout)
-    if not _description_matches(saved, summary, marker):
+    if not _description_matches(saved, summary, task_date):
         raise JiraTaskError(
-            f"task 본문 갱신 후 저장값 확인 불일치 {issue_key}: marker/요약을 찾지 못했습니다"
+            f"task 본문 갱신 후 저장값 확인 불일치 {issue_key}: {task_date} 항목을 찾지 못했습니다"
         )
     return action, saved or planned
 
@@ -520,22 +590,6 @@ def infer_ticket(worktree: str, branch: str, pattern: str) -> str | None:
     return match.group(0) if match else None
 
 
-def _marker_component(value: str, label: str) -> str:
-    normalized = re.sub(r"[^A-Za-z0-9_.:@-]+", "_", value.strip())
-    if not normalized:
-        raise JiraTaskError(f"{label}이(가) 비어 있습니다")
-    return normalized[:160]
-
-
-def make_marker(context: TaskContext) -> str:
-    return (
-        f"{MARKER_PREFIX} ticket={_marker_component(context.ticket, 'ticket')}"
-        f" date={_marker_component(context.task_date, 'date')}"
-        f" worktree={_marker_component(context.worktree, 'worktree')}"
-        f" session={_marker_component(context.session, 'session')}"
-    )
-
-
 def _resolve_timezone(name: str | None) -> tzinfo:
     if name:
         try:
@@ -566,14 +620,7 @@ def resolve_context(args: argparse.Namespace, settings: Settings) -> TaskContext
         date.fromisoformat(task_date)
     except ValueError:
         raise JiraTaskError("--date는 YYYY-MM-DD 형식이어야 합니다") from None
-    session = (
-        args.session_id
-        or settings.get("JIRA_TASK_SESSION")
-        or os.environ.get("CLAUDE_SESSION_ID")
-        or os.environ.get("CODEX_SESSION_ID")
-        or "manual"
-    )
-    return TaskContext(ticket, worktree, task_date, session)
+    return TaskContext(ticket, task_date)
 
 
 def _summary_from_args(args: argparse.Namespace) -> str:
@@ -605,8 +652,22 @@ def _summary_from_args(args: argparse.Namespace) -> str:
     return summary
 
 
-def build_description_entry(summary: str, marker: str) -> str:
-    return "\n".join(_description_entry_lines(summary, marker))
+def build_description_entry(summary: str, task_date: str) -> str:
+    return "\n".join(_description_entry_lines(summary, task_date))
+
+
+def _preview_existing(
+    settings: Settings, ticket: str, task_date: str, timeout: float
+) -> tuple[str, str]:
+    """그 날짜의 기존 항목과 지문. 읽지 못하면 사유와 `unknown`."""
+    try:
+        config = make_jira_config(settings, timeout=timeout)
+        current = get_issue_description(config, ticket, timeout=timeout)
+        existing = existing_entry_text(current, task_date)
+        fingerprint = entry_fingerprint(current, task_date)
+    except (ConfigError, JiraTaskError) as exc:
+        return f"(확인 불가: {exc})", "unknown"
+    return existing or "(없음)", fingerprint
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -617,11 +678,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--ticket",
         help="Jira issue key (예: ABC-1234). 생략 시 worktree/branch에서 추출",
     )
-    parser.add_argument("--worktree", help="marker에 기록할 worktree 이름")
+    parser.add_argument("--worktree", help="티켓 추출에 쓸 worktree 이름")
     parser.add_argument(
         "--date", help="작업일(YYYY-MM-DD), 기본은 JIRA_TIMEZONE 기준 오늘"
     )
-    parser.add_argument("--session-id", help="marker에 기록할 세션 식별자")
+    parser.add_argument(
+        "--expect-existing",
+        help="--post 필수: preview가 출력한 그 날짜 기존 항목 지문(없으면 none)",
+    )
     parser.add_argument(
         "--summary",
         action="append",
@@ -652,24 +716,35 @@ def main(argv: list[str] | None = None) -> int:
         settings = load_settings()
         context = resolve_context(args, settings)
         summary = _summary_from_args(args)
-        marker = make_marker(context)
-        entry = build_description_entry(summary, marker)
+        entry = build_description_entry(summary, context.task_date)
+        if args.post and not args.expect_existing:
+            raise JiraTaskError(
+                "--post에는 --expect-existing <preview의 기존 항목 지문>이 필요합니다"
+            )
         print(f"티켓: {context.ticket}")
-        print(f"marker: {marker}")
-        print(
-            "동작: task description 갱신 (미리보기; 외부 변경 없음)"
-            if not args.post
-            else "동작: task description 갱신 (Jira 반영)"
-        )
-        print("--- description addition ---")
-        print(entry)
-        print("--- end description addition ---")
+        print(f"날짜: {context.task_date}")
         if not args.post:
+            print("동작: task description 갱신 (미리보기; 외부 변경 없음)")
+            existing, fingerprint = _preview_existing(
+                settings, context.ticket, context.task_date, args.timeout
+            )
+            print("--- 그 날짜 기존 항목 (교체됨) ---")
+            print(existing)
+            print(f"--- 기존 항목 지문: {fingerprint} ---")
+            print("--- 교체 후 ---")
+            print(entry)
+            print("--- end ---")
             return 0
 
+        print("동작: task description 갱신 (Jira 반영)")
         config = make_jira_config(settings, timeout=args.timeout)
         action, _ = upsert_description(
-            config, context.ticket, summary, marker, timeout=args.timeout
+            config,
+            context.ticket,
+            summary,
+            context.task_date,
+            args.expect_existing,
+            timeout=args.timeout,
         )
         print(f"Jira task description {action}: {context.ticket}")
         return 0

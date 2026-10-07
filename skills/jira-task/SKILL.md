@@ -16,33 +16,35 @@ description: Update the current Jira task's description with a concise summary o
    - 변경 파일 목록, 검증 명령, 작업시간, 내부 진행 과정은 넣지 않는다.
    - 적을 항목이 없으면 description 을 갱신하지 않고 이 skill 을 끝낸다(preview 도 생략).
 3. 티켓을 worktree 디렉터리 이름 prefix 또는 branch에서 찾지 못하면 `--ticket`을 명시한다.
-4. 항상 preview를 먼저 실행한다. 기본 동작은 dry-run이며 Jira 외부 변경이 없다.
+4. 항상 preview를 먼저 실행한다. Jira 를 읽기만 하고 쓰지 않는다. 그 날짜의 기존 항목(교체될 내용), 기존 항목 지문, 교체 후 내용을 출력한다.
 
    ```text
    uv run --no-project python "<skill-dir>/jira_task.py" --summary-file "<요약 파일>"
    ```
 
    `<skill-dir>`는 이 `SKILL.md`가 있는 `skills/jira-task` 디렉터리로 해석한다.
-5. preview의 티켓·marker·description 추가 내용을 사용자에게 보여주고 명시적 승인을 받는다. 승인 전에는 `--post`를 실행하지 않는다. `/e`가 호출된 경우 이 승인은 worktree 정리 선택지와 별개의 외부 Jira 쓰기 승인이다.
-6. 승인받은 경우 preview와 같은 인자에 `--post`만 추가해 기존 task description을 갱신한다.
+5. 그 날짜 기존 항목이 있으면 그것과 이번 작업을 합쳐 2단계 규칙(1~4개)대로 요약 파일을 다시 쓰고 preview 를 다시 실행한다. 그날 항목은 이 요약 하나로 **교체**되므로, 기존 항목 중 남길 것을 빠뜨리지 않는다. 지문이 `unknown`(자격증명 없음·조회 실패)이면 기존 항목을 확인할 수 없으므로 게시하지 않는다.
+6. preview 의 티켓·기존 항목·교체 후 내용을 사용자에게 보여주고 명시적 승인을 받는다. 승인 전에는 `--post`를 실행하지 않는다. `/e`가 호출된 경우 이 승인은 worktree 정리 선택지와 별개의 외부 Jira 쓰기 승인이다.
+7. 승인받은 경우 마지막 preview와 같은 인자에 preview 가 출력한 날짜(`--date`)와 지문, `--post` 를 더해 실행한다. 날짜를 고정하지 않으면 자정을 넘긴 승인이 다른 날짜로 게시된다. 그 사이 다른 세션이 그날 항목을 바꿔 지문이 다르면 쓰지 않고 중단한다 — 반영하려면 4단계부터 다시 하고, 아니면 게시하지 않았다고 보고한다.
 
    ```text
-   uv run --no-project python "<skill-dir>/jira_task.py" --summary-file "<요약 파일>" --post
+   uv run --no-project python "<skill-dir>/jira_task.py" --summary-file "<요약 파일>" --date <preview 날짜> --post --expect-existing <지문>
    ```
 
 ## Description behavior
 
 - Jira Cloud REST API v3로 현재 `description`을 조회한 뒤 기존 ADF 본문을 보존한다.
-- 본문에 `작업 내용` 섹션이 없으면 만들고, 작업 요약 항목을 추가한다. 항목은 한 문단으로 `날짜`(굵게, marker 의 `date`) → `- 항목` 줄들 → marker 순이다.
-- 항목은 `[jira-task] ticket=... date=... worktree=... session=...` marker로 식별한다.
-- 같은 marker가 있으면 새 요약으로 그 항목만 갱신하고, 없으면 새 항목을 추가한다. 따라서 같은 `/e`를 반복해도 중복되지 않는다.
-- description PUT 후 다시 조회해 marker와 요약이 실제 저장됐는지 확인한다. 저장값이 다르면 성공으로 보고하지 않는다.
-- 기존 task description 전체를 덮어쓰지 않지만, 사람이 같은 marker 항목을 직접 편집한 경우 다음 게시 때 해당 항목이 새 요약으로 대체될 수 있다.
+- `작업 내용` heading(같은 레벨 이하의 다음 heading 전까지)이 섹션이다. 섹션이 없으면 문서 끝에 만들고, 새 날짜 항목은 섹션 끝에 넣는다. 섹션 밖 본문은 건드리지 않는다.
+- 항목은 한 문단으로 `날짜`(굵게) → `- 항목` 줄들이다. 식별용 marker 줄은 없다.
+- 섹션 안에서 첫 줄이 그 날짜(`YYYY-MM-DD`)인 블록부터 다음 날짜 블록·이전 형식 marker 블록·하위 heading 전까지가 그날 항목이다. 이전 형식의 `[jira-task] … date=<그 날짜> …` marker 블록도 그날 항목으로 보고, 교체할 때 함께 걷어낸다.
+- 그날 항목이 있으면 새 요약 하나로 교체하고, 없으면 추가한다. 요약이 같으면 쓰지 않는다. 사람이 그날 항목을 직접 편집했어도 다음 게시 때 새 요약으로 교체된다 — preview 의 기존 항목을 보고 요약에 반영한다.
+- description PUT 후 다시 조회해 그날 항목이 하나이고 요약과 같은지 확인한다. 저장값이 다르면 성공으로 보고하지 않는다.
+- `--post` 안의 조회와 저장 사이에 다른 편집이 끼면 막지 못한다.
 - API 오류에는 credential을 출력하지 않는다. `--post` 실패를 숨기거나 무의미하게 재시도하지 않는다.
 
 ## Configuration
 
-`--post`에만 다음 설정이 필요하다. 우선순위는 process environment → project `.env` → `~/.jira-kit/.env` → `jira-kit.toml`(cwd 위의 프로젝트 파일, 없으면 `~/.jira-kit/jira-kit.toml`)이며 기존 `jira-worklog`와 같은 경로를 사용한다. `jira-kit.toml` 에서는 `[jira]` 의 `base_url`·`email`·`cloud_id` 와 `[worklog]` 의 `timezone`·`ticket_pattern` 만 읽는다.
+preview 의 기존 항목 조회와 `--post` 에 다음 설정이 필요하다(없으면 preview 는 지문 `unknown` 으로 끝난다). 우선순위는 process environment → project `.env` → `~/.jira-kit/.env` → `jira-kit.toml`(cwd 위의 프로젝트 파일, 없으면 `~/.jira-kit/jira-kit.toml`)이며 기존 `jira-worklog`와 같은 경로를 사용한다. `jira-kit.toml` 에서는 `[jira]` 의 `base_url`·`email`·`cloud_id` 와 `[worklog]` 의 `timezone`·`ticket_pattern` 만 읽는다.
 
 ```text
 JIRA_BASE_URL=https://your-site.atlassian.net
@@ -52,7 +54,7 @@ JIRA_API_TOKEN=<Atlassian API token>
 
 선택 설정: `JIRA_CLOUD_ID`, `JIRA_TIMEZONE`, `JIRA_TICKET_PATTERN`. API token은 TOML이나 skill 파일에 저장하지 않는다.
 
-`--ticket`, `--worktree`, `--date`, `--session-id`로 자동 추론값을 덮어쓸 수 있다. 다른 세션이나 다른 worktree의 작업을 섞지 않으려면 `--session-id`를 명시한다.
+`--ticket`, `--worktree`(티켓 추출용), `--date`로 자동 추론값을 덮어쓸 수 있다.
 
 ## Relationship to jira-worklog
 

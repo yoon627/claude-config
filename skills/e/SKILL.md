@@ -67,9 +67,9 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 
 `jira-task` skill이 있으면 현재 작업에서 **task 목표에 해당하는 변경만** 결과 위주 한 줄 항목(1~4개)으로 적어 Jira task description 추가 preview를 만든다(작성 규칙은 `skills/jira-task/SKILL.md` 2단계 — 리베이스·테스트 정비 같은 과정은 넣지 않는다). WIP commit을 이미 만들었다면 그 commit의 diff와 plan의 `# Progress`를 근거로 삼는다. 티켓이 없거나 적을 항목이 없으면 이 단계를 skip한다.
 
-- **preview**: `jira-task` skill의 CLI를 요약 파일 인자(`--summary-file`) 한 번으로 실행한다(절차는 `skills/jira-task/SKILL.md`). 기본 preview는 외부 변경이 없다.
-- **승인**: preview의 티켓·marker·description에 추가될 내용을 보고한 뒤 `AskUserQuestion`으로 "이 작업 내용을 Jira task 본문에 반영할까요?"를 묻는다. **사용자 승인 전에는 `--post`를 실행하지 않는다.** 반영하지 않으면 preview만 남기고 다음 단계로 진행한다.
-- **반영**: 승인받았을 때만 같은 인자에 `--post`를 붙여 한 번 실행한다. 기존 task description은 보존되고 같은 marker 항목만 갱신된다. Jira 오류는 credential을 노출하지 않고 한 줄 보고한 뒤 마무리를 계속한다.
+- **preview**: `jira-task` skill의 CLI를 요약 파일 인자(`--summary-file`)로 실행한다(절차는 `skills/jira-task/SKILL.md` 4~5단계). Jira 를 읽기만 하며, 그날 기존 항목이 있으면 그것과 이번 작업을 합쳐 요약을 다시 쓰고 preview 를 다시 돌린다. 지문이 `unknown` 이면 반영하지 않고 사유를 보고한다.
+- **승인**: preview의 티켓·그날 기존 항목·교체 후 내용을 보고한 뒤 `AskUserQuestion`으로 "이 작업 내용을 Jira task 본문에 반영할까요?"를 묻는다. **사용자 승인 전에는 `--post`를 실행하지 않는다.** 반영하지 않으면 preview만 남기고 다음 단계로 진행한다.
+- **반영**: 승인받았을 때만 마지막 preview 인자에 `--date <preview 날짜> --post --expect-existing <preview 지문>`을 붙여 한 번 실행한다. 기존 task description은 보존되고 그날 항목만 교체된다. 지문 불일치(그 사이 다른 세션이 갱신)·Jira 오류면 다시 시도하지 않고, credential을 노출하지 않는 한 줄로 "게시하지 않음"을 보고한 뒤 마무리를 계속한다.
 - `~/.agents/skills/jira-task/` 또는 저장소 `skills/jira-task/`가 없으면 이 단계는 skip하고 "jira-task skill 없음"을 보고한다.
 
 ### 6 전. worktree 밖으로 (비-메인 worktree 세션)
