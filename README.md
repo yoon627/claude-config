@@ -233,7 +233,7 @@ Windows PowerShell 에서는 아래 명령의 `~` 를 `$env:USERPROFILE` 로 바
    - 1 에서 복사해 둔 편집이 있으면 clone 에 다시 적용해 커밋한다.
 4. **확인** — `git -C ~/.claude status --porcelain` 이 비어 있고(`wiki/` 는 무시된다), `git -C ~/.claude/wiki status` 가 clean 이다.
 
-공용 wiki 에는 main 세션에서 쓰고 그 repo 의 main 에 직접 커밋한다. push 는 필요할 때 한다(CLAUDE.md §11·§8). 다른 머신의 wiki 는 자동으로 갱신되지 않는다 — `git -C ~/.claude/wiki pull`.
+공용 wiki 에는 main 세션에서 쓰고 그 repo 의 main 에 직접 커밋한다. 단 그 repo 의 `WIKI.md` 가 worktree+PR 로 정한 코드 계층과 `plans/` 는 그 repo 의 worktree 에서 고치고 PR 로 머지한다. push 는 필요할 때 한다(CLAUDE.md §11·§8). 다른 머신의 wiki 는 자동으로 갱신되지 않는다 — `git -C ~/.claude/wiki pull`.
 
 ---
 
