@@ -34,20 +34,31 @@ PS51="$(command -v powershell.exe 2>/dev/null || true)"
 
 g() { git -C "$REPO" -c user.email=t@t -c user.name=t -c commit.gpgsign=false -c tag.gpgsign=false "$@"; }
 
+# capped <command...> — run it for at most GUARD_TIMEOUT seconds (default 300), then end its whole
+# process group: a git child left alive would hold the output pipe open and keep $(...) waiting.
+# GNU timeout signals the group; macOS has no timeout(1), so perl starts the command in a new group.
+capped() {
+  if command -v timeout >/dev/null 2>&1; then timeout -k 5 "${GUARD_TIMEOUT:-300}" "$@"; return; fi
+  perl -e 'my $t = shift; my $p = fork; defined $p or die "fork: $!";
+    if (!$p) { setpgrp(0, 0); exec { $ARGV[0] } @ARGV or die "exec: $!" }
+    $SIG{ALRM} = sub { kill "TERM", -$p; sleep 1; kill "KILL", -$p; exit 124 };
+    alarm $t; waitpid $p, 0; exit($? & 127 ? 128 + ($? & 127) : $? >> 8)' "${GUARD_TIMEOUT:-300}" "$@"
+}
+
 run_guard() { # <engine> <mode> <stdin>; GUARD_ENV (one NAME=value) is exported to the guard only
   local home="${FAKE_HOME:-$HOME}" extra=()
   [ -n "${GUARD_ENV-}" ] && extra=("$GUARD_ENV")
   if [ "$1" = sh ]; then
-    ( cd "$REPO" && printf '%s' "$3" | env ${extra[@]+"${extra[@]}"} HOME="$home" bash "$GUARD_SH" "$2" 2>&1 )
+    ( cd "$REPO" && printf '%s' "$3" | capped env ${extra[@]+"${extra[@]}"} HOME="$home" bash "$GUARD_SH" "$2" 2>&1 )
   elif [ "$1" = ps51 ]; then
     local profile guard
     profile="$(cygpath -w "$home")"; guard="$(cygpath -w "$GUARD_PS1")"
-    ( cd "$REPO" && printf '%s' "$3" | env ${extra[@]+"${extra[@]}"} HOME="$home" USERPROFILE="$profile" "$PS51" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass \
+    ( cd "$REPO" && printf '%s' "$3" | capped env ${extra[@]+"${extra[@]}"} HOME="$home" USERPROFILE="$profile" "$PS51" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass \
       -Command "[Console]::InputEncoding = New-Object System.Text.UTF8Encoding \$true; & '$guard' -Mode $2; exit \$LASTEXITCODE" 2>&1 )
   else
     # Windows 의 PowerShell $HOME 은 HOME 이 아니라 USERPROFILE 을 따른다.
     local profile="$home"; command -v cygpath >/dev/null && profile="$(cygpath -w "$home")"
-    ( cd "$REPO" && printf '%s' "$3" | env ${extra[@]+"${extra[@]}"} HOME="$home" USERPROFILE="$profile" "$PWSH" -NoLogo -NoProfile -NonInteractive -File "$GUARD_PS1" -Mode "$2" 2>&1 )
+    ( cd "$REPO" && printf '%s' "$3" | capped env ${extra[@]+"${extra[@]}"} HOME="$home" USERPROFILE="$profile" "$PWSH" -NoLogo -NoProfile -NonInteractive -File "$GUARD_PS1" -Mode "$2" 2>&1 )
   fi
 }
 
@@ -68,7 +79,11 @@ check() { # <engine> <block|allow|clean> <reason: substring, =violation line, or
 verdict() { # <engine> <expect> <reason> <desc> <output> <exit code>
   local engine="$1" expect="$2" reason="$3" desc="$4" out="$5" rc="$6" ok=0
   case "$engine" in ps1) ran_ps1=$((ran_ps1+1)) ;; ps51) ran_ps51=$((ran_ps51+1)) ;; esac
-  if [ "$expect" = allow ]; then
+  # A guard ends with 0 or 1. capped's time-limit codes (124, or a KILL/TERM death) fail the case
+  # whatever it expected: a guard that printed its verdict and then hung must not pass as a block.
+  if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ] || [ "$rc" -eq 143 ]; then
+    out="ended by the time limit (exit $rc): $out"
+  elif [ "$expect" = allow ]; then
     [ "$rc" -eq 0 ] && [[ "$out" != *"[BLOCKED]"* ]] && has_reason "$out" "$reason" && ok=1
   elif [ "$expect" = clean ]; then
     [ "$rc" -eq 0 ] && [ -z "$out" ] && ok=1
@@ -93,6 +108,24 @@ newrepo() { REPO="$(mktemp -d "$T/r.XXXXXX")"; git -C "$REPO" init -q -b feat "$
 stage() { mkdir -p "$REPO/$(dirname "$1")"; printf '%s' "$2" > "$REPO/$1"; g add -f "$1"; }
 commit() { stage "$1" "$2"; g commit -q -m "c $1"; git -C "$REPO" rev-parse HEAD; }
 line() { printf '%s %s %s %s\n' "refs/heads/$1" "$2" "refs/heads/$1" "${3:-$ZERO}"; }
+
+# A guard that hangs must fail its case, not stop the whole run. The shim stands in for a git call
+# that never returns.
+newrepo; stage plans/a/a-plan.md clean
+HANG="$T/hangshim"; mkdir -p "$HANG"; printf '#!/bin/sh\nsleep 30\n' > "$HANG/git"; chmod +x "$HANG/git"
+GUARD_ENV="PATH=$HANG:$PATH"; _t0=$SECONDS
+out="$(GUARD_TIMEOUT=3 run_guard sh pre-commit '')"; rc=$?; _dt=$((SECONDS - _t0))
+unset GUARD_ENV
+if [ "$rc" -eq 124 ] && [ "$_dt" -ge 3 ] && [ "$_dt" -lt 20 ]; then pass=$((pass+1)); else
+  fail=$((fail+1)); printf '✗ [sh] a hanging guard ends at GUARD_TIMEOUT (exit=%d after %ds)\n' "$rc" "$_dt"
+fi
+# ...and a guard that printed a block and then hit the limit is not a block.
+_f=$fail; _p=$pass
+verdict sh block - 'probe' '[BLOCKED] x' 124 >/dev/null
+_got=$((fail - _f)); fail=$_f; pass=$_p
+if [ "$_got" -eq 1 ]; then pass=$((pass+1)); else
+  fail=$((fail+1)); printf '✗ [sh] verdict counts a time-limit exit as a failure even after [BLOCKED]\n'
+fi
 
 # --- pre-commit: settings.json ---
 newrepo; stage settings.json '{"model":"opus"}'
@@ -420,7 +453,7 @@ done
 hook_git() { # <engine> <git args...> — git in $REPO, with hooks that run the guard through <engine>
   local e="$1" profile="$FAKE_HOME"; shift
   command -v cygpath >/dev/null && profile="$(cygpath -w "$FAKE_HOME")"
-  ( cd "$REPO" && env HOME="$FAKE_HOME" USERPROFILE="$profile" git -c core.hooksPath="$T/hooks-$e" \
+  ( cd "$REPO" && capped env HOME="$FAKE_HOME" USERPROFILE="$profile" git -c core.hooksPath="$T/hooks-$e" \
       -c user.email=t@t -c user.name=t -c commit.gpgsign=false "$@" 2>&1 )
 }
 for e in "${HOOK_ENGINES[@]}"; do
