@@ -283,7 +283,7 @@ def _adf_node_text(node: Any) -> str:
             return str(node.get("text", ""))
         if node_type == "hardBreak":
             return "\n"
-        return "".join(_adf_node_text(child) for child in node.get("content", []))
+        return _adf_node_text(node.get("content"))
     if isinstance(node, list):
         return "".join(_adf_node_text(child) for child in node)
     return ""

@@ -56,7 +56,7 @@ Jira description `작업 내용` 항목에 보이던 `[jira-task] ticket=… dat
 - [re-review] 한 문단에 여러 날짜가 섞인 옛 항목 → wontfix(이 도구가 만든 적 없는 배치, preview 에 그대로 보인다).
 
 # Deferred
-- `_adf_node_text` 가 `content` 가 list 가 아닌 노드에서 `TypeError` — preview 가 traceback 으로 끝남. 심각도 낮음. skills/jira-task/jira_task.py.
+- ~~`_adf_node_text` 가 `content` 가 list 가 아닌 노드에서 `TypeError` — preview 가 traceback 으로 끝남. 심각도 낮음.~~ 해소 2026-10-07 (`jira-task-null-content`, 목록이 아닌 `content` 는 빈 텍스트).
 
 # Key Files
 - skills/jira-task/jira_task.py — 식별·병합·검증

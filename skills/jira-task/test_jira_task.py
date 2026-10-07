@@ -53,6 +53,11 @@ class FormattingTests(unittest.TestCase):
 
         self.assertEqual(jira_task.adf_lines(body), ["기존 본문", "둘째 줄"])
 
+    def test_adf_text_treats_null_content_as_empty(self) -> None:
+        body = doc(paragraph("기존"), {"type": "paragraph", "content": None})
+
+        self.assertEqual(jira_task.adf_lines(body), ["기존", ""])
+
     def test_description_entry_lists_date_and_items_without_marker(self) -> None:
         entry = jira_task._description_entry(f"{SUMMARY}\n\n테스트를 보강했다.", DATE)
 
