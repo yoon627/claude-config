@@ -1,6 +1,6 @@
 ---
 name: c
-description: 현재 worktree/repo 의 진행 중인 plan(CLAUDE.md §10)을 찾아 남은 작업과 plan↔실제(git/코드) sync 상태를 진단하고, 어긋나면 plan 을 보정한 뒤 다음 액션이 명확하면 이어서 실행하는 plan 이어가기(plan-continue) 오케스트레이션. `/c` 명시 호출 또는 "진행하던 작업 이어가자"류 요청 시 사용. branch→plan dir 매칭, 실패 시 in_progress 목록 제시. 확인·sync 진단·보정 후 `# Next` 가 명확하면 이어서 실행한다(멈추는 예외 5종 — blocked·plan 후보 다수·Next 재구성·파괴적/외부공개 액션·done). 그 브랜치 PR 의 사람 리뷰 코멘트도 intake 한다. 단순 질문·탐색·신규 작업 시작에는 쓰지 않는다(새 plan 생성은 dlc 몫).
+description: 현재 worktree/repo 의 진행 중인 plan(CLAUDE.md §10)을 찾아 남은 작업과 plan↔실제(git/코드) sync 상태를 진단하고, 어긋나면 plan 을 보정한 뒤 다음 액션이 명확하면 이어서 실행하는 plan 이어가기(plan-continue) 오케스트레이션. 그 브랜치 PR 의 사람 리뷰 코멘트도 intake 한다. `/c` 명시 호출 또는 "진행하던 작업 이어가자"류 요청 시 사용. 단순 질문·탐색·신규 작업 시작에는 쓰지 않는다(새 plan 생성은 dlc 몫).
 ---
 
 # c — plan 이어가기 (plan continue)

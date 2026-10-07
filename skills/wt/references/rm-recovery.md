@@ -5,7 +5,7 @@
 > 이 파일은 자동 로드되지 않는다 — `wt` 가 **worktree 생성(§3 base ref·`--no-track`·self-heal 판단)** 또는 **`rm` 이 `git worktree remove` 실패로 분기할 때** 이 파일을 Read 한다. 안전 게이트(`--force`/`-D`/원격삭제 무확인 금지, remove 성공 후에만 branch 삭제)는 SKILL 본문(`## 주의`·rm §6)이 단일 소스이고, 여기는 "왜/어떻게"만.
 
 ## A. 생성 git 시퀀스 상세 (§3.1~3.3)
-- **base ref**: `git symbolic-ref --short refs/remotes/origin/HEAD` → 실패 시 `origin/main` 폴백.
+- **`<default>`**: `git symbolic-ref --short refs/remotes/origin/HEAD` 출력에서 `origin/` 을 뗀 이름(실패 시 `main`). base ref 는 `origin/<default>`.
 - `git fetch origin <default>` (실패해도 경고만).
 - `git worktree add --no-track -b <slug> .claude/worktrees/<slug> origin/<default>`.
   - **`--no-track` 이유**: 새 브랜치 upstream 자동 설정 차단 → 첫 `git push` 시 global `push.autoSetupRemote=true` 가 `origin/<slug>` 으로 set(=자기 이름 원격 브랜치). track 두면 origin/<default> 로 잘못 향함.

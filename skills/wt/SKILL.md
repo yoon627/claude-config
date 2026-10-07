@@ -1,6 +1,6 @@
 ---
 name: wt
-description: Git worktree 빠른 관리 — 목록/이동/생성+dlc/제거. `/wt <N>` 또는 기존 worktree 이름은 그 worktree 로 이동, 그 외 텍스트(요청사항)는 확인 없이 slug 를 정해 worktree 를 새로 만들고 그 안에서 `dlc` 로 작업(생성은 로컬·가역이라 위험기반 승인 대상 아님 — 되돌릴 정보를 보고). 접두 `?`(`/wt ? <막연한 설명>`)는 질문 모드 — AskUserQuestion 으로 요구사항을 구체화한 뒤 같은 생성 경로로 합류. 신규 생성 시 ignored `.env` 와 `.claude/settings.local.json`(권한 허용목록)을 main worktree 에서 동일 상대경로로 자동 복사. `.claude/worktrees/<name>/` 에 prefix 없는 브랜치(`<name>`)로 생성하여 EnterWorktree 도구의 `worktree-` prefix 문제를 회피. 사용자가 `/wt`, `/wt <N>`, `/wt <기존이름>`, `/wt <요청사항>`, `/wt ? <막연한 설명>`, `/wt rm <name>` 형태로 호출할 때만 사용.
+description: Git worktree 빠른 관리 — 목록/이동/생성+dlc/제거. `/wt <N>` 또는 기존 worktree 이름은 그 worktree 로 이동, 그 외 텍스트(요청사항)는 확인 없이 slug 를 정해 worktree 를 새로 만들고 그 안에서 `dlc` 로 작업. 접두 `?`(`/wt ? <막연한 설명>`)는 질문 모드 — AskUserQuestion 으로 요구사항을 구체화한 뒤 같은 생성 경로로 합류. 사용자가 `/wt`, `/wt <N>`, `/wt <기존이름>`, `/wt <요청사항>`, `/wt ? <막연한 설명>`, `/wt rm <name>` 형태로 호출할 때, 또는 dlc 가 worktree 밖에서 파일 변경 작업을 시작해 worktree 를 만들 때 사용.
 ---
 
 # wt — Git Worktree 관리
@@ -68,8 +68,8 @@ worktree 세션 안에서 `EnterWorktree` 는 `.claude/worktrees/` 하위 대상
 ### 3. 생성 (확인 없이 — 위험기반 승인, CLAUDE.md §1)
 worktree 생성은 로컬·비파괴이고 `/wt rm <slug>` 한 번으로 되돌아가므로 **slug 승인을 묻지 않는다**. 대신 되돌리는 데 필요한 정보를 §4 보고에 담는다.
 0. **main dirty 확인**: `git status --porcelain` 으로 main worktree 의 미커밋 변경을 본다. 요청 대상 파일이 dirty 면 새 worktree 는 `origin/<default>` 기준이라 **그 편집이 담기지 않으므로** 생성 전에 그 사실을 보고한다(§1 사용자 변경사항 보호 — 모르고 옛 버전을 고치면 머지 때 충돌하거나 사용자 편집을 조용히 되돌린다).
-1. base ref: `git symbolic-ref --short refs/remotes/origin/HEAD` → 실패 시 `origin/main` 폴백.
-2. `git fetch origin <default>` (실패해도 경고만 — 단 **fetch 실패 사실은 §4 보고에 stale base 로 노출**). fetch 후 `git rev-parse --short <default>` 로 **base sha 를 캡처**(§4 보고값 — 어느 시점 base 위에 만들었는지가 되돌림 판단의 근거).
+1. `<default>` = `git symbolic-ref --short refs/remotes/origin/HEAD` 출력에서 `origin/` 을 뗀 이름(실패 시 `main`). base ref 는 `origin/<default>`.
+2. `git fetch origin <default>` (실패해도 경고만 — 단 **fetch 실패 사실은 §4 보고에 stale base 로 노출**). fetch 후 `git rev-parse --short origin/<default>` 로 **base sha 를 캡처**(§4 보고값 — 어느 시점 base 위에 만들었는지가 되돌림 판단의 근거).
 3. `git worktree add --no-track -b <slug> .claude/worktrees/<slug> origin/<default>`. (`--no-track` 이유·첫 push autoSetupRemote 는 `references/rm-recovery.md` §A.)
 4. **ignored 설정 자동 복사** (옵트아웃 없음): **main worktree** 에서 ① basename 이 정확히 `.env` 인 파일과 ② repo-relative 경로가 정확히 `.claude/settings.local.json` 인 파일을 **동일 상대경로**로 `.claude/worktrees/<slug>/` 안에 복사. **이미 있으면 skip(덮어쓰지 않음)**, 복사 실패(권한 등)는 경고만·worktree 유지. ②를 복사하는 이유: Windows 등 repo 루트의 파일을 쓰지 않는 경우(목록은 `references/env-copy.md`)에는 로컬 설정을 세션의 작업 디렉토리(`EnterWorktree` 로 들어간 worktree)에서 읽어, 안 하면 worktree 세션의 **권한 허용목록이 0개**로 시작한다(§8 이 worktree 작업을 강제하므로 실사용 경로가 전부 해당). 그 밖의 경우는 2.1.211 부터 worktree 세션도 main checkout 의 파일을 읽어 복사본은 보조다. 후보 선정 predicate·제외 규칙·앵커드 일치가 필요한 이유도 `references/env-copy.md`.
 5. `EnterWorktree(path: <repo-root>/.claude/worktrees/<slug>)`.
@@ -77,7 +77,7 @@ worktree 생성은 로컬·비파괴이고 `/wt rm <slug>` 한 번으로 되돌�
 
 ### 4. 보고 + dlc 작업
 - 생성·진입 완료 후, 새 worktree(현재 cwd)에서 **`dlc` Skill 을 요청사항 원문을 인자로 invoke** (Skill 도구, `skill: dlc`, `args: <요청사항 원문>`). 이후는 dlc 가 규모 gate 부터 파이프라인까지 진행한다.
-- **dlc 시작 직전 보고 (무확인 생성의 안전망 — 승인 대신 되돌릴 정보를 준다)**: "신규 생성: `<slug>` (base `<default>@<short-sha>`) — 되돌리기 `/wt rm <slug>`" + 해당될 때만 덧붙임:
+- **dlc 시작 직전 보고 (무확인 생성의 안전망 — 승인 대신 되돌릴 정보를 준다)**: "신규 생성: `<slug>` (base `origin/<default>@<short-sha>`) — 되돌리기 `/wt rm <slug>`" + 해당될 때만 덧붙임:
   - `.env: N copied, M skipped` · `settings.local: N copied, M skipped` (각각 둘 다 0 이면 생략)
   - `git fetch` 실패로 **stale base** 사용 / heal·bootstrap skip·실패 (§3.6 은 실패해도 worktree 유지 — 무엇이 실패했는지 반드시 노출)
   - 충돌 suffix 채택(`<slug>` 이미 있어 `<slug>-2` 로 생성)
@@ -111,7 +111,7 @@ worktree 생성은 로컬·비파괴이고 `/wt rm <slug>` 한 번으로 되돌�
    - 대상에서 `git status --porcelain` 비어있지 않으면 경고.
    - unpushed 커밋 있으면 경고 (`git log origin/<branch>..<branch>` 또는 upstream 없으면 `git log <branch> --not --remotes`).
    - **gitignored 산출물 점검 (필수)** — `git worktree remove` 는 gitignored 파일을 **경고 없이 함께 삭제**한다. 이 repo 는 whitelist `.gitignore` 라 `.env`·`.claude/settings.local.json` 이 ignored → 위 `git status --porcelain` 엔 안 잡힌다. `git -C <대상 worktree path> status --porcelain --ignored` 로 인벤토리를 수집하고(`/e` 와 달리 대상이 cwd 가 아닐 수 있어 `-C <대상>` 필수), `.env`·secret 후보·기타 미보존 산출물이 있으면 삭제될 목록을 5단계 AskUserQuestion 본문에 **명시**(기본 유지). `plans/` 는 tracked(§10)라 미커밋 plan 은 위 `git status --porcelain` 에 잡히고 remove 가 거부한다 — 커밋한 뒤 삭제한다.
-   - **미머지 탐지 (옵션 3 원격 삭제 판단 근거)**: `git branch --merged origin/<default>` 에 대상 branch 가 없거나 `git log origin/<default>..<branch>` 가 비어있지 않으면 **미머지** — 원격 삭제(옵션 3)는 데이터 유실 위험이므로 이 사실을 옵션 3 경고에 명시(e 는 조건5 게이트로 차단하나 wt 는 수동이라 사용자 판단; 미탐지 시 삭제 안 함 전제). `<default>` = `git symbolic-ref --short refs/remotes/origin/HEAD` (실패 시 `origin/main`).
+   - **미머지 탐지 (옵션 3 원격 삭제 판단 근거)**: `git branch --merged origin/<default>` 에 대상 branch 가 없거나 `git log origin/<default>..<branch>` 가 비어있지 않으면 **미머지** — 단 `git branch --merged <default>`(로컬 default 브랜치)에는 있으면 미머지가 아니라 **"로컬 default 에만 머지됨(origin 미반영)"** 으로 구분해 적는다(커밋은 로컬 default 에 남아 있어 유실 위험은 낮지만, 원격 브랜치를 지우면 그 커밋의 원격 사본은 default 를 push 할 때까지 없다). 원격 삭제(옵션 3)는 데이터 유실 위험이므로 이 사실을 옵션 3 경고에 명시(e 는 조건5 게이트로 차단하나 wt 는 수동이라 사용자 판단; 미탐지 시 삭제 안 함 전제). `<default>` = `git symbolic-ref --short refs/remotes/origin/HEAD` 출력에서 `origin/` 을 뗀 이름(실패 시 `main`).
    - **worklog 미리보기** — 지운 worktree 의 AI 작업시간은 이름으로 고를 수 없어 Jira 에 등록할 수 없다(표시만 된다). 위 거부 검사를 모두 통과했고 `~/.claude/skills/jira-worklog/` 가 있으면(`/e` 6단계 미리보기와 같다 — 미리보기는 자격증명 없이 돈다) 2단계에서 확정한 대상의 **디렉터리 이름**으로 미리보기한다: POSIX `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh" <이름>`, Windows PowerShell `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1" <이름>`(격리 worktree 세션이면 `$HOME` 을 펼친 절대경로 — `skills/e/SKILL.md` 2단계). 출력에서는 머리줄이 `[<이름>]` 인 블록만 읽는다 — 한 이름이 다른 worktree 의 branch 에도 맞을 수 있고, 뒤에 삭제된 worktree 목록이 붙는다.
      - 머리줄에 티켓(`ticket=<키>`)과 합계가 있으면 5단계 본문에 "등록하지 않았다면 이 시간(<합계>)은 지운 뒤 등록할 수 없다 — 먼저 위 미리보기 명령에 `--register` 를 붙여 돌린다(upsert 라 다시 돌려도 중복 없음. 등록 차단이 나면 사유를 확인하고 `--allow-large-change` 를 더한다)" 를 적는다.
      - `ticket=(없음)` 이거나 `[<이름>] 세션 활동 없음` 이면 적지 않는다.
@@ -131,4 +131,4 @@ worktree 생성은 로컬·비파괴이고 `/wt rm <slug>` 한 번으로 되돌�
 - 정확일치하지 않는 텍스트는 요청사항으로 간주해 worktree 를 새로 만든다. **생성 전 확인은 묻지 않는다**(위험기반 승인 — CLAUDE.md §1): 이름 오타로 인한 오생성은 승인이 아니라 §4 의 near-miss 보고 + `/wt rm <slug>` 로 되돌린다. 반면 삭제 계열(아래 첫 bullet)은 비가역이라 확인을 유지한다 — **이 스킬 안에서 생성은 무확인·삭제는 확인**이 위험기반 기준의 적용 결과다.
 - 요청사항 path 는 생성 후 `dlc` 를 자동 실행한다. worktree 를 만들 필요가 없는 단순 질문·탐색·읽기 전용 작업이면 `/wt` 대신 현재 worktree 에서 직접 처리.
 - EnterWorktree 후 후속 명령은 새 cwd 기준.
-- **자동 복사는 신규 생성 경로만** 덮는다. 이 변경 이전에 만든 worktree나 `wt` 를 안 거치고 만든 worktree 는 `.claude/settings.local.json` 이 없다 — Windows 등 repo 루트의 파일을 쓰지 않는 경우(`references/env-copy.md`)에는 그 worktree 세션의 권한 허용목록이 비어 있으니 필요하면 main 에서 한 번 복사한다(그 밖의 경우 2.1.211+ 는 main 의 파일을 읽어 필요 없다): `cp <main worktree>/.claude/settings.local.json <worktree>/.claude/settings.local.json`(`<main worktree>` = `git worktree list` 첫 줄 경로). 일괄 소급 복사는 두지 않는다(사용자가 의도적으로 지운 파일을 되살릴 수 있고, `wt` 는 생성·이동·삭제 스킬이지 동기화 도구가 아니다).
+- **자동 복사는 신규 생성 경로만** 덮는다. 그 경로로 만들지 않은 worktree 에는 `.claude/settings.local.json` 이 없을 수 있다 — Windows 등 repo 루트의 파일을 쓰지 않는 경우(`references/env-copy.md`)에는 그 worktree 세션의 권한 허용목록이 비어 있으니 필요하면 main 에서 한 번 복사한다(그 밖의 경우 2.1.211+ 는 main 의 파일을 읽어 필요 없다): `cp <main worktree>/.claude/settings.local.json <worktree>/.claude/settings.local.json`(`<main worktree>` = `git worktree list` 첫 줄 경로). 일괄 소급 복사는 두지 않는다(사용자가 의도적으로 지운 파일을 되살릴 수 있고, `wt` 는 생성·이동·삭제 스킬이지 동기화 도구가 아니다).

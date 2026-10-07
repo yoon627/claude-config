@@ -1,6 +1,6 @@
 ---
 name: e
-description: 진행 중이던 §10 plan 을 실제 git/코드 상태로 동기화 기록하고 작업을 마무리하는 plan-end 오케스트레이션. 체크포인트 모드(기본)는 uncommitted 변경을 작업 브랜치에 임시(WIP) 커밋으로 보존하고(main/master 직접 커밋·push 는 안 함), `/e merge`·`/e 머지` 인자를 주면 머지 모드로 push → PR → plan done → checks → `gh pr merge --merge` → 정리까지 수행한다. Progress/Next/Decisions/status/updated 를 갱신해 다음 세션(/c)이 곧장 이어받게 한다. worktree 에서 작업이 done 으로 끝나고 clean·merged 면 worktree 와 로컬 브랜치를 묻지 않고 정리한다(원격 브랜치 삭제는 항상 확인). 마무리 후에는 세션을 main worktree 로 복귀시킨다(worktree 보존). `/e` 명시 호출 또는 "진행상황 기록하고 마무리 / 오늘 여기까지 / 일단 저장하고 끝"류 요청 시 사용. plan 이 없으면 새로 만들지 않는다(그건 dlc 몫). 단순 질문·탐색·읽기 전용에는 쓰지 않는다.
+description: 진행 중이던 §10 plan 을 실제 git/코드 상태로 동기화 기록하고 작업을 마무리해 다음 세션(/c)이 곧장 이어받게 하는 plan-end 오케스트레이션. 체크포인트 모드(기본)는 uncommitted 변경을 작업 브랜치에 임시(WIP) 커밋으로 보존한다(main/master 직접 커밋·push 는 안 함). `/e merge`·`/e 머지` 인자를 주면 머지 모드로 push·PR·머지·정리까지 수행한다. `/e` 명시 호출 또는 "진행상황 기록하고 마무리 / 오늘 여기까지 / 일단 저장하고 끝"류 요청 시 사용. plan 이 없으면 새로 만들지 않는다(그건 dlc 몫). 단순 질문·탐색·읽기 전용에는 쓰지 않는다.
 ---
 
 # e — plan 마무리 (plan end)
@@ -80,7 +80,7 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `docs/worktree-li
 
 ### 6. worklog 기록 (현재 worktree — **삭제 전**)
 마무리 시 이 worktree 에서 한 AI 작업시간을 Jira worklog 에 기록한다. **7단계 삭제보다 먼저** 실행한다 — worktree 를 지우면 이름으로 고를 수 없어 등록이 불가능해진다(표시만 된다). `~/.claude/skills/jira-worklog/` 없으면 이 단계 skip + "worklog 스킬 없음" 1줄.
-- **실행**: POSIX에서는 `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh"`(dry-run), Windows PowerShell에서는 `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1"`(dry-run)로 날짜별 시간·대상 티켓 확인. launcher는 `uv` 우선, `python3`/`python` fallback(Windows는 `py` 포함)이다. 귀속은 줄 단위 cwd 기준이라 **main 으로 복귀한 뒤에 돌려도 그 worktree 시간이 정확히 잡힌다**(이름을 인자로 주면 된다) — 예전처럼 "복귀 전"일 필요는 없다. 다만 삭제 전이어야 한다는 제약은 그대로다.
+- **실행**: POSIX에서는 `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh"`(dry-run), Windows PowerShell에서는 `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1"`(dry-run)로 날짜별 시간·대상 티켓 확인. launcher는 `uv` 우선, `python3`/`python` fallback(Windows는 `py` 포함)이다. 귀속은 줄 단위 cwd 기준이라 **main 으로 복귀한 뒤에 돌려도 그 worktree 시간이 정확히 잡힌다**(이름을 인자로 주면 된다). 다만 worktree 삭제 전이어야 한다.
 - **등록**: 티켓이 잡히고(worktree 이름 prefix) `~/.jira-kit/.env` 에 토큰 있으면 이어서 POSIX `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh" --register`, Windows PowerShell `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1" --register`(6 전 단계로 main 에 나왔으면 미리보기와 같은 `<이름>` 을 앞에 준다 — `run_worklog.sh <이름> --register`) — **그 worktree 의** 그날 항목 upsert(멱등, /e 반복해도 중복 없음. 같은 티켓의 다른 worktree 항목은 건드리지 않고 티켓 총합은 Jira 가 합산). **티켓 없음/토큰 없음/세션 활동 없음 → preview 만 하고 조용히 넘어감**(마무리 흐름 방해 금지). 사용자가 /e 에 이 동작을 넣은 것 = 등록 표준 동의(별도 AskUserQuestion 안 만듦, §3-6 1회 원칙).
 - **비차단**: 조회·네트워크 실패는 보고 1줄만 하고 마무리는 계속한다(worklog 실패가 /e 를 막지 않는다). 다만 **7단계 정리는 막는다** — 지운 worktree 의 시간은 다시 등록할 수 없다. 다음이면 7단계 자동 정리를 생략한다.
   - worklog 가 비0 으로 끝났다(사유 불문 — 예: 등록 차단·Jira 오류 1, 설정·git 오류 2, 실행기 없음 127).

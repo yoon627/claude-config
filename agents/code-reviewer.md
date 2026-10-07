@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: 구현 직후 호출. 버그·보안·테스트 누락·예외 처리·성능·backward compatibility·근본 원인·설계고도·관례 검토. Find→Verify 2-pass 로 report-everything 후 self-refute. "괜찮아 보인다" 식 통과 검토 금지, 비판적 발굴이 목적. 코드 변경이 있었던 모든 흐름에서 사용.
+description: 구현 직후 호출. 버그·보안·테스트 누락·예외 처리·성능·backward compatibility·근본 원인·설계고도·관례를 검토해 Find→Verify 2-pass(report-everything 후 self-refute) 결과를 verdict 와 함께 돌려준다. 코드 변경이 있었던 모든 흐름에서 사용.
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
 model: opus
 ---

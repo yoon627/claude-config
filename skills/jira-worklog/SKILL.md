@@ -30,8 +30,8 @@ worktree 별로 나누고, worktree 경계를 넘는 구간은 어느 쪽 것도
 - **삭제된 worktree** 의 시간은 이름을 복원해 **표시만** 하고 등록하지 않는다.
 - **Codex 는 파일 단위 귀속**이다 — rollout 전수에서 세션 중 cwd 이동이 0건이라 나눌 것이 없다.
   다만 **소속 판정은 Claude 와 같은 분류기**(`WorktreeIndex.classify`)를 쓴다 — worktree 하위
-  디렉토리에서 시작한 세션도 그 worktree 로 잡힌다(예전엔 정확일치라 26건이 어디에도 못 가고
-  사라졌다). "파일 단위"는 *한 rollout 을 쪼개지 않는다*는 뜻이지 매칭이 엄격하다는 뜻이 아니다.
+  디렉토리에서 시작한 세션도 그 worktree 로 잡힌다. "파일 단위"는 *한 rollout 을 쪼개지 않는다*는
+  뜻이지 매칭이 엄격하다는 뜻이 아니다.
 
 별도 Python 패키지 설치는 불필요하다. Codex user-scope 연결은 `$HOME/.agents/skills/jira-worklog`에서
 안정적인 `$HOME/.claude/skills/jira-worklog` source를 가리킨다. 실행기는 `uv`를 우선 사용하고, 없으면

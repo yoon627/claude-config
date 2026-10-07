@@ -1,6 +1,6 @@
 ---
 name: improve
-description: dlc 자기개선 loop 의 분석 축 — 운영 자산 정합성 기계 점검(구 /audit 승계)과 hook 이 자동 누적한 workflow 실패 신호(telemetry)·wiki workflow-failures·feedback memory 를 함께 읽어 개선 후보를 근거·빈도 기반으로 랭킹 제시하는 오케스트레이션. `deep` 에서는 Claude Code 네이티브가 흡수한 기능과 자작 하네스의 중복을 주기(45일) 재판정하는 축도 돈다. 발견은 보고·제안까지, 수정은 사용자 승인 후 wt→dlc(운영 자산 자가수정 금지 §1 — 자동 수정 안 함). `/improve` 명시 호출 시 사용. 단순 질문·코드 변경에는 쓰지 않는다.
+description: dlc 자기개선 loop 의 분석 축 — 운영 자산 정합성 기계 점검과 hook 이 자동 누적한 workflow 실패 신호(telemetry)·wiki workflow-failures·feedback memory 를 함께 읽어 개선 후보를 근거·빈도 기반으로 랭킹 제시하는 오케스트레이션. `deep` 에서는 Claude Code 네이티브가 흡수한 기능과 자작 하네스의 중복을 주기(45일) 재판정하는 축도 돈다. 발견은 보고·제안까지, 수정은 사용자 승인 후 wt→dlc(운영 자산 자가수정 금지 §1 — 자동 수정 안 함). `/improve` 명시 호출 시 사용. 단순 질문·코드 변경에는 쓰지 않는다.
 ---
 
 # improve — 자기개선 loop 의 분석 축 (자산 읽기전용·랭킹·제안)
