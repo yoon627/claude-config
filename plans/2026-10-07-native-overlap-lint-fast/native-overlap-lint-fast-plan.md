@@ -1,6 +1,6 @@
 ---
 title: native-overlap-lint-fast — improve.sh 헤더 번호 계약을 실행 없이 검사
-status: in_progress
+status: done
 started: 2026-10-07
 updated: 2026-10-07
 ---
@@ -21,7 +21,7 @@ scripts/native-overlap-lint.test.js 의 "improve.sh 점검 번호 1..N 유일" �
 - 2026-10-07: plan-reviewer CONDITIONAL·code-reviewer(+codex) REQUEST CHANGES 처분 반영. 테스트 13.3초 → 0.7초, 실제 improve.sh 헤더 1..12 수집, 합성 음성 케이스 14개 통과. verify-changed.test.sh 통과. `bash scripts/verify.sh changed` ALL PASS (skip: record-verified.test.sh — jq 미설치, 이전과 같음), 77초, native-overlap-lint 는 [slow] 없이 node 축에서 1초. Acceptance 1~4 충족 → DONE.
 
 # Next
-- 머지(사용자 선택).
+- 없음 — 사용자 선택으로 main 에 로컬 ff + push.
 
 # Decisions
 - wiki 조회: native-overlap 관련 decision(공용 native-overlap-ledger 등)은 대장 판정 내용에 관한 것이라 이 테스트 방식과 무관 — 그대로.
