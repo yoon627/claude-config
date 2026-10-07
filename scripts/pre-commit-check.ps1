@@ -58,14 +58,24 @@ function Invoke-Git([string[]]$GitArgs, [switch]$DropStderr, [string]$Stdin, [st
     $err = $null
     if ($DropStderr) { $err = $proc.StandardError.ReadToEndAsync() }
     $out = $proc.StandardOutput.ReadToEndAsync()
+    # A git that exits before reading all of its input has not seen what it was asked about. When
+    # it has already closed its end, pwsh's write or close throws (an input small enough to fit the
+    # pipe buffer does not); that becomes git's own exit code, or a failure if git said 0, so the
+    # caller's fail-closed path reports it instead of a raw exception. Windows PowerShell 5.1 does
+    # not throw there, and git's exit code decides on its own.
+    $inputLost = $false
     if ($withStdin) {
-        $proc.StandardInput.Write($Stdin)
-        $proc.StandardInput.Close()
+        try {
+            $proc.StandardInput.Write($Stdin)
+            $proc.StandardInput.Close()
+        } catch { $inputLost = $true }
     }
     $out = $out.Result
     $proc.WaitForExit()
     if ($err) { [void]$err.Result }
-    return @{ Code = $proc.ExitCode; Out = $out }
+    $code = $proc.ExitCode
+    if ($inputLost -and $code -eq 0) { $code = 1 }
+    return @{ Code = $code; Out = $out }
 }
 
 # pre-push receives "<local ref> <local sha> <remote ref> <remote sha>" lines on stdin;
