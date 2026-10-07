@@ -104,6 +104,33 @@ else
   warn "Codex agent 정의 생성 실패"; codex_failed="$codex_failed agents"
 fi
 
+# --- 3c. Claude Code 플러그인 (enabledPlugins 는 untracked settings.json 에 있어 머신마다 켠다) ---
+# enable·install 은 이미 켜졌거나 설치돼 있어도 성공으로 끝나 다시 돌려도 된다.
+# 대화형 세션을 한 번도 연 적 없는 머신에는 공식 marketplace 가 등록돼 있지 않아 install 이 실패한다 — 없을 때만 등록한다.
+if have claude; then
+  marketplaces=$(claude plugin marketplace list 2>/dev/null || true)
+  case $marketplaces in
+    *claude-plugins-official*) skip "공식 marketplace 등록됨" ;;
+    *)
+      run "claude plugin marketplace add anthropics/claude-plugins-official"
+      if do_cmd claude plugin marketplace add anthropics/claude-plugins-official; then ok "공식 marketplace 등록"
+      else warn "공식 marketplace 등록 실패 — 위 claude 출력 참조(네트워크·git)"; fi ;;
+  esac
+  for p in "enable cc-plugin-you-should-know@builtin" "install session-report@claude-plugins-official" "install receipts@claude-plugins-official"; do
+    run "claude plugin $p"
+    # shellcheck disable=SC2086 # $p 는 "<동사> <플러그인>" 두 단어로 쪼개야 한다
+    if do_cmd claude plugin $p; then ok "plugin $p"
+    else
+      case $p in
+        enable*) warn "plugin $p 실패 — you-should-know 는 Claude Code 2.1.287 이상이 필요하다" ;;
+        *) warn "plugin $p 실패 — 위 claude 출력 참조(marketplace 등록·네트워크)" ;;
+      esac
+    fi
+  done
+else
+  skip "claude 없음 — 플러그인 설정 건너뜀"
+fi
+
 # --- 5. rtk (standalone 설치본 선택) ---
 if have rtk; then
   if [ "$DRY_RUN" = 1 ]; then skip "rtk hook 검증/서명(dry-run)"

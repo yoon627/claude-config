@@ -85,6 +85,7 @@ agent 정의(`Codex 연결 실패: … agents`)도 같은 규칙이다 — `agen
 | uv | astral 설치 스크립트 (비-conda) |
 | **rtk** | 이미 설치된 standalone `rtk`가 있을 때만 `rtk verify`/`rtk init -g --hook-only --no-patch` 실행. 없으면 건너뜀. **hook 파일 직접편집 금지**(sha256 무결성). |
 | Codex skill·AGENTS.md·agent 정의 | macOS: skill 7종을 `$HOME/.agents/skills/` 에, `${CODEX_HOME:-$HOME/.codex}/AGENTS.md` 를 `$HOME/.claude/CLAUDE.md` 에 symlink, agent 정의를 `agents/*.md` 마다 `${CODEX_HOME:-$HOME/.codex}/agents/` 에 생성(`sync_codex_agents.py`). Windows: 같은 목록 — skill 은 junction, AGENTS.md 는 symlink(개발자 모드·관리자), agent 정의는 `python` 있을 때 |
+| Claude Code 플러그인 | `claude plugin enable cc-plugin-you-should-know@builtin`, `claude plugin install session-report@claude-plugins-official`·`receipts@claude-plugins-official`. 켜짐 여부(`enabledPlugins`)는 untracked `settings.json` 에 저장돼 clone 으로 오지 않아 머신마다 켠다. 이미 켜졌거나 설치돼 있어도 성공으로 끝나 다시 돌려도 된다. 대화형 세션을 연 적 없는 새 머신은 공식 marketplace 가 미등록이라 먼저 `claude plugin marketplace add anthropics/claude-plugins-official`(목록에 없을 때만). 실패하면 경고만 — you-should-know 는 Claude Code 2.1.287 이상, install 실패는 claude 출력(marketplace·네트워크) 참조. |
 | 셸 env | marker 블록(mac `~/.zshrc`) / User 레지스트리(win): `ANTHROPIC_MODEL`, PATH. `CLAUDE_CODE_EFFORT_LEVEL`은 제거/해제해 `/effort`가 동작하게 함. |
 | settings.json | **재현 안 함** — untracked(2026-09-07~)라 `git clone` 으로 오지 않는다. 기존 머신에서 직접 복사한다(루트 README Install A 의 settings.json 배치 단계 — Windows 5번, macOS 2번). 부트스트랩은 rtk hook 등록만. |
 | private-terms.txt | **재현 안 함** — 비공개 용어 목록이라 추적하지 않는다. 기존 머신에서 직접 복사한다(루트 README Install D 절). 없으면 `pre-commit-check` 가 note 한 줄 후 비공개 용어 검사를 건너뛴다. |

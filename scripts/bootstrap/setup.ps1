@@ -131,6 +131,29 @@ if ($pyCmd.Count -eq 0) {
   try { Invoke-CodexStep 'agents' { & $pyCmd[0] @syncArgs } } finally { Remove-Item Env:PYTHONUTF8 }
 }
 
+# --- 3c. Claude Code 플러그인 (enabledPlugins 는 untracked settings.json 에 있어 머신마다 켠다) ---
+# enable·install 은 이미 켜졌거나 설치돼 있어도 성공으로 끝나 다시 돌려도 된다.
+# 대화형 세션을 한 번도 연 적 없는 머신에는 공식 marketplace 가 등록돼 있지 않아 install 이 실패한다 — 없을 때만 등록한다.
+# 실패는 경고만 남긴다 — $PSNativeCommandUseErrorActionPreference 가 켜진 PS 7.3+ 에서 비0 종료가 Stop 으로 스크립트를 끊지 않게 try/catch 로 감싼다.
+function Invoke-PluginStep($Label, [string[]]$CmdArgs, $Hint) {
+  Run "claude $($CmdArgs -join ' ')"
+  if ($DryRun) { Skip "$Label (dry-run)"; return }
+  $global:LASTEXITCODE = 0
+  try { & claude @CmdArgs; $rc = $LASTEXITCODE } catch { $rc = 1 }
+  if ($rc -eq 0) { Ok $Label } else { Warn "$Label 실패 — $Hint" }
+}
+if (Have 'claude') {
+  $marketplaces = try { (& claude plugin marketplace list 2>$null) -join "`n" } catch { '' }
+  if ($marketplaces -match 'claude-plugins-official') { Skip '공식 marketplace 등록됨' }
+  else { Invoke-PluginStep '공식 marketplace 등록' @('plugin', 'marketplace', 'add', 'anthropics/claude-plugins-official') '위 claude 출력 참조(네트워크·git)' }
+  Invoke-PluginStep 'plugin enable cc-plugin-you-should-know@builtin' @('plugin', 'enable', 'cc-plugin-you-should-know@builtin') 'you-should-know 는 Claude Code 2.1.287 이상이 필요하다'
+  foreach ($name in @('session-report', 'receipts')) {
+    Invoke-PluginStep "plugin install $name@claude-plugins-official" @('plugin', 'install', "$name@claude-plugins-official") '위 claude 출력 참조(marketplace 등록·네트워크)'
+  }
+} else {
+  Skip 'claude 없음 — 플러그인 설정 건너뜀'
+}
+
 # --- 5. rtk (standalone 설치본 선택) ---
 if (Have 'rtk') {
   if ($DryRun) { Skip 'rtk hook 검증/서명(dry-run)' }
