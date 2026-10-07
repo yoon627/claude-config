@@ -35,13 +35,35 @@ I() { echo "[info] $*"; }
 OK() { echo "[ok] $*"; }
 
 echo "== 1. settings hooks → scripts 실존 (error if missing) =="
+# hook 마다 한 줄: exec form(args 가 있음)은 `ARG\t<원소>`, 셸 형식은 `CMD\t<command>`.
+hook_refs() {
+  node -e '
+    const s = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+    for (const groups of Object.values((s && s.hooks) || {})) for (const g of groups || []) for (const h of (g && g.hooks) || []) {
+      if (Array.isArray(h.args)) for (const a of h.args) { if (typeof a === "string") console.log("ARG\t" + a); }
+      else if (typeof h.command === "string") console.log("CMD\t" + h.command);
+    }' "$1"
+}
 for sf in settings.json settings.local.json; do
   [ -f "$sf" ] || continue
-  # command 안의 scripts/*.{js,sh} 를 추출(inline darwin rtk-rewrite 등 파일 아닌 command 는 자연히 제외).
+  if ! refs=$(hook_refs "$sf" 2>&1); then E "$sf 를 JSON 으로 읽지 못함: $refs"; continue; fi
+  refs=$(printf '%s\n' "$refs" | sort -u)
+  # exec form 의 args 는 셸이 없어 ~ 가 펼쳐지지 않고, 머신별 절대경로라 다른 머신에서 복사하면 사용자명이 틀릴 수 있다 — 경로 그대로 확인한다.
+  while IFS=$'\t' read -r kind val; do
+    [ "$kind" = ARG ] || continue
+    # shellcheck disable=SC2016 # '$HOME' 은 펼치지 않은 글자 그대로를 찾는다
+    case "$val" in
+      '~'/* | '$HOME'/* | '${HOME}'/*) E "$sf 의 exec form args '$val' — 셸이 없어 ~·\$HOME 이 펼쳐지지 않는다(절대경로로)" ;;
+      /*.js | /*.sh | [A-Za-z]:/*.js | [A-Za-z]:/*.sh)
+        if [ -f "$val" ]; then OK "$sf: $val"; else E "$sf 가 참조한 $val 없음"; fi ;;
+    esac
+  done <<<"$refs"
+  # 셸 형식 command 안의 scripts/*.{js,sh}(~/.claude/… 는 repo 기준).
   while read -r s; do
     [ -n "$s" ] || continue
     if [ -f "$s" ]; then OK "$sf: $s"; else E "$sf 가 참조한 $s 없음"; fi
-  done < <(grep -oE 'scripts/[A-Za-z0-9_.-]+\.(js|sh)' "$sf" 2>/dev/null | sort -u)
+  done < <(while IFS=$'\t' read -r kind val; do [ "$kind" = CMD ] && printf '%s\n' "$val"; done <<<"$refs" |
+    grep -oE 'scripts/[A-Za-z0-9_.-]+\.(js|sh)' | sort -u)
 done
 
 echo "== 2. MEMORY.md 인덱스 ↔ memory 파일 (양방향; gitignored 절대경로 발견) =="
