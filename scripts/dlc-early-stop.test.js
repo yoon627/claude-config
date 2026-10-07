@@ -260,7 +260,7 @@ ok('plan drift: OFF 스위치', () => {
 });
 
 // ---- 결론 블록 축 (④) — 편집한 턴의 마지막 답변이 `## 결론` 으로 끝나야 한다 ----
-const WITH_CONCLUSION = '상세 설명…\n\n## 원인\n- x\n\n## 결론\n- 문제: a\n- 원인: b\n- 조치: c\n- 검증: d\n- 남은 것: 없음\n';
+const WITH_CONCLUSION = '상세 설명…\n\n## 원인\n- x\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n## 결론\n**답**\n- a\n\n**근거**\n- b\n\n**다음**\n- 없음\n';
 const NO_CONCLUSION = '고쳤습니다. 테스트도 통과합니다.';
 
 ok('결론 축: 편집 + 결론 블록으로 끝남 → 통과, edited 소비', () => {
@@ -277,6 +277,8 @@ ok('결론 축: 편집 + 결론 없음 → 1회 block + 카운터 + 신호(detai
   const r = run(F, F.root, { input: { last_assistant_message: NO_CONCLUSION } });
   assert.ok(blocked(r.out));
   assert.ok(r.out.includes('## 결론'), 'reason 에 요구 형식이 있어야 한다');
+  assert.ok(['**답**', '**근거**', '**다음**'].every((l) => r.out.includes(l)), 'reason 이 §3-6 라벨을 안내해야 한다');
+  assert.ok(!r.out.includes('- 문제:'), '옛 5항목 형식이 남으면 안 된다');
   const led = readLedger(F.tmp);
   assert.strictEqual(led.conclusionBlocks, 1);
   assert.strictEqual(led.edited, true, 'block 은 edited 를 소비하지 않는다');
@@ -288,17 +290,17 @@ ok('결론 축: 편집 + 결론 없음 → 1회 block + 카운터 + 신호(detai
 ok('결론 축: `## 결론` 이 마지막 heading 이 아니면 block (위치 검사)', () => {
   const F = makeHome();
   writeLedger(F.tmp, { edited: true, conclusionBlocks: 0 });
-  const mid = '## 결론\n- 문제: a\n\n## 상세\n- 긴 설명';
+  const mid = '## 결론\n- 답: a\n\n## 상세\n- 긴 설명';
   assert.ok(blocked(run(F, F.root, { input: { last_assistant_message: mid } }).out));
 });
 
 ok('결론 축: 코드펜스 안의 `## ` 는 heading 이 아니다 (양방향)', () => {
   const F = makeHome();
   writeLedger(F.tmp, { edited: true, conclusionBlocks: 0 });
-  const fenceAfter = WITH_CONCLUSION + '- 조치 예시:\n```md\n## 예시\n```\n';
+  const fenceAfter = WITH_CONCLUSION + '- 예시:\n```md\n## 예시\n```\n';
   assert.ok(!blocked(run(F, F.root, { input: { last_assistant_message: fenceAfter } }).out), '결론 뒤 펜스 안 heading 은 무시');
   writeLedger(F.tmp, { edited: true, conclusionBlocks: 0 });
-  const fenceOnly = '설명\n```\n## 결론\n- 문제: x\n```\n';
+  const fenceOnly = '설명\n```\n## 결론\n- 답: x\n```\n';
   assert.ok(blocked(run(F, F.root, { input: { last_assistant_message: fenceOnly } }).out), '펜스 안 결론만 있으면 없는 것');
 });
 
@@ -392,7 +394,7 @@ ok('stop_hook_active 재종료여도 대기 중이면 장부를 건드리지 않
   const F = makeHome();
   writeLedger(F.tmp, UNVERIFIED);
   const before = fs.readFileSync(ledgerFile(F.tmp), 'utf8');
-  run(F, F.root, { input: { stop_hook_active: true, background_tasks: [bg('subagent')], last_assistant_message: '## 결론\n- 문제: x' } });
+  run(F, F.root, { input: { stop_hook_active: true, background_tasks: [bg('subagent')], last_assistant_message: '## 결론\n- 답: x' } });
   assert.strictEqual(fs.readFileSync(ledgerFile(F.tmp), 'utf8'), before);
 });
 ok('미룬 뒤 background 가 끝난 Stop 에서는 cap 이 보존된 채 경고', () => {
@@ -432,7 +434,7 @@ ok('stop_hook_active 재종료 + 이번 턴 shell 대기 → 장부를 건드리
   const F = makeHome();
   writeLedger(F.tmp, { ...UNVERIFIED, bgTaskIds: ['b1'] });
   const before = fs.readFileSync(ledgerFile(F.tmp), 'utf8');
-  run(F, F.root, { input: { stop_hook_active: true, background_tasks: [bg('shell', { id: 'b1' })], last_assistant_message: '## 결론\n- 문제: x' } });
+  run(F, F.root, { input: { stop_hook_active: true, background_tasks: [bg('shell', { id: 'b1' })], last_assistant_message: '## 결론\n- 답: x' } });
   assert.strictEqual(fs.readFileSync(ledgerFile(F.tmp), 'utf8'), before);
 });
 
