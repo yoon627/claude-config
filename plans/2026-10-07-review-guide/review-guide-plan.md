@@ -1,6 +1,6 @@
 ---
 title: review-guide — 구현 중 임의 결정 신고 + Report "읽을 곳" 으로 사람의 diff 리뷰 범위를 좁힌다
-status: in_progress
+status: done
 started: 2026-10-07
 updated: 2026-10-08
 ---
@@ -23,11 +23,11 @@ updated: 2026-10-08
 - 2026-10-07: 착수. worktree `review-guide`(base `origin/main@d78c62d`). Explore — self-flag 표기는 `skills/dlc/SKILL.md` 54·58·106·110행, `README.md:327` 뿐(`agents/plan-reviewer.md:31`·`CLAUDE.md:204` 는 처분값·우선 검토 서술이라 불변). wiki decision 조회. Open questions 2건 사용자 확인.
 - 2026-10-07: plan-reviewer CONDITIONAL(강한 우려 6). 배치는 사용자 결정, 나머지는 `# Review Disposition` 대로 반영해 Decisions·Acceptance 를 고쳤다(구현 전 — 카운터 리셋 대상 아님).
 - 2026-10-07: 구현(SKILL·code-reviewer·README). Acceptance 7 시험 적용 — wiki-search plan: 출처 (1)은 Acceptance 1·2 에 테스트 파일까지만 있고 테스트 이름이 없다(C 가 채울 칸), 6·7 은 위치 없는 항목(증거만), 구현 위치는 기록에 없어 Report 시점에 코드에서 산출해야 한다. 출처 (3)은 plan 대비 이탈 2건(Disposition 27·28행)이 `fix` 로만 남아 자유 서술을 읽어야 가를 수 있다 — `[plan 대비]` 태그·바뀐 쪽 기록이 필요하다는 근거.
+- 2026-10-08: `/e merge` — 커밋 ac3a72b push, PR #235 생성(MERGEABLE). plan done 은 이 PR 에 실어 머지한다.
 - 2026-10-08: 최종 검증(격리 runner) — 명령 7개 exit 0, 어긋남 3건 처분(`# Review Disposition` 최종 검증 줄). 사용자가 바뀐 규칙을 쉬운 요약으로 확인하고 커밋 승인.
 - 2026-10-07: code-reviewer REQUEST CHANGES(Major CONFIRMED 3·PLAUSIBLE 1) → fix loop 1회차 → 재리뷰 APPROVE(Minor 4·Nit 3) → 2회차에서 Minor 3·Nit 3 반영. verify changed ALL PASS(skip: ps1 — PowerShell 없음), plan-lint 0, test_sync_codex_agents OK, test_wiki_check 135 OK.
 
 # Next
-- 커밋(사용자 문구 확인 2026-10-08 완료) → commit-check → Report(Acceptance 8 — 읽을 곳 실측) → 마무리는 사용자 선택(`/e merge` 등).
 
 # Decisions
 - wiki decision 조회(2026-10-07, 공용 wiki clone `/root/repos/claude-wiki` 를 `rg` 로 — 이 서버엔 `uv` 가 없어 `wiki_search.py` 미실행): [[ops-doc-slimming]](상시 주입 문서를 늘리지 않음 — CLAUDE.md 미변경으로 따름) · [[unknowns-discovery]] 표의 Explainer & Quiz "제거함 — 변경 설명이 필요하면 사용자가 요청한다"(따름 — "읽을 곳" 은 설명이 아니라 기존 기록에서 모은 위치 포인터라 그 결정을 뒤집지 않는다) · [[evidence-gate]](Acceptance 증거 대조 — 출처 (1)이 이 기록을 재사용, 따름) · [[self-diagnosis-and-improvement-status]](빈 체크리스트 의례 기각 — 트리거 4 도 닫힌 조건·침묵·개수 상한 없음으로 따름). 뒤집는 결정 없음.
