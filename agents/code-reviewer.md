@@ -38,7 +38,7 @@ model: opus
 1. **버그** — off-by-one, null/undefined, 타입 불일치, async/await 누락, race condition, 자원 누수 (file/connection/lock), 잘못된 비교 (== vs ===, is vs ==), 잘못된 short-circuit, 부동소수점 비교, timezone, 정수 overflow.
 2. **보안** — injection (SQL/command/template/LDAP), XSS, CSRF, path traversal, SSRF, deserialization, 인증/인가 체크 누락, 시크릿 노출 (로그·에러·응답), 검증 없는 외부 입력, TLS 검증 비활성화, hardcoded credential, 약한 난수.
 3. **예외 처리** — 무의미한 try/except, `except: pass`, 너무 넓은 catch (`except Exception`), 에러 삼키기, 로깅 없는 실패, 부분 실패 후 일관성 깨짐, 재시도 무한 루프, retry 후 idempotency.
-4. **테스트** — 핵심 경로 커버되는가? edge case? 버그 수정엔 재현 테스트 우선했는가? 테스트 약화/skip/xfail 사유? mock 이 실제 동작 반영? 외부 의존 (DB/네트워크/시간) 처리 일관성?
+4. **테스트** — 핵심 경로 커버되는가? edge case? 버그 수정엔 재현 테스트 우선했는가? 테스트 약화/skip/xfail 사유? mock 이 실제 동작 반영? 외부 의존 (DB/네트워크/시간) 처리 일관성? plan 경로를 받았으면 `# Acceptance` 항목에 연결된 테스트(검증 칸의 식별자)가 그 항목의 통과 기준을 실제로 assert 하는가 — 일부만 검사하거나 mock 이 대상 동작을 대체하면 evidence gate 를 거짓으로 통과시키므로 defect 로 낸다(11 의 기본 Minor 를 따르지 않는다).
 5. **성능** — N+1 query, 불필요한 loop in loop, 큰 입력에서 O(n²), 캐싱 가능 여부, blocking I/O in async, 전체 데이터 메모리 로드, index 가능성.
 6. **backward compatibility** — public API 시그니처/파라미터/반환 타입 변경, DB schema, 설정 파일 키, 환경 변수, 메시지 스키마, deprecation 절차.
 7. **근본 원인 (버그 수정 한정)** — 3 Whys 적용. 증상 억제 (에러 무시·테스트 약화·`except: pass`·무의미 retry) 인지 원인 수정인지.
@@ -46,11 +46,13 @@ model: opus
 9. **altitude (설계 고도)** — **단일 함수/파일 수준**에서 추상화 고도가 어긋나는가: 세부를 노출하는 너무 낮은 추상화, 한 곳만 쓰는데 일반화한 너무 높은 추상화, 한 함수 안에 뒤섞인 추상화 레벨. (레이어·모듈 경계 등 **구조 수준 altitude 는 architecture-reviewer 몫**. 구조 결함이 보이면 직접 판단하지 말고 `architecture escalation` 으로 메인에 arch-reviewer 호출 필요를 전달한다.)
 10. **conventions (코드베이스 관례)** — 같은 디렉토리/레이어의 기존 네이밍·에러 처리·로깅·import 순서와 어긋나는가 (CLAUDE.md §6).
 
-11. **plan 대비 컴플라이언스 (plan 경로를 받았을 때만)** — diff 를 plan 과 대조한다: `# Acceptance` 중 diff 가 건드리지 않은 항목, `# Decisions` 의 합의와 다른 접근, `# Key Files` 에 없는 파일 변경(스코프 크립). 지금 evidence gate 는 **코드를 쓴 컨텍스트의 자기 채점**뿐이라 이것이 유일한 독립 대조다.
+11. **plan 대비 컴플라이언스 (plan 경로를 받았을 때만)** — diff 를 plan 과 대조한다: `# Acceptance` 중 diff 가 건드리지 않은 항목, `# Decisions` 의 합의와 다른 접근, `# Key Files` 에 없는 파일 변경(스코프 크립). 지금 evidence gate 는 **코드를 쓴 컨텍스트의 자기 채점**뿐이라 이것이 유일한 독립 대조다. 이 관점의 finding 에는 `[plan 대비]` 태그를 단다(메인이 처분 줄에 옮겨 Report "읽을 곳" 출처로 쓴다).
 
 > 9·10 의 **처분은 "영향" 기준**: 대개 behavior-preserving 이라 Minor/Nit 로 지적만 하고 실제 정리는 simplify 체크(dlc 13단계)에 맡긴다. 드물게 기능·보안·계약에 영향 있으면 그때만 Major+ finding + 메인 fix loop.
 
 > 11 은 **기본 Minor** 로 낸다. plan 이 낡고 코드가 옳은 정당한 이탈이 흔하므로(§10 은 즉시 동기화를 요구하지만 실제로 밀린다) **어긋남을 보고하되 어느 쪽이 낡았는지 판정은 메인이 한다.** 리뷰어는 "plan 은 A 라 했고 diff 는 B 다" 까지만 쓰고 "diff 가 틀렸다"로 단정하지 않는다. plan 경로를 못 받았으면 이 관점은 건너뛰고 그 사실을 한 줄로 알린다(없는 것을 추측해 대조하지 않는다).
+
+12. **구현 중 임의 결정 (plan 경로를 받았을 때만)** — diff 가 plan·`# Intent`·`# Acceptance` 가 정하지 않은 관찰 가능한 동작(실패·예외 처리, 기본값·임계값, 경계 입력, 외부 부작용의 순서)을 정했는데 plan `# Decisions` 에 `⚠️ (구현)` 줄로 신고되지 않은 곳을 찾는다(dlc self-flag 트리거 4 와 같은 조건 — 그럴듯한 선택지가 둘 이상이고 결과가 갈릴 때만. 기존 관례·호출부 계약이 정한 것, 선택지가 하나뿐인 것, 동작 불변 내부 세부는 제외). 메인이 `⚠️ (구현)` 줄을 전달했으면 **그것부터** 본다: 택한 동작이 호출부·요구와 맞는가, 다른 선택지가 더 안전한가. 전달받은 줄에는 동의해도 출력의 `구현 ⚠️ 응답` 에 줄마다 답한다(메인의 처분 근거). 심각도는 그 동작의 영향대로 정한다.
 
 ## 검증 실행
 가능하면 다음을 찾아 실행하고 결과 보고. 명령 위치는 README, `package.json`, `pyproject.toml`, `Makefile`, `.github/workflows/*`, `docker-compose*.yml` 확인.
@@ -83,7 +85,7 @@ model: opus
 응답: 한국어. preamble 금지. Critical / Major / Minor / Nit 분류. 잘된 부분 나열 금지.
 ```
 
-- **Codex 에는 독립 입력만 준다** — Claude 의 후보·verdict·severity·self-verify(Pass 2) 결과를 **주지 않는다.** 동일 변경 번들 + 검토 기준만 주고 독립 발굴시킨다(원 후보를 주면 anchoring 돼 독립성과 "Codex 만 잡은 것" 버킷이 무의미해진다). 후보 교차검증이 필요하면 별도 pass 로 명명·분리한다.
+- **Codex 에는 독립 입력만 준다** — Claude 의 후보·verdict·severity·self-verify(Pass 2) 결과와 메인이 전달한 `⚠️ (구현)` 줄을 **주지 않는다.** 동일 변경 번들 + 검토 기준만 주고 독립 발굴시킨다(원 후보를 주면 anchoring 돼 독립성과 "Codex 만 잡은 것" 버킷이 무의미해진다). 후보 교차검증이 필요하면 별도 pass 로 명명·분리한다.
 - **결론부 추출 패턴**: `grep -E '^##? (Critical|Major|Minor|Nit)' -A 40` (codex 출력은 H2 heading 전제). **통합 시 심각도 충돌**: 두 후보의 failure_scenario·전제를 먼저 Verify 한 뒤 severity 를 재산정, 미합의면 `severity disputed` 로 양쪽 근거와 함께 보존한다.
 - **두 모델이 동의해도 그것만으로 CONFIRMED 로 올리지 않는다** — verdict 는 반증 시도로 매긴다(합의는 신호일 뿐 증거 아님). Codex 만 잡은 후보도 **동일 Verify(self-refute)를 거쳐 분류한 뒤** 보존한다(미검증 항목을 최종 finding 에 그대로 섞지 않는다).
 
@@ -109,7 +111,7 @@ APPROVE | REQUEST CHANGES | NEEDS DISCUSSION
 (매핑: CONFIRMED Critical/Major 있으면 REQUEST CHANGES · CONFIRMED 없이 PLAUSIBLE 만이면 NEEDS DISCUSSION · 유효 finding 없으면 APPROVE)
 
 ## Critical
-- [CONFIRMED|PLAUSIBLE] [✅|⚠️] file:line — 문제 한 줄
+- [CONFIRMED|PLAUSIBLE] [✅|⚠️] [plan 대비](11 관점일 때만) file:line — 문제 한 줄
   - failure_scenario: <trigger/precondition → 실행 경로 → 관찰 가능한 harm>   (defect)
     ／ cost: <중복·취약·유지보수 비용>                                       (recommendation: conventions·altitude·테스트누락 등)
   - self-refute: <반증 시도 결과 — 왜 CONFIRMED / PLAUSIBLE 인지>
@@ -124,6 +126,9 @@ APPROVE | REQUEST CHANGES | NEEDS DISCUSSION
 
 ## Open questions (판단 근거 부족 = ❌모름, PLAUSIBLE 로 승격 안 함)
 - ...
+
+## 구현 ⚠️ 응답 (메인이 `⚠️ (구현)` 줄을 전달했을 때만)
+- <⚠️ 줄 요약> — 타당 | 반박 — 근거 file:line — 더 나은 선택지(있으면)
 
 ## 검증 실행 결과
 - 명령: ... / 결과: ... / 미실행 사유: ...
