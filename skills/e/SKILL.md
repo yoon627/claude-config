@@ -125,8 +125,8 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `~/.claude/wiki/d
 7단계에서 worktree 를 삭제할 때만. **cwd 가 삭제 대상 안일 수 있어 순서 중요**(6 전 단계에서 나왔으면 이미 밖이다).
 - **이동 전 값 캡처**: `target_path`·`target_branch`·`main_path`(`git worktree list --porcelain` 첫 worktree)를 **세션 옮기기 전에** 고정(이동 후 재계산하면 엉뚱한 대상·main 가리킴).
 - **worktree 밖으로**: `ExitWorktree(action: keep)` 로 원래 디렉토리(보통 main) 복귀 — 대상 안에선 자기 remove 불가. 6 전 단계에서 이미 나왔으면 다시 부르지 않는다 — 그 재호출이 돌려주는 no-op 을 아래 no-op 폴백으로 처리하지 않는다. **`ExitWorktree` no-op**(harness 가 worktree 에서 시작)이면 폴백은 `~/.claude/wiki/docs/worktree-lifecycle.md` §C(다른 linked worktree 경유 or remove 생략+보고) — **강제 진행 금지**. 이동 실패로 cwd 가 대상 안이면 **중단+보고**(remove 금지).
-- **제거**: cwd 가 대상 밖 확인 후 `git worktree remove <target_path>`. 실패 시 stderr 분기(untracked→`--force`·파일점유·부분성공 prune) 세부는 `~/.claude/wiki/docs/worktree-lifecycle.md` §C.
-- **안전 게이트(§8) — 무확인 금지**: `--force`·`git branch -D`(미머지)·원격 `git push origin --delete` 는 **별도 AskUserQuestion 확인 후에만**.
+- **제거**: cwd 가 대상 밖 확인 후 `git worktree remove <target_path>`. 실패 시 stderr 분기(untracked→확인 후 `--force`·submodule→§C 점검 통과 시 무확인 `--force`·파일점유·부분성공 prune) 세부는 `~/.claude/wiki/docs/worktree-lifecycle.md` §C.
+- **안전 게이트(§8) — 무확인 금지**: `--force`·`git branch -D`(미머지)·원격 `git push origin --delete` 는 **별도 AskUserQuestion 확인 후에만**. 예외: 7단계 조건을 모두 충족한 worktree 를 remove 가 `working trees containing submodules cannot be moved or removed` 로 거부하고, `~/.claude/wiki/docs/worktree-lifecycle.md` §C 의 submodule 점검 두 가지(모든 module git dir 이 작업 트리 있는 submodule 의 것인지, 그 submodule 들에 변경·ignored·원격 밖 커밋이 없는지)를 모두 통과하면 `--force` 는 묻지 않는다 — 더 지워지는 것이 마지막 fetch 기준 원격 추적 ref 에 있는 것뿐이다.
 - **로컬 브랜치(옵션 ②·③)**: `git branch -d <target_branch>`(미머지 `-d` 거부 시 `-D` 는 확인 후). **원격(옵션 ③만)**: worktree·로컬 삭제 성공 후 `git push origin --delete <target_branch>`(원격 ref 부재 no-op). 조건5 확정 아님 → 사용자가 경고 보고 택한 경우만(orphan 방지). 그 외 push 안 함.
 - 한 줄 보고: 제거한 worktree·브랜치(또는 유지 사유).
 
@@ -136,5 +136,5 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `~/.claude/wiki/d
 - done **자동 전환 안 함** — 확정 완료 신호 + 사용자 확인 시만. 기본 in_progress 체크포인트. 머지 모드의 M4 done 은 `/e merge` 가 그 확인이며, 머지 실패 시 복구 규칙으로 되돌린다.
 - plan 갱신은 **사실 기반만**(§1) — git/파일로 확인된 것만. 추측으로 Progress/Decisions 채우지 않는다.
 - subagent 위임 아님 — plan single writer 는 메인. 메인이 직접 커밋/기록한다.
-- **worktree 정리는 7단계 조건(비-메인·done·clean·merged·미보존 산출물 없음·점유 프로세스 없음) 충족 시 무확인 실행** — 조건 하나라도 불충족이거나 6단계 worklog 가 실패했으면 정리 생략(강행 금지). `--force`·`git branch -D`(미머지)·**원격 삭제(`git push origin --delete`)**는 여기 포함되지 않으며 명시 확인 없이 금지(§8).
+- **worktree 정리는 7단계 조건(비-메인·done·clean·merged·미보존 산출물 없음·점유 프로세스 없음) 충족 시 무확인 실행** — 조건 하나라도 불충족이거나 6단계 worklog 가 실패했으면 정리 생략(강행 금지). `--force`(정리 규칙의 submodule 예외 제외)·`git branch -D`(미머지)·**원격 삭제(`git push origin --delete`)**는 여기 포함되지 않으며 명시 확인 없이 금지(§8).
 - **main 복귀(6 전·8단계)는 자동** — `ExitWorktree(action: keep)` 라 worktree·브랜치를 보존하는 비파괴 동작이라 확인 없이 수행. 단 삭제(remove)는 8단계 아닌 7단계 사안이고, no-op(harness 가 worktree 에서 시작)이면 강제 이동 없이 보고만.
