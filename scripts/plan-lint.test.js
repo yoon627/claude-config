@@ -105,6 +105,64 @@ ok('ⓥ "# Decisions (설계)" 접미사 → clean(누락 아님)', clean(V.repl
 // ⓦ Acceptance 섹션 접미사도 참조 무결성이 인식
 ok('ⓦ "# Acceptance (완료기준)" 접미사 → 참조 정상 인식(clean)', clean(V.replace('# Acceptance', '# Acceptance (완료기준)')));
 
+// ---- 새 형식(# Tasks) ----
+const { planFormat } = require('./plan-lint.js');
+const N = [
+  '---',
+  'title: t',
+  'status: in_progress',
+  'started: 2026-10-18',
+  'updated: 2026-10-18',
+  '---',
+  '',
+  '# Goal',
+  'g',
+  '- Why: w',
+  '',
+  '# Tasks',
+  '- [x] 착수 (2026-10-18)',
+  '- [ ] 구현 — `scripts/a.js`, Acceptance 2 확인',
+  '',
+  '# Acceptance',
+  '1. one',
+  '2. [ ] two',
+  '',
+  '# Decisions',
+  'd',
+  '',
+  '# Blockers',
+  'none',
+  '',
+].join('\n');
+
+ok('N1 새 형식 valid(Tasks 의 "Acceptance 2" 참조 + `2. [ ]` 항목 포함) → clean', clean(N));
+ok('N2 형식 판별: Tasks 만 → new, 옛 섹션만 → old, 둘 다 → mixed',
+  planFormat(N) === 'new' && planFormat(V) === 'old' && planFormat(N.replace('# Blockers', '# Next\nn\n\n# Blockers')) === 'mixed');
+ok('N3 # Tasks 도 옛 섹션도 없음 → 새 형식 기본값으로 # Tasks 누락',
+  (() => { const vs = lintPlan(N.replace('# Tasks', '## Tasks')); return vs.some((v) => v.includes('# Tasks') && v.includes('새 형식')); })());
+ok('N4 # Tasks 와 # Next 혼재 → 형식 혼재 위반', hasV(N.replace('# Blockers', '# Next\nn\n\n# Blockers'), '혼재'));
+ok('N5 Tasks 에 체크박스 0개 → 위반', hasV(N.replace('- [x] 착수 (2026-10-18)\n- [ ] 구현 — `scripts/a.js`, Acceptance 2 확인', '착수함'), '체크박스'));
+ok('N6 날짜 없는 체크된 Task → 위반', hasV(N.replace('- [x] 착수 (2026-10-18)', '- [x] 착수'), '날짜'));
+ok('N7 체크박스 변형(* [X], 들여쓴 하위) → clean',
+  clean(N.replace('- [x] 착수 (2026-10-18)', '* [X] 착수 (2026-10-18)\n  - [ ] 하위 항목')));
+ok('N8 코드펜스 안 "# Tasks" 는 heading 아님 → 옛 형식 baseline clean',
+  clean(V.replace('# Decisions\nd\n', '# Decisions\nd\n```\n# Tasks\n```\n')));
+ok('N9 코드펜스 안 "# Next" 예시 → 새 형식 혼재 아님(clean)',
+  clean(N.replace('# Decisions\nd\n', '# Decisions\nd\n~~~\n# Next\n~~~\n')));
+ok('N10 반쯤 변환(Key Files 만 남고 Tasks 없음) → 옛 형식 누락 + 새 형식 안내',
+  (() => {
+    const half = V.replace('# Progress\n- 2026-07-16 작업함, Acceptance 2 참조\n\n', '').replace('# Next\nn\n\n', '');
+    const vs = lintPlan(half);
+    return vs.some((v) => v.includes('# Progress')) && vs.some((v) => v.includes('# Tasks'));
+  })());
+ok('N11 옛 형식 + # Intent → old 로 판별·clean', planFormat(V + '\n# Intent\n- Problem: p\n') === 'old' && clean(V + '\n# Intent\n- Problem: p\n'));
+ok('N12 Tasks 안 코드펜스의 체크박스 예시는 항목 아님 → 날짜 없어도 clean',
+  clean(N.replace('- [ ] 구현', '```\n- [x] 예시\n```\n- [ ] 구현'))
+  && clean(N.replace('- [ ] 구현', '- [ ] 예시 달린 항목\n  ```\n  - [x] 들여쓴 예시\n  ```\n- [ ] 구현')));
+ok('N13 ```` 펜스 안의 ``` 는 펜스를 닫지 않음 → 그 안 "# Next" 는 heading 아님(clean)',
+  clean(N.replace('# Decisions\nd\n', '# Decisions\nd\n````\n```\n# Next\n```\n````\n'))
+  && clean(N.replace('# Decisions\nd\n', '# Decisions\nd\n```\n```js\n# Next\n```\n')));
+
 // ---- CLI ----
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'plan-lint-'));
 function writeF(name, text) { const p = path.join(TMP, name); fs.writeFileSync(p, text); return p; }
