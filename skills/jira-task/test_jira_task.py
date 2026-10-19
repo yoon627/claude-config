@@ -260,6 +260,127 @@ class DescriptionBodyTests(unittest.TestCase):
         )
 
 
+def task_list(*items: tuple[bool, str]) -> dict:
+    return {
+        "type": "taskList",
+        "attrs": {"localId": "list"},
+        "content": [
+            {
+                "type": "taskItem",
+                "attrs": {"localId": f"item-{index}", "state": "DONE" if done else "TODO"},
+                "content": [{"type": "text", "text": text}],
+            }
+            for index, (done, text) in enumerate(items)
+        ],
+    }
+
+
+TODO = [(True, "kb_ask 도구 추가"), (False, "Plan 단계 실측")]
+
+
+class TodoTests(unittest.TestCase):
+    def test_parse_todo_reads_checkbox_lines(self) -> None:
+        text = "[x] kb_ask 도구 추가\n- [ ] Plan 단계 실측\n\n* [X] 대문자 표시\n"
+
+        self.assertEqual(
+            jira_task.parse_todo(text),
+            [(True, "kb_ask 도구 추가"), (False, "Plan 단계 실측"), (True, "대문자 표시")],
+        )
+
+    def test_parse_todo_rejects_lines_without_checkbox(self) -> None:
+        with self.assertRaisesRegex(JiraTaskError, "체크 표시"):
+            jira_task.parse_todo("[x] 완료\n그냥 문장")
+
+    def test_todo_section_is_created_before_work_log_as_task_list(self) -> None:
+        current = doc(paragraph("기존 설명"), heading("작업 내용"), paragraph("2026-08-12", "- 어제"))
+
+        result, _ = jira_task.upsert_description_body(current, SUMMARY, DATE, TODO)
+
+        content = result["content"]
+        self.assertEqual(jira_task._adf_node_text(content[0]), "기존 설명")
+        self.assertEqual(jira_task._adf_node_text(content[1]), "해야 할 일")
+        self.assertEqual(content[2]["type"], "taskList")
+        self.assertEqual(
+            [item["attrs"]["state"] for item in content[2]["content"]], ["DONE", "TODO"]
+        )
+        self.assertEqual(jira_task._adf_node_text(content[3]), "작업 내용")
+        self.assertEqual(jira_task.todo_section_text(result), "[x] kb_ask 도구 추가\n[ ] Plan 단계 실측")
+
+    def test_existing_todo_section_is_replaced_and_rest_kept(self) -> None:
+        current = doc(
+            heading("해야 할 일"),
+            task_list((False, "옛 항목")),
+            paragraph("사람이 덧붙인 메모"),
+            heading("작업 내용"),
+            paragraph(DATE, f"- {SUMMARY}"),
+        )
+
+        result, action = jira_task.upsert_description_body(current, SUMMARY, DATE, TODO)
+
+        self.assertEqual(action, "updated")
+        self.assertEqual(jira_task.todo_section_text(result), "[x] kb_ask 도구 추가\n[ ] Plan 단계 실측")
+        self.assertEqual(
+            [jira_task._adf_node_text(block) for block in result["content"][2:]],
+            ["작업 내용", f"{DATE}\n- {SUMMARY}"],
+        )
+
+    def test_todo_section_ends_at_any_heading_so_work_log_survives(self) -> None:
+        current = doc(
+            heading("해야 할 일", level=1),
+            paragraph("[ ] 옛 항목"),
+            heading("참고", level=3),
+            paragraph("사람 메모"),
+            heading("작업 내용", level=2),
+            paragraph("2026-08-01", "- 옛 기록"),
+        )
+
+        result, _ = jira_task.upsert_description_body(current, SUMMARY, DATE, TODO)
+
+        texts = [jira_task._adf_node_text(block) for block in result["content"]]
+        self.assertEqual(texts[2:6], ["참고", "사람 메모", "작업 내용", "2026-08-01\n- 옛 기록"])
+        self.assertEqual(result["content"][1]["type"], "taskList")
+
+    def test_plain_text_checkbox_paragraph_becomes_task_list(self) -> None:
+        current = doc(
+            heading("해야 할 일"),
+            paragraph("[x] kb_ask 도구 추가", "[ ] Plan 단계 실측"),
+            heading("작업 내용"),
+            paragraph(DATE, f"- {SUMMARY}"),
+        )
+
+        result, action = jira_task.upsert_description_body(current, SUMMARY, DATE, TODO)
+
+        self.assertEqual(action, "updated")
+        self.assertEqual(result["content"][1]["type"], "taskList")
+
+    def test_without_todo_existing_todo_section_is_kept_as_is(self) -> None:
+        current = doc(heading("해야 할 일"), task_list((True, "사람이 체크")), heading("작업 내용"))
+
+        result, _ = jira_task.upsert_description_body(current, SUMMARY, DATE)
+
+        self.assertEqual(result["content"][:3], current["content"])
+
+    def test_same_todo_and_summary_is_unchanged(self) -> None:
+        current, _ = jira_task.upsert_description_body(None, SUMMARY, DATE, TODO)
+
+        _, action = jira_task.upsert_description_body(current, SUMMARY, DATE, TODO)
+
+        self.assertEqual(action, "unchanged")
+
+    def test_fingerprint_covers_todo_state_only_when_todo_is_given(self) -> None:
+        unchecked = doc(heading("해야 할 일"), task_list((False, "항목")), heading("작업 내용"))
+        checked = doc(heading("해야 할 일"), task_list((True, "항목")), heading("작업 내용"))
+
+        self.assertEqual(
+            jira_task.entry_fingerprint(unchecked, DATE),
+            jira_task.entry_fingerprint(checked, DATE),
+        )
+        self.assertNotEqual(
+            jira_task.entry_fingerprint(unchecked, DATE, include_todo=True),
+            jira_task.entry_fingerprint(checked, DATE, include_todo=True),
+        )
+
+
 class ApiTests(unittest.TestCase):
     @mock.patch.object(jira_task, "_request")
     def test_get_issue_description_requests_only_description(
@@ -325,6 +446,41 @@ class UpsertTests(unittest.TestCase):
         self.assertEqual(action, "added")
         self.assertEqual(saved, planned)
         update.assert_called_once_with(CONFIG, "ABC1-1234", planned, timeout=15.0)
+
+    @mock.patch.object(jira_task, "update_issue_description")
+    @mock.patch.object(jira_task, "get_issue_description")
+    def test_todo_is_written_and_verified_with_todo_fingerprint(
+        self, get_description: mock.Mock, update: mock.Mock
+    ) -> None:
+        current = doc(heading("해야 할 일"), task_list((False, "kb_ask 도구 추가")))
+        planned, _ = jira_task.upsert_description_body(current, SUMMARY, DATE, TODO)
+        get_description.side_effect = [current, planned]
+
+        action, _ = jira_task.upsert_description(
+            CONFIG,
+            "ABC1-1234",
+            SUMMARY,
+            DATE,
+            jira_task.entry_fingerprint(current, DATE, include_todo=True),
+            todo=TODO,
+        )
+
+        self.assertEqual(action, "added")
+        update.assert_called_once()
+        sent = update.call_args.args[2]
+        self.assertEqual(jira_task.todo_section_text(sent), "[x] kb_ask 도구 추가\n[ ] Plan 단계 실측")
+        self.assertEqual(jira_task.existing_entry_text(sent, DATE), f"{DATE}\n- {SUMMARY}")
+
+        get_description.side_effect = [current, current]
+        with self.assertRaisesRegex(JiraTaskError, "저장값 확인 불일치"):
+            jira_task.upsert_description(
+                CONFIG,
+                "ABC1-1234",
+                SUMMARY,
+                DATE,
+                jira_task.entry_fingerprint(current, DATE, include_todo=True),
+                todo=TODO,
+            )
 
     @mock.patch.object(jira_task, "update_issue_description")
     @mock.patch.object(jira_task, "get_issue_description")
@@ -469,6 +625,33 @@ class CliTests(unittest.TestCase):
             jira_task.main(["--ticket", "ABC1-1234", "--date", DATE, "--summary", SUMMARY])
         self.assertIn("(없음)", output.getvalue())
         self.assertIn("기존 항목 지문: none", output.getvalue())
+
+    @mock.patch.object(jira_task, "get_issue_description")
+    @mock.patch.object(jira_task, "make_jira_config", return_value=CONFIG)
+    def test_preview_with_todo_file_shows_existing_and_new_todo(
+        self, _config: mock.Mock, get_description: mock.Mock, _settings: mock.Mock
+    ) -> None:
+        current = doc(heading("해야 할 일"), task_list((True, "사람이 체크한 항목")))
+        get_description.return_value = current
+        with tempfile.TemporaryDirectory() as directory:
+            todo_file = Path(directory) / "todo.txt"
+            todo_file.write_text("[x] kb_ask 도구 추가\n[ ] Plan 단계 실측\n", encoding="utf-8")
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = jira_task.main(
+                    [
+                        "--ticket", "ABC1-1234", "--date", DATE,
+                        "--summary", SUMMARY, "--todo-file", str(todo_file),
+                    ]
+                )
+
+        self.assertEqual(result, 0)
+        self.assertIn("[x] 사람이 체크한 항목", output.getvalue())
+        self.assertIn("[ ] Plan 단계 실측", output.getvalue())
+        self.assertIn(
+            f"기존 항목 지문: {jira_task.entry_fingerprint(current, DATE, include_todo=True)}",
+            output.getvalue(),
+        )
 
     @mock.patch.object(jira_task, "upsert_description")
     def test_post_requires_expected_fingerprint(

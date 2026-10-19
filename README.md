@@ -405,13 +405,13 @@ AI 세션 로그(Claude `~/.claude/projects/<slug>` + Codex `~/.codex/sessions`)
 
 ### skills/jira-task/ — Claude·Codex 작업내용 → Jira task description
 
-현재 worktree의 작업 중 task 목표에 해당하는 변경만 날짜 줄 + 한 줄 항목 목록으로 기존 Jira task description의 `작업 내용` 섹션에 반영한다(리베이스·테스트 정비 같은 과정은 적지 않고, 적을 항목이 없으면 갱신하지 않는다). 기본은 미리보기(Jira 읽기만)로 그날 기존 항목과 지문을 보여주고, 기존 항목이 있으면 합쳐 다시 요약한다. `/e`에서 사용자 확인 후 `--post --expect-existing <지문>`으로 그날 항목을 추가하거나 교체한다(식별용 marker 줄은 남기지 않는다). 별도 Jira comment는 생성하지 않는다. 인증 경로는 `jira-worklog`와 같은 `~/.jira-kit/.env`를 사용한다.
+현재 worktree의 작업 중 task 목표에 해당하는 변경만 날짜 줄 + 한 줄 항목 목록으로 기존 Jira task description의 `작업 내용` 섹션에 반영한다(리베이스·테스트 정비 같은 과정은 적지 않고, 적을 항목이 없으면 갱신하지 않는다. 방향 변경·되돌림처럼 "왜?"가 나올 항목에는 `(이유: …)`). `--todo-file`(줄마다 `[x]`/`[ ]` 항목)을 주면 티켓 목표를 나눈 `해야 할 일` 섹션을 Jira 체크 목록으로 통째로 교체한다. 기본은 미리보기(Jira 읽기만)로 그날 기존 항목과 지문을 보여주고, 기존 항목이 있으면 합쳐 다시 요약한다. `/e`에서 사용자 확인 후 `--post --expect-existing <지문>`으로 그날 항목을 추가하거나 교체한다(식별용 marker 줄은 남기지 않는다). 별도 Jira comment는 생성하지 않는다. 인증 경로는 `jira-worklog`와 같은 `~/.jira-kit/.env`를 사용한다.
 
 ```text
-uv run --no-project python "skills/jira-task/jira_task.py" --ticket ABC-1234 --summary-file "<요약 파일>"
+uv run --no-project python "skills/jira-task/jira_task.py" --ticket ABC-1234 --summary-file "<요약 파일>" [--todo-file "<해야 할 일 파일>"]
 ```
 
-요약(줄 하나 = 항목 하나)은 파일로 넘긴다 — 명령 인자로 넣으면 backtick·`$` 가 셸에서 해석된다.
+요약(줄 하나 = 항목 하나)과 해야 할 일은 파일로 넘긴다 — 명령 인자로 넣으면 backtick·`$` 가 셸에서 해석된다.
 
 preview 결과를 확인하고 `/e`에서 사용자 승인 후 동일 명령에 `--date <preview 날짜> --post --expect-existing <preview 지문>`을 추가한다. 시간은 `jira-worklog`, 작업내용은 `jira-task`가 각각 Jira에 남긴다.
 
