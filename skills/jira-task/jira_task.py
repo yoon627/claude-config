@@ -13,6 +13,7 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
+import uuid
 from dataclasses import dataclass, field
 from datetime import date, datetime, tzinfo
 from pathlib import Path
@@ -31,6 +32,8 @@ except (
 DEFAULT_TICKET_PATTERN = r"[A-Z][A-Z0-9]+-\d+"
 MARKER_PREFIX = "[jira-task]"
 DESCRIPTION_HEADING = "작업 내용"
+TODO_HEADING = "해야 할 일"
+TODO_LINE_RE = re.compile(r"^(?:[-*•]\s+)?\[([ xX])\]\s+(\S.*)$")
 ITEM_PREFIX_RE = re.compile(r"^(?:[-*•]|\d{1,2}[.)])(?:\s+|$)")
 DATE_LINE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 LEGACY_MARKER_DATE_RE = re.compile(r"\sdate=(\S+)")
@@ -348,12 +351,65 @@ def _description_entry(summary: str, task_date: str) -> dict[str, Any]:
     return {"type": "paragraph", "content": content}
 
 
-def _description_heading() -> dict[str, Any]:
+def _description_heading(text: str = DESCRIPTION_HEADING) -> dict[str, Any]:
     return {
         "type": "heading",
         "attrs": {"level": 2},
-        "content": [{"type": "text", "text": DESCRIPTION_HEADING}],
+        "content": [{"type": "text", "text": text}],
     }
+
+
+TodoItems = list[tuple[bool, str]]
+
+
+def parse_todo(text: str) -> TodoItems:
+    """`[x] 항목`·`[ ] 항목` 줄(앞의 `-`·`*`·`•` 허용)을 (완료 여부, 항목)으로 읽는다."""
+    items: TodoItems = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        match = TODO_LINE_RE.match(line)
+        if not match:
+            raise JiraTaskError(
+                f"해야 할 일 줄은 [x] 또는 [ ] 체크 표시로 시작해야 합니다: {line}"
+            )
+        items.append((match.group(1) != " ", match.group(2).strip()))
+    return items
+
+
+def _todo_block(todo: TodoItems) -> dict[str, Any]:
+    return {
+        "type": "taskList",
+        "attrs": {"localId": uuid.uuid4().hex},
+        "content": [
+            {
+                "type": "taskItem",
+                "attrs": {"localId": uuid.uuid4().hex, "state": "DONE" if done else "TODO"},
+                "content": [{"type": "text", "text": text}],
+            }
+            for done, text in todo
+        ],
+    }
+
+
+def _todo_lines(block: dict[str, Any]) -> list[str]:
+    """taskList 는 항목마다 `[x] 항목` 한 줄, 그 밖의 블록은 본문 줄 그대로."""
+    if block.get("type") != "taskList":
+        return _adf_node_text(block).split("\n")
+    lines: list[str] = []
+    for item in block.get("content") or []:
+        if not isinstance(item, dict):
+            continue
+        attrs = item.get("attrs")
+        state = attrs.get("state") if isinstance(attrs, dict) else None
+        mark = "x" if state == "DONE" else " "
+        lines.append(f"[{mark}] {_adf_node_text(item.get('content'))}")
+    return lines
+
+
+def _todo_text(todo: TodoItems) -> str:
+    return "\n".join(f"[{'x' if done else ' '}] {text}" for done, text in todo)
 
 
 def _heading_level(block: dict[str, Any]) -> int | None:
@@ -364,11 +420,13 @@ def _heading_level(block: dict[str, Any]) -> int | None:
     return level if isinstance(level, int) else 6
 
 
-def _section_range(content: list[dict[str, Any]]) -> tuple[int, int] | None:
-    """`작업 내용` heading 다음 블록부터 같은 레벨 이하의 다음 heading 직전까지."""
+def _section_range(
+    content: list[dict[str, Any]], title: str = DESCRIPTION_HEADING
+) -> tuple[int, int] | None:
+    """`title` heading 다음 블록부터 같은 레벨 이하의 다음 heading 직전까지."""
     for start, block in enumerate(content):
         level = _heading_level(block)
-        if level is None or _adf_node_text(block).strip() != DESCRIPTION_HEADING:
+        if level is None or _adf_node_text(block).strip() != title:
             continue
         for end in range(start + 1, len(content)):
             other = _heading_level(content[end])
@@ -425,29 +483,88 @@ def existing_entry_text(description: dict[str, Any] | None, task_date: str) -> s
     )
 
 
-def entry_fingerprint(description: dict[str, Any] | None, task_date: str) -> str:
+def _todo_range(content: list[dict[str, Any]]) -> tuple[int, int] | None:
+    """`해야 할 일` heading 다음 블록부터 다음 heading(레벨 무관) 직전까지.
+
+    `작업 내용` 이나 사람이 넣은 하위 heading 이 레벨 차이로 섹션 안에 들어와 통째로 교체되지 않게 한다.
+    """
+    section = _section_range(content, TODO_HEADING)
+    if section is None:
+        return None
+    start, end = section
+    for index in range(start, end):
+        if _heading_level(content[index]) is not None:
+            return start, index
+    return start, end
+
+
+def todo_section_text(description: dict[str, Any] | None) -> str:
+    """`해야 할 일` 섹션을 `[x] 항목` 줄로. 섹션이 없으면 빈 문자열."""
+    content = _description_content(description)
+    section = _todo_range(content)
+    if section is None:
+        return ""
+    lines = [line for index in range(*section) for line in _todo_lines(content[index])]
+    return "\n".join(lines).strip()
+
+
+def entry_fingerprint(
+    description: dict[str, Any] | None, task_date: str, *, include_todo: bool = False
+) -> str:
+    """그 날짜 항목의 지문. 해야 할 일도 교체할 때는 그 섹션까지 포함한다(사람이 체크한 변화를 덮어쓰지 않게)."""
     text = existing_entry_text(description, task_date)
-    if not text:
+    todo = todo_section_text(description) if include_todo else ""
+    if not text and not todo:
         return "none"
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+    combined = f"{text}\n--todo--\n{todo}" if include_todo else text
+    return hashlib.sha256(combined.encode("utf-8")).hexdigest()[:12]
 
 
 def _description_matches(
-    description: dict[str, Any] | None, summary: str, task_date: str
+    description: dict[str, Any] | None,
+    summary: str,
+    task_date: str,
+    todo: TodoItems | None = None,
 ) -> bool:
     content = _description_content(description)
     indices = _date_block_indices(content, task_date)
     if len(indices) != 1:
+        return False
+    if todo is not None and todo_section_text(description) != _todo_text(todo):
         return False
     return _adf_node_text(content[indices[0]]) == "\n".join(
         _description_entry_lines(summary, task_date)
     )
 
 
+def _replace_todo_section(content: list[dict[str, Any]], todo: TodoItems) -> bool:
+    """`해야 할 일` 섹션 본문을 체크 목록 하나로 바꾼다. 없으면 `작업 내용` 앞(없으면 끝)에 만든다. 바뀌었으면 True."""
+    section = _todo_range(content)
+    if section is not None:
+        current = "\n".join(
+            line for index in range(*section) for line in _todo_lines(content[index])
+        ).strip()
+        if (
+            current == _todo_text(todo)
+            and section[1] - section[0] == 1
+            and content[section[0]].get("type") == "taskList"
+        ):
+            return False
+        content[section[0] : section[1]] = [_todo_block(todo)]
+        return True
+    work_log = _section_range(content)
+    position = work_log[0] - 1 if work_log is not None else len(content)
+    content[position:position] = [_description_heading(TODO_HEADING), _todo_block(todo)]
+    return True
+
+
 def upsert_description_body(
-    description: dict[str, Any] | None, summary: str, task_date: str
+    description: dict[str, Any] | None,
+    summary: str,
+    task_date: str,
+    todo: TodoItems | None = None,
 ) -> tuple[dict[str, Any], str]:
-    """기존 ADF 본문을 보존하고 그 날짜 항목을 새 요약 하나로 추가·교체한다."""
+    """기존 ADF 본문을 보존하고 그 날짜 항목을 새 요약 하나로 추가·교체한다. todo 가 있으면 해야 할 일도 교체한다."""
     if description is None:
         result: dict[str, Any] = {"type": "doc", "version": 1, "content": []}
     else:
@@ -458,13 +575,14 @@ def upsert_description_body(
             raise JiraTaskError("Jira description의 ADF version이 없습니다")
 
     content = _description_content(result)
+    todo_changed = todo is not None and _replace_todo_section(content, todo)
     entry = _description_entry(summary, task_date)
     indices = _date_block_indices(content, task_date)
     if indices:
         if len(indices) == 1 and _adf_node_text(content[indices[0]]) == _adf_node_text(
             entry
         ):
-            return result, "unchanged"
+            return result, "updated" if todo_changed else "unchanged"
         content[indices[0]] = entry
         for index in reversed(indices[1:]):
             del content[index]
@@ -485,24 +603,25 @@ def upsert_description(
     task_date: str,
     expected_fingerprint: str,
     *,
+    todo: TodoItems | None = None,
     timeout: float = 15.0,
 ) -> tuple[str, dict[str, Any]]:
     current = get_issue_description(config, issue_key, timeout=timeout)
-    actual = entry_fingerprint(current, task_date)
+    actual = entry_fingerprint(current, task_date, include_todo=todo is not None)
     if actual != expected_fingerprint:
         raise JiraTaskError(
             f"{task_date} 기존 항목 지문이 다릅니다(기대 {expected_fingerprint}, 현재 {actual}) — "
             "preview를 다시 실행해 기존 항목을 읽고 요약을 다시 쓰세요"
         )
-    planned, action = upsert_description_body(current, summary, task_date)
+    planned, action = upsert_description_body(current, summary, task_date, todo)
     if action == "unchanged":
         return action, current or planned
 
     update_issue_description(config, issue_key, planned, timeout=timeout)
     saved = get_issue_description(config, issue_key, timeout=timeout)
-    if not _description_matches(saved, summary, task_date):
+    if not _description_matches(saved, summary, task_date, todo):
         raise JiraTaskError(
-            f"task 본문 갱신 후 저장값 확인 불일치 {issue_key}: {task_date} 항목을 찾지 못했습니다"
+            f"task 본문 갱신 후 저장값 확인 불일치 {issue_key}: {task_date} 항목 또는 해야 할 일이 요청과 다릅니다"
         )
     return action, saved or planned
 
@@ -656,18 +775,38 @@ def build_description_entry(summary: str, task_date: str) -> str:
     return "\n".join(_description_entry_lines(summary, task_date))
 
 
+def _todo_from_args(args: argparse.Namespace) -> TodoItems | None:
+    if not args.todo_file:
+        return None
+    try:
+        text = Path(args.todo_file).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise JiraTaskError(f"todo 파일 읽기 실패: {exc}") from None
+    if len(text) > MAX_SUMMARY_LENGTH:
+        raise JiraTaskError(f"todo가 너무 깁니다(최대 {MAX_SUMMARY_LENGTH}자)")
+    todo = parse_todo(text)
+    if not todo:
+        raise JiraTaskError("todo 파일에 항목이 없습니다 — [x]/[ ] 줄을 한 줄씩 적으세요")
+    if any(pattern.search(text) for pattern in SECRET_PATTERNS):
+        raise JiraTaskError(
+            "todo에 credential/private key로 보이는 값이 있어 게시를 중단합니다"
+        )
+    return todo
+
+
 def _preview_existing(
-    settings: Settings, ticket: str, task_date: str, timeout: float
-) -> tuple[str, str]:
-    """그 날짜의 기존 항목과 지문. 읽지 못하면 사유와 `unknown`."""
+    settings: Settings, ticket: str, task_date: str, timeout: float, include_todo: bool
+) -> tuple[str, str, str]:
+    """그 날짜의 기존 항목, 기존 해야 할 일, 지문. 읽지 못하면 사유와 `unknown`."""
     try:
         config = make_jira_config(settings, timeout=timeout)
         current = get_issue_description(config, ticket, timeout=timeout)
         existing = existing_entry_text(current, task_date)
-        fingerprint = entry_fingerprint(current, task_date)
+        todo = todo_section_text(current)
+        fingerprint = entry_fingerprint(current, task_date, include_todo=include_todo)
     except (ConfigError, JiraTaskError) as exc:
-        return f"(확인 불가: {exc})", "unknown"
-    return existing or "(없음)", fingerprint
+        return f"(확인 불가: {exc})", "(확인 불가)", "unknown"
+    return existing or "(없음)", todo or "(없음)", fingerprint
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -694,6 +833,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--summary-file", help="summary 파일 경로; '-'이면 stdin")
     parser.add_argument(
+        "--todo-file",
+        help="해야 할 일 파일 경로(줄마다 [x] 또는 [ ] 항목). 주면 `해야 할 일` 섹션 전체를 이 목록으로 교체",
+    )
+    parser.add_argument(
         "--post", action="store_true", help="Jira task description을 실제로 갱신"
     )
     parser.add_argument(
@@ -716,6 +859,7 @@ def main(argv: list[str] | None = None) -> int:
         settings = load_settings()
         context = resolve_context(args, settings)
         summary = _summary_from_args(args)
+        todo = _todo_from_args(args)
         entry = build_description_entry(summary, context.task_date)
         if args.post and not args.expect_existing:
             raise JiraTaskError(
@@ -725,9 +869,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"날짜: {context.task_date}")
         if not args.post:
             print("동작: task description 갱신 (미리보기; 외부 변경 없음)")
-            existing, fingerprint = _preview_existing(
-                settings, context.ticket, context.task_date, args.timeout
+            existing, existing_todo, fingerprint = _preview_existing(
+                settings, context.ticket, context.task_date, args.timeout, todo is not None
             )
+            if todo is not None:
+                print("--- 기존 해야 할 일 (교체됨) ---")
+                print(existing_todo)
+                print("--- 교체 후 해야 할 일 ---")
+                print(_todo_text(todo))
             print("--- 그 날짜 기존 항목 (교체됨) ---")
             print(existing)
             print(f"--- 기존 항목 지문: {fingerprint} ---")
@@ -744,6 +893,7 @@ def main(argv: list[str] | None = None) -> int:
             summary,
             context.task_date,
             args.expect_existing,
+            todo=todo,
             timeout=args.timeout,
         )
         print(f"Jira task description {action}: {context.ticket}")

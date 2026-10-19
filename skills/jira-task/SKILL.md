@@ -1,6 +1,6 @@
 ---
 name: jira-task
-description: Update the current Jira task's description with a concise summary of what was added or changed. Use from /e when finishing a Claude or Codex task, after previewing the description change and receiving explicit user approval before updating the task body.
+description: Update the current Jira task's description with the task's to-do checklist and a dated summary of what was added or changed (with reasons for direction changes). Use from /e when finishing a Claude or Codex task, after previewing the description change and receiving explicit user approval before updating the task body.
 ---
 
 # Jira Task Description
@@ -14,21 +14,23 @@ description: Update the current Jira task's description with a concise summary o
    - task 목표에 해당하는 기능·동작 변경만 적는다. 리베이스·머지·CI·리뷰 반영·테스트 정비·리팩토링은 task 가 그 자체를 요구한 경우가 아니면 적지 않는다.
    - 커밋 메시지처럼 구현 경위를 옮기지 말고, 무엇이 어떻게 달라졌는지 결과로 항목당 한 줄, 1~4개.
    - 변경 파일 목록, 검증 명령, 작업시간, 내부 진행 과정은 넣지 않는다.
+   - 방향 변경·되돌림·범위 변경·기각처럼 나중에 읽는 사람이 "왜?"를 물을 항목은 끝에 `(이유: …)` 를 붙인다. 그 밖의 항목에는 붙이지 않는다.
    - 적을 항목이 없으면 description 을 갱신하지 않고 이 skill 을 끝낸다(preview 도 생략).
-3. 티켓을 worktree 디렉터리 이름 prefix 또는 branch에서 찾지 못하면 `--ticket`을 명시한다.
-4. 항상 preview를 먼저 실행한다. Jira 를 읽기만 하고 쓰지 않는다. 그 날짜의 기존 항목(교체될 내용), 기존 항목 지문, 교체 후 내용을 출력한다.
+3. 해야 할 일을 스크래치 파일에 한 줄 하나로 적는다(`[x] 항목` 완료, `[ ] 항목` 남음). 티켓 목표를 이루는 단위를 plan 의 `# Goal`·`# Acceptance`·`# Next` 에서 뽑고, 증거로 확인한 것만 `[x]` 로 표시한다. 항목은 결과로 쓴다(검증 명령·파일 목록 금지). 이 파일은 `해야 할 일` 섹션 **전체를 교체**하므로, preview 의 기존 목록(사람이 Jira 에서 추가·체크한 항목 포함)을 보고 남길 항목을 빠뜨리지 않는다. 티켓 목표를 항목으로 나눌 근거가 없으면 이 파일을 만들지 않는다(섹션을 건드리지 않음).
+4. 티켓을 worktree 디렉터리 이름 prefix 또는 branch에서 찾지 못하면 `--ticket`을 명시한다.
+5. 항상 preview를 먼저 실행한다. Jira 를 읽기만 하고 쓰지 않는다. 기존 해야 할 일과 교체 후 목록(`--todo-file` 을 줄 때), 그 날짜의 기존 항목(교체될 내용), 기존 항목 지문, 교체 후 내용을 출력한다.
 
    ```text
-   uv run --no-project python "<skill-dir>/jira_task.py" --summary-file "<요약 파일>"
+   uv run --no-project python "<skill-dir>/jira_task.py" --summary-file "<요약 파일>" [--todo-file "<해야 할 일 파일>"]
    ```
 
-   `<skill-dir>`는 이 `SKILL.md`가 있는 `skills/jira-task` 디렉터리로 해석한다.
-5. 그 날짜 기존 항목이 있으면 그것과 이번 작업을 합쳐 2단계 규칙(1~4개)대로 요약 파일을 다시 쓰고 preview 를 다시 실행한다. 그날 항목은 이 요약 하나로 **교체**되므로, 기존 항목 중 남길 것을 빠뜨리지 않는다. 지문이 `unknown`(자격증명 없음·조회 실패)이면 기존 항목을 확인할 수 없으므로 게시하지 않는다.
-6. preview 의 티켓·기존 항목·교체 후 내용을 사용자에게 보여주고 명시적 승인을 받는다. 승인 전에는 `--post`를 실행하지 않는다. `/e`가 호출된 경우 이 승인은 worktree 정리 선택지와 별개의 외부 Jira 쓰기 승인이다.
-7. 승인받은 경우 마지막 preview와 같은 인자에 preview 가 출력한 날짜(`--date`)와 지문, `--post` 를 더해 실행한다. 날짜를 고정하지 않으면 자정을 넘긴 승인이 다른 날짜로 게시된다. 그 사이 다른 세션이 그날 항목을 바꿔 지문이 다르면 쓰지 않고 중단한다 — 반영하려면 4단계부터 다시 하고, 아니면 게시하지 않았다고 보고한다.
+   `--todo-file` 은 3단계에서 해야 할 일 파일을 만들었을 때만 붙인다. `<skill-dir>`는 이 `SKILL.md`가 있는 `skills/jira-task` 디렉터리로 해석한다.
+6. 그 날짜 기존 항목이 있으면 그것과 이번 작업을 합쳐 2단계 규칙(1~4개)대로 요약 파일을 다시 쓰고, 기존 해야 할 일과 다르면 3단계대로 목록을 다시 쓴 뒤 preview 를 다시 실행한다. 그날 항목은 이 요약 하나로 **교체**되므로, 기존 항목 중 남길 것을 빠뜨리지 않는다. 지문이 `unknown`(자격증명 없음·조회 실패)이면 기존 항목을 확인할 수 없으므로 게시하지 않는다.
+7. preview 의 티켓·해야 할 일·기존 항목·교체 후 내용을 사용자에게 보여주고 명시적 승인을 받는다. 승인 전에는 `--post`를 실행하지 않는다. `/e`가 호출된 경우 이 승인은 worktree 정리 선택지와 별개의 외부 Jira 쓰기 승인이다.
+8. 승인받은 경우 마지막 preview와 같은 인자에 preview 가 출력한 날짜(`--date`)와 지문, `--post` 를 더해 실행한다. 날짜를 고정하지 않으면 자정을 넘긴 승인이 다른 날짜로 게시된다. 그 사이 다른 세션이나 사람이 그날 항목 또는 (`--todo-file` 을 줄 때) 해야 할 일을 바꿔 지문이 다르면 쓰지 않고 중단한다 — 반영하려면 5단계부터 다시 하고, 아니면 게시하지 않았다고 보고한다.
 
    ```text
-   uv run --no-project python "<skill-dir>/jira_task.py" --summary-file "<요약 파일>" --date <preview 날짜> --post --expect-existing <지문>
+   uv run --no-project python "<skill-dir>/jira_task.py" --summary-file "<요약 파일>" [--todo-file "<해야 할 일 파일>"] --date <preview 날짜> --post --expect-existing <지문>
    ```
 
 ## Description behavior
@@ -38,7 +40,8 @@ description: Update the current Jira task's description with a concise summary o
 - 항목은 한 문단으로 `날짜`(굵게) → `- 항목` 줄들이다. 식별용 marker 줄은 없다.
 - 섹션 안에서 첫 줄이 그 날짜(`YYYY-MM-DD`)인 블록부터 다음 날짜 블록·이전 형식 marker 블록·하위 heading 전까지가 그날 항목이다. 이전 형식의 `[jira-task] … date=<그 날짜> …` marker 블록도 그날 항목으로 보고, 교체할 때 함께 걷어낸다.
 - 그날 항목이 있으면 새 요약 하나로 교체하고, 없으면 추가한다. 요약이 같으면 쓰지 않는다. 사람이 그날 항목을 직접 편집했어도 다음 게시 때 새 요약으로 교체된다 — preview 의 기존 항목을 보고 요약에 반영한다.
-- description PUT 후 다시 조회해 그날 항목이 하나이고 요약과 같은지 확인한다. 저장값이 다르면 성공으로 보고하지 않는다.
+- `--todo-file` 을 주면 `해야 할 일` heading 다음부터 다음 heading(레벨 무관 — `작업 내용`·사람이 넣은 하위 heading 은 지우지 않는다) 직전까지를 Jira 체크 목록(taskList) 하나로 교체한다. 섹션이 없으면 `작업 내용` 섹션 앞(없으면 문서 끝)에 만든다. 이때 지문은 그날 항목과 해야 할 일 섹션(체크 상태 포함)을 함께 덮는다. 주지 않으면 해야 할 일 섹션은 건드리지 않고 지문도 그날 항목만 본다.
+- description PUT 후 다시 조회해 그날 항목이 하나이고 요약과 같은지(`--todo-file` 을 줄 때는 해야 할 일 목록도 같은지) 확인한다. 저장값이 다르면 성공으로 보고하지 않는다.
 - `--post` 안의 조회와 저장 사이에 다른 편집이 끼면 막지 못한다.
 - API 오류에는 credential을 출력하지 않는다. `--post` 실패를 숨기거나 무의미하게 재시도하지 않는다.
 
