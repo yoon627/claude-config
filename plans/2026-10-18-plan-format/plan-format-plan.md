@@ -1,6 +1,6 @@
 ---
 title: plan-format — plan 파일을 Goal · Tasks 체크리스트 · Acceptance · 현재 Decisions · Blockers 로 단순화
-status: in_progress
+status: done
 started: 2026-10-18
 updated: 2026-10-20
 ---
@@ -38,7 +38,7 @@ plan 파일을 짧고 최신 상태로 유지하기 쉽게 만든다: `# Goal` �
 - [x] simplify 점검, `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-20) — workflow `wf_840bbe4e-320`: Acceptance 1·2·3·5·7 충족, 4 의 "read-points 무변경"은 runner 가 격리로 못 봐서 파일 수정 시각으로 확인(2026-10-16 이후 변경 0개), 6 은 머지 후
 - [x] 사용자에게 단위 3 문구 확인받고 커밋(이 plan·log 포함) (2026-10-20) — plan·diff 페이지 확인, Acceptance 7 기준 변경 승인
 - [x] commit-check 로 단위 1 의 fixup 정리 (2026-10-20) — 6커밋 → 3커밋, 단위 1 메시지를 지금 코드에 맞춤, 최종 내용 동일
-- [ ] 머지 (`/e merge`) — 이 worktree 의 `skills/e/SKILL.md` M1–M6 을 따른다(main 사본은 아직 옛 버전)
+- [x] 머지 (`/e merge`) (2026-10-20) — PR #238, 이 worktree 의 `skills/e/SKILL.md` M1–M6 을 따름(main 사본은 아직 옛 버전)
 - [ ] [post-merge] main 세션에서 공용 wiki 갱신 — log `# Deferred` 첫 항목의 목록(머지 직후 하지 않으면 dlc 가 `wiki/docs/dlc-details.md` §D 를 읽고 plan 본문에 `# Workflow Findings` 를 써서 `/e merge` M4 lint 에 걸린다)
 - [ ] [post-merge] 머지 뒤 첫 새 세션: `/c` 가 새 형식 plan 의 첫 미완료 Task 를 짚는다(Acceptance 6)
 
