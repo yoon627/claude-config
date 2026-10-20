@@ -29,7 +29,7 @@ repo root 에서 `bash skills/improve/improve.sh` 를 **1회** 실행(read-only)
 ### 2. 누적 이력 대조
 - `~/.claude/wiki/pages/decision/workflow-failures.md` 추적 표(실패·횟수·상태) read — 신호와 대조해 **횟수 갱신이 누락된 실패**를 찾는다.
 - `MEMORY.md` 인덱스(feedback 행동지시문) — 최근 작업에서 실제 반영됐는지, 죽은 규칙이 없는지.
-- 현재/최근 plan 의 `# Workflow Findings`·`# Deferred` — plan 에만 있고 wiki 로 승격 안 된 반복 항목.
+- 현재/최근 plan log(`<slug>-log.md`, 옛 형식 plan 은 본문)의 `# Workflow Findings`·`# Deferred` — plan log(또는 옛 plan 본문)에만 있고 wiki 로 승격 안 된 반복 항목.
 
 ### 3. 의미 점검 — LLM 판단 (기계가 못 잡는 것)
 - 문서 간 모순(CLAUDE.md ↔ SKILL.md 규칙 충돌), 같은 trigger 의 skill 중복, 죽은 규칙(더는 유효하지 않은 항목).

@@ -162,6 +162,11 @@ ok('N12 Tasks 안 코드펜스의 체크박스 예시는 항목 아님 → 날�
 ok('N13 ```` 펜스 안의 ``` 는 펜스를 닫지 않음 → 그 안 "# Next" 는 heading 아님(clean)',
   clean(N.replace('# Decisions\nd\n', '# Decisions\nd\n````\n```\n# Next\n```\n````\n'))
   && clean(N.replace('# Decisions\nd\n', '# Decisions\nd\n```\n```js\n# Next\n```\n')));
+ok('N14 새 형식 plan 본문의 작업 기록 섹션(# Review Disposition·# Deferred·# Workflow Findings) → log 로 옮기라는 위반',
+  ['Review Disposition', 'Deferred', 'Workflow Findings'].every((s) =>
+    lintPlan(N + '\n# ' + s + '\n- x\n').some((v) => v.includes('# ' + s) && v.includes('-log.md'))));
+ok('N15 옛 형식 plan 의 작업 기록 섹션은 그대로 허용(clean)',
+  clean(V + '\n# Review Disposition\n- f1 — fix\n\n# Deferred\n- x\n\n# Workflow Findings\n- y\n'));
 
 // ---- CLI ----
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'plan-lint-'));

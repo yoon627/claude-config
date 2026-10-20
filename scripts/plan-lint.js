@@ -6,6 +6,7 @@
 //   3 형식 판별(planFormat) 후 필수 H1 — 새 형식 # Goal/Tasks/Decisions/Blockers, 옛 형식 # Goal/Progress/Next/
 //     Decisions/Key Files/Blockers. 옛 형식 전용 섹션과 # Tasks 가 함께 있으면 혼재 위반.
 //   4 새 형식 # Tasks: 코드펜스 밖 체크박스 1개 이상, 체크된 항목(하위 항목 포함)은 (YYYY-MM-DD)
+//     새 형식 본문의 작업 기록 섹션(LOG_SECTIONS)은 위반 — 같은 폴더의 <slug>-log.md 에 둔다
 //   5 Acceptance 참조 무결성: 본문의 "Acceptance <N>"(N=숫자 또는 ①-⑳) 참조 ↔ # Acceptance top-level 항목 수
 // kill-switch: CLAUDE_PLAN_LINT_OFF=1 → CLI no-op exit 0.
 'use strict';
@@ -18,6 +19,8 @@ const SECTIONS = {
 };
 // 옛 형식에만 있는 섹션 — 이것이 있고 # Tasks 가 없을 때만 옛 형식으로 본다(기본값은 새 형식).
 const OLD_ONLY = ['Progress', 'Next', 'Key Files', 'Intent'];
+// 작업 중 쌓이는 기록 — 새 형식은 plan 밖 log 파일에 둔다(옛 형식 plan 은 본문에 둔 채 끝낸다).
+const LOG_SECTIONS = ['Review Disposition', 'Deferred', 'Workflow Findings'];
 const COUNTERS = ['개', '종', '줄']; // 계량사 — 뒤따르면 참조 아님
 const CHECKBOX = /^\s*[-*] \[([ xX])\] /;
 const DATE = /\(\d{4}-\d{2}-\d{2}\)/;
@@ -181,6 +184,11 @@ function lintPlan(text) {
       if (m[1] !== ' ' && !DATE.test(lines[i])) violations.push(`# Tasks 의 체크된 항목에 날짜 (YYYY-MM-DD) 없음: ${lines[i].trim()}`);
     }
     if (!boxes) violations.push('# Tasks 에 체크박스 항목(- [ ] / - [x])이 없음');
+  }
+  if (format === 'new') {
+    for (const s of LOG_SECTIONS) {
+      if (sections.some((sec) => sectionIs(sec.title, s))) violations.push(`# ${s} 는 plan 이 아니라 같은 폴더의 <slug>-log.md 에 둔다 [새 형식]`);
+    }
   }
 
   // 5 Acceptance 참조 무결성

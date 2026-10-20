@@ -146,6 +146,12 @@ ok('⑪ 방안 A: tracked plans/ 편집 → changed=false (isPlan 명시 제외,
 ok('⑪ʹ 방안 A repo: 비-plan 실소스(app.js) 편집 → changed=true (isPlan 과대적용 아님)', () => {
   assert.strictEqual(edit(path.join(repoTracked, 'app.js'), repoTracked, sid()).changed, true);
 });
+ok('⑪ʺ plan log 편집은 planTouched 를 켜지 않고(plan drift 경고 유지) plan 편집만 켠다', () => {
+  const d = edit(W(repoTracked, 'plans/z-log.md', '# Deferred\n- x\n'), repoTracked, sid());
+  assert.strictEqual(!!d.planTouched, false);
+  assert.strictEqual(d.changed, false);
+  assert.strictEqual(edit(path.join(repoTracked, 'plans/z-plan.md'), repoTracked, sid()).planTouched, true);
+});
 ok('⑨ non-git 실디렉토리 소스(main.py) 편집 → changed=false (S3 완화 고정)', () => {
   assert.strictEqual(edit(path.join(nonGit, 'main.py'), repoMain, sid()).changed, false);
 });

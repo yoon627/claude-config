@@ -26,7 +26,7 @@ description: 현재 worktree/repo 의 진행 중인 plan(CLAUDE.md §10)을 찾�
 - **fallback (매칭 0개)**: 탐색 위치의 모든 plan(`*/*-plan.md` + 루트 직속 `*.md`) frontmatter 를 읽어 `status: in_progress|blocked` 인 것을 `updated` 내림차순으로 **목록 제시 → 사용자 선택**. 추측으로 자동 선택하지 않는다. 전부 done 이거나 없으면 "이어갈 plan 없음" 보고 후 종료.
 
 ### 2. 진단 (plan read 후)
-plan 을 read 하고 두 축을 본다. frontmatter `intent:` 가 있으면 그 `intent.md`(§10 묶음 intent)도 read 한다 — 공통 Constraints·Open questions·`# Plans`(형제 plan) 가 거기 있어 plan `# Goal` 라벨 불릿의 델타만으로는 요구가 복원되지 않는다. 파일이 없으면 보고에 "intent 링크 끊김" 1줄(3단계 보정 대상). 옛 형식 plan(`# Tasks` 없음)은 §10 대응표대로 읽고 보정한다.
+plan 을 read 하고(같은 폴더 plan log 가 있으면 함께 — 이전 리뷰 처분·Deferred 를 이어받는다) 두 축을 본다. frontmatter `intent:` 가 있으면 그 `intent.md`(§10 묶음 intent)도 read 한다 — 공통 Constraints·Open questions·`# Plans`(형제 plan) 가 거기 있어 plan `# Goal` 라벨 불릿의 델타만으로는 요구가 복원되지 않는다. 파일이 없으면 보고에 "intent 링크 끊김" 1줄(3단계 보정 대상). 옛 형식 plan(`# Tasks` 없음)은 §10 대응표대로 읽고 보정한다.
 - **남은 작업**: `status` + `# Tasks` 미완료 항목(첫 항목 = 다음 액션) + `# Blockers`.
   - `done` → "이미 done" 안내 후 그래도 이어갈지 확인.
   - `blocked` → `# Blockers` 노출, 해소 가능 여부 판단.
