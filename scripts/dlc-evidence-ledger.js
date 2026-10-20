@@ -260,7 +260,8 @@ process.stdin.on('end', () => {
     }
     // plan 을 이 세션에서 한 번이라도 편집했나(early-stop 의 plan drift 축). changed 게이트와
     // 별개 flag 라 isPlan 제외 규칙은 그대로 둔다 — plan 편집이 검증 대상이 되면 안 된다.
-    if (fp && isPlan(fp)) data.planTouched = true;
+    // `*-plan.md` 만 센다 — plan log·intent.md 만 고치고 Task 체크를 빠뜨린 턴도 경고해야 한다.
+    if (fp && isPlan(fp) && /-plan\.md$/i.test(fp)) data.planTouched = true;
     if (fp && !isPlan(fp) && !isIgnored(fp, input.cwd)) {
       data.edited = true; // 결론 블록 축 — .md 포함(보고 형식 게이트), 새 편집은 경고 자격 회복
       data.conclusionBlocks = 0;

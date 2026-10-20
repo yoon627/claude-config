@@ -208,7 +208,7 @@ process.stdin.on('end', () => {
       reasons.push(
         `소스를 변경했는데 이 브랜치의 plan(${path.basename(planPath)})을 한 번도 갱신하지 않았습니다. ` +
           'CLAUDE.md §10 은 결정·방향·스코프 변경을 그때그때 반영하라고 요구합니다 — ' +
-          '`# Progress`/`# Next` 만이라도 실제 상태로 맞추세요. ' +
+          '끝낸 Task 체크·다음 할 일(`# Tasks`, 옛 형식 plan 이면 `# Progress`/`# Next`)만이라도 실제 상태로 맞추세요. ' +
           '갱신할 것이 정말 없으면 그대로 다시 종료하면 통과합니다.'
       );
       if (sig) sig.emit('early-stop-plan-drift', { ...sigCtx, detail: data.changedTrigger });

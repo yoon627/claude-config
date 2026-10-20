@@ -46,7 +46,7 @@ function tildeify(p, home) {
 const STATUS_LINE = /^status:\s*\w/m;
 const BLOCKED_LINE = /^status:\s*blocked\b/m;
 const DISPOSITION_LINE = /^\s*[-*|].*\b(fix|defer|false-positive|wontfix)\b/m;
-// disposition 은 섹션 컨텍스트 없이는 안 찍는다 — fix/defer 는 Progress/Deferred 산문 bullet 에도
+// disposition 은 섹션 컨텍스트 없이는 안 찍는다 — fix/defer 는 Tasks/Progress/Deferred 산문 bullet 에도
 // 흔한 단어라, Edit fragment 에 헤더나 placeholder 가 보일 때만 인정(정밀도 우선, recall 손실 수용).
 const DISPOSITION_CONTEXT = /(#+\s*Review Disposition|\(리뷰 후 기록\))/;
 
