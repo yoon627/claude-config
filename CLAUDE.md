@@ -22,7 +22,7 @@
 - **사용자가 틀리면 정중히 반박.** 아부 금지. 가정이 코드/로그/문서와 충돌하면 근거로 설명.
 - **사용자 변경사항 보호.** 작업 전 `git status --short`. 덮어쓰지 않는다. 변경 파일이 예상보다 많으면 즉시 멈추고 원인 확인.
 - **승인은 위험기반.** 확인(`AskUserQuestion`)은 **비가역·외부공개·파괴적**(push·머지·원격/강제 삭제·배포·DB write·외부 전송·비용 발생)에만 건다. 로컬에서 **한 명령으로 되돌릴 수 있고 기존 데이터를 지우지 않는** 액션(worktree/브랜치 생성, 파일 편집, 로컬 실행)은 **묻지 말고 실행한 뒤, 되돌리는 데 필요한 정보**(무엇을·어디에·되돌리는 명령·경고)를 보고에 담는다 — 무해한 단계마다 거는 승인은 안전을 늘리지 않고 마찰만 늘린다. 애매하면 확인(fail-safe). **방향 합의는 별개** — §3-3 plan 승인·요구 명확화는 위험도와 무관하게 그대로 한다. 상세는 wiki [[risk-based-approval]].
-- **운영 자산 자가 수정 금지.** Claude 운영 자산(`CLAUDE.md`·`agents/`·`skills/`·`settings` 등)은 **명시 요청 없이 수정하지 않는다** — 요청 = active plan `# Goal`/`# Key Files` 에 그 자산이 들었거나 사용자가 자산명+변경을 지시. 발견한 개선점은 Report 제안(문제+근거+제안)으로만, 적용은 승인 후 별도 작업.
+- **운영 자산 자가 수정 금지.** Claude 운영 자산(`CLAUDE.md`·`agents/`·`skills/`·`settings` 등)은 **명시 요청 없이 수정하지 않는다** — 요청 = active plan `# Goal`/`# Tasks`(옛 형식은 `# Key Files`) 에 그 자산이 들었거나 사용자가 자산명+변경을 지시. 발견한 개선점은 Report 제안(문제+근거+제안)으로만, 적용은 승인 후 별도 작업.
 
 ---
 
@@ -156,7 +156,7 @@ Workflow 스크립트의 `agent()` 는 `model` 을 생략하고(세션 모델 �
 - **역할**: Claude 는 plan 생성/갱신·메인 구현·통합. Codex 는 리뷰·보조 구현·검증. 최종 통합 책임은 항상 **현재 메인 에이전트**.
 - **호출**: 설치 확인 `codex --version`. **codex 는 반드시 Bash 도구로 호출한다**(PowerShell 은 stdin 미종료로 무한 hang — 재현). 호출 규약·effort·출력 처리 세부는 `~/.claude/wiki/docs/codex-review.md`.
 - **리뷰 매트릭스**:
-  - `plan-reviewer` / `code-reviewer` = **Claude subagent 필수 + Codex 가용 시 병행**. Codex 미가용이면 생략 사유를 Report 또는 plan `# Progress` 에.
+  - `plan-reviewer` / `code-reviewer` = **Claude subagent 필수 + Codex 가용 시 병행**.
   - `researcher` / 보조 구현 = 가용성·이득 있을 때 선택. (simplify 체크는 메인 직접 — 매트릭스 대상 아님)
 - **공유 채널**: `<ROOT>/plans/<dir>/<slug>-plan.md` 가 세션·도구 간 컨텍스트 채널(토큰 소진/세션 종료 시 이어받기용).
 
@@ -174,11 +174,10 @@ Workflow 스크립트의 `agent()` 는 `model` 을 생략하고(세션 모델 �
 ### 동작
 - **시작**: 매칭 plan 있으면 read 후 컨텍스트 복원, 없으면 새로 생성(`status: in_progress`).
 - **진행 중 동기화 (필수)**: plan 과 다른 결정/방향/스코프 변경이 발생하는 **즉시** 업데이트, 턴 종료까지 미루지 않는다.
-  - 스코프 변경·접근/아키텍처 변경·새 제약 → `# Decisions` 에 변경 + **이유**(기존 결정은 지우지 말고 "~로 변경 (이유: …)" 덮어쓰기/추가).
-  - `# Next` 가 다음 액션이 아니게 되면 → 즉시 교체.
+  - 스코프 변경·접근/아키텍처 변경·새 제약 → `# Decisions` 의 그 결정을 고쳐 쓰고 **이유**를 붙인다. 밀려난 선택은 기각안으로 옮겨 기각 사유를 남긴다(plan 은 작업 끝에만 커밋돼 세션 안의 이력은 git 에 남지 않는다). Acceptance 문구·통과 기준·검증 명령을 바꾸면 이전 값 → 새 값과 사용자 승인을 남긴다.
+  - 할 일이 생기거나 끝나면 → `# Tasks` 에 추가·체크(급한 다음 일은 미완료 맨 위).
   - 막힘 → `# Blockers` + `status: blocked`.
-  - 핵심 파일 추가/이동 → `# Key Files` 동기화.
-- **턴 종료**: `# Progress` 오늘 진행 한 줄, frontmatter `updated:` 오늘. 빠뜨린 동기화 보강.
+- **턴 종료**: 끝낸 Task 체크(날짜), frontmatter `updated:` 오늘. 빠뜨린 동기화 보강.
 - **완료**: 머지·배포·승인 **그 시점에 즉시** `status: done` — 미루지 않는다(`/e merge` 는 done 을 머지 PR 에 실어 보내고 머지가 거부되면 `in_progress` 로 복구한다). **블로커**: `status: blocked` + `# Blockers`.
 - **원칙**: plan 은 "현재 상태의 단일 진실 소스"(묶음이면 요구 자체는 `intent.md` 가 정본이고 plan 은 `intent:` 로 가리킨다 — 아래 묶음 intent). 합의가 plan 에 없으면 다음 세션/도구가 모른다 — 항상 plan 우선 반영.
 - **동기화 (tracked)**: `plans/` 는 tracked(§8 whitelist `.gitignore`) — plan 을 작업 브랜치와 함께 commit·push 하면 다른 머신/세션이 pull 로 이어받아 "단일 진실 소스"가 머신 경계를 넘는다. secret 유출 방지: pre-commit-check 가 staged `plans/*.md` 토큰 스캔(+§8 원문 출력 금지) — plan 에 raw token/credential/PII 붙여넣기 금지.
@@ -193,23 +192,28 @@ updated: YYYY-MM-DD
 ---
 ```
 
-### 본문 6개 섹션 (빈 채로라도 헤더 유지)
-1. `# Goal` — 달성 목표 (1~3줄)
-2. `# Progress` — 날짜별 진행 로그
-3. `# Next` — **다음 즉시 액션 (가장 중요)**
-4. `# Decisions` — 설계/스코프 합의 + 이유. **진지하게 검토했다가 기각한 대안이 있으면 그것과 기각 사유도** (없으면 다음 세션이 같은 안을 다시 꺼낸다 — 실측 재발 축)
-5. `# Key Files` — 핵심 파일 + 한 줄 메모
-6. `# Blockers` — 막힌 것 + 풀려면 필요한 것
+### 본문 섹션 (빈 채로라도 헤더 유지 — `# Tasks` 만 항목 1개 이상)
+1. `# Goal` — 첫 문단에 달성 목표 1~3줄. 그 아래 라벨 불릿: `Why:`(문제·왜 지금) · `Constraints:` · `Out of scope:` · `Open questions:`(못 정한 것만) · `Split:`(medium 이상 — `none — <무엇이 한 머지에서만 유효한가>` 또는 `bundle → <intent.md 경로>`). dlc 요구사항 명확화가 채운다(medium 이상은 항상). 사용자가 확인한 것과 모델이 추론한 것을 구분한다(추론은 ⚠️).
+2. `# Tasks` — 할 일 체크리스트. **첫 미완료 항목이 다음 즉시 액션(가장 중요)**.
+   - `- [ ] <할 일>` / `- [x] <할 일> (YYYY-MM-DD)[ — 한 줄 결과]`, 하위 항목 허용(체크하면 날짜도). 커밋 sha 는 적지 않는다(커밋 재구성으로 바뀐다 — sha 는 Report 에).
+   - 파일을 바꾸는 Task 는 그 경로를 backtick 으로 적는다 — 이것이 이 작업이 건드리는 파일 목록이다.
+   - 새로 생긴 급한 일(리뷰 반영·재실행)은 미완료 맨 위에. 사용자 결정이 필요하면 `- [ ] NEEDS-HUMAN: <질문> — <선택지>`(`/c` 는 여기서 멈춘다). WIP 체크포인트는 그 미완료 Task 에 "브랜치 tip `wip:` 커밋 이어서".
+   - done plan 에는 `[post-merge]` 항목만 미완료로 남는다(`/e merge` 가 머지 전에 확인한다). 머지 대기는 Task 가 아니라 PR 상태로 본다.
+3. `# Acceptance` — test 가능한 완료 기준(비trivial 은 필수). 번호 항목 `1.`(`1. [ ]` 허용): `무엇이 충족되나 — 어떻게 확인 — 통과 기준`. 각 항목이 증거(실행·관찰·통과)로 충족될 때만 완료(dlc evidence gate).
+4. `# Decisions` — **현재** 설계/스코프 합의 + 이유, 그리고 **진지하게 검토했다가 기각한 대안과 기각 사유**(없으면 다음 세션이 같은 안을 다시 꺼낸다 — 실측 재발 축). 결정이 바뀌면 고쳐 쓰고 밀려난 안은 기각안으로 옮긴다(위 동기화).
+5. `# Blockers` — 막힌 것 + 풀려면 필요한 것
 
-선택 섹션 (절차가 요구할 때만): `# Intent`(착수 전 확정한 요구 — Problem·Constraints·Out of scope·Open questions + medium 이상은 분할 판정 결과 `분할: 없음 — <근거>` 또는 `분할: 묶음 → <intent.md 경로>`, dlc 요구사항 명확화가 채운다 — 규모 medium 이상은 항상), `# Acceptance`(test 가능한 완료 기준 — 각 항목이 증거(실행·관찰·통과)로 충족될 때만 완료, dlc evidence gate), `# Review Disposition`(dlc fix loop 의 finding 처분 — `fix`/`defer`/`false-positive`/`wontfix`. 묶음 분할 리뷰의 처분은 첫 plan 에 `[묶음]` 접두로. dlc ⚠️ self-flag 는 자기 신고라 `resolved`/`accepted-risk`/`deferred` 로 구분), `# Deferred`(범위 밖 발견 — §3-4), `# Workflow Findings`(확인된 workflow 실패 기록 — dlc 증거기반 자기개선, 최소형). `defer`(리뷰 finding 처분값) ≠ `# Deferred`(범위 밖 발견 보존 섹션). `# Intent`(무엇을 왜·어떤 제약에서) ≠ `# Goal`(달성 목표 1~3줄).
+선택 섹션 (절차가 요구할 때만): `# Review Disposition`(dlc fix loop 의 finding 처분 — `fix`/`defer`/`false-positive`/`wontfix`. 묶음 분할 리뷰의 처분은 첫 plan 에 `[묶음]` 접두로. dlc ⚠️ self-flag 는 자기 신고라 `resolved`/`accepted-risk`/`deferred` 로 구분), `# Deferred`(범위 밖 발견 — §3-4), `# Workflow Findings`(확인된 workflow 실패 기록 — dlc 증거기반 자기개선, 최소형). `defer`(리뷰 finding 처분값) ≠ `# Deferred`(범위 밖 발견 보존 섹션).
+
+**형식 검사·옛 형식**: 기계 검사는 `scripts/plan-lint.js`(필수 섹션·Tasks 체크박스와 날짜·Acceptance 참조). 2026-10-18 이전 형식(`# Progress`·`# Next`·`# Key Files`·`# Intent` 가 있고 `# Tasks` 가 없음)도 유효하다 — 진행 중인 옛 형식 plan 은 끝날 때까지 같은 뜻의 옛 섹션에 쓴다(첫 미완료 Task ↔ `# Next`, 체크된 Task ↔ `# Progress`, Task 안 경로 ↔ `# Key Files`, Goal 라벨 불릿 ↔ `# Intent`). 새 plan 만 새 형식이고, 한 plan 에 두 형식을 섞지 않는다. 스킬·agent 는 새 형식만 적는다 — 옛 형식 plan 을 만나면 이 대응표를 쓴다.
 
 리뷰는 dlc 의 중간 단계(구현 직후 code-reviewer + codex 병행, §9)가 담당한다 — push 직전 별도 codex 리뷰는 두지 않는다. 로컬 다관점 점검이 따로 필요하면 빌트인 `/code-review` 를 수동 사용.
 
 ### 묶음 intent (`intent.md`, 선택)
 한 요구가 plan 여러 개(후속·분할)로 갈라지면 그 요구를 `<ROOT>/plans/<YYYY-MM-DD>-<intent-slug>/intent.md` 한 파일에 두고, 각 plan 이 frontmatter 선택 키 `intent: plans/<dir>/intent.md`(스칼라 1개 — 한 plan 이 두 묶음에 걸치지 않는다)로 가리킨다. plan 은 자기 dir 에 그대로 두고 intent dir 에는 `*-plan.md` 를 두지 않는다 — 위 매칭 규칙·`plan-match.js`·`session-brief.js`·`plan-lint` 가 그대로 동작한다(**intent.md 는 plan 이 아니라 `plan-lint` 대상이 아니다**).
-- **만드는 때(닫힌 목록)**: 1) 사용자 지시 2) 요구가 독립 검증·머지 가능한(각 단위가 순서대로 혼자 default 에 머지돼도 빌드·규약 무모순) 복수 plan 으로 나뉠 때 — medium 이상은 dlc 요구사항 명확화의 **분할 판정**이 능동으로 보고, small 은 예상될 때(후속·병렬) 3) 기존 plan 의 Out of scope·`# Deferred`·"별도 작업" 에서 새 plan 을 시작 → 소급 생성하되 **선행 plan 에는 `intent:` 1줄만 추가**하고 본문은 손대지 않는다 — 단 그 항목이 이미 이슈로 넘어갔거나 선행 plan 이 다른 묶음에 속해 있으면(`intent:` 는 스칼라) 소급 생성하지 않고 이슈와 새 plan 의 `# Decisions` 가 추적한다. 그 외 단발 작업은 plan `# Intent` 만. 착수 전 `plans/*/intent.md` 중 `status: open` 을 훑어 기존 묶음이면 새로 만들지 않고 연결한다(dlc 요구사항 명확화).
+- **만드는 때(닫힌 목록)**: 1) 사용자 지시 2) 요구가 독립 검증·머지 가능한(각 단위가 순서대로 혼자 default 에 머지돼도 빌드·규약 무모순) 복수 plan 으로 나뉠 때 — medium 이상은 dlc 요구사항 명확화의 **분할 판정**이 능동으로 보고, small 은 예상될 때(후속·병렬) 3) 기존 plan 의 Out of scope·`# Deferred`·"별도 작업" 에서 새 plan 을 시작 → 소급 생성하되 **선행 plan 에는 `intent:` 1줄만 추가**하고 본문은 손대지 않는다 — 단 그 항목이 이미 이슈로 넘어갔거나 선행 plan 이 다른 묶음에 속해 있으면(`intent:` 는 스칼라) 소급 생성하지 않고 이슈와 새 plan 의 `# Decisions` 가 추적한다. 그 외 단발 작업은 plan `# Goal` 의 라벨 불릿만. 착수 전 `plans/*/intent.md` 중 `status: open` 을 훑어 기존 묶음이면 새로 만들지 않고 연결한다(dlc 요구사항 명확화).
 - **형식**: frontmatter `title` · `status: open|closed`(값 라인에 인라인 주석 금지 — 파서가 값으로 오인한 선례) · `started` · `updated`. 본문 H1 6개: `# Problem` · `# Proposed outcome` · `# Constraints`(묶음 공통 제약) · `# Out of scope`(하지 **않을** 경계만 — 이어서 할 후속은 여기가 아니라 `# Plans` 에 `(미착수)`) · `# Open questions`(미처분 `(열림)`, 처분은 `(해소)`/`(이월 → <새 묶음 | #이슈 | plan 경로>)`) · `# Plans`(plan 경로 + 한 줄 메모 — **status 복제 금지**, 정본은 각 plan frontmatter. 폐기한 plan 은 메모에 `폐기`. 아직 착수 안 한 단위는 `<slug 후보> (미착수) — 메모`, 착수하는 dlc 가 실제 경로로 치환).
-- **plan `# Intent` 는 링크 1줄 + 이 plan 에만 더해지는 델타**(제약·범위). 공통 제약을 plan 에 복제하지 않는다. 델타가 없으면 `델타 없음 — <근거>`. 공통 제약이 바뀌면 plan `# Decisions` 에 남기고 intent.md 를 갱신한다.
+- **plan `# Goal` 의 라벨 불릿은 intent.md 링크 1줄 + 이 plan 에만 더해지는 델타**(제약·범위). 공통 제약을 plan 에 복제하지 않는다. 델타가 없으면 `델타 없음 — <근거>`. 공통 제약이 바뀌면 plan `# Decisions` 에 남기고 intent.md 를 갱신한다.
 - **소유권**: 각 세션은 intent.md 에서 자기 plan 의 `# Plans` 줄과 자기가 연 Open question 만 고친다. 공통 Constraints 를 바꾸면 진행 중인 다른 plan 의 `# Decisions` 에 영향 통지를 남긴다.
 - **수명**: plan `done` ≠ intent `closed`. `closed` = `# Plans` 의 모든 plan 이 `done`(또는 `폐기`) **그리고** Open questions 전부 처분. Out of scope 는 조건이 아니다(영구 경계). `/e` 가 plan done 을 **쓰는 그 지점**(체크포인트 확인 done / 머지 모드 M4 커밋)에서 판정해 같은 커밋에 담고, 조건 충족이면 확인 없이 닫는다(M4 복구 시 함께 되돌린다).
 - **한계**: 선행 브랜치가 미머지면 default 에서 딴 후속 worktree 에 intent.md 가 없다 → 착수 스캔은 `git worktree list` 의 모든 worktree `plans/` 를 보고, 찾으면 `git show <선행브랜치>:<경로>` 로 같은 경로에 가져온다(동일 내용 추가는 머지 시 충돌 없음). tracked·secret 스캔은 plan 과 같다(`plans/*.md`).

@@ -58,6 +58,6 @@ model: sonnet
 ## 미해결 질문
 (추가 조사가 필요한 부분, 또는 메인 에이전트가 로컬에서 확인해야 할 부분)
 
-## plan 반영용 요약 (메인이 `<ROOT>/plans/<dir>/<slug>-plan.md` 의 `# Decisions` / `# Progress` 에 추가할 1~2줄)
+## plan 반영용 요약 (메인이 `<ROOT>/plans/<dir>/<slug>-plan.md` 에 반영할 1~2줄)
 - 결론 + 핵심 출처 URL 1개
 ```

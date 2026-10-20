@@ -164,7 +164,7 @@ APPROVE | REQUEST CHANGES | NEEDS DISCUSSION
 - Codex 만 잡은 것: ...
 - 메인만 잡은 것: ...
 
-## plan 반영용 요약 (메인이 `<ROOT>/plans/<dir>/<slug>-plan.md` 의 `# Progress` / `# Decisions` 에 추가할 1~3줄)
+## plan 반영용 요약 (메인이 `<ROOT>/plans/<dir>/<slug>-plan.md` 에 반영할 1~3줄)
 - 구조 검토 결과 + 머지 전 처리 항목 + 후속 가능 항목
 
 ## 확인한 파일
