@@ -1,6 +1,6 @@
 ---
 title: remove-conclusion-block — 답변 끝 `## 결론` 블록 규칙과 Stop hook 검사 4 를 없앤다
-status: in_progress
+status: done
 started: 2026-10-20
 updated: 2026-10-21
 ---
@@ -23,7 +23,7 @@ updated: 2026-10-21
 - [x] code-reviewer, fix loop (2026-10-21) — APPROVE, 지적 7개 처분은 plan log
 - [x] simplify 점검, `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-21) — simplify 변경 없음(삭제뿐). 격리 runner: Acceptance 1~4 충족, `ALL PASS (skip: install-codex-skill.test.ps1)` — PowerShell 미설치, 이 변경과 무관. 느린 테스트 중 `dlc-signal.js` 를 읽는 `session-brief.test.js` 는 따로 돌려 95개 통과
 - [x] 사용자에게 바뀐 문구 확인받고 커밋, commit-check (2026-10-21) — 사용자 "커밋", 커밋 1개
-- [ ] 머지 (`/e merge`)
+- [x] 머지 (`/e merge`) (2026-10-21) — PR #239
 - [ ] [post-merge] main 세션에서 공용 wiki 의 결론 블록 언급 갱신(plan log `# Deferred`)
 - [ ] [post-merge] 머지 뒤 첫 세션에서 파일을 고친 턴이 `## 결론` 없이 끝나도 Stop hook 이 막지 않는지 관찰(Acceptance 5)
 
