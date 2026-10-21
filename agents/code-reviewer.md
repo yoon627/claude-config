@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: 구현 직후 호출. 버그·보안·테스트 누락·예외 처리·성능·backward compatibility·근본 원인·설계고도·관례를 검토해 Find→Verify 2-pass(report-everything 후 self-refute) 결과를 verdict 와 함께 돌려준다. 코드 변경이 있었던 모든 흐름에서 사용.
+description: 구현 직후 호출. 버그·보안·테스트 누락·예외 처리·성능·backward compatibility·근본 원인·설계고도·관례를 검토해 Find→Verify 2-pass(report-everything 후 self-refute) 결과를 verdict 와 함께 돌려준다. trivial(오타·주석·포맷·import·로그 1줄)이 아닌 코드 변경이 있었던 흐름에서 사용.
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
 model: opus
 ---
@@ -74,7 +74,7 @@ model: opus
 
 글로벌 CLAUDE.md §9 — code-reviewer 는 Claude subagent 필수 + Codex 가용 시 병행.
 
-**호출 조건**: 코드 변경이 있는 모든 흐름(§9 — 구현 후 codex 리뷰는 이 병행이 유일하다, repo pre-push 게이트 없음) + preflight 통과. **effort**: `high`(§3 차등 표). **범위**: 브랜치 전체 diff.
+**호출 조건**: trivial 이 아닌 코드 변경이 있는 흐름(§9 — 구현 후 codex 리뷰는 이 병행이 유일하다, repo pre-push 게이트 없음) + preflight 통과. **effort**: `high`(§3 차등 표). **범위**: 브랜치 전체 diff.
 
 **도메인 특화 프롬프트** (공통 규약 §3 의 호출 명령에 삽입):
 ```
