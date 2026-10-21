@@ -1,6 +1,6 @@
 ---
 title: slim-rules-ko — CLAUDE.md 를 규칙 손실 없이 줄이고, 근거 규칙 3개 추가와 모순 정리
-status: in_progress
+status: done
 started: 2026-10-21
 updated: 2026-10-21
 intent: plans/2026-10-21-ops-docs-rework/intent.md
@@ -29,7 +29,7 @@ CLAUDE.md 를 규칙 하나 빠짐없이 짧게 고쳐 쓰고(한국어), 추천
 - [x] simplify 점검 (2026-10-21) — 생략: 문서만 바뀌어 코드 simplify 대상이 없다(§5 는 코드 변경에 필수)
 - [x] 선행 plan 정리 (2026-10-21) — `plans/2026-10-18-plan-format/plan-format-plan.md` 에 `intent:` 1줄과 끝난 [post-merge] wiki Task 체크(0c6f7e2), `plans/2026-10-20-remove-conclusion-block/remove-conclusion-block-plan.md` 에 `intent:` 1줄과 [post-merge] Task 체크(wiki 5b0950a, Acceptance 5 관찰)
 - [x] 기록 커밋(plan·log·manifest·intent·선행 plan), commit-check (2026-10-21)
-- [ ] 머지 (`/e merge`)
+- [x] 머지 (`/e merge`) (2026-10-21) — PR #240
 - [ ] [post-merge] main 세션에서 공용 wiki 갱신 — plan log Deferred 의 이력 메모(있을 때)
 
 # Acceptance
