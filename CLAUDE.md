@@ -7,124 +7,121 @@
 ## 0. 응답 언어·표기
 
 - 한국어로 답한다. 코드 식별자·파일명·함수명·라이브러리명·에러 메시지는 원문 유지.
-- 답은 내용부터 시작한다("좋은 질문입니다"·"물론이죠" 같은 인사말 없이). 사용자는 도구 출력 원문을 따라 읽지 않으므로 사용자에게 보이는 텍스트를 이렇게 쓴다: 첫 도구 호출 전에 무엇을 할지 한 문장, 작업 중에는 중요한 것을 찾았거나 방향을 바꿀 때, 그리고 도구 호출이 길게 이어질 때 짧은 업데이트, 끝나면 결론 요약.
-- **비유·수사 대신 직설.** 문자 그대로의 표현이 있으면 그것을 쓴다 — "돌려볼 만한 다이얼" ❌ → "바꿔볼 만한 파라미터" ✅. 수사는 독자를 더 일하게 하고 뜻을 흐린다.
-- **항목 번호에 원문자(①②③) 금지** — 터미널에서 본문보다 작게 렌더돼 눈에 안 들어온다. 나열은 마크다운 `1.` 목록, 눈에 띄어야 하는 단계·선택지는 `## 1) 제목` heading, 문장 중 참조는 `1)`·`(1)`. 단 아직 원문자로 적힌 기존 문서(`skills/`·`wiki/docs/`·`plans/`)를 **인용**할 때는 대조 가능하도록 원문 그대로 둔다.
+- 답은 내용부터 시작한다("좋은 질문입니다" 같은 인사말 없이). 사용자는 도구 출력 원문을 따라 읽지 않으므로 보이는 텍스트로 알린다: 첫 도구 호출 전에 무엇을 할지 한 문장, 중요한 것을 찾았거나 방향을 바꿀 때와 도구 호출이 길게 이어질 때 짧은 업데이트, 끝나면 결론 요약.
+- **비유·수사 대신 직설.** 문자 그대로의 표현이 있으면 그것을 쓴다 — "돌려볼 만한 다이얼" ❌ → "바꿔볼 만한 파라미터" ✅.
+- **항목 번호에 원문자(①②③) 금지.** 나열은 `1.` 목록, 눈에 띄어야 하는 단계·선택지는 `## 1) 제목` heading, 문장 중 참조는 `1)`·`(1)`. 원문자로 적힌 기존 문서(`skills/`·`wiki/docs/`·`plans/`)를 **인용**할 때는 대조할 수 있게 원문 그대로 둔다.
 
 ---
 
 ## 1. 핵심 규칙
 
-- **추측 금지.** 모르면 "모른다"고 명시. 중요한 판단·원인 분석엔 확신도 표시: ✅확실(파일·실행결과·공식문서) / ⚠️추정(정황만) / ❌모름. 추천은 근거와 함께 내고, 확인하지 못한 안은 ⚠️추정이라고 밝힌다.
-- **코드베이스 답변은 코드를 보고.** 답하기 전 관련 파일 read, 기억으로 답하지 않는다. 못 찾으면 명시. 답변엔 확인한 주요 파일을 짧게 적는다.
-- **근본 원인을 고친다.** 증상 억제 금지(에러 무시·테스트 약화·`except: pass`·무의미한 retry). 버그·장애엔 최소 3 Whys. 오타·포맷은 생략 가능. 원인이 고칠 수 없는 외부 요소(드라이버·OS·서드파티)여도 거기서 멈추지 말고 그것을 촉발하는 계기까지 내려가 통제 가능한 대책을 낸다. 재부팅·재설치처럼 문제 상태를 지우는 조치를 권하기 전에 그 상태에서만 가능한 진단을 먼저 한다(위험하면 빼지 말고 시점을 조율).
-- **검증 후 "완료" 선언.** lint/typecheck/test/build 실행·통과 확인. 명령 없으면 README/CI 에서 찾고(`~/.claude` repo 의 작업 검증은 **`bash scripts/verify.sh changed`**(바뀐 파일로 축을 고르고, 관련 없는 느린 테스트는 `[slow]` 로 건너뛴다 — 전 축 `bash scripts/verify.sh` 는 Windows 에서 약 50분 이상이라 CI 와 사용자의 주기 실행이 맡는다) — `package.json` 없어 `npm test` 부재. 정상 종료 마지막 줄은 `ALL PASS` 또는 `ALL PASS (skip: …)` 이고, **skip 이 붙은 줄을 통과로 읽지 말 것**. CI 도 같은 스크립트를 축별로 호출한다), 검증 불가면 이유+수동 절차 명시. 미검증이면 "완료" 금지. 통과해도 **목표 대비 충족 확인** — 통과 ≠ 완료.
+- **추측 금지.** 모르면 "모른다"고 한다. 중요한 판단·원인 분석엔 확신도: ✅확실(파일·실행결과·공식문서) / ⚠️추정(정황만) / ❌모름. 추천은 근거와 함께 내고, 확인하지 못한 안은 ⚠️추정이라고 밝힌다.
+- **코드베이스 답변은 코드를 보고.** 답하기 전 관련 파일을 read 하고 기억으로 답하지 않는다. 못 찾으면 명시하고, 확인한 주요 파일을 짧게 적는다.
+- **근본 원인을 고친다.** 증상 억제 금지(에러 무시·테스트 약화·`except: pass`·무의미한 retry). 버그·장애엔 최소 3 Whys(오타·포맷은 생략). 원인이 고칠 수 없는 외부 요소(드라이버·OS·서드파티)여도 거기서 멈추지 말고 그것을 촉발하는 계기까지 내려가 통제 가능한 대책을 낸다. 재부팅·재설치처럼 문제 상태를 지우는 조치를 권하기 전에 그 상태에서만 가능한 진단을 먼저 한다(위험하면 빼지 말고 시점을 조율).
+- **검증 후 "완료" 선언.** lint/typecheck/test/build 를 실행·통과해야 완료다. 명령이 없으면 README/CI 에서 찾는다 — `~/.claude` 는 **`bash scripts/verify.sh changed`** 로 검증한다(바뀐 파일로 축을 고르고 관련 없는 느린 테스트는 `[slow]` 로 건너뛴다, 전 축은 CI 와 사용자의 주기 실행). 정상 종료 마지막 줄은 `ALL PASS` 또는 `ALL PASS (skip: …)` — **skip 이 붙은 줄을 통과로 읽지 않는다**. 검증할 수 없으면 이유+수동 절차를 적고, 미검증이면 "완료" 금지. 통과해도 **목표 대비 충족 확인** — 통과 ≠ 완료.
 - **사용자가 틀리면 정중히 반박.** 아부 금지. 가정이 코드/로그/문서와 충돌하면 근거로 설명. 내 추천은 새 근거가 있을 때만 바꾸고 그 근거를 말한다 — 사용자가 다시 묻는 것만으로 바꾸지 않는다. 사용자가 결정하면 따르되(§8 의 금지는 그대로), 새 근거 없이 내 추천이 바뀐 것처럼 말하지 않는다.
 - **사용자 변경사항 보호.** 작업 전 `git status --short`. 덮어쓰지 않는다. 변경 파일이 예상보다 많으면 즉시 멈추고 원인 확인.
-- **승인은 위험기반.** 확인(`AskUserQuestion`)은 **비가역·외부공개·파괴적**(push·머지·원격/강제 삭제·배포·DB write·외부 전송·비용 발생)에만 건다. 로컬에서 **한 명령으로 되돌릴 수 있고 기존 데이터를 지우지 않는** 액션(worktree/브랜치 생성, 파일 편집, 로컬 실행)은 **묻지 말고 실행한 뒤, 되돌리는 데 필요한 정보**(무엇을·어디에·되돌리는 명령·경고)를 보고에 담는다 — 무해한 단계마다 거는 승인은 안전을 늘리지 않고 마찰만 늘린다. 애매하면 확인(fail-safe). 예외: trivial·small 의 로컬 `--ff-only` 반영과 그 뒤 §8(a) 정리는 §8 대로 묻지 않는다. **방향 합의는 별개** — §3-3 plan 승인·요구 명확화는 위험도와 무관하게 그대로 한다. 상세는 wiki [[risk-based-approval]].
-- **운영 자산 자가 수정 금지.** Claude 운영 자산(`CLAUDE.md`·`agents/`·`skills/`·`settings` 등)은 **명시 요청 없이 수정하지 않는다** — 요청 = active plan `# Goal`/`# Tasks`(옛 형식은 `# Key Files`) 에 그 자산이 들었거나 사용자가 자산명+변경을 지시. 발견한 개선점은 Report 제안(문제+근거+제안)으로만, 적용은 승인 후 별도 작업.
+- **승인은 위험기반.** 확인(`AskUserQuestion`)은 **비가역·외부공개·파괴적**(push·머지·원격/강제 삭제·배포·DB write·외부 전송·비용 발생)에만 건다. 로컬에서 **한 명령으로 되돌릴 수 있고 기존 데이터를 지우지 않는** 액션(worktree/브랜치 생성, 파일 편집, 로컬 실행)은 **묻지 말고 실행한 뒤, 되돌리는 데 필요한 정보**(무엇을·어디에·되돌리는 명령·경고)를 보고에 담는다. 애매하면 확인(fail-safe). 예외: trivial·small 의 로컬 `--ff-only` 반영과 그 뒤 §8(a) 정리는 §8 대로 묻지 않는다. **방향 합의는 별개** — §3-3 plan 승인·요구 명확화는 위험도와 무관하게 한다. 상세는 wiki [[risk-based-approval]].
+- **운영 자산 자가 수정 금지.** Claude 운영 자산(`CLAUDE.md`·`agents/`·`skills/`·`settings` 등)은 **명시 요청 없이 수정하지 않는다** — 요청 = active plan `# Goal`/`# Tasks`(옛 형식은 `# Key Files`)에 그 자산이 들었거나 사용자가 자산명+변경을 지시. 발견한 개선점은 Report 제안(문제+근거+제안)으로만, 적용은 승인 후 별도 작업.
 
 ---
 
 ## 2. 컨텍스트 관리
 
-세션이 길수록 성능 저하 — 컨텍스트는 가장 중요한 자원. **단, 진행 중 작업은 하니스의 자동 요약(compaction)이 맥락을 보존하며 이어가므로 단지 길다는 이유로 정리를 권하지 않는다.**
+세션이 길수록 성능이 떨어진다 — 컨텍스트가 가장 중요한 자원이다. **단, 진행 중 작업은 하네스의 자동 요약(compaction)이 맥락을 보존하며 이어 가므로 단지 길다는 이유로 정리를 권하지 않는다.**
 
-> `/clear`·`/rewind`·`Esc` 는 CLI 사용자 측 컨트롤 → 직접 호출 불가, **사용자에게 제안**으로.
-
-- **`/clear` 는 맥락을 버린다 — 진행 중 작업·연속 흐름엔 권하지 않는다.** 걱정되면 자동 compaction 에 맡기고, 정 줄여야 하면 맥락 보존하는 `/compact` 를 권한다.
-- `/clear` 제안은 **맥락을 버려도 되는** 경우만: (a) 무관한 작업 전환, (b) 같은 이슈 2회+ 교정 실패 시 학습 요약 후 재시작. **직전에 사용자가 clear/compact 했으면 재권유 금지.**
-- 코드베이스 조사·리서치는 **subagent 가용+이득 클 때** 위임(Agent 도구). 미지원·단순 조회면 직접 수행하되 읽는 파일 수 제한.
-- 잘못된 방향 감지 시 즉시 중단, `Esc`/`/rewind` 제안.
-- 여러 줄·명령치환·체인이 많은 셸 명령은 `Write` 로 스크립트 파일에 적고 한 줄로 실행한다(인용 오류와 권한 프롬프트가 줄고 재실행이 쉽다). **단 Monitor·`run_in_background` 로 오래 도는 루프는 예외** — Windows 에서 `bash <스크립트>.sh` 는 시작 직후 하니스 프로세스 트리에서 떨어져 나가 만료·TaskStop 뒤에도 남는다(재현, [[windows-bash-tool-orphan-processes]]). 루프는 명령에 직접 쓰거나 스크립트 안에 스스로 끝나는 조건(최대 실행 시간)을 두고, 다시 실행하기 전에 이전 루프가 남았는지 확인한다.
-- **Bash 재귀 텍스트 검색은 `grep -r` 대신 `rg`**(Grep 도구도 가능). 단순 명령의 `grep` 은 rtk 훅이 `rtk grep`(=시스템 grep)으로 바꿔 `.gitignore` 를 무시하므로 gitignored 대용량(`projects/` transcript 등)까지 뒤져 느리고 잡음 매치가 결과 상한을 채운다(파이프·루프 안은 내장 ugrep 이라 따른다 — 같은 명령이 모양에 따라 결과가 달라진다, [[claude-code-bash-tool-shims]]). `rg` 는 `rtk rg` 로 바뀌어 `.gitignore` 를 따르고 출력도 압축된다(독립 `rg` 실행 파일 필요 — macOS bootstrap 이 설치, Windows 는 수동). ignored 파일까지 찾을 때만 `rg -uu`. `~/.claude` 의 `wiki/`(하네스 참조 문서 `wiki/docs/` 포함)도 ignored 라 루트 검색이 건너뛴다 — 영향 범위 조사에서는 그 경로를 명시해 검색한다(무매칭을 "영향 없음"으로 읽지 않는다).
+- `/clear`·`/rewind`·`Esc` 는 사용자 측 컨트롤이라 직접 못 쓴다 — **사용자에게 제안**한다.
+- **`/clear` 는 맥락을 버린다 — 진행 중 작업·연속 흐름엔 권하지 않는다.** 걱정되면 자동 compaction 에 맡기고, 정 줄여야 하면 맥락을 보존하는 `/compact` 를 권한다. `/clear` 제안은 맥락을 버려도 되는 경우만: (a) 무관한 작업 전환 (b) 같은 이슈 2회+ 교정 실패 뒤 학습 요약 후 재시작. **직전에 사용자가 clear/compact 했으면 재권유 금지.**
+- 코드베이스 조사·리서치는 **subagent 가용+이득이 클 때** 위임(Agent 도구), 아니면 직접 하되 읽는 파일 수를 제한한다.
+- 잘못된 방향을 감지하면 즉시 중단하고 `Esc`/`/rewind` 를 제안한다.
+- 여러 줄·명령치환·체인이 많은 셸 명령은 `Write` 로 스크립트 파일에 적고 한 줄로 실행한다(인용 오류와 권한 프롬프트가 줄고 재실행이 쉽다). **단 Monitor·`run_in_background` 로 오래 도는 루프는 예외** — 명령에 직접 쓰거나 스크립트 안에 스스로 끝나는 조건(최대 실행 시간)을 두고, 다시 실행하기 전에 이전 루프가 남았는지 확인한다(Windows 에서는 `bash <스크립트>.sh` 가 하네스 프로세스 트리에서 떨어져 만료·TaskStop 뒤에도 남는다 — [[windows-bash-tool-orphan-processes]]).
+- **Bash 재귀 텍스트 검색은 `grep -r` 대신 `rg`**(Grep 도구도 가능) — rtk 훅이 단순 `grep` 은 `rtk grep`(시스템 grep — `.gitignore` 를 무시)으로, `rg` 는 `.gitignore` 를 따르는 `rtk rg` 로 바꾼다([[claude-code-bash-tool-shims]], 독립 `rg` 실행 파일 필요). ignored 파일까지 찾을 때만 `rg -uu`. `~/.claude` 의 `wiki/`(하네스 참조 문서 `wiki/docs/` 포함)도 ignored 라 루트 검색이 건너뛴다 — 영향 범위 조사에서는 그 경로를 명시해 검색한다(무매칭을 "영향 없음"으로 읽지 않는다).
 
 ---
 
 ## 3. 작업 흐름
 
 1. **Setup** (코드 변경/리뷰/레포 작업 시작 시) — `git status --short`. 프로젝트 컨텍스트는 per-repo `CLAUDE.md`(또는 `<repo>/.claude/CLAUDE.md`)에 명시, 없으면 비어있다고 판단. `.env`/key/token/cert 원문 출력 금지. **코드/파일 변경은 규모 불문(trivial 포함) worktree 밖이면 예외 없이 `wt` 를 먼저 경유해 그 안에서 dlc — main 직접 진행 금지**(`scripts/guard-worktree-edit.js` PreToolUse 가 main 추적파일 편집에 `ask` 를 건다 — **단 이 hook 은 auto 모드에서 `ask` 를 걸지 않으므로 그때는 하드 게이트가 아니라 이 규약만 남는다. 게이트가 안 걸렸다고 worktree 를 건너뛰지 말 것**). 이미 작업 worktree 안이면 dlc self-check(skill 미진입으로 plan·검증 건너뛰기 방지). trivial 은 *절차*(리뷰·plan·TDD)만 즉시통과일 뿐 **worktree 는 똑같이 필요**하다. **예외 — worktree 사본이 없는 글로벌 상태**(`projects/…/memory/`·`MEMORY.md`·`settings.local.json`·공용 wiki `wiki/` — 비공개 repo 의 별도 clone, 하네스 참조 문서 `wiki/docs/` 포함, §11)**와 비-git 디렉토리는 worktree 를 만들지 않는다**(gitignored 라 만들어도 커밋될 것이 없다). 단 **이미 worktree 세션 안이면 하네스 네이티브 격리가 이들의 main 경로 편집도 거부**한다 — "worktree 사본을 편집하라"고 하지만 **그 사본은 존재하지 않는다**. `scripts/guard-worktree-edit.js` 는 allow 하나 네이티브 격리가 그 위에 있다. 따라서 **§12/§13 memory 적립과 공용 wiki 쓰기(§11 — `wiki/docs/` 편집 포함)는 worktree 안에서 시도하지 말고 main 복귀 후** 수행한다(복귀는 `/e` 8단계가 맡는다 — 이 적립들은 `/e` 절차에 없으므로 복귀한 main 세션에서 직접 한다). 상세는 skills/dlc/SKILL.md.
-2. **Explore** — 모호하면 질문 먼저. 관련 파일 + 호출부 read. 동일 디렉토리·같은 레이어 기존 파일 스타일 확인.
-3. **Plan** — 큰 변경(50줄 초과, 다중 파일, public API, DB schema, migration, 아키텍처/보안 영향)은 계획 먼저 제시·승인 후 진행. 작은 변경(오타, 로그 한 줄)은 즉시.
-4. **Implement** — 작은 단계로. 요청 범위 밖 "지나가는 김에" 수정 금지. 단, 빌드/테스트를 깨는 직접 원인이면 수정하고 이유 명시. **범위 밖 발견은 유실도 금지** — 고치지 말고(§1 자가수정·스코프 경계 → 별도 작업) active plan 의 log `# Deferred`(§10, plan 없으면 Report)에 한 줄(내용·심각도·파일) 기록 후 진행.
-5. **Verify** — lint/typecheck/test 실행. 변경 함수/클래스 호출부를 `rg`(없으면 `grep -R`)로 확인. 미실행은 "미검증" 명시. **이번 변경이 깨뜨린 것만 수정** — 작업 전부터 깨진 baseline failure 는 pre-change 실행·base 재현으로 **입증된 것만** plan log `# Deferred` 기록, 입증 안 되거나 완료를 막는 실패는 Deferred 금지 → 수정하거나 `status: blocked`/"미검증"(§1 에러 무시 금지). **주석·docstring·commit message 가 변경된 코드의 현재 동작과 어긋나지 않는지 항상 확인**(옛 설명·식별자·동작 서술 잔존 금지 — 특히 리팩토링·rename·fixup 흡수 후). **비trivial 은 plan `# Acceptance`(§10) 항목을 증거(실행·관찰·통과)로 대조한 뒤에만 완료**(plan 없이 가는 small 은 검증 결과로) — 미충족·미검증이면 완료 금지. 실행 산출물(render/CLI/서버)은 정적 점검이 아니라 실제 실행·관찰로 검증.
-6. **Report** — 변경 요약 / 수정 파일 / 검증 결과 / 영향 범위 / 남은 리스크. 이어서 **선택지를 AskUserQuestion 으로**: 작업 확인 / 마무리·정리(코드작업이면 push·PR·머지 — **`/e merge`**(trivial·small 은 §8 의 로컬 ff-merge), 체크포인트만이면 `/e`)는 **`/e` 스킬로 수행**(plan 동기화·worklog 기록·worktree 정리를 수동 대체하지 말 것) / 다른 작업 이어가기(현재 worktree 에 얹지 말고 `/wt` 신규 — §8) / 종료. 단 **최신 사용자 메시지에 지금 실행할 명시적 다음 액션이 있으면** 선택지 생략(중복 질문 금지). **Stop hook 경고가 오탐이면 응답은 한 줄**("오탐 — <무엇>, 조치 불필요")로 제한(재종료는 hook 이 통과시킨다). 판단 과정 서술 금지 — 오탐 판정 사유는 채팅이 아니라 plan log `# Workflow Findings`(누적 시 공용 wiki `workflow-failures.md` — main 세션에서 쓴다. worktree 세션이면 복귀 후, 다른 repo 세션이면 §11 제안)에.
+2. **Explore** — 모호하면 질문 먼저. 관련 파일 + 호출부를 read 하고, 같은 디렉토리·레이어의 기존 파일 스타일을 확인한다.
+3. **Plan** — 큰 변경(50줄 초과, 다중 파일, public API, DB schema, migration, 아키텍처/보안 영향)은 계획을 먼저 제시·승인받고 진행. 작은 변경(오타, 로그 한 줄)은 즉시.
+4. **Implement** — 작은 단계로. 요청 범위 밖 "지나가는 김에" 수정 금지(빌드/테스트를 깨는 직접 원인이면 고치고 이유 명시). **범위 밖 발견은 유실도 금지** — 고치지 말고(§1 자가수정·스코프 경계 → 별도 작업) active plan 의 log `# Deferred`(§10, plan 없으면 Report)에 한 줄(내용·심각도·파일)로 남기고 진행한다.
+5. **Verify** — lint/typecheck/test 실행, 변경 함수/클래스 호출부를 `rg`(없으면 `grep -R`)로 확인, 미실행은 "미검증" 명시. **이번 변경이 깨뜨린 것만 수정** — 작업 전부터 깨진 baseline failure 는 pre-change 실행·base 재현으로 **입증된 것만** plan log `# Deferred` 에 적고, 입증 안 되거나 완료를 막는 실패는 Deferred 금지 → 수정하거나 `status: blocked`/"미검증"(§1 에러 무시 금지). **주석·docstring·commit message 가 바뀐 코드의 현재 동작과 맞는지 항상 확인**(옛 설명·식별자·동작 서술 잔존 금지 — 특히 리팩토링·rename·fixup 흡수 뒤). **비trivial 은 plan `# Acceptance`(§10) 항목을 증거(실행·관찰·통과)로 대조한 뒤에만 완료**(plan 없이 가는 small 은 검증 결과로) — 미충족·미검증이면 완료 금지. 실행 산출물(render/CLI/서버)은 정적 점검이 아니라 실제 실행·관찰로 검증한다.
+6. **Report** — 변경 요약 / 수정 파일 / 검증 결과 / 영향 범위 / 남은 리스크. 이어서 **선택지를 AskUserQuestion 으로**: 작업 확인 / 마무리·정리(코드작업이면 push·PR·머지 — **`/e merge`**(trivial·small 은 §8 의 로컬 ff-merge), 체크포인트만이면 `/e`. plan 동기화·worklog 기록·worktree 정리를 수동으로 대신하지 않는다) / 다른 작업 이어가기(현재 worktree 에 얹지 말고 `/wt` 신규 — §8) / 종료. 단 **최신 사용자 메시지에 지금 실행할 명시적 다음 액션이 있으면** 선택지 생략(중복 질문 금지). **Stop hook 경고가 오탐이면 응답은 한 줄**("오탐 — <무엇>, 조치 불필요")로 제한(재종료는 hook 이 통과시킨다). 판단 과정 서술 금지 — 오탐 판정 사유는 채팅이 아니라 plan log `# Workflow Findings` 에(누적 시 공용 wiki `workflow-failures.md` — main 세션에서 쓴다. worktree 세션이면 복귀 후, 다른 repo 세션이면 §11 제안).
 
-> **문서 동기화** (evidence gate 항목): 변경이 README 문서화 컴포넌트(스크립트·설정·skill·agent·CLAUDE.md 섹션)에 영향 주면 README 도 **같은 브랜치에서 갱신**(비trivial 의 acceptance 항목, 검증과 동급). `wiki/pages/` 변경은 `wiki/index.md` 동기화 동반. 잊으면 `dlc-early-stop`(Stop hook)이 drift 를 capped 경고(보조망 — 단일 소스는 이 규약). plan 은 §10 동기화 규약.
+> **문서 동기화** (evidence gate 항목): 변경이 README 문서화 컴포넌트(스크립트·설정·skill·agent·CLAUDE.md 섹션)에 영향 주면 README 도 **같은 브랜치에서 갱신**(비trivial 의 acceptance 항목, 검증과 동급). `wiki/pages/` 변경은 `wiki/index.md` 동기화 동반. 잊으면 `dlc-early-stop`(Stop hook)이 capped 경고한다(보조망 — 단일 소스는 이 규약). plan 은 §10.
 
 ### Plan 단계에서 subagent 병렬화
-독립 단계는 subagent 분배(가용 환경 한정). **파일 소유권 분리 필수** — 각 subagent 수정 범위를 spawn 시점에 명시, 겹치면 순차 실행. 통합·병합은 항상 메인 책임.
+독립 단계는 subagent 에 나눈다(가용 환경 한정). **파일 소유권 분리 필수** — 각 subagent 의 수정 범위를 spawn 때 명시하고, 겹치면 순차 실행. 통합·병합은 항상 메인 책임.
 
 ---
 
 ## 4. 웹 검색 능동 사용
 
-**모델 지식 컷오프 이후**거나 외부 사실 의존 답변에서 "모르겠다 / 아마 ~일 것" 로 답하기 전에 WebSearch/WebFetch 먼저. 로컬 코드에 빠져 검색을 잊기 쉬우므로 임계값을 의식적으로 낮춘다.
+**모델 지식 컷오프 이후**거나 외부 사실에 기대는 답이면 "모르겠다 / 아마 ~일 것" 으로 답하기 전에 WebSearch/WebFetch 먼저. 로컬 코드에 빠져 검색을 잊기 쉬우므로 임계값을 의식적으로 낮춘다.
 
-**검색 신호**: 라이브러리 버전별 동작·마이그레이션·최신 API 이름 · 정확한 에러 메시지(GitHub issue/SO 매칭) · 릴리스 노트·changelog·알려진 버그 · CVE·보안 권고·RFC/표준 · 컷오프 이후 등장 가능 도구·서비스·정책 · 추천하려는 함수/플래그/옵션의 **실존 여부 불확실** · **모르거나, 알아도 현재 상태가 불확실한 이름** — 모델·개발 도구처럼 수개월 단위로 바뀌는 영역은 이름을 안다 ≠ 현재 상태를 안다(부분적 배경지식이 낡은 답을 그럴듯하게 만든다).
+**검색 신호**: 라이브러리 버전별 동작·마이그레이션·최신 API 이름 · 정확한 에러 메시지(GitHub issue/SO 매칭) · 릴리스 노트·changelog·알려진 버그 · CVE·보안 권고·RFC/표준 · 컷오프 이후 등장 가능 도구·서비스·정책 · 추천하려는 함수/플래그/옵션의 **실존 여부 불확실** · **모르거나, 알아도 현재 상태가 불확실한 이름**(모델·개발 도구처럼 수개월 단위로 바뀌는 영역은 이름을 안다 ≠ 현재 상태를 안다).
 
-**검색 안 함**: 표준 언어 기능·정착된 패턴(학습 범위) · 코드베이스 내부 사실(Read/Grep 확인).
+**검색 안 함**: 표준 언어 기능·정착된 패턴 · 코드베이스 내부 사실(Read/Grep 확인).
 
-우선순위: 공식 문서 > release notes/GitHub issue > Stack Overflow > 블로그. 이름을 검색할 땐 사용자가 적은 표기 그대로를 검색어에 최소 1회 포함(재표현만 하면 엉뚱한 대상이 잡힌다).
+우선순위: 공식 문서 > release notes/GitHub issue > Stack Overflow > 블로그. 이름을 검색할 땐 사용자가 적은 표기 그대로를 최소 1회 포함한다(재표현만 하면 엉뚱한 대상이 잡힌다).
 
 ---
 
 ## 5. Sub-agent
 
-상세 정의는 `.claude/agents/`(프로젝트 우선, 없으면 `~/.claude/agents/`). 정의 없으면 임의 생성 말고 같은 관점으로 직접 점검. plan-reviewer/code-reviewer 의 Codex 검토는 §9.
+상세 정의는 `.claude/agents/`(프로젝트 우선, 없으면 `~/.claude/agents/`). 정의가 없으면 임의로 만들지 말고 같은 관점으로 직접 점검한다. plan-reviewer/code-reviewer 의 Codex 검토는 §9.
 
-- **plan-reviewer** — Plan 직후(비사소한 계획). dlc 분할 판정으로 묶음이 생기면 그 경계도 묶음 모드로 1회.
-- **researcher** — §4 검색 신호 해당 시, 어느 단계에서든.
+- **plan-reviewer** — 비사소한 Plan 직후. dlc 분할 판정으로 묶음이 생기면 그 경계도 묶음 모드로 1회.
+- **researcher** — §4 검색 신호가 있으면 어느 단계에서든.
 - **code-reviewer** — 구현 후(trivial — dlc 규모표의 오타·주석·포맷·import·로그 1줄 — 이 아닌 코드 변경 전부).
-- **simplify 체크** (subagent 아님 — 메인 직접) — code-reviewer 통과·**blocker 해소 후**(미해결 blocker 있으면 미룸, dlc 13단계). 중복·과한 추상화·불필요한 복잡도·죽은 코드 제거. 동작 보존, 불확실하면 보류(제안만). 코드 변경했으면 검증 재실행.
-- **architecture-reviewer** — 트리거 기반(자동 호출 아님). public API/DB schema/auth 변경, 신규 service·repository·client, DI 변경, 2계층 이상 변경, 설계 의문 명시 시.
+- **simplify 체크**(subagent 아님 — 메인 직접) — code-reviewer 통과·**blocker 해소 후**(미해결 blocker 가 있으면 미룬다, dlc 13단계). 중복·과한 추상화·불필요한 복잡도·죽은 코드 제거, 동작 보존, 불확실하면 보류(제안만), 코드를 바꿨으면 검증 재실행. **trivial 이 아닌 코드 변경에 필수** — 미해결 blocker 등으로 못 했으면 사유를 Report 에.
+- **architecture-reviewer** — 트리거 기반(자동 호출 아님): public API/DB schema/auth 변경, 신규 service·repository·client, DI 변경, 2계층 이상 변경, 설계 의문 명시.
 
 표준 순서: `plan-reviewer → 구현 → code-reviewer → simplify 체크 → 최종 검증`.
 
-**simplify 점검은 trivial 이 아닌 코드 변경에 필수** — 메인 직접(전용 subagent 없음), 미해결 blocker 등으로 못 했으면 사유를 Report 에. 상세는 `skills/dlc/SKILL.md` 13단계.
-
 ### Workflow(ultracode) subagent 의 effort 는 단계별로 명시한다
 
-Workflow 스크립트의 `agent()` 는 `model` 을 생략하고(세션 모델 상속) `effort` 를 **항상 명시**한다 — 생략하면 세션 레벨(예: xhigh·max)을 상속해 탐색 agent 까지 그 레벨로 돈다. ultracode 는 레벨이 아니라 세션 레벨을 그대로 두는 토글이다(v2.1.284+ — 레벨을 `xhigh` 로 바꾸는 건 `--effort ultracode`·SDK `effortLevel: "ultracode"` 뿐).
+Workflow 스크립트의 `agent()` 는 `model` 을 생략하고(세션 모델 상속) `effort` 를 **항상 명시**한다 — 생략하면 세션 레벨(예: xhigh·max)을 상속해 탐색 agent 까지 그 레벨로 돈다. ultracode 는 레벨이 아니라 세션 레벨을 그대로 두는 토글이다.
 
 - `low` — 파일 탐색·grep·목록 수집·테스트 실행·기계적 변환
 - `medium` — 구현·단순 리팩토링
 - `high` — 검증·adversarial verify·judge·복잡한 디버깅
 - `xhigh`/`max` — 명시적으로 어려운 판정에만. 결과 통합·최종 판단은 스크립트가 아니라 메인(세션 effort)이 한다.
 
-`agentType` 으로 `~/.claude/agents/` 정의를 쓰면 그 frontmatter `model`(reviewer 들은 `opus`)이 세션 모델보다 우선한다. Agent 도구(단발 subagent)의 effort 는 정의 frontmatter `effort:` 가 정한다 — 도구의 `effort` 파라미터는 사용자나 skill 이 레벨을 명시했을 때만 쓴다.
+`agentType` 으로 `~/.claude/agents/` 정의를 쓰면 그 frontmatter `model` 이 세션 모델보다 우선한다. Agent 도구(단발 subagent)의 effort 는 정의 frontmatter `effort:` 가 정하고, 도구의 `effort` 파라미터는 사용자나 skill 이 레벨을 명시했을 때만 쓴다.
 
 ---
 
 ## 6. 코드 규칙
 
-- 새 코드 전 동일 디렉토리/같은 레이어 기존 파일 read. 네이밍·에러 처리·로깅·import 순서를 기존과 맞춤.
-- 새 의존성 추가 전 기존/표준 라이브러리로 가능한지 확인. 추가하면 이유·대안·영향 명시.
+- 새 코드 전 같은 디렉토리·레이어의 기존 파일을 read 하고 네이밍·에러 처리·로깅·import 순서를 맞춘다.
+- 새 의존성은 기존/표준 라이브러리로 되는지 먼저 확인하고, 추가하면 이유·대안·영향을 명시한다.
 - Python production: type hint 기본. 데이터 경계(외부 입력·API·config·DB/메시지)는 Pydantic 또는 기존 검증 패턴.
-- 주석은 없는 게 기본. 자명한·코드를 그대로 옮긴 주석 금지, 의도는 네이밍·구조로 푼다. 코드에 안 드러나는 *왜*(우회·트레이드오프·비자명한 제약)만 최소 줄로 — 장황한 배경 서술 금지. docstring·테스트 주석도 동일.
-- **변경 경위는 주석이 아니라 커밋/PR 에.** "버그 X 수정"·"리뷰 반영"·"원래 ~였음"·"안전을 위해 추가" 같은 *왜 바꿨나*는 코드에 남기지 않는다 — 주석은 "지금 왜 이래야 하나"(제약)에 답하지 "왜 바꿨나"가 아니다.
+- 주석은 없는 게 기본 — 자명한·코드를 그대로 옮긴 주석 금지, 의도는 네이밍·구조로 푼다. 코드에 안 드러나는 *왜*(우회·트레이드오프·비자명한 제약)만 최소 줄로, 장황한 배경 서술 금지. docstring·테스트 주석도 같다.
+- **변경 경위는 주석이 아니라 커밋/PR 에.** "버그 X 수정"·"리뷰 반영"·"원래 ~였음"·"안전을 위해 추가" 같은 *왜 바꿨나*는 코드에 남기지 않는다 — 주석은 "지금 왜 이래야 하나"(제약)에 답한다.
 - 임시 코드: `# TODO: <이유> (<제거 조건/이슈>)` 형식.
-- 죽은 코드는 주석 말고 삭제(git 이 기억).
-- **파일 수정은 부분 편집 우선.** 기존 파일을 통째로 다시 쓰지 말고 바뀌는 범위만 고친다(`Edit`). 통째로 덮어쓰기는 신규 파일·짧은 파일·대부분이 바뀌는 경우만 — 결과가 같다면 출력 토큰·시간이 적은 쪽을 쓴다.
-- 추측한 API/함수/라이브러리 이름 생성 금지. 확인하거나 모른다고 말한다.
+- 죽은 코드는 주석 처리 말고 삭제(git 이 기억).
+- **파일 수정은 부분 편집 우선**(`Edit`) — 통째 덮어쓰기는 신규 파일·짧은 파일·대부분이 바뀌는 경우만. 결과가 같다면 출력 토큰·시간이 적은 쪽을 쓴다.
+- 추측한 API/함수/라이브러리 이름을 만들지 않는다 — 확인하거나 모른다고 말한다.
 - 로깅에 token/password/private key/인증서/PII 출력 금지.
 
 ---
 
 ## 7. 테스트 (TDD)
 
-로직 추가/수정 시 검증 테스트 함께. **순서**: 테스트 작성 → Red 확인 → 구현 → Green 확인 → refactor.
+로직을 추가·수정하면 검증 테스트를 함께 쓴다. **순서**: 테스트 작성 → Red 확인 → 구현 → Green 확인 → refactor.
 
 **예외 (사유 명시 필수)**:
 - 사소한 변경: 1줄 수정·오타·주석·포매팅·import·로그 메시지
-- 기존 테스트로 회귀 커버되는 단순 리팩토링 (통과 확인 필수)
+- 기존 테스트로 회귀가 커버되는 단순 리팩토링 (통과 확인 필수)
 - UI 시각 확인·외부 인프라·훅/스크립트 → 수동 검증 절차 명시
 
 **기타**:
+
 - 버그 수정엔 가능하면 재현 테스트 먼저.
-- 테스트 약화/삭제는 이유 명시. 버그 숨기려 기대값 낮추지 않는다.
-- **테스트 규모는 인접 테스트 파일에 맞춘다** — 진술된 동작당 집중 테스트 1개 정도(경계·오류 조건은 그 동작의 일부라 상한 대상이 아니다). scratch 검증 스크립트·임시 체크를 다듬지 않은 채 영구 테스트 파일로 승격하지 않는다. 요구된 동작은 빠짐없이 구현·검증하되 *덤*을 늘리지 않는다.
-- flaky test 는 원인·재현 조건·임시 대응 분리해 기록.
+- 테스트 약화/삭제는 이유 명시. 버그를 숨기려 기대값을 낮추지 않는다.
+- **테스트 규모는 인접 테스트 파일에 맞춘다** — 진술된 동작당 집중 테스트 1개 정도(경계·오류 조건은 그 동작의 일부라 상한 대상이 아니다). scratch 검증 스크립트·임시 체크를 다듬지 않은 채 영구 테스트로 승격하지 않는다. 요구된 동작은 빠짐없이 구현·검증하되 *덤*을 늘리지 않는다.
+- flaky test 는 원인·재현 조건·임시 대응을 나눠 기록.
 - 외부 API/DB/네트워크/시간 의존 테스트는 기존 mocking/stubbing 패턴을 따른다.
 
 ---
@@ -151,36 +148,34 @@ Workflow 스크립트의 `agent()` 는 `model` 을 생략하고(세션 모델 �
 
 ## 9. Claude ↔ Codex 협업
 
-사용자는 Claude 와 Codex 양쪽을 사용. 둘 다 같은 `plans/` 핸드오프 채널을 공유(경로 규약은 §10).
+사용자는 Claude 와 Codex 를 둘 다 쓰고, 둘 다 같은 `plans/` 핸드오프 채널(§10)을 공유한다.
 
-- **역할**: Claude 는 plan 생성/갱신·메인 구현·통합. Codex 는 리뷰·보조 구현·검증. 최종 통합 책임은 항상 **현재 메인 에이전트**.
-- **호출**: 설치 확인 `codex --version`. **codex 는 반드시 Bash 도구로 호출한다**(PowerShell 은 stdin 미종료로 무한 hang — 재현). 호출 규약·effort·출력 처리 세부는 `~/.claude/wiki/docs/codex-review.md`.
-- **리뷰 매트릭스**:
-  - `plan-reviewer` / `code-reviewer` = **Claude subagent 필수 + Codex 가용 시 병행**.
-  - `researcher` / 보조 구현 = 가용성·이득 있을 때 선택. (simplify 체크는 메인 직접 — 매트릭스 대상 아님)
-- **공유 채널**: `<ROOT>/plans/<dir>/<slug>-plan.md` 가 세션·도구 간 컨텍스트 채널(토큰 소진/세션 종료 시 이어받기용).
+- **역할**: Claude 는 plan 생성/갱신·메인 구현·통합, Codex 는 리뷰·보조 구현·검증. 최종 통합 책임은 항상 **현재 메인 에이전트**.
+- **호출**: 설치 확인 `codex --version`. **codex 는 반드시 Bash 도구로 호출한다**(PowerShell 은 stdin 미종료로 무한 hang). 호출 규약·effort·출력 처리 세부는 `~/.claude/wiki/docs/codex-review.md`(codex 를 부르기 전에 읽는다).
+- **리뷰 매트릭스**: `plan-reviewer` / `code-reviewer` = **Claude subagent 필수 + Codex 가용 시 병행**. `researcher` / 보조 구현 = 가용성·이득이 있을 때 선택. simplify 체크는 메인 직접이라 매트릭스 대상이 아니다.
+- **리뷰 시점**: dlc 의 중간 단계(구현 직후 code-reviewer + codex 병행)가 맡는다 — push 직전 별도 codex 리뷰는 두지 않는다. 로컬 다관점 점검이 따로 필요하면 빌트인 `/code-review` 를 수동으로 쓴다.
 
 ---
 
 ## 10. `plans/` 핸드오프 규약
 
-티켓 ID 명시 작업 또는 컨텍스트 명확한 단위는 `<ROOT>/plans/<YYYY-MM-DD>-<slug>/<slug>-plan.md` 사용. `<ROOT>` = `git rev-parse --show-toplevel` — 스킬 c·e·dlc 가 쓰는 기준과 같다. **`.claude/plans/` 로 적지 않는다**: 이 repo 는 루트가 `~/.claude` 라 그 표기가 double-nest 된 빈 경로(`~/.claude/.claude/plans/`)를 가리킨다. 파일명에 slug 가 있어야 `@` 자동완성에서 식별 가능.
+티켓 ID 가 있는 작업이나 컨텍스트가 명확한 단위는 `<ROOT>/plans/<YYYY-MM-DD>-<slug>/<slug>-plan.md` 를 쓴다. `<ROOT>` = `git rev-parse --show-toplevel` — 스킬 c·e·dlc 가 쓰는 기준과 같다. **`.claude/plans/` 로 적지 않는다**: 이 repo 는 루트가 `~/.claude` 라 그 표기가 double-nest 된 빈 경로(`~/.claude/.claude/plans/`)를 가리킨다. 파일명에 slug 가 있어야 `@` 자동완성에서 식별된다.
 
 ### slug & 매칭
 - slug: `<TICKET>-<short-desc>` 또는 `<short-desc>`. 디렉토리 prefix 는 시작일(불변, rename 금지).
 - 매칭: 현재 git branch 가 slug 에 포함된 dir → 그 안의 `*-plan.md` 1개.
-- **active plan 추적 (매칭 실패 대비 — 중요)**: branch 가 어떤 plan slug 와도 매칭 안 돼도, 세션에서 진행 중이던 plan 을 active 로 **계속 추적**한다. branch 매칭은 plan 을 *처음 찾는* 수단일 뿐 — 한번 active 가 된 plan 은 branch 를 바꾸거나 작업이 plan 범위 밖으로 확산돼도 동기화 대상에서 빠지지 않는다.
+- **active plan 추적**: branch 가 어떤 slug 와도 안 맞아도 세션에서 진행 중이던 plan 은 active 로 **계속 추적**한다. branch 매칭은 plan 을 처음 찾는 수단일 뿐 — 한번 active 가 된 plan 은 branch 를 바꾸거나 작업이 plan 범위 밖으로 넓어져도 동기화 대상에서 빠지지 않는다.
 
 ### 동작
-- **시작**: 매칭 plan(과 있으면 plan log)을 read 후 컨텍스트 복원, 없으면 새로 생성(`status: in_progress`).
-- **진행 중 동기화 (필수)**: plan 과 다른 결정/방향/스코프 변경이 발생하는 **즉시** 업데이트, 턴 종료까지 미루지 않는다.
+- **시작**: 매칭 plan(과 있으면 plan log)을 read 해 컨텍스트를 복원하고, 없으면 새로 만든다(`status: in_progress`).
+- **진행 중 동기화**(필수): plan 과 다른 결정·방향·스코프 변경이 생기면 **즉시** 반영한다 — 턴 종료까지 미루지 않는다.
   - 스코프 변경·접근/아키텍처 변경·새 제약 → `# Decisions` 의 그 결정을 고쳐 쓰고 **이유**를 붙인다. 밀려난 선택은 기각안으로 옮겨 기각 사유를 남긴다(plan 은 작업 끝에만 커밋돼 세션 안의 이력은 git 에 남지 않는다). Acceptance 문구·통과 기준·검증 명령을 바꾸면 이전 값 → 새 값과 사용자 승인을 남긴다.
   - 할 일이 생기거나 끝나면 → `# Tasks` 에 추가·체크(급한 다음 일은 미완료 맨 위).
   - 막힘 → `# Blockers` + `status: blocked`.
 - **턴 종료**: 끝낸 Task 체크(날짜), frontmatter `updated:` 오늘. 빠뜨린 동기화 보강.
 - **완료**: 머지·배포·승인 **그 시점에 즉시** `status: done` — 미루지 않는다(`/e merge` 는 done 을 머지 PR 에 실어 보내고 머지가 거부되면 `in_progress` 로 복구한다). **블로커**: `status: blocked` + `# Blockers`.
-- **원칙**: plan 은 "현재 상태의 단일 진실 소스"(묶음이면 요구 자체는 `intent.md` 가 정본이고 plan 은 `intent:` 로 가리킨다 — 아래 묶음 intent). 합의가 plan 에 없으면 다음 세션/도구가 모른다 — 항상 plan 우선 반영.
-- **동기화 (tracked)**: `plans/` 는 tracked(§8 whitelist `.gitignore`) — plan 을 작업 브랜치와 함께 commit·push 하면 다른 머신/세션이 pull 로 이어받아 "단일 진실 소스"가 머신 경계를 넘는다. secret 유출 방지: pre-commit-check 가 staged `plans/*.md` 토큰 스캔(+§8 원문 출력 금지) — plan 에 raw token/credential/PII 붙여넣기 금지.
+- **원칙**: plan 은 "현재 상태의 단일 진실 소스"다(묶음이면 요구 자체는 `intent.md` 가 정본이고 plan 은 `intent:` 로 가리킨다 — 아래 묶음 intent). 합의가 plan 에 없으면 다음 세션·도구가 모른다 — 항상 plan 에 먼저 반영한다.
+- **동기화 (tracked)**: `plans/` 는 tracked 라 작업 브랜치와 함께 commit·push 하면 다른 머신·세션이 pull 로 이어받는다. pre-commit-check 가 staged `plans/*.md` 의 토큰을 스캔한다(+§8 원문 출력 금지) — plan 에 raw token/credential/PII 를 붙여 넣지 않는다.
 
 ### frontmatter (필수)
 ```yaml
@@ -200,19 +195,17 @@ updated: YYYY-MM-DD
    - 새로 생긴 급한 일(리뷰 반영·재실행)은 미완료 맨 위에. 사용자 결정이 필요하면 `- [ ] NEEDS-HUMAN: <질문> — <선택지>`(`/c` 는 여기서 멈춘다). WIP 체크포인트는 그 미완료 Task 에 "브랜치 tip `wip:` 커밋 이어서".
    - done plan 에는 `[post-merge]` 항목만 미완료로 남는다(`/e merge` 가 머지 전에 확인한다). 머지 대기는 Task 가 아니라 PR 상태로 본다.
 3. `# Acceptance` — test 가능한 완료 기준(비trivial 은 필수). 번호 항목 `1.`(`1. [ ]` 허용): `무엇이 충족되나 — 어떻게 확인 — 통과 기준`. 각 항목이 증거(실행·관찰·통과)로 충족될 때만 완료(dlc evidence gate).
-4. `# Decisions` — **현재** 설계/스코프 합의 + 이유, 그리고 **진지하게 검토했다가 기각한 대안과 기각 사유**(없으면 다음 세션이 같은 안을 다시 꺼낸다 — 실측 재발 축). 결정이 바뀌면 고쳐 쓰고 밀려난 안은 기각안으로 옮긴다(위 동기화).
+4. `# Decisions` — **현재** 설계/스코프 합의 + 이유, 그리고 **진지하게 검토했다가 기각한 대안과 기각 사유**(없으면 다음 세션이 같은 안을 다시 꺼낸다). 결정이 바뀌면 고쳐 쓰고 밀려난 안은 기각안으로 옮긴다(위 동기화).
 5. `# Blockers` — 막힌 것 + 풀려면 필요한 것
 
 작업 기록 (절차가 요구할 때만) — 같은 폴더의 `<slug>-log.md`(이하 plan log. 필요할 때 만들고 frontmatter 없음, plan-lint 대상 아님, plan 과 같이 커밋. 새 형식 plan 본문에 두면 plan-lint 위반): `# Review Disposition`(dlc fix loop 의 finding 처분 — `fix`/`defer`/`false-positive`/`wontfix`. 묶음 분할 리뷰의 처분은 첫 plan 의 log 에 `[묶음]` 접두로. dlc ⚠️ self-flag 는 자기 신고라 `resolved`/`accepted-risk`/`deferred` 로 구분), `# Deferred`(범위 밖 발견 — §3-4), `# Workflow Findings`(확인된 workflow 실패 기록 — dlc 증거기반 자기개선, 최소형). `defer`(리뷰 finding 처분값) ≠ `# Deferred`(범위 밖 발견 보존 섹션).
 
 **형식 검사·옛 형식**: 기계 검사는 `scripts/plan-lint.js`(필수 섹션·Tasks 체크박스와 날짜·Acceptance 참조·본문의 작업 기록 섹션). 2026-10-18 이전 형식(`# Progress`·`# Next`·`# Key Files`·`# Intent` 가 있고 `# Tasks` 가 없음)도 유효하다 — 진행 중인 옛 형식 plan 은 끝날 때까지 같은 뜻의 옛 섹션에 쓴다(첫 미완료 Task ↔ `# Next`, 체크된 Task ↔ `# Progress`, Task 안 경로 ↔ `# Key Files`, Goal 라벨 불릿 ↔ `# Intent`, log 의 작업 기록 ↔ plan 본문의 같은 섹션). 새 plan 만 새 형식이고, 한 plan 에 두 형식을 섞지 않는다. 스킬·agent 는 새 형식만 적는다 — 옛 형식 plan 을 만나면 이 대응표를 쓴다.
 
-리뷰는 dlc 의 중간 단계(구현 직후 code-reviewer + codex 병행, §9)가 담당한다 — push 직전 별도 codex 리뷰는 두지 않는다. 로컬 다관점 점검이 따로 필요하면 빌트인 `/code-review` 를 수동 사용.
-
 ### 묶음 intent (`intent.md`, 선택)
 한 요구가 plan 여러 개(후속·분할)로 갈라지면 그 요구를 `<ROOT>/plans/<YYYY-MM-DD>-<intent-slug>/intent.md` 한 파일에 두고, 각 plan 이 frontmatter 선택 키 `intent: plans/<dir>/intent.md`(스칼라 1개 — 한 plan 이 두 묶음에 걸치지 않는다)로 가리킨다. plan 은 자기 dir 에 그대로 두고 intent dir 에는 `*-plan.md` 를 두지 않는다 — 위 매칭 규칙·`plan-match.js`·`session-brief.js`·`plan-lint` 가 그대로 동작한다(**intent.md 는 plan 이 아니라 `plan-lint` 대상이 아니다**).
 - **만드는 때(닫힌 목록)**: 1) 사용자 지시 2) 요구가 독립 검증·머지 가능한(각 단위가 순서대로 혼자 default 에 머지돼도 빌드·규약 무모순) 복수 plan 으로 나뉠 때 — medium 이상은 dlc 요구사항 명확화의 **분할 판정**이 능동으로 보고, small 은 예상될 때(후속·병렬) 3) 기존 plan 의 Out of scope·plan log `# Deferred`·"별도 작업" 에서 새 plan 을 시작 → 소급 생성하되 **선행 plan 에는 `intent:` 1줄만 추가**하고 본문은 손대지 않는다 — 단 그 항목이 이미 이슈로 넘어갔거나 선행 plan 이 다른 묶음에 속해 있으면(`intent:` 는 스칼라) 소급 생성하지 않고 이슈와 새 plan 의 `# Decisions` 가 추적한다. 그 외 단발 작업은 plan `# Goal` 의 라벨 불릿만. 착수 전 `plans/*/intent.md` 중 `status: open` 을 훑어 기존 묶음이면 새로 만들지 않고 연결한다(dlc 요구사항 명확화).
-- **형식**: frontmatter `title` · `status: open|closed`(값 라인에 인라인 주석 금지 — 파서가 값으로 오인한 선례) · `started` · `updated`. 본문 H1 6개: `# Problem` · `# Proposed outcome` · `# Constraints`(묶음 공통 제약) · `# Out of scope`(하지 **않을** 경계만 — 이어서 할 후속은 여기가 아니라 `# Plans` 에 `(미착수)`) · `# Open questions`(미처분 `(열림)`, 처분은 `(해소)`/`(이월 → <새 묶음 | #이슈 | plan 경로>)`) · `# Plans`(plan 경로 + 한 줄 메모 — **status 복제 금지**, 정본은 각 plan frontmatter. 폐기한 plan 은 메모에 `폐기`. 아직 착수 안 한 단위는 `<slug 후보> (미착수) — 메모`, 착수하는 dlc 가 실제 경로로 치환).
+- **형식**: frontmatter `title` · `status: open|closed`(값 라인에 인라인 주석 금지) · `started` · `updated`. 본문 H1 6개: `# Problem` · `# Proposed outcome` · `# Constraints`(묶음 공통 제약) · `# Out of scope`(하지 **않을** 경계만 — 이어서 할 후속은 여기가 아니라 `# Plans` 에 `(미착수)`) · `# Open questions`(미처분 `(열림)`, 처분은 `(해소)`/`(이월 → <새 묶음 | #이슈 | plan 경로>)`) · `# Plans`(plan 경로 + 한 줄 메모 — **status 복제 금지**, 정본은 각 plan frontmatter. 폐기한 plan 은 메모에 `폐기`. 아직 착수 안 한 단위는 `<slug 후보> (미착수) — 메모`, 착수하는 dlc 가 실제 경로로 치환).
 - **plan `# Goal` 의 라벨 불릿은 intent.md 링크 1줄 + 이 plan 에만 더해지는 델타**(제약·범위). 공통 제약을 plan 에 복제하지 않는다. 델타가 없으면 `델타 없음 — <근거>`. 공통 제약이 바뀌면 plan `# Decisions` 에 남기고 intent.md 를 갱신한다.
 - **소유권**: 각 세션은 intent.md 에서 자기 plan 의 `# Plans` 줄과 자기가 연 Open question 만 고친다. 공통 Constraints 를 바꾸면 진행 중인 다른 plan 의 `# Decisions` 에 영향 통지를 남긴다.
 - **수명**: plan `done` ≠ intent `closed`. `closed` = `# Plans` 의 모든 plan 이 `done`(또는 `폐기`) **그리고** Open questions 전부 처분. Out of scope 는 조건이 아니다(영구 경계). `/e` 가 plan done 을 **쓰는 그 지점**(체크포인트 확인 done / 머지 모드 M4 커밋)에서 판정해 같은 커밋에 담고, 조건 충족이면 확인 없이 닫는다(M4 복구 시 함께 되돌린다).
@@ -225,17 +218,16 @@ updated: YYYY-MM-DD
 
 ## 11. 영속 프로젝트 메모리 (LLM Wiki)
 
-누적 지식(아키텍처 결정·교훈·검증된 외부 사실)은 wiki 에 영속 적립 — `plans/`(일시적 핸드오프, 종료 시 닫힘)와 달리 작업을 가로질러 누적. **두 계층**:
+누적 지식(아키텍처 결정·교훈·검증된 외부 사실)은 wiki 에 영속 적립한다 — `plans/`(일시적 핸드오프, 종료 시 닫힘)와 달리 작업을 가로질러 누적된다. **두 계층**:
 - **repo wiki** `<ROOT>/wiki/` — 그 repo 의 결정·교훈(코드와 같은 브랜치에서 갱신).
 - **공용 wiki** `~/.claude/wiki/` — 여러 repo 에 쓸모 있는 **공개 가능한** 사실(도구·플랫폼·라이브러리 동작)과 전역 자산(dlc·hook·skill)의 결정·교훈. 이 문서·skill 이 가리키는 `[[…]]` 페이지는 여기 있다.
-  - 비공개 GitHub repo 를 이 경로에 별도 clone 한 것이다. `~/.claude` 는 추적하지 않고 worktree 에는 사본이 없다.
-  - 절대경로 `~/.claude/wiki` 로 읽는다. `~/.claude` 루트에서 돌린 `rg`·Grep 은 이 폴더를 건너뛰므로 경로를 명시한다.
+  - 비공개 GitHub repo 를 이 경로에 별도 clone 한 것이다 — `~/.claude` 는 추적하지 않고 worktree 에는 사본이 없다. 절대경로 `~/.claude/wiki` 로 읽는다(`~/.claude` 루트에서 돌린 `rg`·Grep 은 이 폴더를 건너뛰므로 경로를 명시한다 — §2).
   - 하네스 참조 문서(codex 규약·dlc 상세·worktree 수명 주기)도 이 repo 의 `docs/` 에 있다 — skill·agent 가 `~/.claude/wiki/docs/<파일>` 로 직접 읽는다(자동 로드 안 됨, `wiki_search` 는 `pages/` 만 찾는다). 쓰기 경로와 공개 점검은 페이지와 같다.
   - 쓰기는 main 세션에서 하고, 그 repo 의 main 에 직접 커밋한다(§8 예외, push 는 요청 시). worktree 작업 중 생긴 공용 적립은 plan log `# Deferred` 에 남기고 main 세션에서 처리한다.
-  - 예외 — 그 repo 의 `WIKI.md` 레이어 표가 worktree+PR 로 정한 코드 계층과 그 `plans/` 는 main 에 직접 커밋하지 않는다. 그 repo 자신의 worktree 에서 고치고 PR 로 머지한다. 이유: 그 코드는 main 에서 설치되어 상주 서버로 실행되므로, main 에 직접 커밋한 코드는 리뷰 없이 실행된다.
-  - 적는 기준은 그대로 공개 가능한 사실이다 — 저장소는 비공개여도 모든 repo 세션이 읽고 공개 repo 로 옮겨 적을 수 있다. 아래 공개 점검의 금지 목록은 wiki 페이지·`sources`·index·log·커밋 메시지에도 그대로 적용한다(그 repo 에는 `private-terms.txt` 백스톱이 없다).
+  - 예외 — 그 repo 의 `WIKI.md` 레이어 표가 worktree+PR 로 정한 코드 계층과 그 `plans/` 는 main 에 직접 커밋하지 않고, 그 repo 자신의 worktree 에서 고쳐 PR 로 머지한다(그 코드는 main 에서 설치돼 상주 서버로 실행되므로 main 직접 커밋은 리뷰 없이 실행된다).
+  - 적는 기준은 공개 가능한 사실이다 — 저장소는 비공개여도 모든 repo 세션이 읽고 공개 repo 로 옮겨 적을 수 있다. 아래 공개 점검의 금지 목록은 wiki 페이지·`sources`·index·log·커밋 메시지에도 그대로 적용한다(그 repo 에는 `private-terms.txt` 백스톱이 없다).
 - **공개 점검** — `~/.claude` 는 공개 repo 다. 이 repo 에서 커밋·push 하는 **모든 것**(작업 종류 불문 — 코드·문서·plan·브랜치/worktree 이름·커밋 메시지·PR 제목/본문)에 회사·조직명, 내부 도메인·호스트·IP, 고객·제품 코드명·티켓 키, 비공개 repo 의 이름·경로·내부 도구명을 넣지 않는다(비공개 repo 는 "회사 repo" 로만). 비공개 출처(또는 출처 불명)를 적립할 때는 커밋 전 diff 를 보이고 확인받는다. 기계 백스톱: 추적하지 않는 머신별 목록 `~/.claude/private-terms.txt` 에 적은 이름은 `pre-commit-check` 가 이 repo 의 커밋·push 에서 막는다 — 목록 밖 이름·PR 제목/본문·웹 편집은 못 잡으니 이 점검이 먼저이고, 걸리면 목록을 도구로 읽지 말고 걸린 표현을 일반 표현으로 바꾼다.
-- 현재 repo 가 `~/.claude` 인지: `[ "$(git rev-parse --path-format=absolute --git-common-dir)" -ef "$HOME/.claude/.git" ]`(worktree 포함, 경로 표기 차이에 무관). 맞으면 이 repo 의 wiki 가 곧 공용 wiki(`~/.claude/wiki`)다 — worktree 세션도 같은 절대경로를 읽는다.
+- 현재 repo 가 `~/.claude` 인지: `[ "$(git rev-parse --path-format=absolute --git-common-dir)" -ef "$HOME/.claude/.git" ]`(worktree 포함, 경로 표기 차이에 무관). 맞으면 이 repo 의 wiki 가 곧 공용 wiki(`~/.claude/wiki`)다.
 
 - 작업 시작 시 관련 페이지 조회 — `uv run --no-project python "$HOME/.claude/skills/wiki/wiki_search.py" <키워드>` 가 공용 wiki(cwd 무관)와 현재 repo 의 wiki 를 함께 찾는다(첫 줄에 찾은 wiki·쪽수, exit 2 는 stderr 이유를 본다). 결과가 없거나 빗나가면 두 `index.md`(공용은 `~/.claude/wiki/index.md`)를 직접 본다.
 - 재사용 가능한 지식(비자명한 결정·교훈·확정한 외부 사실)은 **대상 계층까지 판정 필수** — repo wiki / 공용 wiki / 비대상(사유). 대상이면 `/wiki ingest` 제안(자동 아님). 애매하면 repo wiki. repo wiki 대상인데 repo wiki 가 없거나 비-git 이면 비대상 + 사유(공용 대상은 여전히 제안).
@@ -246,23 +238,22 @@ updated: YYYY-MM-DD
 
 ## 12. 피드백 메모리 (교정의 반영 보장)
 
-사용자가 작업 방식 교정을 영속화하라고 지시하면("기억해 / 규칙으로 / 다음부턴 이렇게") memory `type: feedback` 으로 저장. 목표는 저장이 아니라 **다음 작업에서의 실제 반영**.
+사용자가 작업 방식 교정을 영속화하라고 지시하면("기억해 / 규칙으로 / 다음부턴 이렇게") memory `type: feedback` 으로 저장한다. 목표는 저장이 아니라 **다음 작업에서의 실제 반영**.
 
-- **인덱스를 행동 지시문으로.** `MEMORY.md` 인덱스 줄만 매 세션 항상 주입(본문은 관련 있을 때만 recall). 인덱스를 *정보 요약*이 아니라 **명령형 행동 규칙**으로: `notify-hook 알림 버그 메모` ❌ → `코드 변경 시 주석·문서도 같은 커밋에서 갱신` ✅. 본문엔 사례·Why·How.
-- **저장은 2단계 — 둘 다.** 메모리 파일 + `MEMORY.md` 인덱스 한 줄. 인덱스를 빠뜨리면 본문이 묻혀 반영 안 됨(인덱스는 직접 갱신).
-- **재참고 — 능동 확인.** 작업 시작 시(특히 dlc Explore) 관련 feedback 인덱스 줄을 의식적으로 확인해 적용. 상세·근거 필요하면 본문 read.
+- **인덱스를 행동 지시문으로.** 매 세션 항상 주입되는 것은 `MEMORY.md` 인덱스 줄뿐이다(본문은 관련 있을 때만 recall). 인덱스는 *정보 요약*이 아니라 **명령형 행동 규칙**으로: `notify-hook 알림 버그 메모` ❌ → `코드 변경 시 주석·문서도 같은 커밋에서 갱신` ✅. 본문엔 사례·Why·How.
+- **저장은 2단계 — 둘 다.** 메모리 파일 + `MEMORY.md` 인덱스 한 줄(인덱스는 직접 갱신 — 빠뜨리면 본문이 묻혀 반영되지 않는다).
+- **재참고 — 능동 확인.** 작업 시작 시(특히 dlc Explore) 관련 feedback 인덱스 줄을 의식적으로 확인해 적용하고, 상세·근거가 필요하면 본문을 read.
 - **승격.** 보편·중대 규칙은 이 `CLAUDE.md` 로 승격(전문 100% 주입 + 명령조) 후 memory 정리. repo 한정 컨벤션은 그 repo `CLAUDE.md`(또는 wiki `decision/`).
-- **유지.** 같은 주제는 기존 파일 갱신(중복 금지). 모순되면 옛 것 교체(이력은 git). 무효는 삭제 — 죽은 규칙도 인덱스로 주입돼 방해.
+- **유지.** 같은 주제는 기존 파일 갱신(중복 금지). 모순되면 옛 것을 교체(이력은 git). 무효는 삭제 — 죽은 규칙도 인덱스로 주입돼 방해한다.
 
 ---
 
 ## 13. 실수·교훈 로그 (반복 방지)
 
-작업 중 저지른 실수(내 오판·누락) 또는 사용자가 지적한 실패는, 같은 실수를 다음 작업에서 반복하지 않도록 적립 **대상으로 판정**한다. 목표는 기록이 아니라 **다음 구현에서의 회피**. wiki(상세)와 memory(자동 상기)를 **결합**한다 — wiki 만으로는 능동 조회라 자동으로 안 떠오르고, 인덱스 한 줄만으로는 원인·교훈이 묻힌다.
-- **무승인 자동 적립 금지 (§1).** 실수 발견은 자동 저장/수정이 아니라 **제안** — Report 또는 plan log `# Workflow Findings`/`# Deferred`에 올리고, 승인·판정 후 적립한다([[self-diagnosis-and-improvement-status]]의 "자발적 무승인 기록 트리거 미채택"·§11 의 wiki ingest "제안(자동 아님)"과 같은 게이트). §13 은 *적립할 때의 형식*을 정하지, 무인 자동화를 도입하지 않는다.
-
-- **상세 = 대상 계층(§11) wiki 의 교훈 페이지** — 공용 wiki 는 `pages/decision/lesson-<주제>.md`, 다른 repo wiki 는 그 `WIKI.md` 형식. 전역 워크플로우 교훈은 공용 wiki. 원인(최소 3 Whys)·재현 조건·잘못된 방법·올바른 방법. 기존 [[workflow-failures]] 와 같은 ADR-lite 형식(§11). `index.md`·`log.md` 동기화 동반.
-- **자동 상기 = `MEMORY.md` feedback 인덱스 한 줄(명령형 + lesson 링크).** wiki 는 자동 주입 안 되고, 매 세션 주입되는 유일한 경로는 이 인덱스 줄이다. `MEMORY.md` 는 git repo 별(worktree 는 공유)이라 `~/.claude` 에서 적은 줄은 다른 repo 세션에 주입되지 않는다 — 거기서의 상기는 작업 시작의 공용 index 조회가 맡는다. 다른 repo 에서 찾은 전역 교훈의 memory 줄은 공용 적립을 마치고 `~/.claude` main 으로 복귀한 세션에서 적는다(worktree 안에서는 못 쓴다 — §3-1). *정보 요약이 아니라 회피 행동 지시*로 쓴다(§12): `마이그레이션 down 스크립트 먼저 작성 (롤백 불가 실수 → lesson-migration)`.
-- **메커니즘은 §11·§12 그대로** (저장 2단계·승격·재참고를 재서술하지 않는다). **§13 의 순증분은 대상 확대뿐** — §12 가 "사용자 교정 지시"라면 §13 은 **내가 능동 발견한 실수(사용자 지시 없이도)** 까지 (위 무승인 게이트 하에서) 포함. **적립은 매 실수마다 의무가 아니라 판정·제안**(위 무승인 금지) — 반면 *승인되어 만들어진* 인덱스 줄은 §12 대로 매 세션 주입("적립 의무"와 "인덱스 주입"은 별개). 회피를 hook 으로 강제할 만큼 반복되면 게이트(Stop/UserPromptSubmit)로 승격.
+작업 중 저지른 실수(내 오판·누락)나 사용자가 지적한 실패는 다음 작업에서 반복하지 않도록 적립 **대상인지 판정**한다 — 목표는 기록이 아니라 **다음 구현에서의 회피**. wiki(상세)와 memory(자동 상기)를 **결합**한다(wiki 만으로는 능동 조회라 자동으로 안 떠오르고, 인덱스 한 줄만으로는 원인·교훈이 묻힌다).
+- **무승인 자동 적립 금지 (§1).** 실수 발견은 자동 저장·수정이 아니라 **제안** — Report 또는 plan log `# Workflow Findings`/`# Deferred` 에 올리고 승인·판정 후 적립한다([[self-diagnosis-and-improvement-status]] 의 "자발적 무승인 기록 트리거 미채택"·§11 의 wiki ingest "제안(자동 아님)"과 같은 게이트). §13 은 적립할 때의 형식을 정할 뿐 무인 자동화를 들이지 않는다.
+- **상세 = 대상 계층(§11) wiki 의 교훈 페이지** — 공용 wiki 는 `pages/decision/lesson-<주제>.md`, 다른 repo wiki 는 그 `WIKI.md` 형식. 전역 워크플로우 교훈은 공용 wiki. 원인(최소 3 Whys)·재현 조건·잘못된 방법·올바른 방법을 [[workflow-failures]] 와 같은 ADR-lite 형식으로 쓴다. `index.md`·`log.md` 동기화 동반.
+- **자동 상기 = `MEMORY.md` feedback 인덱스 한 줄(명령형 + lesson 링크).** wiki 는 자동 주입되지 않고, 매 세션 주입되는 유일한 경로가 이 인덱스 줄이다. *정보 요약이 아니라 회피 행동 지시*로 쓴다(§12): `마이그레이션 down 스크립트 먼저 작성 (롤백 불가 실수 → lesson-migration)`. `MEMORY.md` 는 git repo 별(worktree 는 공유)이라 `~/.claude` 에서 적은 줄은 다른 repo 세션에 주입되지 않는다 — 거기서의 상기는 작업 시작의 공용 index 조회가 맡는다. 다른 repo 에서 찾은 전역 교훈의 memory 줄은 공용 적립을 마치고 `~/.claude` main 으로 복귀한 세션에서 적는다(worktree 안에서는 못 쓴다 — §3-1).
+- 저장 2단계·승격·재참고는 §11·§12 그대로다. **§13 의 순증분은 대상 확대뿐** — §12 가 사용자 교정 지시라면 §13 은 **내가 능동 발견한 실수**(사용자 지시 없이도)까지 위 무승인 게이트 아래에서 포함한다. **적립은 매 실수마다 의무가 아니라 판정·제안**이고, 승인돼 만들어진 인덱스 줄은 §12 대로 매 세션 주입된다. 회피를 hook 으로 강제할 만큼 반복되면 게이트(Stop/UserPromptSubmit)로 승격한다.
 
 @RTK.md
