@@ -270,7 +270,7 @@ Opus 53%(20:30) wk 72% | ctx 12% | main
 
 14개 섹션 (0~13):
 0. 응답 언어 — 한국어, 인사말 없이 내용부터(착수 한 문장·진행 업데이트·결론 요약은 쓴다), 수사 대신 직설
-1. 핵심 규칙 — 추측 금지, 코드 read 기반 답변, 근본 원인, 검증 후 "완료", 사용자 변경사항 보호, 승인은 위험기반(가역·로컬은 무확인 실행+보고 / 비가역·외부공개는 확인), 운영 자산 자가 수정 금지
+1. 핵심 규칙 — 추측 금지(추천은 근거와 함께, 바꿀 때는 새 근거로), 코드 read 기반 답변, 근본 원인, 검증 후 "완료", 사용자 변경사항 보호, 승인은 위험기반(가역·로컬은 무확인 실행+보고 / 비가역·외부공개는 확인), 운영 자산 자가 수정 금지
 2. 컨텍스트 관리 — `/clear`, `/rewind`, subagent 위임 기준, Bash 재귀 검색은 `grep -r` 대신 `rg`(`.gitignore` 준수)
 3. 작업 흐름 — Setup → Explore → Plan → Implement → Verify → Report
 4. 웹 검색 능동 사용 — 지식 컷오프 이후 정보, 라이브러리 버전별 동작, 이름 인지 ≠ 현재 상태 등
@@ -315,7 +315,7 @@ background task 표시(`✻ N bg`)는 2026-09-25 제거했다 — tasks 디렉�
 |---|---|---|
 | `plan-reviewer.md` | Plan 단계 직후 (비사소한 모든 구현 계획) | 누락 케이스·잘못된 가정·영향 범위·rollback·근본 원인 비판적 발굴 + **가장 위험한 단계 지목**·**기각한 대안이 `# Decisions` 에 남았나**·**dlc ⚠️ self-flag 우선 검토**·**medium 이상 plan 의 `# Goal` 라벨 불릿(`Split:` 포함) 반박**·**묶음 모드(dlc 분할 판정의 `# Plans` 경계 — 15항)**. public API / DB schema / migration / 보안 / 아키텍처 / 권한 변경 시 필수. |
 | `architecture-reviewer.md` | 트리거 기반 (자동 호출 대상 아님) | 설계 결정 — 의존 방향·레이어 경계·객체 생명주기·DI/IoC·인터페이스 위치·테스트 가능 구조. public API / proto / DB schema / auth 변경, 신규 service·repository·client, DI 변경, 2개 이상 레이어 변경, 150줄 이상 diff, 또는 설계 의문 명시 시. |
-| `code-reviewer.md` | 구현 직후 (코드 변경이 있었던 모든 흐름) | 버그·보안·테스트 누락·예외 처리·성능·backward compatibility·근본 원인·설계고도(altitude)·관례(conventions)·**plan 대비 컴플라이언스**(plan 경로를 받았을 때만, 기본 Minor, `[plan 대비]` 태그 — 어느 쪽이 낡았는지 판정은 메인)·**Acceptance 연결 테스트의 assert 적합성**(테스트 관점 — 기본 Minor 아님)·**구현 중 임의 결정**(plan 이 정하지 않은 동작 중 신고 안 된 것 찾기 + 전달받은 `⚠️ (구현)` 줄 우선 검토·줄마다 응답). Find→Verify 2-pass (report-everything 후 self-refute, verdict CONFIRMED/PLAUSIBLE/REFUTED). 통과 검토 금지, 비판적 발굴 목적. |
+| `code-reviewer.md` | 구현 직후 (trivial 이 아닌 코드 변경이 있었던 흐름) | 버그·보안·테스트 누락·예외 처리·성능·backward compatibility·근본 원인·설계고도(altitude)·관례(conventions)·**plan 대비 컴플라이언스**(plan 경로를 받았을 때만, 기본 Minor, `[plan 대비]` 태그 — 어느 쪽이 낡았는지 판정은 메인)·**Acceptance 연결 테스트의 assert 적합성**(테스트 관점 — 기본 Minor 아님)·**구현 중 임의 결정**(plan 이 정하지 않은 동작 중 신고 안 된 것 찾기 + 전달받은 `⚠️ (구현)` 줄 우선 검토·줄마다 응답). Find→Verify 2-pass (report-everything 후 self-refute, verdict CONFIRMED/PLAUSIBLE/REFUTED). 통과 검토 금지, 비판적 발굴 목적. |
 | `researcher.md` | 외부 사실 조사 필요 시 (어느 단계에서든) | 라이브러리 버전별 동작·마이그레이션·최신 API, 정확한 에러 메시지 매칭, 릴리스 노트·CVE·RFC, 지식 컷오프 이후 정보, 함수/플래그 실존 여부 불확실 시. |
 
 각 agent 의 frontmatter `tools` 필드가 권한 범위를 제한 (예: researcher 는 Edit 권한 없음, code-reviewer 는 Bash 가능). agent 별 출력 형식과 호출 조건은 각 파일 본문 참고.

@@ -43,7 +43,7 @@ plan 을 re-read(외부 변경 merge) 후 **사실 기반으로만**(§1) 갱신
   - 막힘 → `blocked` + `# Blockers`.
   - 그 외 → `in_progress` 유지(체크포인트).
 - **보고**: plan 위치·title·status / 임시 커밋 sha(또는 "변경 없음") / 동기화한 항목 / 남은 작업(미완료 `# Tasks`·`# Blockers`) / "다음 세션은 `/c` 로 이어받기". plan 이 `intent:` 묶음이고 그 `# Plans` 에 `(미착수)` 줄이 있으면 **그 줄들(`<slug 후보> (미착수) — 메모`)을 열거하고 "착수는 `/wt <slug 후보> — <메모>`"** 를 덧붙인다(맨 slug 만 넘기면 dlc 가 요구를 다시 묻는다) — `/c` 는 plan 을 새로 만들지 않아 이 안내가 없으면 첫 plan 만 머지된 채 형제가 잊히고 intent 가 영영 open 으로 남는다.
-- **마무리 선택지(CLAUDE.md §3-6)**: **`/e` 호출 자체가 "마무리" 지시**이므로 §3-6 예외(사용자가 이미 다음 지시를 준 흐름 → 선택지 생략)에 따라 작업 선택지용 새 AskUserQuestion은 만들지 않는다. 단, 아래 5단계의 Jira task 본문 반영 승인은 외부 쓰기라 별도로 반드시 받는다. 마무리 액션은 아래 7단계 worktree 정리(조건 충족 시)과 8단계 "다음 세션 `/c`" 안내가 담당한다. **머지 모드에선 done 확인 질문을 생략한다** — `/e merge` 가 그 확인이다(§3-6 1회 원칙).
+- **마무리 선택지(CLAUDE.md §3-6)**: **`/e` 호출 자체가 "마무리" 지시**이므로 §3-6 예외(사용자가 이미 다음 지시를 준 흐름 → 선택지 생략)에 따라 작업 선택지용 새 AskUserQuestion은 만들지 않는다. 단, 아래 5단계의 Jira task 본문 반영 승인은 외부 쓰기라 별도로 반드시 받는다. 마무리 액션은 아래 7단계 worktree 정리(조건 충족 시)과 8단계 "다음 세션 `/c`" 안내가 담당한다. **머지 모드에선 done 확인 질문을 생략한다** — `/e merge` 가 그 확인이다(중복 질문 금지 — §3-6).
 
 ### 머지 모드 M1~M6 (`/e merge` 일 때만, 4단계 뒤 · 5단계 앞)
 gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `~/.claude/wiki/docs/worktree-lifecycle.md` §E(진입 시 Read). 여기엔 게이트·순서·닫힌 목록만.
@@ -79,7 +79,7 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `~/.claude/wiki/d
 ### 6. worklog 기록 (현재 worktree — **삭제 전**)
 마무리 시 이 worktree 에서 한 AI 작업시간을 Jira worklog 에 기록한다. **7단계 삭제보다 먼저** 실행한다 — worktree 를 지우면 이름으로 고를 수 없어 등록이 불가능해진다(표시만 된다). `~/.claude/skills/jira-worklog/` 없으면 이 단계 skip + "worklog 스킬 없음" 1줄.
 - **실행**: POSIX에서는 `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh"`(dry-run), Windows PowerShell에서는 `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1"`(dry-run)로 날짜별 시간·대상 티켓 확인. launcher는 `uv` 우선, `python3`/`python` fallback(Windows는 `py` 포함)이다. 귀속은 줄 단위 cwd 기준이라 **main 으로 복귀한 뒤에 돌려도 그 worktree 시간이 정확히 잡힌다**(이름을 인자로 주면 된다). 다만 worktree 삭제 전이어야 한다.
-- **등록**: 티켓이 잡히고(worktree 이름 prefix) `~/.jira-kit/.env` 에 토큰 있으면 이어서 POSIX `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh" --register`, Windows PowerShell `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1" --register`(6 전 단계로 main 에 나왔으면 미리보기와 같은 `<이름>` 을 앞에 준다 — `run_worklog.sh <이름> --register`) — **그 worktree 의** 그날 항목 upsert(멱등, /e 반복해도 중복 없음. 같은 티켓의 다른 worktree 항목은 건드리지 않고 티켓 총합은 Jira 가 합산). **티켓 없음/토큰 없음/세션 활동 없음 → preview 만 하고 조용히 넘어감**(마무리 흐름 방해 금지). 사용자가 /e 에 이 동작을 넣은 것 = 등록 표준 동의(별도 AskUserQuestion 안 만듦, §3-6 1회 원칙).
+- **등록**: 티켓이 잡히고(worktree 이름 prefix) `~/.jira-kit/.env` 에 토큰 있으면 이어서 POSIX `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh" --register`, Windows PowerShell `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1" --register`(6 전 단계로 main 에 나왔으면 미리보기와 같은 `<이름>` 을 앞에 준다 — `run_worklog.sh <이름> --register`) — **그 worktree 의** 그날 항목 upsert(멱등, /e 반복해도 중복 없음. 같은 티켓의 다른 worktree 항목은 건드리지 않고 티켓 총합은 Jira 가 합산). **티켓 없음/토큰 없음/세션 활동 없음 → preview 만 하고 조용히 넘어감**(마무리 흐름 방해 금지). 사용자가 /e 에 이 동작을 넣은 것 = 등록 표준 동의(별도 AskUserQuestion 안 만듦).
 - **비차단**: 조회·네트워크 실패는 보고 1줄만 하고 마무리는 계속한다(worklog 실패가 /e 를 막지 않는다). 다만 **7단계 정리는 막는다** — 지운 worktree 의 시간은 다시 등록할 수 없다. 다음이면 7단계 자동 정리를 생략한다.
   - worklog 가 비0 으로 끝났다(사유 불문 — 예: 등록 차단·Jira 오류 1, 설정·git 오류 2, 실행기 없음 127).
   - 2단계 경로 표기로 다시 불러도 헬퍼 호출이 거부됐다.
