@@ -4,15 +4,14 @@
 //   (2) 문서 drift: 문서화 표면(scripts/·agents/·skills/**/SKILL.md·CLAUDE.md, wiki/pages)을
 //       바꿨는데 README.md / wiki/index.md 동기화가 없는 채로 종료(docBlocks · dlc-doc-drift 판정).
 //   (3) plan drift: 소스를 바꿨는데 브랜치에 매칭되는 plan 을 안 건드리고 종료(planBlocks).
-//   (4) 결론 누락: 파일을 편집한 턴의 마지막 답변이 `## 결론` 으로 끝나지 않음(conclusionBlocks).
-// 두 판정을 한 hook 에서 하고 한 block 메시지로 합쳐 출력한다 — 별도 hook 이면 동시 block 시
+// 여러 판정을 한 hook 에서 하고 한 block 메시지로 합쳐 출력한다 — 별도 hook 이면 동시 block 시
 //   한쪽 reason 이 노출 안 된 채 카운터만 소모돼 다시는 안 잡히는 false negative 가 난다.
 //   그래서 카운터 증가는 reason 을 실제 출력하는 경우에만 한다(소모-노출 분리 금지).
 // notify-hook(async) 와 같은 Stop 배열에서 공존.
 //
 // 안전장치:
 //   - CLAUDE_DLC_EARLYSTOP_OFF=1 → 검증 누락 경고 비활성. CLAUDE_DLC_DOCDRIFT_OFF=1 → 문서 drift 경고 비활성(독립).
-//     CLAUDE_DLC_PLANDRIFT_OFF=1 → plan drift 비활성. CLAUDE_DLC_CONCLUSION_OFF=1 → 결론 누락 비활성.
+//     CLAUDE_DLC_PLANDRIFT_OFF=1 → plan drift 비활성.
 //   - stop_hook_active=true → 무한 루프 방지로 즉시 통과.
 //   - background_tasks 에 subagent·workflow, 또는 이번 사용자 턴에 run_in_background 로 띄운 shell(장부 bgTaskIds)
 //     → 턴이 끝난 게 아니라 결과를 기다리는 중이라 경고를 미룬다.
@@ -64,30 +63,6 @@ const VERIFY_MISSING =
   '변경이 의도대로 동작하는지 검증을 실행하고 결과를 확인하세요. ' +
   'trivial(오타·로그 1줄)이라 검증이 불필요하면 그대로 다시 종료하면 통과합니다.';
 
-const CONCLUSION_MISSING =
-  '파일을 변경했는데 답변이 `## 결론` 블록으로 끝나지 않았습니다(CLAUDE.md §3-6). ' +
-  '이미 쓴 본문은 반복하지 말고 지금 `━` 40자 구분선, `## 결론` heading, 라벨 줄 `**답**` / (`**원인**`) / `**근거**` / (`**주의**`) / `**다음**` ' +
-  '블록만 출력해 턴을 끝내세요. 라벨 아래는 사실 하나당 짧은 음슴체 `-` 불릿으로, 본문을 읽지 않아도 판단할 수 있게 쓰세요' +
-  '(원인은 버그·장애일 때만, 주의는 리스크가 있을 때만).';
-
-// 마지막 `## ` heading 이 `## 결론` 인가 — 존재만 보면 중간에 끼운 결론이 통과하고, 항목 내용은 규칙의 몫.
-// 코드펜스 안의 `## ` 줄은 heading 이 아니다(마크다운 템플릿을 다루는 답변에서 양방향 오판).
-function endsWithConclusion(text) {
-  const body = String(text).replace(/^(```|~~~)[^\n]*\n[\s\S]*?^\1[ \t]*$/gm, '');
-  const heads = body.match(/^##[ \t]+\S.*$/gm);
-  return !!heads && /^##[ \t]+결론[ \t]*$/.test(heads[heads.length - 1]);
-}
-
-// 결론 축의 소비 조건 — 편집한 턴의 마지막 텍스트가 결론으로 끝났다.
-function concluded(data, input) {
-  return (
-    process.env.CLAUDE_DLC_CONCLUSION_OFF !== '1' &&
-    data.edited === true &&
-    typeof input.last_assistant_message === 'string' &&
-    endsWithConclusion(input.last_assistant_message)
-  );
-}
-
 let raw = '';
 const wd = setTimeout(() => process.exit(0), 1000); // stdin 미수신 안전망
 process.stdin.on('data', (c) => (raw += c));
@@ -99,8 +74,8 @@ process.stdin.on('end', () => {
   } catch {
     process.exit(0);
   }
-  // 대기 턴은 장부를 쓰지 않는다 — cap·edited 를 소비하면 결과가 온 뒤의 진짜 마지막 턴에서
-  // 경고가 사라진다. stop_hook_active 분기보다 먼저 봐야 그 분기의 edited 소비도 피한다.
+  // 대기 턴은 장부를 쓰지 않는다 — cap 을 소비하면 결과가 온 뒤의 진짜 마지막 턴에서
+  // 경고가 사라진다. stop_hook_active 분기보다 먼저 봐야 재종료 턴에도 대기 신호(wait-shell)가 남는다.
   if (Array.isArray(input.background_tasks) && input.background_tasks.some((t) => t && WAIT_TYPES.has(t.type))) {
     process.exit(0);
   }
@@ -112,17 +87,7 @@ process.stdin.on('end', () => {
     process.exit(0);
   }
   if (input.stop_hook_active === true) {
-    // 무한 루프 방지 — 경고는 안 하되 block 대응 턴에서 낸 결론은 소비한다(안 하면 재편집 뒤
-    // 리셋 없는 알림 턴의 짧은 답변이 결론 누락으로 막힌다).
-    try {
-      if (concluded(data, input)) {
-        data.edited = false;
-        ledger.write(input.session_id, data);
-      }
-    } catch {
-      /* fail-open */
-    }
-    process.exit(0);
+    process.exit(0); // 무한 루프 방지
   }
 
   const reasons = [];
@@ -215,33 +180,9 @@ process.stdin.on('end', () => {
     }
   }
 
-  // (4) 결론 블록 — 편집한 턴의 마지막 답변이 `## 결론` 으로 끝나지 않고 종료.
-  // last_assistant_message 는 하네스가 Stop stdin 에 주는 텍스트(transcript 는 늦을 수 있어 쓰지 않는다).
-  // 자체 try/catch — 여기서 던지면 위에서 계산한 reasons·카운터가 미노출 소모된다.
-  let conclusionSettled = false;
-  try {
-    if (
-      process.env.CLAUDE_DLC_CONCLUSION_OFF !== '1' &&
-      data.edited &&
-      (data.conclusionBlocks || 0) < CAP &&
-      typeof input.last_assistant_message === 'string'
-    ) {
-      if (endsWithConclusion(input.last_assistant_message)) {
-        data.edited = false; // 소비 — 리셋이 UserPromptSubmit 뿐이라 후속 짧은 답변(알림·질문 응답 턴)을 막지 않게
-        conclusionSettled = true;
-      } else {
-        data.conclusionBlocks = (data.conclusionBlocks || 0) + 1;
-        reasons.push(CONCLUSION_MISSING);
-        if (sig) sig.emit('early-stop-conclusion', sigCtx); // detail 없음 — 답변 본문을 telemetry 에 남기지 않는다
-      }
-    }
-  } catch {
-    /* 결론 축만 포기(fail-open) */
-  }
-
-  // settle 이 covered 를 옮겼거나 결론 축이 edited 를 소비했으면 경고가 없어도 저장해야 한다 — 안 그러면
-  // 다음 Stop 에서 같은 판정을 다시 하고, 그 사이 재편집이 오탐으로 되살아난다.
-  if (!reasons.length && (docSettled || conclusionSettled)) ledger.write(input.session_id, data);
+  // settle 이 covered 를 옮겼으면 경고가 없어도 저장해야 한다 — 안 그러면 다음 Stop 에서 같은 판정을
+  // 다시 하고, 그 사이 재편집이 오탐으로 되살아난다.
+  if (!reasons.length && docSettled) ledger.write(input.session_id, data);
 
   if (reasons.length) {
     ledger.write(input.session_id, data); // 카운터 증가는 출력과 함께만 — 미출력 소모 없음
