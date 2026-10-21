@@ -115,18 +115,6 @@ ok('③ 같은 repo 비-ignored 실소스 편집 → changed=true (비회귀)', 
 ok('③b 비-plan .md 문서 편집 → changed=false (verify 게이트 밖 — doc-only 오탐 방지)', () => {
   assert.strictEqual(edit(path.join(repoMain, 'doc.md'), repoMain, sid()).changed, false);
 });
-ok('③d .md 편집 → edited=true (결론 축은 문서 편집도 대상), changed 는 그대로 false', () => {
-  const d = edit(path.join(repoMain, 'doc.md'), repoMain, sid());
-  assert.strictEqual(d.edited, true);
-  assert.strictEqual(d.conclusionBlocks, 0);
-  assert.strictEqual(d.changed, false);
-});
-ok('③d plans/ 편집 → edited 불변 (plan 만 고친 턴은 결론 불요)', () => {
-  assert.strictEqual(edit(path.join(repoTracked, 'plans/z-plan.md'), repoTracked, sid()).edited, false);
-});
-ok('③d gitignored(*.log) 편집 → edited 불변 (changed 와 같은 게이트)', () => {
-  assert.strictEqual(edit(path.join(repoMain, 'a.log'), repoMain, sid()).edited, false);
-});
 ok('③c changed 파일은 changedTrigger 에 basename 기록 (신호 detail 용)', () => {
   assert.strictEqual(edit(path.join(repoMain, 'src.js'), repoMain, sid()).changedTrigger, 'src.js');
 });
@@ -373,12 +361,11 @@ const editB = (fp, s) => editInClaude(fp, bashRepo, s, bashHome);
 ok('HEAD 와 같은 plan(끝까지 간 git pull·merge 결과) → planTouched 불변', () => {
   assert.strictEqual(bashEdit('git fetch origin && git merge origin/main', diffOf([bPlan]), sid()).planTouched, false);
 });
-ok('Bash 로 고친 이 브랜치 plan(HEAD 와 다름) → planTouched=true, changed·edited 는 안 켜짐', () => {
+ok('Bash 로 고친 이 브랜치 plan(HEAD 와 다름) → planTouched=true, changed 는 안 켜짐', () => {
   fs.appendFileSync(bPlan, 'progress\n');
   const d = bashEdit('python3 /tmp/edit_plan.py', diffOf([bPlan]), sid());
   assert.strictEqual(d.planTouched, true);
   assert.strictEqual(d.changed, false);
-  assert.strictEqual(d.edited, false);
 });
 ok('다른 작업의 plan 이 HEAD 와 달라도(충돌로 멈춘 merge) planTouched 불변', () => {
   fs.appendFileSync(bClean, 'from main\n');
