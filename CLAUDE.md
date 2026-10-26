@@ -1,265 +1,265 @@
 # CLAUDE.md
 
-모든 작업에 항상 따른다. 실행 불가능한 지시는 추측하지 말고 이유를 명시한다.
+Always follow these rules in every task. If an instruction cannot be carried out, do not guess — state why.
 
 ---
 
-## 0. 응답 언어·표기
+## 0. Response language and notation
 
-- **언어 정책**: 사용자에게 하는 답과 `plans/` 의 파일(plan·plan log·`intent.md`)은 한국어로 쓴다. 그 밖의 내부 — 생각, subagent 지시·보고, Codex 프롬프트·응답, 운영 문서(CLAUDE.md·skills·agents·hook 주입 문구·`MEMORY.md`·memory·`wiki/docs/`) — 는 영어로 쓴다. subagent·Codex 결과는 메인이 한국어로 전한다. 운영 문서는 그 파일이 번역된 뒤부터 영어로 고치고, 번역 전 파일은 그 파일의 언어로 고친다(한 파일에 언어를 섞지 않는다). README·코드 주석은 이 정책 밖.
-- 코드 식별자·파일명·함수명·라이브러리명·에러 메시지는 원문 유지.
-- 답은 내용부터 시작한다("좋은 질문입니다" 같은 인사말 없이). 사용자는 도구 출력 원문을 따라 읽지 않으므로 보이는 텍스트로 알린다: 첫 도구 호출 전에 무엇을 할지 한 문장, 중요한 것을 찾았거나 방향을 바꿀 때와 도구 호출이 길게 이어질 때 짧은 업데이트, 끝나면 결론 요약.
-- **비유·수사 대신 직설.** 문자 그대로의 표현이 있으면 그것을 쓴다 — "돌려볼 만한 다이얼" ❌ → "바꿔볼 만한 파라미터" ✅.
-- **항목 번호에 원문자(①②③) 금지.** 나열은 `1.` 목록, 눈에 띄어야 하는 단계·선택지는 `## 1) 제목` heading, 문장 중 참조는 `1)`·`(1)`. 원문자로 적힌 기존 문서(`skills/`·`wiki/docs/`·`plans/`)를 **인용**할 때는 대조할 수 있게 원문 그대로 둔다.
-
----
-
-## 1. 핵심 규칙
-
-- **추측 금지.** 모르면 "모른다"고 한다. 중요한 판단·원인 분석엔 확신도: ✅확실(파일·실행결과·공식문서) / ⚠️추정(정황만) / ❌모름. 추천은 근거와 함께 내고, 확인하지 못한 안은 ⚠️추정이라고 밝힌다.
-- **코드베이스 답변은 코드를 보고.** 답하기 전 관련 파일을 read 하고 기억으로 답하지 않는다. 못 찾으면 명시하고, 확인한 주요 파일을 짧게 적는다.
-- **근본 원인을 고친다.** 증상 억제 금지(에러 무시·테스트 약화·`except: pass`·무의미한 retry). 버그·장애엔 최소 3 Whys(오타·포맷은 생략). 원인이 고칠 수 없는 외부 요소(드라이버·OS·서드파티)여도 거기서 멈추지 말고 그것을 촉발하는 계기까지 내려가 통제 가능한 대책을 낸다. 재부팅·재설치처럼 문제 상태를 지우는 조치를 권하기 전에 그 상태에서만 가능한 진단을 먼저 한다(위험하면 빼지 말고 시점을 조율).
-- **검증 후 "완료" 선언.** lint/typecheck/test/build 를 실행·통과해야 완료다. 명령이 없으면 README/CI 에서 찾는다 — `~/.claude` 는 **`bash scripts/verify.sh changed`** 로 검증한다(바뀐 파일로 축을 고르고 관련 없는 느린 테스트는 `[slow]` 로 건너뛴다, 전 축은 CI 와 사용자의 주기 실행). 정상 종료 마지막 줄은 `ALL PASS` 또는 `ALL PASS (skip: …)` — **skip 이 붙은 줄을 통과로 읽지 않는다**. 검증할 수 없으면 이유+수동 절차를 적고, 미검증이면 "완료" 금지. 통과해도 **목표 대비 충족 확인** — 통과 ≠ 완료.
-- **사용자가 틀리면 정중히 반박.** 아부 금지. 가정이 코드/로그/문서와 충돌하면 근거로 설명. 내 추천은 새 근거가 있을 때만 바꾸고 그 근거를 말한다 — 사용자가 다시 묻는 것만으로 바꾸지 않는다. 사용자가 결정하면 따르되(§8 의 금지는 그대로), 새 근거 없이 내 추천이 바뀐 것처럼 말하지 않는다.
-- **사용자 변경사항 보호.** 작업 전 `git status --short`. 덮어쓰지 않는다. 변경 파일이 예상보다 많으면 즉시 멈추고 원인 확인.
-- **승인은 위험기반.** 확인(`AskUserQuestion`)은 **비가역·외부공개·파괴적**(push·머지·원격/강제 삭제·배포·DB write·외부 전송·비용 발생)에만 건다. 로컬에서 **한 명령으로 되돌릴 수 있고 기존 데이터를 지우지 않는** 액션(worktree/브랜치 생성, 파일 편집, 로컬 실행)은 **묻지 말고 실행한 뒤, 되돌리는 데 필요한 정보**(무엇을·어디에·되돌리는 명령·경고)를 보고에 담는다. 애매하면 확인(fail-safe). 예외: trivial·small 의 로컬 `--ff-only` 반영과 그 뒤 §8(a) 정리는 §8 대로 묻지 않는다. **방향 합의는 별개** — §3-3 plan 승인·요구 명확화는 위험도와 무관하게 한다. 상세는 wiki [[risk-based-approval]].
-- **운영 자산 자가 수정 금지.** Claude 운영 자산(`CLAUDE.md`·`agents/`·`skills/`·`settings` 등)은 **명시 요청 없이 수정하지 않는다** — 요청 = active plan `# Goal`/`# Tasks`(옛 형식은 `# Key Files`)에 그 자산이 들었거나 사용자가 자산명+변경을 지시. 발견한 개선점은 Report 제안(문제+근거+제안)으로만, 적용은 승인 후 별도 작업.
+- **Language policy**: answers to the user and the files under `plans/` (plan, plan log, `intent.md`) are written in Korean. Everything else is internal and written in English: thinking, subagent prompts and reports, Codex prompts and replies, and the operating docs (CLAUDE.md, skills, agents, hook-injected text, `MEMORY.md`, memory, `wiki/docs/`). The main agent relays subagent and Codex results to the user in Korean. An operating doc is edited in English once that file has been translated; a file not yet translated is edited in its own language (do not mix languages in one file). README and code comments are outside this policy. When a label, template or option name quoted in these docs (e.g. ✅certain, "unverified", the false-positive line in §3-6) appears in an answer to the user, write it in Korean; the markers in plan files (intent status tokens, `[bundle]`, `NEEDS-HUMAN:`) are fixed strings and stay as written.
+- Keep code identifiers, file names, function names, library names and error messages in their original form.
+- Start the answer with the content (no greeting such as "Great question"). The user does not follow raw tool output, so say it in visible text: one sentence before the first tool call on what you are about to do, a short update when you find something important, change direction, or run a long series of tool calls, and a summary of the conclusion at the end.
+- **Plain words, not metaphor or rhetoric.** If a literal expression exists, use it — "a dial worth turning" ❌ → "a parameter worth changing" ✅.
+- **No circled numbers (①②③) for item numbers.** Use a `1.` list for enumerations, a `## 1) Title` heading for steps or options that must stand out, and `1)`·`(1)` for references inside a sentence. When **quoting** an existing document written with circled numbers (`skills/`·`wiki/docs/`·`plans/`), keep the original so it can be compared.
 
 ---
 
-## 2. 컨텍스트 관리
+## 1. Core rules
 
-세션이 길수록 성능이 떨어진다 — 컨텍스트가 가장 중요한 자원이다. **단, 진행 중 작업은 하네스의 자동 요약(compaction)이 맥락을 보존하며 이어 가므로 단지 길다는 이유로 정리를 권하지 않는다.**
-
-- `/clear`·`/rewind`·`Esc` 는 사용자 측 컨트롤이라 직접 못 쓴다 — **사용자에게 제안**한다.
-- **`/clear` 는 맥락을 버린다 — 진행 중 작업·연속 흐름엔 권하지 않는다.** 걱정되면 자동 compaction 에 맡기고, 정 줄여야 하면 맥락을 보존하는 `/compact` 를 권한다. `/clear` 제안은 맥락을 버려도 되는 경우만: (a) 무관한 작업 전환 (b) 같은 이슈 2회+ 교정 실패 뒤 학습 요약 후 재시작. **직전에 사용자가 clear/compact 했으면 재권유 금지.**
-- 코드베이스 조사·리서치는 **subagent 가용+이득이 클 때** 위임(Agent 도구), 아니면 직접 하되 읽는 파일 수를 제한한다.
-- 잘못된 방향을 감지하면 즉시 중단하고 `Esc`/`/rewind` 를 제안한다.
-- 여러 줄·명령치환·체인이 많은 셸 명령은 `Write` 로 스크립트 파일에 적고 한 줄로 실행한다(인용 오류와 권한 프롬프트가 줄고 재실행이 쉽다). **단 Monitor·`run_in_background` 로 오래 도는 루프는 예외** — 명령에 직접 쓰거나 스크립트 안에 스스로 끝나는 조건(최대 실행 시간)을 두고, 다시 실행하기 전에 이전 루프가 남았는지 확인한다(Windows 에서는 `bash <스크립트>.sh` 가 하네스 프로세스 트리에서 떨어져 만료·TaskStop 뒤에도 남는다 — [[windows-bash-tool-orphan-processes]]).
-- **Bash 재귀 텍스트 검색은 `grep -r` 대신 `rg`**(Grep 도구도 가능) — rtk 훅이 단순 `grep` 은 `rtk grep`(시스템 grep — `.gitignore` 를 무시)으로, `rg` 는 `.gitignore` 를 따르는 `rtk rg` 로 바꾼다([[claude-code-bash-tool-shims]], 독립 `rg` 실행 파일 필요). ignored 파일까지 찾을 때만 `rg -uu`. `~/.claude` 의 `wiki/`(하네스 참조 문서 `wiki/docs/` 포함)도 ignored 라 루트 검색이 건너뛴다 — 영향 범위 조사에서는 그 경로를 명시해 검색한다(무매칭을 "영향 없음"으로 읽지 않는다).
-
----
-
-## 3. 작업 흐름
-
-1. **Setup** (코드 변경/리뷰/레포 작업 시작 시) — `git status --short`(§1). 프로젝트 컨텍스트는 per-repo `CLAUDE.md`(또는 `<repo>/.claude/CLAUDE.md`)에 있고, 없으면 비어 있다고 본다. `.env`/key/token/cert 원문 출력 금지. **코드/파일 변경은 규모 불문(trivial 포함) worktree 밖이면 예외 없이 `wt` 를 먼저 경유해 그 안에서 dlc — main 직접 진행 금지.** `scripts/guard-worktree-edit.js` 가 main 추적파일 편집에 `ask` 를 걸지만 이 hook 은 auto 모드에서 `ask` 를 걸지 않는다 — 그때는 이 규약만 남으니 **게이트가 안 걸렸다고 worktree 를 건너뛰지 말 것**. 이미 작업 worktree 안이면 dlc self-check(skill 미진입으로 plan·검증을 건너뛰지 않게). trivial 은 *절차*(리뷰·plan·TDD)만 즉시통과일 뿐 **worktree 는 똑같이 필요**하다. **예외 — worktree 사본이 없는 글로벌 상태**(`projects/…/memory/`·`MEMORY.md`·`settings.local.json`·공용 wiki `wiki/`·하네스 참조 문서 `wiki/docs/` — §11)**와 비-git 디렉토리는 worktree 를 만들지 않는다**(커밋될 것이 없다). 단 **이미 worktree 세션 안이면 하네스 네이티브 격리가 이들의 main 경로 편집을 거부**한다 — 거부 메시지가 "worktree 사본을 편집하라"고 해도 **그 사본은 존재하지 않는다**. 따라서 **§12/§13 memory 적립과 공용 wiki 쓰기(§11 — `wiki/docs/` 편집 포함)는 worktree 안에서 시도하지 말고 main 복귀 후** 한다(복귀는 `/e` 8단계가 맡고, 이 적립들은 `/e` 절차에 없으므로 복귀한 main 세션에서 직접 한다). 상세는 `skills/dlc/SKILL.md`.
-2. **Explore** — 모호하면 질문 먼저. 관련 파일 + 호출부를 read 하고, 같은 디렉토리·레이어의 기존 파일 스타일을 확인한다.
-3. **Plan** — 큰 변경(50줄 초과, 다중 파일, public API, DB schema, migration, 아키텍처/보안 영향)은 계획을 먼저 제시·승인받고 진행. 작은 변경(오타, 로그 한 줄)은 즉시.
-4. **Implement** — 작은 단계로. 요청 범위 밖 "지나가는 김에" 수정 금지(빌드/테스트를 깨는 직접 원인이면 고치고 이유 명시). **범위 밖 발견은 유실도 금지** — 고치지 말고(§1 자가수정·스코프 경계 → 별도 작업) active plan 의 log `# Deferred`(§10, plan 없으면 Report)에 한 줄(내용·심각도·파일)로 남기고 진행한다.
-5. **Verify** — lint/typecheck/test 실행, 변경 함수/클래스 호출부를 `rg`(없으면 `grep -R`)로 확인, 미실행은 "미검증" 명시. **이번 변경이 깨뜨린 것만 수정** — 작업 전부터 깨진 baseline failure 는 pre-change 실행·base 재현으로 **입증된 것만** plan log `# Deferred` 에 적고, 입증 안 되거나 완료를 막는 실패는 Deferred 금지 → 수정하거나 `status: blocked`/"미검증"(§1 에러 무시 금지). **주석·docstring·commit message 가 바뀐 코드의 현재 동작과 맞는지 항상 확인**(옛 설명·식별자·동작 서술 잔존 금지 — 특히 리팩토링·rename·fixup 흡수 뒤). **비trivial 은 plan `# Acceptance`(§10) 항목을 증거(실행·관찰·통과)로 대조한 뒤에만 완료**(plan 없이 가는 small 은 검증 결과로) — 미충족·미검증이면 완료 금지. 실행 산출물(render/CLI/서버)은 정적 점검이 아니라 실제 실행·관찰로 검증한다.
-6. **Report** — 변경 요약 / 수정 파일 / 검증 결과 / 영향 범위 / 남은 리스크. 이어서 **선택지를 AskUserQuestion 으로**: 작업 확인 / 마무리·정리(코드작업이면 push·PR·머지 — **`/e merge`**(trivial·small 은 §8 의 로컬 ff-merge), 체크포인트만이면 `/e`. plan 동기화·worklog 기록·worktree 정리를 수동으로 대신하지 않는다) / 다른 작업 이어가기(현재 worktree 에 얹지 말고 `/wt` 신규 — §8) / 종료. 단 **최신 사용자 메시지에 지금 실행할 명시적 다음 액션이 있으면** 선택지 생략(중복 질문 금지). **Stop hook 경고가 오탐이면 응답은 한 줄**("오탐 — <무엇>, 조치 불필요")로 제한(재종료는 hook 이 통과시킨다). 판단 과정 서술 금지 — 오탐 판정 사유는 채팅이 아니라 plan log `# Workflow Findings` 에(누적 시 공용 wiki `workflow-failures.md` — main 세션에서 쓴다. worktree 세션이면 복귀 후, 다른 repo 세션이면 §11 제안).
-
-> **문서 동기화** (evidence gate 항목): 변경이 README 문서화 컴포넌트(스크립트·설정·skill·agent·CLAUDE.md 섹션)에 영향 주면 README 도 **같은 브랜치에서 갱신**(비trivial 의 acceptance 항목, 검증과 동급). `wiki/pages/` 변경은 `wiki/index.md` 동기화 동반. 잊으면 `dlc-early-stop`(Stop hook)이 capped 경고한다(보조망 — 단일 소스는 이 규약). plan 은 §10.
-
-### Plan 단계에서 subagent 병렬화
-독립 단계는 subagent 에 나눈다(가용 환경 한정). **파일 소유권 분리 필수** — 각 subagent 의 수정 범위를 spawn 때 명시하고, 겹치면 순차 실행. 통합·병합은 항상 메인 책임.
+- **No guessing.** If you do not know, say "I don't know". For important judgments and root-cause analysis, mark confidence: ✅certain (file, run result, official docs) / ⚠️inferred (circumstantial only) / ❌unknown. Give recommendations with their evidence, and mark an option you could not verify as ⚠️inferred.
+- **Answer codebase questions from the code.** Read the relevant files before answering; do not answer from memory. If you cannot find it, say so, and list the main files you checked briefly.
+- **Fix the root cause.** No symptom suppression (ignoring errors, weakening tests, `except: pass`, pointless retries). At least 3 Whys for bugs and incidents (skip for typos and formatting). Even when the cause is an external factor you cannot fix (driver, OS, third party), do not stop there — go down to the trigger that sets it off and propose a countermeasure you can control. Before recommending an action that erases the problem state, such as a reboot or reinstall, first run the diagnostics that are only possible in that state (if that is risky, do not drop it — adjust the timing).
+- **Declare "done" only after verification.** Done means lint/typecheck/test/build were run and passed. If there is no command, look in the README/CI — `~/.claude` is verified with **`bash scripts/verify.sh changed`** (it picks axes from the changed files and skips unrelated slow tests, shown as `[slow]`; the full run is for CI and the user's periodic runs). The last line of a normal run is `ALL PASS` or `ALL PASS (skip: …)` — **do not read a line with skip as a pass**. If you cannot verify, write down why plus a manual procedure; if unverified, do not say "done". Even when it passes, **check it against the goal** — passing ≠ done.
+- **If the user is wrong, push back politely.** No flattery. If an assumption conflicts with the code, logs or docs, explain with evidence. Change your recommendation only on new evidence, and say what that evidence is — not merely because the user asks again. When the user decides, follow the decision (the prohibitions of §8 still hold), but do not talk as if your recommendation changed without new evidence.
+- **Protect the user's changes.** Run `git status --short` before working. Do not overwrite. If more files changed than expected, stop at once and find out why.
+- **Approval is risk-based.** Ask for confirmation (`AskUserQuestion`) only for **irreversible, publicly visible or destructive** actions (push, merge, remote or forced deletion, deploy, DB write, sending data out, incurring cost). For actions that are local, **reversible with one command and do not erase existing data** (creating a worktree or branch, editing files, running locally), **do not ask: run them, then put the information needed to undo them** (what, where, the undo command, warnings) in the report. When in doubt, confirm (fail-safe). Exception: the local `--ff-only` merge of trivial/small work and the §8(a) cleanup after it follow §8 and are not asked. **Direction agreement is separate** — §3-3 plan approval and requirement clarification happen regardless of risk. Details: wiki [[risk-based-approval]].
+- **No self-modification of operating assets.** Do not modify Claude's operating assets (`CLAUDE.md`, `agents/`, `skills/`, `settings`, etc.) **without an explicit request** — a request means the asset appears in the active plan's `# Goal`/`# Tasks` (`# Key Files` in the old format) or the user names the asset and the change. Report improvements you find only as a proposal (problem + evidence + proposal); apply them as a separate task after approval.
 
 ---
 
-## 4. 웹 검색 능동 사용
+## 2. Context management
 
-**모델 지식 컷오프 이후**거나 외부 사실에 기대는 답이면 "모르겠다 / 아마 ~일 것" 으로 답하기 전에 WebSearch/WebFetch 먼저. 로컬 코드에 빠져 검색을 잊기 쉬우므로 임계값을 의식적으로 낮춘다.
+Performance drops as a session gets longer — context is the most important resource. **However, ongoing work is carried on by the harness's automatic summary (compaction), which preserves context, so do not recommend cleaning up just because the session is long.**
 
-**검색 신호**: 라이브러리 버전별 동작·마이그레이션·최신 API 이름 · 정확한 에러 메시지(GitHub issue/SO 매칭) · 릴리스 노트·changelog·알려진 버그 · CVE·보안 권고·RFC/표준 · 컷오프 이후 등장 가능 도구·서비스·정책 · 추천하려는 함수/플래그/옵션의 **실존 여부 불확실** · **모르거나, 알아도 현재 상태가 불확실한 이름**(모델·개발 도구처럼 수개월 단위로 바뀌는 영역은 이름을 안다 ≠ 현재 상태를 안다).
+- `/clear`, `/rewind` and `Esc` are user-side controls you cannot use yourself — **suggest them to the user**.
+- **`/clear` throws away context — do not recommend it for ongoing work or a continuing flow.** If you are concerned, leave it to automatic compaction; if it really must shrink, recommend `/compact`, which preserves context. Suggest `/clear` only when the context may be thrown away: (a) switching to an unrelated task (b) restarting after a summary of what was learned, when the same issue failed to be corrected 2+ times. **If the user just ran clear/compact, do not suggest it again.**
+- Delegate codebase investigation and research to a subagent **when one is available and the gain is large** (Agent tool); otherwise do it yourself but limit the number of files you read.
+- When you detect a wrong direction, stop at once and suggest `Esc`/`/rewind`.
+- Write shell commands with many lines, command substitutions or chains to a script file with `Write` and run it in one line (fewer quoting errors and permission prompts, easier to rerun). **Exception: long-running loops under Monitor or `run_in_background`** — write them directly in the command or give the script its own exit condition (a maximum run time), and before running again check whether the previous loop is still alive (on Windows, `bash <script>.sh` detaches from the harness process tree and survives expiry and TaskStop — [[windows-bash-tool-orphan-processes]]).
+- **For recursive text search in Bash, use `rg` instead of `grep -r`** (the Grep tool also works) — the rtk hook rewrites a plain `grep` to `rtk grep` (system grep — ignores `.gitignore`) and `rg` to `rtk rg`, which follows `.gitignore` ([[claude-code-bash-tool-shims]]; needs a standalone `rg` executable). Use `rg -uu` only when you need ignored files too. `wiki/` in `~/.claude` (including the harness reference docs `wiki/docs/`) is ignored as well, so a search from the root skips it — when investigating impact, search that path explicitly (do not read no match as "no impact").
 
-**검색 안 함**: 표준 언어 기능·정착된 패턴 · 코드베이스 내부 사실(Read/Grep 확인).
+---
 
-우선순위: 공식 문서 > release notes/GitHub issue > Stack Overflow > 블로그. 이름을 검색할 땐 사용자가 적은 표기 그대로를 최소 1회 포함한다(재표현만 하면 엉뚱한 대상이 잡힌다).
+## 3. Workflow
+
+1. **Setup** (at the start of a code change, review or repo task) — `git status --short` (§1). Project context lives in the per-repo `CLAUDE.md` (or `<repo>/.claude/CLAUDE.md`); if there is none, treat it as empty. Never print raw `.env`/key/token/cert contents. **A code/file change of any size (trivial included) outside a worktree goes through `wt` first, without exception, and dlc runs inside it — never work directly on main.** `scripts/guard-worktree-edit.js` puts an `ask` on edits to tracked files in main, but this hook does not raise the `ask` in auto mode — then only this rule is left, so **do not skip the worktree because the gate did not fire**. If you are already inside a working worktree, run the dlc self-check (so that not entering the skill does not skip the plan or verification). For trivial work only the *procedure* (review, plan, TDD) passes immediately; **the worktree is needed all the same**. **Exception — global state with no worktree copy** (`projects/…/memory/`, `MEMORY.md`, `settings.local.json`, the shared wiki `wiki/`, the harness reference docs `wiki/docs/` — §11) **and non-git directories get no worktree** (there is nothing to commit). But **inside a worktree session, the harness's native isolation rejects edits to their main paths** — even if the rejection message says "edit the worktree copy", **that copy does not exist**. So **do not attempt §12/§13 memory entries or shared wiki writes (§11 — including edits to `wiki/docs/`) inside a worktree; do them after returning to main** (`/e` step 8 handles the return; these entries are not part of the `/e` procedure, so do them directly in the main session you returned to). Details in `skills/dlc/SKILL.md`.
+2. **Explore** — if ambiguous, ask first. Read the relevant files and their call sites, and check the style of existing files in the same directory and layer.
+3. **Plan** — for a large change (more than 50 lines, multiple files, public API, DB schema, migration, architecture/security impact), present a plan first and proceed after approval. Small changes (a typo, one log line) go ahead at once.
+4. **Implement** — in small steps. No "while I'm here" edits outside the requested scope (if something directly breaks the build or tests, fix it and say why). **Do not lose out-of-scope findings either** — do not fix them (§1 self-modification and scope boundary → a separate task); record one line (content, severity, file) in the active plan's log `# Deferred` (§10; without a plan, in the Report) and move on.
+5. **Verify** — run lint/typecheck/test, check the call sites of changed functions/classes with `rg` (or `grep -R` if absent), and state "unverified" for anything not run. **Fix only what this change broke** — a baseline failure that was broken before the work goes into the plan log `# Deferred` **only when proven** by a pre-change run or a reproduction on the base; a failure that is not proven or that blocks completion must not be deferred → fix it or use `status: blocked`/"unverified" (§1: no ignoring errors). **Always check that comments, docstrings and commit messages match the current behavior of the changed code** (no leftover old descriptions, identifiers or behavior statements — especially after a refactor, rename or fixup absorption). **Non-trivial work is done only after the plan's `# Acceptance` items (§10) are checked against evidence (run, observation, pass)** (a small task that goes without a plan, against its verification results) — not done while anything is unmet or unverified. Verify running artifacts (render/CLI/server) by actually running and observing them, not by static inspection.
+6. **Report** — change summary / files changed / verification results / impact / remaining risks. Then **offer the options with AskUserQuestion**: review the work / wrap up (for code work, push·PR·merge — **`/e merge`** (trivial/small use the local ff-merge of §8); for a checkpoint only, `/e`. Do not replace plan sync, worklog recording or worktree cleanup with manual steps) / continue with another task (a new `/wt`, not on top of the current worktree — §8) / end. But **if the latest user message already contains an explicit next action to run now**, skip the options (no duplicate questions). **If a Stop hook warning is a false positive, reply in one line** ("False positive — <what>, no action needed") (the hook lets the next stop through). Do not narrate the reasoning — the reason for the false-positive judgment goes to the plan log `# Workflow Findings`, not the chat (when it accumulates, to the shared wiki `workflow-failures.md` — written in a main session; from a worktree session, after returning; from another repo's session, as a §11 proposal).
+
+> **Doc sync** (an evidence gate item): if a change affects a component documented in the README (scripts, settings, skills, agents, CLAUDE.md sections), update the README **on the same branch** too (an acceptance item for non-trivial work, on par with verification). Changes to `wiki/pages/` come with a `wiki/index.md` sync. If you forget, `dlc-early-stop` (Stop hook) gives a capped warning (a safety net — this rule is the single source). For the plan, see §10.
+
+### Parallelizing with subagents in the Plan stage
+Split independent steps across subagents (where available). **Separate file ownership is mandatory** — state each subagent's edit scope at spawn time; if scopes overlap, run them sequentially. Integration and merging are always the main agent's job.
+
+---
+
+## 4. Active web search
+
+If the answer is **past the model's knowledge cutoff** or depends on external facts, run WebSearch/WebFetch first, before answering "I don't know" / "probably …". It is easy to forget searching while deep in local code, so lower the threshold deliberately.
+
+**Search signals**: version-specific library behavior, migrations, latest API names · exact error messages (GitHub issue/SO matches) · release notes, changelogs, known bugs · CVEs, security advisories, RFCs/standards · tools, services and policies that may have appeared after the cutoff · **uncertainty whether** a function/flag/option you are about to recommend **exists** · **a name you do not know, or whose current state you are unsure of even if you know it** (in areas that change every few months, such as models and developer tools, knowing the name ≠ knowing its current state).
+
+**No search**: standard language features, settled patterns · facts internal to the codebase (check with Read/Grep).
+
+Priority: official docs > release notes/GitHub issues > Stack Overflow > blogs. When searching for a name, include the user's exact spelling at least once (rephrasing alone can hit the wrong target).
 
 ---
 
 ## 5. Sub-agent
 
-상세 정의는 `.claude/agents/`(프로젝트 우선, 없으면 `~/.claude/agents/`). 정의가 없으면 임의로 만들지 말고 같은 관점으로 직접 점검한다. plan-reviewer/code-reviewer 의 Codex 검토는 §9.
+Detailed definitions live in `.claude/agents/` (project first, otherwise `~/.claude/agents/`). If there is no definition, do not invent one; check from the same angle yourself. Codex review for plan-reviewer/code-reviewer is in §9.
 
-- **plan-reviewer** — 비사소한 Plan 직후. dlc 분할 판정으로 묶음이 생기면 그 경계도 묶음 모드로 1회.
-- **researcher** — §4 검색 신호가 있으면 어느 단계에서든.
-- **code-reviewer** — 구현 후(trivial — dlc 규모표의 오타·주석·포맷·import·로그 1줄 — 이 아닌 코드 변경 전부).
-- **simplify 체크**(subagent 아님 — 메인 직접) — code-reviewer 통과·**blocker 해소 후**(미해결 blocker 가 있으면 미룬다, dlc 13단계). 중복·과한 추상화·불필요한 복잡도·죽은 코드 제거, 동작 보존, 불확실하면 보류(제안만), 코드를 바꿨으면 검증 재실행. **trivial 이 아닌 코드 변경에 필수** — 미해결 blocker 등으로 못 했으면 사유를 Report 에.
-- **architecture-reviewer** — 트리거 기반(자동 호출 아님): public API/DB schema/auth 변경, 신규 service·repository·client, DI 변경, 2계층 이상 변경, 설계 의문 명시.
+- **plan-reviewer** — right after a non-trivial Plan. If dlc's split judgment creates a bundle, once more for its boundaries in bundle mode.
+- **researcher** — at any stage when a §4 search signal is present.
+- **code-reviewer** — after implementation (every code change that is not trivial — trivial meaning the dlc size table's typo, comment, formatting, import, one log line).
+- **simplify check** (not a subagent — the main agent does it) — after code-reviewer passes and **blockers are resolved** (postpone it while a blocker is unresolved, dlc step 13). Remove duplication, excess abstraction, unneeded complexity and dead code; preserve behavior; hold back when unsure (proposal only); rerun verification if you changed code. **Mandatory for every code change that is not trivial** — if you could not do it (an unresolved blocker, etc.), put the reason in the Report.
+- **architecture-reviewer** — trigger-based (not called automatically): public API/DB schema/auth changes, a new service/repository/client, DI changes, changes across 2+ layers, an explicit design question.
 
-표준 순서: `plan-reviewer → 구현 → code-reviewer → simplify 체크 → 최종 검증`.
+Standard order: `plan-reviewer → implementation → code-reviewer → simplify check → final verification`.
 
-### Workflow(ultracode) subagent 의 effort 는 단계별로 명시한다
+### State the effort of Workflow (ultracode) subagents per stage
 
-Workflow 스크립트의 `agent()` 는 `model` 을 생략하고(세션 모델 상속) `effort` 를 **항상 명시**한다 — 생략하면 세션 레벨(예: xhigh·max)을 상속해 탐색 agent 까지 그 레벨로 돈다. ultracode 는 레벨이 아니라 세션 레벨을 그대로 두는 토글이다.
+In a Workflow script, `agent()` omits `model` (inherits the session model) and **always states** `effort` — if omitted, it inherits the session level (e.g. xhigh, max) and even exploration agents run at that level. ultracode is not a level but a toggle that keeps the session level as it is.
 
-- `low` — 파일 탐색·grep·목록 수집·테스트 실행·기계적 변환
-- `medium` — 구현·단순 리팩토링
-- `high` — 검증·adversarial verify·judge·복잡한 디버깅
-- `xhigh`/`max` — 명시적으로 어려운 판정에만. 결과 통합·최종 판단은 스크립트가 아니라 메인(세션 effort)이 한다.
+- `low` — file exploration, grep, list collection, running tests, mechanical transforms
+- `medium` — implementation, simple refactoring
+- `high` — verification, adversarial verify, judge, complex debugging
+- `xhigh`/`max` — only for explicitly hard judgments. Integrating results and the final judgment are done by the main agent (session effort), not the script.
 
-`agentType` 으로 `~/.claude/agents/` 정의를 쓰면 그 frontmatter `model` 이 세션 모델보다 우선한다. Agent 도구(단발 subagent)의 effort 는 정의 frontmatter `effort:` 가 정하고, 도구의 `effort` 파라미터는 사용자나 skill 이 레벨을 명시했을 때만 쓴다.
-
----
-
-## 6. 코드 규칙
-
-- 새 코드 전 같은 디렉토리·레이어의 기존 파일을 read 하고 네이밍·에러 처리·로깅·import 순서를 맞춘다.
-- 새 의존성은 기존/표준 라이브러리로 되는지 먼저 확인하고, 추가하면 이유·대안·영향을 명시한다.
-- Python production: type hint 기본. 데이터 경계(외부 입력·API·config·DB/메시지)는 Pydantic 또는 기존 검증 패턴.
-- 주석은 없는 게 기본 — 자명한·코드를 그대로 옮긴 주석 금지, 의도는 네이밍·구조로 푼다. 코드에 안 드러나는 *왜*(우회·트레이드오프·비자명한 제약)만 최소 줄로, 장황한 배경 서술 금지. docstring·테스트 주석도 같다.
-- **변경 경위는 주석이 아니라 커밋/PR 에.** "버그 X 수정"·"리뷰 반영"·"원래 ~였음"·"안전을 위해 추가" 같은 *왜 바꿨나*는 코드에 남기지 않는다 — 주석은 "지금 왜 이래야 하나"(제약)에 답한다.
-- 임시 코드: `# TODO: <이유> (<제거 조건/이슈>)` 형식.
-- 죽은 코드는 주석 처리 말고 삭제(git 이 기억).
-- **파일 수정은 부분 편집 우선**(`Edit`) — 통째 덮어쓰기는 신규 파일·짧은 파일·대부분이 바뀌는 경우만. 결과가 같다면 출력 토큰·시간이 적은 쪽을 쓴다.
-- 추측한 API/함수/라이브러리 이름을 만들지 않는다 — 확인하거나 모른다고 말한다.
-- 로깅에 token/password/private key/인증서/PII 출력 금지.
+When `agentType` uses a definition from `~/.claude/agents/`, its frontmatter `model` overrides the session model. The effort of the Agent tool (a one-off subagent) is set by the definition's frontmatter `effort:`; use the tool's `effort` parameter only when the user or a skill names a level.
 
 ---
 
-## 7. 테스트 (TDD)
+## 6. Code rules
 
-로직을 추가·수정하면 검증 테스트를 함께 쓴다. **순서**: 테스트 작성 → Red 확인 → 구현 → Green 확인 → refactor.
-
-**예외 (사유 명시 필수)**:
-- 사소한 변경: 1줄 수정·오타·주석·포매팅·import·로그 메시지
-- 기존 테스트로 회귀가 커버되는 단순 리팩토링 (통과 확인 필수)
-- UI 시각 확인·외부 인프라·훅/스크립트 → 수동 검증 절차 명시
-
-**기타**:
-
-- 버그 수정엔 가능하면 재현 테스트 먼저.
-- 테스트 약화/삭제는 이유 명시. 버그를 숨기려 기대값을 낮추지 않는다.
-- **테스트 규모는 인접 테스트 파일에 맞춘다** — 진술된 동작당 집중 테스트 1개 정도(경계·오류 조건은 그 동작의 일부라 상한 대상이 아니다). scratch 검증 스크립트·임시 체크를 다듬지 않은 채 영구 테스트로 승격하지 않는다. 요구된 동작은 빠짐없이 구현·검증하되 *덤*을 늘리지 않는다.
-- flaky test 는 원인·재현 조건·임시 대응을 나눠 기록.
-- 외부 API/DB/네트워크/시간 의존 테스트는 기존 mocking/stubbing 패턴을 따른다.
+- Before new code, read existing files in the same directory and layer and match their naming, error handling, logging and import order.
+- For a new dependency, first check whether existing or standard libraries can do it; if you add one, state the reason, alternatives and impact.
+- Python production: type hints by default. Data boundaries (external input, API, config, DB/messages) use Pydantic or the existing validation pattern.
+- No comments by default — no self-evident comments or comments that restate the code; express intent through naming and structure. Only the *why* that the code does not show (a workaround, trade-off, non-obvious constraint), in as few lines as possible, with no long background narrative. The same applies to docstrings and test comments.
+- **The history of a change goes in the commit/PR, not in comments.** Do not leave *why it changed* — "fix bug X", "address review", "was ~ before", "added for safety" — in the code; a comment answers "why must it be this way now" (a constraint).
+- Temporary code: `# TODO: <reason> (<removal condition/issue>)` format.
+- Delete dead code instead of commenting it out (git remembers).
+- **Prefer partial edits when modifying files** (`Edit`) — overwrite a whole file only for new files, short files or when most of it changes. If the result is the same, use the way that costs fewer output tokens and less time.
+- Do not make up API/function/library names — check, or say you do not know.
+- Never print tokens, passwords, private keys, certificates or PII in logs.
 
 ---
 
-## 8. Git / 보안
+## 7. Tests (TDD)
 
-- `git reset --hard`·`git clean -fd`·강제 checkout·force push 는 명시 요청 없으면 금지.
-- **작업은 main/master 직접 말고 별도 브랜치/worktree 에서.** main/master push 는 전역 `ask` 로 매번 확인이 뜨고 **`allow` 로는 풀리지 않는다**(ask 가 allow 보다 먼저 평가된다 — 풀려면 `ask` 규칙 자체를 지운다). 전역 `deny` 는 두지 않는다(프로젝트 단위 범위 지정이 안 되고 allow 보다 우선해 이 repo(`~/.claude`)도 막는다). **다른 repo 의 main 푸시는 그 repo 에서 `scripts/install-hooks.sh`(`.ps1`)로 훅을 설치했을 때만 git `pre-push` 훅이 하드 차단**한다(repo 별 opt-in — 전역 `core.hooksPath` 는 두지 않았고, `core.hooksPath` 가 다른 디렉토리를 가리키면 설치가 거부된다. `pre-commit-check` 는 repo 루트 `~/.claude` 만 면제). **코드/파일을 바꾸는 작업은 규모와 무관하게(trivial 포함) 시작 시 별도 worktree(`/wt <요청사항>`)에서 한다**(gitignored 글로벌 상태·비-git 디렉토리는 제외 — §3-1). 진행 중인 worktree 에 새 작업을 얹지 않는다(base·체크아웃 충돌, 변경 혼입, 동시 편집 위험). 무관한 변경을 한 브랜치에 섞지 않는다. push 는 요청 시만.
-- **검증 통과한 작업 단위는 요청 없이 커밋한다** — 하네스 기본값(`Commit or push only when the user asks.`)을 이 규약이 대체한다. 작업 브랜치에서 evidence gate·plan 업데이트를 마친 뒤 **마지막에 1회**가 기본이고, medium 이상에서 목적이 2개 이상이면 dlc 가 목적 단위로 중간 커밋한다(각 단위의 targeted 검증 통과 후, 절차는 `skills/dlc/SKILL.md` 커밋 단위). 그 밖의 흐름에서도 검증된 중간 커밋은 막지 않는다.
-  - **stage 는 이번 작업이 건드린 경로만** — 자동 커밋에서 `git add -A` 금지(무관한 사용자 변경·산출물이 섞이고, `pre-commit-check` 시크릿 스캔은 `settings.json`·`plans/*.md` 만 보며 §11 비공개 용어 검사는 `~/.claude` 에서 목록에 적은 이름만 본다). `/e` WIP 체크포인트는 전량 보존이 목적이라 예외. 커밋 직전 `git diff --cached --name-only` 로 index 를 확인해 **작업 밖 항목이 이미 staged 면 보류·보고**.
-  - **커밋하지 않는 경우**: 현재 브랜치가 main/master 또는 detached HEAD(공용 wiki repo `~/.claude/wiki` 의 페이지·문서는 예외 — main 에 직접 커밋, §11. 그 repo 의 코드 계층은 예외가 아니다) — **이미 main 에서 편집했으면 `/wt` 로 옮겨 재적용한 뒤 그 절차를 보고**한다(게이트가 auto 모드·untracked·fail-open 으로 안 걸렸을 때 생기는 상태다 — 변경을 main 에 uncommitted 로 방치하지 않는다) · 검증 실패(§3-5 로 입증된 baseline failure 는 제외) · stage 할 변경 없음(빈 커밋 금지).
-  - 커밋이 훅에 차단되면 **우회(`--no-verify`) 금지** — 원인을 없애거나 보고 후 중단.
-  - **확인·검증되지 않은 변경은 커밋하지 않는다** — 검증 명령을 식별하지 못했거나, 테스트로 확인할 수 없는 변경(모델 행동을 바꾸는 규칙 문구 등)을 실제 실행·관찰, §7 예외의 수동 검증 절차 실행, 사용자 확인 중 하나로 검증하지 못했으면 커밋하지 않고 검증 방법을 묻는다. 커밋해 두고 보고에 "미검증"을 적는 방식은 쓰지 않는다(물을 수 없는 무인 흐름이면 커밋을 보류하고 보고). 규칙·스킬 문구처럼 모델 행동을 바꾸는 변경은 사용자가 바뀐 문구(diff)를 확인했거나, 그 문구대로 동작하는 것을 실제 세션에서 관찰했을 때 검증된 것으로 본다. 대상은 작업 변경이다 — 검증을 마친 작업의 기록 파일(plan) 커밋과 사용자 승인으로 하는 `commit-check` 재구성은 따로 검증하지 않는다. 예외: `/e` 의 `wip:` 체크포인트(작업 브랜치 한정 — 미완·미검증 보존이 목적)와 공용 wiki repo 의 main 직접 커밋(§11).
-  - **push 는 여전히 요청 시만** — 자동인 것은 커밋까지다. 절차 세부(메시지 형식·경로 확정·실행 폴백)는 `skills/dlc/SKILL.md` 16단계 커밋 규칙.
-- **커밋은 리뷰 가능한 하나의 목적 단위**: 아직 push 하지 않은 커밋이면 같은 작업의 후속 수정(리뷰 반영·오타·단순 실수)은 새 커밋으로 쌓지 말고 대상 커밋에 합치고(쌓는 중이면 `git commit --fixup=<대상>` — commit-check 가 합친다), 목적이 섞인 커밋은 나눈다. 이미 push 한 커밋은 고치지 않고 새 커밋(force-push 금지). 메시지 형식은 그 repo 의 AGENTS/CLAUDE 커밋 절이 정본. 점검·재구성은 `commit-check` 스킬 — 미게시 커밋만, 사용자 승인 후, 코드 내용은 그대로(plumbing 재조립이라 hook 우회 `--no-verify` 가 아니다).
-- **worktree 작업의 worklog 는 그 worktree 를 지우기 전에 남긴다** — 지우면 이름으로 고를 수 없어 등록할 수 없다(표시만 된다). 그래서 `/e` 6단계를 7단계 삭제보다 먼저 돌린다(작업시간은 줄 단위 `cwd` 로 갈려 main 복귀 뒤에 이름을 인자로 줘도 된다).
-- **worktree 삭제 주의**: `git worktree remove` 는 gitignored 파일(`.env` 등 — whitelist `.gitignore` 라 `git status` 에 안 보임)을 **무경고 동반 삭제**한다. 삭제 전 `git status --porcelain --ignored` 점검(상세 `skills/e/SKILL.md`). `plans/` 는 tracked(§10)라 미커밋 plan 은 remove 가 거부하지만, **미커밋 plan·log 변경은 삭제 전 커밋으로 보존**한다(push 는 요청 시만).
-- **trivial·small 의 종결은 로컬 ff-merge**: push·PR 없이 작업 브랜치를 default 브랜치에 `git merge --ff-only <slug>` 로 반영한 뒤 아래 (a) 자동 정리로 닫는다(오타 1줄에 PR 왕복을 붙이면 머지하지 않고 worktree 만 쌓여 (a) 의 merged 조건이 영영 안 걸린다). **ff 불가**(그 사이 default 가 진행)면 작업 브랜치가 미게시일 때 worktree 안에서 `git rebase <default>` → 검증 재실행 → `--ff-only` 로 반영한다. rebase 가 충돌하거나(`git rebase --abort` 로 되돌림) 브랜치가 이미 게시됐거나, medium 이상·CI 검증·외부 공유가 필요하면 `/e merge`(push→PR→머지) — `/e merge` 는 plan 이 있어야 하므로 plan 없는 small 이면 plan 을 먼저 만든다. 어느 경로든 **push 는 요청 시만**이라 로컬 default 가 origin 보다 앞설 수 있다(다음 push 때 반영된다).
-- **머지/완료 후 정리 — merged 면 묻지 말고 정리**: 작업 브랜치가 merged 이고 정리해도 안전하면 worktree 정리를 방치하거나 "선택사항" 으로만 언급하지 않고, **선택지로 올리지도 않는다**.
-  - **(a) merged + 안전조건 충족 → 확인 없이 worktree + 로컬 브랜치 자동 정리**. 조건 — 1) 대상 ≠ `main`/`master`/`origin/HEAD` 2) **default 브랜치에 merged**(`git branch --merged <default>` 에 있음 — **로컬 main 머지도 포함**한다. push 하지 않는 워크플로우에서 `origin/<default>` 기준만 보면 영영 미머지로 오판한다. squash-merge 는 감지 못 해 (b)) 3) working tree clean(untracked 포함) 4) 미보존 `.env`/ignored/미커밋 plan·log 없음. **누가 머지했는지는 묻지 않는다.** 실행은 worktree → `git branch -d` 순, 삭제한 브랜치 tip sha 를 보고한다(merged 라 `git branch <name> <sha>` 로 복구 가능).
-  - **(b) 확인 필요(AskUserQuestion)** — **원격 브랜치 삭제**(`git push origin --delete`)는 (a) 에 **포함되지 않는다: 항상 확인**. 안전조건 하나라도 미충족·불확실(dirty·squash-merge·미보존 산출물)이거나 `/wt rm <이름>` 직접 호출(오타로 엉뚱한 대상을 지울 수 있다)이어도 확인. 이 경로에서 원격 삭제·`git branch -D` 는 명시 확인 없이 금지.
-  - 조건·실행 세부는 `/e` 7단계·worktree 정리 규칙. `gh pr merge --delete-branch` 는 **명령으로 쓰지 않는다**(로컬·원격 삭제를 묶어 (b) 의 분리 승인을 우회하고, worktree 가 main 을 점유한 환경에선 로컬 삭제가 조용히 빠진다 — 사례는 공용 wiki `workflow-failures`). 사용자가 그 플래그로 머지를 지시했다면 원격 삭제 승인으로 여기고 `/e merge` 경로(`--merge` 후 정리)로 실행하되, 7단계 뒤 원격 삭제 재확인은 그 승인으로 갈음한다. **main/master worktree 는 자동 정리 대상 아님.**
-- generated/lock file 변경은 필요할 때만 포함하고 이유를 설명한다.
-- `.env`/private key/token/password/인증서 원문을 답변·로그·테스트 fixture·snapshot 에 출력 금지.
-- 인증/인가/암호화 코드는 기존 보안 패턴을 먼저 확인한다. 임시 우회·hardcoded credential·TLS 검증 비활성화 금지.
-- 외부 입력은 신뢰하지 않는다. validation/escaping/authorization check 를 확인한다.
+When you add or change logic, write tests that verify it. **Order**: write the test → confirm Red → implement → confirm Green → refactor.
+
+**Exceptions (stating the reason is mandatory)**:
+- Trivial changes: a one-line fix, typo, comment, formatting, import, log message
+- A simple refactor whose regressions are covered by existing tests (confirm they pass)
+- UI visual checks, external infrastructure, hooks/scripts → state a manual verification procedure
+
+**Other**:
+
+- For a bug fix, write a reproduction test first when possible.
+- State the reason when weakening or deleting a test. Do not lower expected values to hide a bug.
+- **Match the test size to the neighboring test files** — about one focused test per stated behavior (boundary and error conditions are part of that behavior and do not count toward the limit). Do not promote scratch verification scripts or temporary checks to permanent tests without polishing them. Implement and verify every required behavior, but do not add *extras*.
+- Record flaky tests with cause, reproduction conditions and temporary workaround kept separate.
+- Tests that depend on external APIs, DBs, the network or time follow the existing mocking/stubbing pattern.
 
 ---
 
-## 9. Claude ↔ Codex 협업
+## 8. Git / security
 
-사용자는 Claude 와 Codex 를 둘 다 쓰고, 둘 다 같은 `plans/` 핸드오프 채널(§10)을 공유한다.
-
-- **역할**: Claude 는 plan 생성/갱신·메인 구현·통합, Codex 는 리뷰·보조 구현·검증. 최종 통합 책임은 항상 **현재 메인 에이전트**.
-- **호출**: 설치 확인 `codex --version`. **codex 는 반드시 Bash 도구로 호출한다**(PowerShell 은 stdin 미종료로 무한 hang). 호출 규약·effort·출력 처리 세부는 `~/.claude/wiki/docs/codex-review.md`(codex 를 부르기 전에 읽는다).
-- **리뷰 매트릭스**: `plan-reviewer` / `code-reviewer` = **Claude subagent 필수 + Codex 가용 시 병행**. `researcher` / 보조 구현 = 가용성·이득이 있을 때 선택. simplify 체크는 메인 직접이라 매트릭스 대상이 아니다.
-- **리뷰 시점**: dlc 의 중간 단계(구현 직후 code-reviewer + codex 병행)가 맡는다 — push 직전 별도 codex 리뷰는 두지 않는다. 로컬 다관점 점검이 따로 필요하면 빌트인 `/code-review` 를 수동으로 쓴다.
+- `git reset --hard`, `git clean -fd`, forced checkout and force push are forbidden without an explicit request.
+- **Work on a separate branch/worktree, not directly on main/master.** A push to main/master triggers a confirmation every time through a global `ask`, and **an `allow` cannot lift it** (ask is evaluated before allow — to lift it, delete the `ask` rule itself). No global `deny` (it cannot be scoped per project and takes precedence over allow, so it would also block this repo (`~/.claude`)). **A push to main in another repo is hard-blocked by the git `pre-push` hook only when the hooks were installed in that repo with `scripts/install-hooks.sh` (`.ps1`)** (opt-in per repo — there is no global `core.hooksPath`, and installation is refused when `core.hooksPath` points to another directory. `pre-commit-check` exempts only the repo root `~/.claude`). **Work that changes code/files starts in a separate worktree (`/wt <request>`) regardless of size (trivial included)** (gitignored global state and non-git directories are excluded — §3-1). Do not pile new work onto an in-progress worktree (base/checkout conflicts, mixed changes, concurrent edits). Do not mix unrelated changes in one branch. push only on request.
+- **Commit a verified unit of work without being asked** — this rule replaces the harness default (`Commit or push only when the user asks.`). The default is **once at the end**, on the work branch after the evidence gate and the plan update; for medium or larger work with 2+ purposes, dlc makes intermediate commits per purpose (each after that unit's targeted verification passes; procedure in `skills/dlc/SKILL.md`, commit units). Verified intermediate commits are not blocked in other flows either.
+  - **Stage only the paths this work touched** — no `git add -A` in automatic commits (unrelated user changes and artifacts get mixed in, the `pre-commit-check` secret scan only looks at `settings.json` and `plans/*.md`, and the §11 private-term check, in `~/.claude`, only sees the names on the list). The `/e` WIP checkpoint is the exception, since its purpose is to keep everything. Right before committing, check the index with `git diff --cached --name-only`; **if something outside the work is already staged, hold off and report**.
+  - **When not to commit**: the current branch is main/master or a detached HEAD (pages and docs of the shared wiki repo `~/.claude/wiki` are the exception — commit directly to main, §11; the code layer of that repo is not an exception) — **if you already edited on main, move to `/wt`, reapply, and report that procedure** (this state arises when the gate did not fire due to auto mode, untracked files or fail-open — do not leave changes uncommitted on main) · verification failed (except a baseline failure proven per §3-5) · nothing to stage (no empty commit).
+  - If a hook blocks the commit, **no bypass (`--no-verify`)** — remove the cause, or report and stop.
+  - **Do not commit a change that has not been confirmed or verified** — if you could not identify a verification command, or could not verify a change that tests cannot check (such as rule wording that changes model behavior) by actually running and observing it, by running the manual verification procedure of a §7 exception, or by user confirmation, do not commit; ask how to verify it. Do not commit first and write "unverified" in the report (in an unattended flow where you cannot ask, hold the commit and report). A change that alters model behavior, such as rule or skill wording, counts as verified when the user has reviewed the changed wording (diff) or when it has been observed working as worded in a real session. This applies to work changes — committing the record files (plan) of work that has finished verification, and a `commit-check` restructuring done with user approval, need no separate verification. Exceptions: the `/e` `wip:` checkpoint (work branches only — its purpose is to keep unfinished, unverified work) and direct commits to main in the shared wiki repo (§11).
+  - **push is still only on request** — what is automatic is the commit. Procedure details (message format, path confirmation, execution fallback) are in the `skills/dlc/SKILL.md` step 16 commit rules.
+- **A commit is one reviewable purpose**: while a commit is not yet pushed, fold follow-up fixes to the same work (review fixes, typos, simple mistakes) into the target commit instead of stacking new commits (while stacking, `git commit --fixup=<target>` — commit-check folds them), and split a commit that mixes purposes. Do not modify a commit that has already been pushed; make a new commit (no force-push). The commit section of that repo's AGENTS/CLAUDE file is canonical for the message format. Checking and restructuring is the `commit-check` skill — unpublished commits only, after user approval, code content unchanged (it is a plumbing reassembly, not a hook bypass with `--no-verify`).
+- **Record the worklog of worktree work before deleting that worktree** — once deleted, it cannot be selected by name and cannot be registered (only displayed). So run `/e` step 6 before the step 7 deletion (work time is split by per-line `cwd`, so passing the name as an argument after returning to main also works).
+- **Caution when deleting a worktree**: `git worktree remove` **silently deletes** gitignored files along with it (`.env` etc. — with the whitelist `.gitignore` they do not show in `git status`). Check `git status --porcelain --ignored` before deleting (details in `skills/e/SKILL.md`). `plans/` is tracked (§10), so remove refuses an uncommitted plan, but **keep uncommitted plan/log changes by committing them before deletion** (push only on request).
+- **trivial/small work ends with a local ff-merge**: without push or PR, apply the work branch to the default branch with `git merge --ff-only <slug>`, then close with the (a) automatic cleanup below (a PR round trip for a one-line typo means it never gets merged and worktrees pile up, so the merged condition of (a) never fires). **If ff is impossible** (default moved meanwhile) and the work branch is unpublished, run `git rebase <default>` inside the worktree → rerun verification → apply with `--ff-only`. If the rebase conflicts (undo with `git rebase --abort`), the branch is already published, or the work is medium or larger or needs CI verification or external sharing, use `/e merge` (push→PR→merge) — `/e merge` needs a plan, so a small task without a plan gets a plan first. Either way, **push is only on request**, so the local default can be ahead of origin (it is reflected at the next push).
+- **Cleanup after merge/completion — if merged, clean up without asking**: when the work branch is merged and safe to clean up, do not leave the worktree or mention its cleanup only as "optional", and **do not put it up as an option either**.
+  - **(a) merged + safety conditions met → clean up the worktree + local branch automatically, without confirmation**. Conditions — 1) target ≠ `main`/`master`/`origin/HEAD` 2) **merged into the default branch** (listed by `git branch --merged <default>` — **a merge into local main counts too**. In a workflow that does not push, checking only against `origin/<default>` misjudges it as unmerged forever. A squash merge is not detected, so (b)) 3) working tree clean (untracked included) 4) no unsaved `.env`/ignored files/uncommitted plan or log. **Do not ask who merged it.** Run worktree → `git branch -d` in that order and report the deleted branch's tip sha (it is merged, so `git branch <name> <sha>` restores it).
+  - **(b) Confirmation required (AskUserQuestion)** — **remote branch deletion** (`git push origin --delete`) is **not part of (a): always confirm**. Confirm also when any safety condition is unmet or uncertain (dirty, squash merge, unsaved artifacts) or on a direct `/wt rm <name>` call (a typo can delete the wrong target). On this path, remote deletion and `git branch -D` are forbidden without explicit confirmation.
+  - Condition and execution details: `/e` step 7 and the worktree cleanup rules. **Do not use** `gh pr merge --delete-branch` **as a command** (it bundles local and remote deletion and so bypasses the separate approval of (b), and where a worktree holds main the local deletion silently drops out — case in the shared wiki `workflow-failures`). If the user ordered a merge with that flag, treat it as approval of the remote deletion and run it via the `/e merge` path (`--merge`, then cleanup); the re-confirmation of remote deletion after step 7 is replaced by that approval. **A main/master worktree is never auto-cleaned.**
+- Include generated/lock file changes only when needed, and explain why.
+- Never print raw `.env`/private key/token/password/certificate contents in answers, logs, test fixtures or snapshots.
+- For authentication/authorization/encryption code, check the existing security patterns first. No temporary bypasses, hardcoded credentials or disabled TLS verification.
+- Do not trust external input. Check validation/escaping/authorization checks.
 
 ---
 
-## 10. `plans/` 핸드오프 규약
+## 9. Claude ↔ Codex collaboration
 
-티켓 ID 가 있는 작업이나 컨텍스트가 명확한 단위는 `<ROOT>/plans/<YYYY-MM-DD>-<slug>/<slug>-plan.md` 를 쓴다. `<ROOT>` = `git rev-parse --show-toplevel` — 스킬 c·e·dlc 가 쓰는 기준과 같다. **`.claude/plans/` 로 적지 않는다**: 이 repo 는 루트가 `~/.claude` 라 그 표기가 double-nest 된 빈 경로(`~/.claude/.claude/plans/`)를 가리킨다. 파일명에 slug 가 있어야 `@` 자동완성에서 식별된다.
+The user uses both Claude and Codex, and both share the same `plans/` handoff channel (§10).
 
-### slug & 매칭
-- slug: `<TICKET>-<short-desc>` 또는 `<short-desc>`. 디렉토리 prefix 는 시작일(불변, rename 금지).
-- 매칭: 현재 git branch 가 slug 에 포함된 dir → 그 안의 `*-plan.md` 1개.
-- **active plan 추적**: branch 가 어떤 slug 와도 안 맞아도 세션에서 진행 중이던 plan 은 active 로 **계속 추적**한다. branch 매칭은 plan 을 처음 찾는 수단일 뿐 — 한번 active 가 된 plan 은 branch 를 바꾸거나 작업이 plan 범위 밖으로 넓어져도 동기화 대상에서 빠지지 않는다.
+- **Roles**: Claude creates/updates plans, does the main implementation and integrates; Codex reviews, does supporting implementation and verifies. The final integration responsibility always lies with **the current main agent**.
+- **Invocation**: check the installation with `codex --version`. **Always call codex with the Bash tool** (in PowerShell, stdin never closes and it hangs forever). Invocation conventions, effort and output handling are in `~/.claude/wiki/docs/codex-review.md` (read it before calling codex).
+- **Review matrix**: `plan-reviewer` / `code-reviewer` = **Claude subagent mandatory + Codex in parallel when available**. `researcher` / supporting implementation = optional, when available and worthwhile. The simplify check is done by the main agent directly and is not part of the matrix.
+- **When to review**: dlc's intermediate step (code-reviewer + codex in parallel right after implementation) covers it — there is no separate codex review right before push. If a separate local multi-angle check is needed, use the built-in `/code-review` manually.
 
-### 동작
-- **시작**: 매칭 plan(과 있으면 plan log)을 read 해 컨텍스트를 복원하고, 없으면 새로 만든다(`status: in_progress`).
-- **진행 중 동기화**(필수): plan 과 다른 결정·방향·스코프 변경이 생기면 **즉시** 반영한다 — 턴 종료까지 미루지 않는다.
-  - 스코프 변경·접근/아키텍처 변경·새 제약 → `# Decisions` 의 그 결정을 고쳐 쓰고 **이유**를 붙인다. 밀려난 선택은 기각안으로 옮겨 기각 사유를 남긴다(plan 은 작업 끝에만 커밋돼 세션 안의 이력은 git 에 남지 않는다). Acceptance 문구·통과 기준·검증 명령을 바꾸면 이전 값 → 새 값과 사용자 승인을 남긴다.
-  - 할 일이 생기거나 끝나면 → `# Tasks` 에 추가·체크(급한 다음 일은 미완료 맨 위).
-  - 막힘 → `# Blockers` + `status: blocked`.
-- **턴 종료**: 끝낸 Task 체크(날짜), frontmatter `updated:` 오늘. 빠뜨린 동기화 보강.
-- **완료**: 머지·배포·승인 **그 시점에 즉시** `status: done` — 미루지 않는다(`/e merge` 는 done 을 머지 PR 에 실어 보내고 머지가 거부되면 `in_progress` 로 복구한다). **블로커**: `status: blocked` + `# Blockers`.
-- **원칙**: plan 은 "현재 상태의 단일 진실 소스"다(묶음이면 요구 자체는 `intent.md` 가 정본이고 plan 은 `intent:` 로 가리킨다 — 아래 묶음 intent). 합의가 plan 에 없으면 다음 세션·도구가 모른다 — 항상 plan 에 먼저 반영한다.
-- **동기화 (tracked)**: `plans/` 는 tracked 라 작업 브랜치와 함께 commit·push 하면 다른 머신·세션이 pull 로 이어받는다. pre-commit-check 가 staged `plans/*.md` 의 토큰을 스캔한다(+§8 원문 출력 금지) — plan 에 raw token/credential/PII 를 붙여 넣지 않는다.
+---
 
-### frontmatter (필수)
+## 10. `plans/` handoff convention
+
+Work with a ticket ID, or a unit with clear context, uses `<ROOT>/plans/<YYYY-MM-DD>-<slug>/<slug>-plan.md`. `<ROOT>` = `git rev-parse --show-toplevel` — the same base the skills c, e and dlc use. **Do not write it as `.claude/plans/`**: in this repo the root is `~/.claude`, so that notation points to a double-nested empty path (`~/.claude/.claude/plans/`). The slug in the file name is what makes it identifiable in `@` autocomplete.
+
+### slug & matching
+- slug: `<TICKET>-<short-desc>` or `<short-desc>`. The directory prefix is the start date (immutable, do not rename).
+- Matching: the dir whose slug contains the current git branch → the one `*-plan.md` in it.
+- **Active plan tracking**: even if the branch matches no slug, **keep tracking** the plan that was in progress in the session as active. Branch matching is only the means to find a plan the first time — once a plan is active, it stays a sync target even if the branch changes or the work spreads beyond the plan's scope.
+
+### Behavior
+- **Start**: read the matching plan (and the plan log, if any) to restore context; if there is none, create one (`status: in_progress`).
+- **In-progress sync** (mandatory): when a decision, direction or scope change differs from the plan, update it **immediately** — do not wait for the end of the turn.
+  - Scope change, approach/architecture change, new constraint → rewrite that decision in `# Decisions` with its **reason**. Move the displaced choice to the rejected alternatives with the reason for rejecting it (the plan is committed only at the end of the work, so the history within a session does not stay in git). If you change the wording of an Acceptance item, its pass criterion or its verification command, record old value → new value and the user's approval.
+  - A task appears or finishes → add or check it in `# Tasks` (an urgent next task at the top of the unchecked ones).
+  - Blocked → `# Blockers` + `status: blocked`.
+- **Turn end**: check finished Tasks (with date), set frontmatter `updated:` to today. Fill in any sync you missed.
+- **Completion**: `status: done` **at the moment** of merge, deploy or approval — do not postpone it (`/e merge` carries done in the merge PR and restores `in_progress` if the merge is rejected). **Blocker**: `status: blocked` + `# Blockers`.
+- **Principle**: the plan is "the single source of truth for the current state" (in a bundle, the requirement itself is canonical in `intent.md` and the plan points to it with `intent:` — see Bundle intent below). If an agreement is not in the plan, the next session or tool does not know it — always reflect it in the plan first.
+- **Sync (tracked)**: `plans/` is tracked, so committing and pushing it with the work branch lets other machines and sessions take over by pulling. pre-commit-check scans staged `plans/*.md` for tokens (+ the §8 rule against printing raw secrets) — do not paste raw tokens, credentials or PII into a plan.
+
+### frontmatter (mandatory)
 ```yaml
 ---
-title: <slug> — <한 줄 요약>
+title: <slug> — <one-line summary>
 status: in_progress  # in_progress | blocked | done
 started: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
 ```
 
-### 본문 섹션 (`# Goal`·`# Tasks`·`# Decisions`·`# Blockers` 는 빈 채로라도 헤더 유지 — `# Tasks` 만 항목 1개 이상. `# Acceptance` 는 비trivial 에 필수)
-1. `# Goal` — 첫 문단에 달성 목표 1~3줄. 그 아래 라벨 불릿: `Why:`(문제·왜 지금) · `Constraints:` · `Out of scope:` · `Open questions:`(못 정한 것만) · `Split:`(medium 이상 — `none — <무엇이 한 머지에서만 유효한가>` 또는 `bundle → <intent.md 경로>`). dlc 요구사항 명확화가 채운다(medium 이상은 항상). 사용자가 확인한 것과 모델이 추론한 것을 구분한다(추론은 ⚠️).
-2. `# Tasks` — 할 일 체크리스트. **첫 미완료 항목이 다음 즉시 액션(가장 중요)**.
-   - `- [ ] <할 일>` / `- [x] <할 일> (YYYY-MM-DD)[ — 한 줄 결과]`, 하위 항목 허용(체크하면 날짜도). 커밋 sha 는 적지 않는다(커밋 재구성으로 바뀐다 — sha 는 Report 에).
-   - 파일을 바꾸는 Task 는 그 경로를 backtick 으로 적는다 — 이것이 이 작업이 건드리는 파일 목록이다.
-   - 새로 생긴 급한 일(리뷰 반영·재실행)은 미완료 맨 위에. 사용자 결정이 필요하면 `- [ ] NEEDS-HUMAN: <질문> — <선택지>`(`/c` 는 여기서 멈춘다). WIP 체크포인트는 그 미완료 Task 에 "브랜치 tip `wip:` 커밋 이어서".
-   - done plan 에는 `[post-merge]` 항목만 미완료로 남는다(`/e merge` 가 머지 전에 확인한다). 머지 대기는 Task 가 아니라 PR 상태로 본다.
-3. `# Acceptance` — test 가능한 완료 기준(비trivial 은 필수). 번호 항목 `1.`(`1. [ ]` 허용): `무엇이 충족되나 — 어떻게 확인 — 통과 기준`. 각 항목이 증거(실행·관찰·통과)로 충족될 때만 완료(dlc evidence gate).
-4. `# Decisions` — **현재** 설계/스코프 합의 + 이유, 그리고 **진지하게 검토했다가 기각한 대안과 기각 사유**(없으면 다음 세션이 같은 안을 다시 꺼낸다). 결정이 바뀌면 고쳐 쓰고 밀려난 안은 기각안으로 옮긴다(위 동기화).
-5. `# Blockers` — 막힌 것 + 풀려면 필요한 것
+### Body sections (`# Goal`, `# Tasks`, `# Decisions` and `# Blockers` keep their headers even when empty — only `# Tasks` needs at least one item. `# Acceptance` is mandatory for non-trivial work)
+1. `# Goal` — the goal in 1–3 lines in the first paragraph. Below it, labeled bullets: `Why:` (the problem, why now) · `Constraints:` · `Out of scope:` · `Open questions:` (only what is undecided) · `Split:` (medium or larger — `none — <what is valid only in one merge>` or `bundle → <intent.md path>`). dlc's requirement clarification fills them (always for medium or larger). Distinguish what the user confirmed from what the model inferred (mark inferences ⚠️).
+2. `# Tasks` — the task checklist. **The first unchecked item is the next immediate action (most important)**.
+   - `- [ ] <task>` / `- [x] <task> (YYYY-MM-DD)[ — one-line result]`, sub-items allowed (with a date when checked). Do not write commit shas (they change when commits are restructured — shas go in the Report).
+   - A Task that changes files names those paths in backticks — this is the list of files this work touches.
+   - New urgent work (review fixes, reruns) goes at the top of the unchecked items. If a user decision is needed, `- [ ] NEEDS-HUMAN: <question> — <options>` (`/c` stops here). For a WIP checkpoint, that unchecked Task says "continue from the `wip:` commit at the branch tip".
+   - In a done plan, only `[post-merge]` items stay unchecked (`/e merge` checks this before merging). Waiting for a merge is not a Task; see it from the PR state.
+3. `# Acceptance` — testable completion criteria (mandatory for non-trivial work). Numbered items `1.` (`1. [ ]` allowed): `what is satisfied — how it is checked — pass criterion`. Done only when every item is satisfied by evidence (run, observation, pass) (dlc evidence gate).
+4. `# Decisions` — the **current** design/scope agreements + reasons, and **alternatives seriously considered and rejected, with the reasons** (without them, the next session brings up the same option again). When a decision changes, rewrite it and move the displaced option to the rejected ones (sync above).
+5. `# Blockers` — what is blocked + what is needed to unblock it
 
-작업 기록 (절차가 요구할 때만) — 같은 폴더의 `<slug>-log.md`(이하 plan log. 필요할 때 만들고 frontmatter 없음, plan-lint 대상 아님, plan 과 같이 커밋. 새 형식 plan 본문에 두면 plan-lint 위반): `# Review Disposition`(dlc fix loop 의 finding 처분 — `fix`/`defer`/`false-positive`/`wontfix`. 묶음 분할 리뷰의 처분은 첫 plan 의 log 에 `[묶음]` 접두로. dlc ⚠️ self-flag 는 자기 신고라 `resolved`/`accepted-risk`/`deferred` 로 구분), `# Deferred`(범위 밖 발견 — §3-4), `# Workflow Findings`(확인된 workflow 실패 기록 — dlc 증거기반 자기개선, 최소형). `defer`(리뷰 finding 처분값) ≠ `# Deferred`(범위 밖 발견 보존 섹션).
+Work record (only when a procedure requires it) — `<slug>-log.md` in the same folder (the plan log below; created when needed, no frontmatter, not checked by plan-lint, committed with the plan. Putting these in the body of a new-format plan is a plan-lint violation): `# Review Disposition` (dispositions of dlc fix-loop findings — `fix`/`defer`/`false-positive`/`wontfix`. Dispositions of a bundle split review go in the first plan's log with the prefix `[bundle]`. The dlc ⚠️ self-flag is a self-report and uses `resolved`/`accepted-risk`/`deferred` instead), `# Deferred` (out-of-scope findings — §3-4), `# Workflow Findings` (records of confirmed workflow failures — dlc's evidence-based self-improvement, minimal form). `defer` (a review finding disposition value) ≠ `# Deferred` (the section keeping out-of-scope findings).
 
-**형식 검사·옛 형식**: 기계 검사는 `scripts/plan-lint.js`(필수 섹션·Tasks 체크박스와 날짜·Acceptance 참조·본문의 작업 기록 섹션). 2026-10-18 이전 형식(`# Progress`·`# Next`·`# Key Files`·`# Intent` 가 있고 `# Tasks` 가 없음)도 유효하다 — 진행 중인 옛 형식 plan 은 끝날 때까지 같은 뜻의 옛 섹션에 쓴다(첫 미완료 Task ↔ `# Next`, 체크된 Task ↔ `# Progress`, Task 안 경로 ↔ `# Key Files`, Goal 라벨 불릿 ↔ `# Intent`, log 의 작업 기록 ↔ plan 본문의 같은 섹션). 새 plan 만 새 형식이고, 한 plan 에 두 형식을 섞지 않는다. 스킬·agent 는 새 형식만 적는다 — 옛 형식 plan 을 만나면 이 대응표를 쓴다.
+**Format check and old format**: the machine check is `scripts/plan-lint.js` (mandatory sections, Tasks checkboxes and dates, Acceptance references, work-record sections in the body). The format before 2026-10-18 (with `# Progress`, `# Next`, `# Key Files`, `# Intent` and no `# Tasks`) is also valid — an in-progress old-format plan keeps writing in its old sections with the same meaning until it ends (first unchecked Task ↔ `# Next`, checked Tasks ↔ `# Progress`, paths in Tasks ↔ `# Key Files`, Goal labeled bullets ↔ `# Intent`, work records in the log ↔ the same sections in the plan body). Only new plans use the new format, and one plan never mixes the two. Skills and agents write only the new format — when they meet an old-format plan, they use this mapping table.
 
-### 묶음 intent (`intent.md`, 선택)
-한 요구가 plan 여러 개(후속·분할)로 갈라지면 그 요구를 `<ROOT>/plans/<YYYY-MM-DD>-<intent-slug>/intent.md` 한 파일에 두고, 각 plan 이 frontmatter 선택 키 `intent: plans/<dir>/intent.md`(스칼라 1개 — 한 plan 이 두 묶음에 걸치지 않는다)로 가리킨다. plan 은 자기 dir 에 그대로 두고 intent dir 에는 `*-plan.md` 를 두지 않는다 — 위 매칭 규칙·`plan-match.js`·`session-brief.js`·`plan-lint` 가 그대로 동작한다(**intent.md 는 plan 이 아니라 `plan-lint` 대상이 아니다**).
-- **만드는 때(닫힌 목록)**: 1) 사용자 지시 2) 요구가 독립 검증·머지 가능한(각 단위가 순서대로 혼자 default 에 머지돼도 빌드·규약 무모순) 복수 plan 으로 나뉠 때 — medium 이상은 dlc 요구사항 명확화의 **분할 판정**이 능동으로 보고, small 은 예상될 때(후속·병렬) 3) 기존 plan 의 Out of scope·plan log `# Deferred`·"별도 작업" 에서 새 plan 을 시작 → 소급 생성하되 **선행 plan 에는 `intent:` 1줄만 추가**하고 본문은 손대지 않는다 — 단 그 항목이 이미 이슈로 넘어갔거나 선행 plan 이 다른 묶음에 속해 있으면(`intent:` 는 스칼라) 소급 생성하지 않고 이슈와 새 plan 의 `# Decisions` 가 추적한다. 그 외 단발 작업은 plan `# Goal` 의 라벨 불릿만. 착수 전 `plans/*/intent.md` 중 `status: open` 을 훑어 기존 묶음이면 새로 만들지 않고 연결한다(dlc 요구사항 명확화).
-- **형식**: frontmatter `title` · `status: open|closed`(값 라인에 인라인 주석 금지) · `started` · `updated`. 본문 H1 6개: `# Problem` · `# Proposed outcome` · `# Constraints`(묶음 공통 제약) · `# Out of scope`(하지 **않을** 경계만 — 이어서 할 후속은 여기가 아니라 `# Plans` 에 `(미착수)`) · `# Open questions`(미처분 `(열림)`, 처분은 `(해소)`/`(이월 → <새 묶음 | #이슈 | plan 경로>)`) · `# Plans`(plan 경로 + 한 줄 메모 — **status 복제 금지**, 정본은 각 plan frontmatter. 폐기한 plan 은 메모에 `폐기`. 아직 착수 안 한 단위는 `<slug 후보> (미착수) — 메모`, 착수하는 dlc 가 실제 경로로 치환).
-- **plan `# Goal` 의 라벨 불릿은 intent.md 링크 1줄 + 이 plan 에만 더해지는 델타**(제약·범위). 공통 제약을 plan 에 복제하지 않는다. 델타가 없으면 `델타 없음 — <근거>`. 공통 제약이 바뀌면 plan `# Decisions` 에 남기고 intent.md 를 갱신한다.
-- **소유권**: 각 세션은 intent.md 에서 자기 plan 의 `# Plans` 줄과 자기가 연 Open question 만 고친다. 공통 Constraints 를 바꾸면 진행 중인 다른 plan 의 `# Decisions` 에 영향 통지를 남긴다.
-- **수명**: plan `done` ≠ intent `closed`. `closed` = `# Plans` 의 모든 plan 이 `done`(또는 `폐기`) **그리고** Open questions 전부 처분. Out of scope 는 조건이 아니다(영구 경계). `/e` 가 plan done 을 **쓰는 그 지점**(체크포인트 확인 done / 머지 모드 M4 커밋)에서 판정해 같은 커밋에 담고, 조건 충족이면 확인 없이 닫는다(M4 복구 시 함께 되돌린다).
-- **한계**: 선행 브랜치가 미머지면 default 에서 딴 후속 worktree 에 intent.md 가 없다 → 착수 스캔은 `git worktree list` 의 모든 worktree `plans/` 를 보고, 찾으면 `git show <선행브랜치>:<경로>` 로 같은 경로에 가져온다(동일 내용 추가는 머지 시 충돌 없음). tracked·secret 스캔은 plan 과 같다(`plans/*.md`).
+### Bundle intent (`intent.md`, optional)
+When one requirement branches into several plans (follow-ups, splits), put that requirement in a single file `<ROOT>/plans/<YYYY-MM-DD>-<intent-slug>/intent.md`, and each plan points to it with the optional frontmatter key `intent: plans/<dir>/intent.md` (one scalar — a plan never spans two bundles). Plans stay in their own dirs and the intent dir holds no `*-plan.md` — so the matching rule above, `plan-match.js`, `session-brief.js` and `plan-lint` work unchanged (**intent.md is not a plan and not a `plan-lint` target**).
+- **When to create (closed list)**: 1) the user says so 2) the requirement splits into multiple plans that can be verified and merged independently (each unit can merge alone into default, in order, without contradicting the build or conventions) — for medium or larger, dlc requirement clarification's **split judgment** checks this actively; for small, when it is expected (follow-ups, parallel work) 3) a new plan starts from an existing plan's Out of scope, plan log `# Deferred` or "separate task" → create it retroactively, but **only add one `intent:` line to the preceding plan** and do not touch its body — unless that item has already moved to an issue or the preceding plan belongs to another bundle (`intent:` is a scalar), in which case do not create it retroactively; the issue and the new plan's `# Decisions` track it. Other one-off work uses only the labeled bullets of the plan's `# Goal`. Before starting, scan `plans/*/intent.md` with `status: open`; if an existing bundle fits, link to it instead of creating a new one (dlc requirement clarification).
+- **Format**: frontmatter `title` · `status: open|closed` (no inline comment on the value line) · `started` · `updated`. Six H1 sections in the body: `# Problem` · `# Proposed outcome` · `# Constraints` (constraints common to the bundle) · `# Out of scope` (only the boundaries of what will **not** be done — follow-ups go not here but in `# Plans` as `(not started)`) · `# Open questions` (undisposed ones `(open)`; dispositions `(resolved)`/`(carried over → <new bundle | #issue | plan path>)`) · `# Plans` (plan path + one-line note — **do not copy status**; each plan's frontmatter is canonical. A dropped plan gets `dropped` in its note. A unit not yet started is `<slug candidate> (not started) — note`, which the dlc that starts it replaces with the real path).
+- **The labeled bullets of a plan's `# Goal` are one link line to intent.md + the delta that applies only to this plan** (constraints, scope). Do not copy common constraints into the plan. If there is no delta, `no delta — <reason>`. When a common constraint changes, record it in the plan's `# Decisions` and update intent.md.
+- **Ownership**: each session edits in intent.md only its own plan's `# Plans` line and the Open questions it opened. If you change the common Constraints, leave an impact notice in the `# Decisions` of other in-progress plans.
+- **Lifetime**: plan `done` ≠ intent `closed`. `closed` = every plan in `# Plans` is `done` (or `dropped`) **and** every Open question is disposed. Out of scope is not a condition (a permanent boundary). `/e` judges this **at the point where it writes** plan done (a confirmed done at a checkpoint / the merge-mode M4 commit) and puts it in the same commit; if the condition holds, it closes the intent without confirmation (and reverts it together on an M4 rollback).
+- **Limits**: if the preceding branch is unmerged, a follow-up worktree branched from default has no intent.md → the start scan looks at `plans/` in every worktree of `git worktree list`, and if found, brings it to the same path with `git show <preceding branch>:<path>` (adding identical content does not conflict at merge). Tracking and the secret scan are the same as for plans (`plans/*.md`).
 
-### 적용 범위
-티켓 또는 명확한 작업 컨텍스트만. 단순 질문/탐색/한 턴짜리 명령은 제외.
-
----
-
-## 11. 영속 프로젝트 메모리 (LLM Wiki)
-
-누적 지식(아키텍처 결정·교훈·검증된 외부 사실)은 wiki 에 영속 적립한다 — `plans/`(일시적 핸드오프, 종료 시 닫힘)와 달리 작업을 가로질러 누적된다. **두 계층**:
-- **repo wiki** `<ROOT>/wiki/` — 그 repo 의 결정·교훈(코드와 같은 브랜치에서 갱신).
-- **공용 wiki** `~/.claude/wiki/` — 여러 repo 에 쓸모 있는 **공개 가능한** 사실(도구·플랫폼·라이브러리 동작)과 전역 자산(dlc·hook·skill)의 결정·교훈. 이 문서·skill 이 가리키는 `[[…]]` 페이지는 여기 있다.
-  - 비공개 GitHub repo 를 이 경로에 별도 clone 한 것이다 — `~/.claude` 는 추적하지 않고 worktree 에는 사본이 없다. 절대경로 `~/.claude/wiki` 로 읽는다(`~/.claude` 루트에서 돌린 `rg`·Grep 은 이 폴더를 건너뛰므로 경로를 명시한다 — §2).
-  - 하네스 참조 문서(codex 규약·dlc 상세·worktree 수명 주기)도 이 repo 의 `docs/` 에 있다 — skill·agent 가 `~/.claude/wiki/docs/<파일>` 로 직접 읽는다(자동 로드 안 됨, `wiki_search` 는 `pages/` 만 찾는다). 쓰기 경로와 공개 점검은 페이지와 같다.
-  - 쓰기는 main 세션에서 하고, 그 repo 의 main 에 직접 커밋한다(§8 예외, push 는 요청 시). worktree 작업 중 생긴 공용 적립은 plan log `# Deferred` 에 남기고 main 세션에서 처리한다.
-  - 예외 — 그 repo 의 `WIKI.md` 레이어 표가 worktree+PR 로 정한 코드 계층과 그 `plans/` 는 main 에 직접 커밋하지 않고, 그 repo 자신의 worktree 에서 고쳐 PR 로 머지한다(그 코드는 main 에서 설치돼 상주 서버로 실행되므로 main 직접 커밋은 리뷰 없이 실행된다).
-  - 적는 기준은 공개 가능한 사실이다 — 저장소는 비공개여도 모든 repo 세션이 읽고 공개 repo 로 옮겨 적을 수 있다. 아래 공개 점검의 금지 목록은 wiki 페이지·`sources`·index·log·커밋 메시지에도 그대로 적용한다(그 repo 에는 `private-terms.txt` 백스톱이 없다).
-- **공개 점검** — `~/.claude` 는 공개 repo 다. 이 repo 에서 커밋·push 하는 **모든 것**(작업 종류 불문 — 코드·문서·plan·브랜치/worktree 이름·커밋 메시지·PR 제목/본문)에 회사·조직명, 내부 도메인·호스트·IP, 고객·제품 코드명·티켓 키, 비공개 repo 의 이름·경로·내부 도구명을 넣지 않는다(비공개 repo 는 "회사 repo" 로만). 비공개 출처(또는 출처 불명)를 적립할 때는 커밋 전 diff 를 보이고 확인받는다. 기계 백스톱: 추적하지 않는 머신별 목록 `~/.claude/private-terms.txt` 에 적은 이름은 `pre-commit-check` 가 이 repo 의 커밋·push 에서 막는다 — 목록 밖 이름·PR 제목/본문·웹 편집은 못 잡으니 이 점검이 먼저이고, 걸리면 목록을 도구로 읽지 말고 걸린 표현을 일반 표현으로 바꾼다.
-- 현재 repo 가 `~/.claude` 인지: `[ "$(git rev-parse --path-format=absolute --git-common-dir)" -ef "$HOME/.claude/.git" ]`(worktree 포함, 경로 표기 차이에 무관). 맞으면 이 repo 의 wiki 가 곧 공용 wiki(`~/.claude/wiki`)다.
-
-- 작업 시작 시 관련 페이지 조회 — `uv run --no-project python "$HOME/.claude/skills/wiki/wiki_search.py" <키워드>` 가 공용 wiki(cwd 무관)와 현재 repo 의 wiki 를 함께 찾는다(첫 줄에 찾은 wiki·쪽수, exit 2 는 stderr 이유를 본다). 결과가 없거나 빗나가면 두 `index.md`(공용은 `~/.claude/wiki/index.md`)를 직접 본다.
-- 재사용 가능한 지식(비자명한 결정·교훈·확정한 외부 사실)은 **대상 계층까지 판정 필수** — repo wiki / 공용 wiki / 비대상(사유). 대상이면 `/wiki ingest` 제안(자동 아님). 애매하면 repo wiki. repo wiki 대상인데 repo wiki 가 없거나 비-git 이면 비대상 + 사유(공용 대상은 여전히 제안).
-- **다른 repo 세션의 공용 대상은 적립하지 않는다** — Report 와 출처 plan 의 log `# Deferred`(plan 없으면 Report 만)에 `~/.claude main 세션에서 /wiki ingest <요약 · 공개 근거 · 출처(공개/비공개)>` 를 남긴다. 출처 칸에는 `공개`/`비공개` 만 쓴다(비공개 repo 이름은 적지 않는다). 요약·근거는 이미 공개 점검을 통과한 문장이어야 하고, 근거는 공개 검증 가능한 것(공식 문서·공개 이슈·비공개 코드 없는 재현)만 — 없으면 공용 대상이 아니다.
-- 어느 wiki 에 둘지는 이 절, 페이지 형식은 대상 wiki 의 `WIKI.md` 가 정한다. raw 원문은 읽기 전용·gitignored. 절차 세부는 `skills/wiki/SKILL.md`.
+### Scope
+Only tickets or clear work contexts. Simple questions, exploration and one-turn commands are excluded.
 
 ---
 
-## 12. 피드백 메모리 (교정의 반영 보장)
+## 11. Persistent project memory (LLM Wiki)
 
-사용자가 작업 방식 교정을 영속화하라고 지시하면("기억해 / 규칙으로 / 다음부턴 이렇게") memory `type: feedback` 으로 저장한다. 목표는 저장이 아니라 **다음 작업에서의 실제 반영**.
+Accumulated knowledge (architecture decisions, lessons, verified external facts) is stored persistently in the wiki — unlike `plans/` (a temporary handoff, closed when the work ends), it accumulates across work. **Two layers**:
+- **repo wiki** `<ROOT>/wiki/` — that repo's decisions and lessons (updated on the same branch as the code).
+- **shared wiki** `~/.claude/wiki/` — **publishable** facts useful to several repos (behavior of tools, platforms, libraries) and decisions and lessons about global assets (dlc, hooks, skills). The `[[…]]` pages this document and the skills point to live here.
+  - It is a private GitHub repo cloned separately at this path — `~/.claude` does not track it and worktrees have no copy. Read it by the absolute path `~/.claude/wiki` (`rg`/Grep run from the `~/.claude` root skip this folder, so name the path — §2).
+  - The harness reference docs (codex conventions, dlc details, worktree lifecycle) are also in this repo's `docs/` — skills and agents read them directly as `~/.claude/wiki/docs/<file>` (not loaded automatically; `wiki_search` only searches `pages/`). Their write path and public check are the same as for pages.
+  - Writes happen in a main session and are committed directly to that repo's main (§8 exception, push on request). Shared-wiki entries that come up during worktree work go into the plan log `# Deferred` and are handled in a main session.
+  - Exception — the code layer that the `WIKI.md` layer table of that repo assigns to worktree+PR, and its `plans/`, are not committed directly to main; fix them in that repo's own worktree and merge by PR (that code is installed from main and runs as a resident server, so a direct commit to main runs without review).
+  - The bar for what to write is publishable facts — the repository is private, but every repo session reads it and may copy from it into a public repo. The forbidden list of the public check below also applies to wiki pages, `sources`, index, log and commit messages (that repo has no `private-terms.txt` backstop).
+- **Public check** — `~/.claude` is a public repo. **Everything** committed or pushed from this repo (any kind of work — code, docs, plans, branch/worktree names, commit messages, PR titles/bodies) must not contain company or organization names, internal domains/hosts/IPs, customer or product code names, ticket keys, or names/paths of private repos and internal tool names (call a private repo only "company repo"). When recording from a private source (or an unknown source), show the diff before committing and get confirmation. Machine backstop: names listed in the untracked per-machine list `~/.claude/private-terms.txt` are blocked by `pre-commit-check` in this repo's commits and pushes — it cannot catch names off the list, PR titles/bodies or web edits, so this check comes first; if it trips, do not read the list with a tool — replace the flagged expression with a generic one.
+- Whether the current repo is `~/.claude`: `[ "$(git rev-parse --path-format=absolute --git-common-dir)" -ef "$HOME/.claude/.git" ]` (includes worktrees, independent of path notation). If so, this repo's wiki is the shared wiki (`~/.claude/wiki`).
 
-- **인덱스를 행동 지시문으로.** 매 세션 항상 주입되는 것은 `MEMORY.md` 인덱스 줄뿐이다(본문은 관련 있을 때만 recall). 인덱스는 *정보 요약*이 아니라 **명령형 행동 규칙**으로: `notify-hook 알림 버그 메모` ❌ → `코드 변경 시 주석·문서도 같은 커밋에서 갱신` ✅. 본문엔 사례·Why·How.
-- **저장은 2단계 — 둘 다.** 메모리 파일 + `MEMORY.md` 인덱스 한 줄(인덱스는 직접 갱신 — 빠뜨리면 본문이 묻혀 반영되지 않는다).
-- **재참고 — 능동 확인.** 작업 시작 시(특히 dlc Explore) 관련 feedback 인덱스 줄을 의식적으로 확인해 적용하고, 상세·근거가 필요하면 본문을 read.
-- **승격.** 보편·중대 규칙은 이 `CLAUDE.md` 로 승격(전문 100% 주입 + 명령조) 후 memory 정리. repo 한정 컨벤션은 그 repo `CLAUDE.md`(또는 wiki `decision/`).
-- **유지.** 같은 주제는 기존 파일 갱신(중복 금지). 모순되면 옛 것을 교체(이력은 git). 무효는 삭제 — 죽은 규칙도 인덱스로 주입돼 방해한다.
+- Look up related pages at the start of work — `uv run --no-project python "$HOME/.claude/skills/wiki/wiki_search.py" <keyword>` searches the shared wiki (regardless of cwd) and the current repo's wiki together (the first line gives the wikis found and their page counts; on exit 2, read the reason on stderr). If there are no results or they miss, read the two `index.md` files directly (the shared one is `~/.claude/wiki/index.md`).
+- For reusable knowledge (non-obvious decisions, lessons, confirmed external facts), **judging the target layer is mandatory** — repo wiki / shared wiki / not a target (with reason). If it is a target, propose `/wiki ingest` (not automatic). If unsure, the repo wiki. If the target is the repo wiki but there is no repo wiki or the directory is not git, it is not a target + reason (a shared-wiki target is still proposed).
+- **Do not record shared-wiki targets from another repo's session** — leave `in a ~/.claude main session: /wiki ingest <summary · public evidence · source (public/private)>` in the Report and in the source plan's log `# Deferred` (Report only without a plan). Write only `public`/`private` in the source field (do not write private repo names). The summary and evidence must be sentences that already passed the public check, and the evidence must be publicly verifiable (official docs, public issues, a reproduction without private code) — without that, it is not a shared-wiki target.
+- Which wiki it goes to is set by this section; the page format by the target wiki's `WIKI.md`. Raw originals are read-only and gitignored. Procedure details: `skills/wiki/SKILL.md`.
 
 ---
 
-## 13. 실수·교훈 로그 (반복 방지)
+## 12. Feedback memory (making corrections stick)
 
-작업 중 저지른 실수(내 오판·누락)나 사용자가 지적한 실패는 다음 작업에서 반복하지 않도록 적립 **대상인지 판정**한다 — 목표는 기록이 아니라 **다음 구현에서의 회피**. wiki(상세)와 memory(자동 상기)를 **결합**한다(wiki 만으로는 능동 조회라 자동으로 안 떠오르고, 인덱스 한 줄만으로는 원인·교훈이 묻힌다).
-- **무승인 자동 적립 금지 (§1).** 실수 발견은 자동 저장·수정이 아니라 **제안** — Report 또는 plan log `# Workflow Findings`/`# Deferred` 에 올리고 승인·판정 후 적립한다([[self-diagnosis-and-improvement-status]] 의 "자발적 무승인 기록 트리거 미채택"·§11 의 wiki ingest "제안(자동 아님)"과 같은 게이트). §13 은 적립할 때의 형식을 정할 뿐 무인 자동화를 들이지 않는다.
-- **상세 = 대상 계층(§11) wiki 의 교훈 페이지** — 공용 wiki 는 `pages/decision/lesson-<주제>.md`, 다른 repo wiki 는 그 `WIKI.md` 형식. 전역 워크플로우 교훈은 공용 wiki. 원인(최소 3 Whys)·재현 조건·잘못된 방법·올바른 방법을 [[workflow-failures]] 와 같은 ADR-lite 형식으로 쓴다. `index.md`·`log.md` 동기화 동반.
-- **자동 상기 = `MEMORY.md` feedback 인덱스 한 줄(명령형 + lesson 링크).** wiki 는 자동 주입되지 않고, 매 세션 주입되는 유일한 경로가 이 인덱스 줄이다. *정보 요약이 아니라 회피 행동 지시*로 쓴다(§12): `마이그레이션 down 스크립트 먼저 작성 (롤백 불가 실수 → lesson-migration)`. `MEMORY.md` 는 git repo 별(worktree 는 공유)이라 `~/.claude` 에서 적은 줄은 다른 repo 세션에 주입되지 않는다 — 거기서의 상기는 작업 시작의 공용 index 조회가 맡는다. 다른 repo 에서 찾은 전역 교훈의 memory 줄은 공용 적립을 마치고 `~/.claude` main 으로 복귀한 세션에서 적는다(worktree 안에서는 못 쓴다 — §3-1).
-- 저장 2단계·승격·재참고는 §11·§12 그대로다. **§13 의 순증분은 대상 확대뿐** — §12 가 사용자 교정 지시라면 §13 은 **내가 능동 발견한 실수**(사용자 지시 없이도)까지 위 무승인 게이트 아래에서 포함한다. **적립은 매 실수마다 의무가 아니라 판정·제안**이고, 승인돼 만들어진 인덱스 줄은 §12 대로 매 세션 주입된다. 회피를 hook 으로 강제할 만큼 반복되면 게이트(Stop/UserPromptSubmit)로 승격한다.
+When the user tells you to keep a correction to how you work permanently ("remember this" / "make it a rule" / "from now on, do it this way"), save it as memory `type: feedback`. The goal is not saving but **actually applying it in the next task**.
+
+- **Write the index as behavior instructions.** Only the `MEMORY.md` index lines are always injected every session (bodies are recalled only when relevant). Write the index not as an *information summary* but as an **imperative behavior rule**: `notes on the notify-hook alert bug` ❌ → `When changing code, update comments and docs in the same commit` ✅. The body holds the case, Why and How.
+- **Saving has 2 steps — both.** The memory file + one `MEMORY.md` index line (update the index directly — if you skip it, the body is buried and not applied).
+- **Re-reference — check actively.** At the start of work (especially dlc Explore), consciously check the related feedback index lines and apply them; read the body when you need details or evidence.
+- **Promotion.** Promote universal, serious rules to this `CLAUDE.md` (100% injected in full + imperative), then clean up the memory. Repo-specific conventions go to that repo's `CLAUDE.md` (or wiki `decision/`).
+- **Maintenance.** Update the existing file on the same topic (no duplicates). If they conflict, replace the old one (git keeps the history). Delete invalid ones — dead rules are injected through the index too and get in the way.
+
+---
+
+## 13. Mistake and lesson log (preventing repeats)
+
+Judge whether a mistake made during work (my misjudgment or omission) or a failure the user pointed out **is a target for recording**, so it is not repeated in the next task — the goal is not the record but **avoiding it in the next implementation**. **Combine** the wiki (details) and memory (automatic reminder) (the wiki alone needs an active lookup and does not come up automatically, and an index line alone buries the cause and lesson).
+- **No automatic recording without approval (§1).** A found mistake is a **proposal**, not an automatic save or fix — put it in the Report or in the plan log `# Workflow Findings`/`# Deferred`, and record it after approval and judgment (the same gate as "a voluntary recording trigger without approval was not adopted" in [[self-diagnosis-and-improvement-status]] and the wiki ingest "proposal (not automatic)" of §11). §13 only sets the format for recording; it brings in no unattended automation.
+- **Details = a lesson page in the target layer's wiki (§11)** — `pages/decision/lesson-<topic>.md` in the shared wiki, that `WIKI.md`'s format in another repo's wiki. Global workflow lessons go to the shared wiki. Write the cause (at least 3 Whys), reproduction conditions, the wrong way and the right way in the same ADR-lite format as [[workflow-failures]]. Comes with an `index.md` and `log.md` sync.
+- **Automatic reminder = one `MEMORY.md` feedback index line (imperative + lesson link).** The wiki is not injected automatically; the only path injected every session is this index line. Write it as *an avoidance instruction, not an information summary* (§12): `Write the migration down script first (irreversible-rollback mistake → lesson-migration)`. `MEMORY.md` is per git repo (shared across worktrees), so a line written in `~/.claude` is not injected into other repos' sessions — there, the reminder comes from the shared index lookup at the start of work. A memory line for a global lesson found in another repo is written in a session back on `~/.claude` main after the shared-wiki entry is done (it cannot be written inside a worktree — §3-1).
+- Two-step saving, promotion and re-reference work exactly as in §11 and §12. **The only net addition of §13 is a wider target** — where §12 covers the user's correction orders, §13 also includes **mistakes I found myself** (without a user instruction), under the approval gate above. **Recording is a judgment and a proposal, not a duty for every mistake**, and an index line created after approval is injected every session per §12. When a mistake recurs often enough that avoidance should be enforced by a hook, promote it to a gate (Stop/UserPromptSubmit).
 
 @RTK.md

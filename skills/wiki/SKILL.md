@@ -36,7 +36,7 @@ wiki 는 두 계층이다(CLAUDE.md §11 이 배치 규칙의 단일 소스):
 
 ## ingest
 1. **대상 계층 판정**(§11): repo 고유 → repo wiki / 여러 repo 에 쓸모 있는 공개 가능한 사실·전역 자산 교훈 → 공용 / 비대상(사유). 애매하면 repo wiki. repo wiki 대상인데 repo wiki 가 없거나 비-git 이면 비대상 + 사유(공용 대상은 여전히 2단계 제안).
-2. **다른 repo 에서 공용 대상**이면 쓰지 않는다: Report 와 출처 plan 의 log `# Deferred`(plan 없으면 Report 만)에 `~/.claude main 세션에서 /wiki ingest <요약 · 공개 근거 · 출처(공개/비공개)>` 를 남기고 끝낸다(§11 과 같은 형식). 출처 칸에는 `공개`/`비공개` 만 쓴다(비공개 repo 이름은 적지 않는다). 요약·근거는 위 공개 점검을 이미 통과한 문장이어야 한다.
+2. **다른 repo 에서 공용 대상**이면 쓰지 않는다: Report 와 출처 plan 의 log `# Deferred`(plan 없으면 Report 만)에 `in a ~/.claude main session: /wiki ingest <summary · public evidence · source (public/private)>` 를 남기고 끝낸다(§11 과 같은 형식). 출처 칸에는 `public`/`private` 만 쓴다(비공개 repo 이름은 적지 않는다). 요약·근거는 위 공개 점검을 이미 통과한 문장이어야 한다.
 3. 공용 wiki 에 쓰는 경우 main 세션에서 `~/.claude/wiki` 에 직접 쓰고, 그 repo 의 main 에 커밋한다(CLAUDE.md §3-1·§8 예외 — worktree 에는 사본이 없다). worktree 세션이면 쓰지 않고 plan log `# Deferred` 에 남긴 뒤 main 세션에서 한다. push 는 요청 시. 다른 repo 의 repo wiki 는 그 repo 의 규칙대로 쓴다.
 4. 대상 wiki 의 `WIKI.md` read(규약 확인).
 5. 원문이 주어지면 대상 wiki 의 `raw/`(없으면 mkdir) 에 보존(최초 1회, 이후 불변 — 편집·삭제 안 함) → `git check-ignore <wiki>/raw/<f>` 로 ignored 확인. raw 적재는 사용자 큐레이션 또는 ingest 입력에서만. worktree 에 둔 raw 는 gitignored 라 worktree 정리 때 경고 없이 지워진다 — 보존이 필요하면 정리 전에 옮긴다.
