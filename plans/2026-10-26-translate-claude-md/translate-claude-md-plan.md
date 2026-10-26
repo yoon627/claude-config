@@ -1,6 +1,6 @@
 ---
 title: translate-claude-md — CLAUDE.md 를 규칙 손실 없이 영어로 옮긴다
-status: in_progress
+status: done
 started: 2026-10-26
 updated: 2026-10-26
 intent: plans/2026-10-21-ops-docs-rework/intent.md
@@ -27,8 +27,8 @@ CLAUDE.md 전체를 영어로 옮긴다. 규칙은 하나도 빠지거나 약해
 - [x] simplify 점검 (2026-10-26) — 생략: 코드 변경은 `scripts/plan-match.js` 주석 1줄뿐(§5 는 trivial 이 아닌 코드 변경에 필수)
 - [x] 사용자 diff 확인 (2026-10-26) — 사용자 "커밋": §0 새 문장(0.lp6·0.lp7)·Acceptance 5·7·10 변경 포함
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-26) — 격리 runner: `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, .ps1 변경 없음), check-en PASS(조항 318 = 311 + 보충 7, 핵심 문구 97, 한글 0, 가리키는 곳 35·공유 형식), plan-lint 통과. 크기 48,746B → 50,762B(영어는 바이트가 늘고 토큰은 미측정 — 측정은 headless 호출 비용이 들어 하지 않았다). 판정 DONE
-- [ ] 기록 커밋(plan·log·manifest-add·pointers·locations·intent), commit-check
-- [ ] 머지 (`/e merge`)
+- [x] 기록 커밋(plan·log·manifest-add·pointers·locations·intent), commit-check (2026-10-26) — 커밋 2개(번역·기록), commit-check 이상 없음
+- [x] 머지 (`/e merge`) (2026-10-26) — PR #243
 - [ ] [post-merge] 새 main 세션에서 언어 관찰 — 답이 한국어인지, 새로 만든 plan 이 한국어인지. 영어로 나오면 revert 를 제안한다
 - [ ] [post-merge] `scripts/bootstrap/sync_codex_agents.py` 재실행 — agents/*.md 가 바뀌어 Codex agent TOML 갱신
 - [ ] [post-merge] main 세션에서 공용 wiki 갱신 — pointers.md 의 [post-merge] 절(dlc-details·wiki-inbox·plan-handoff, 역사 기록 페이지는 그대로)·ops-doc-slimming 기록·log. 언어 관찰 뒤에 한다(revert 가 wiki 를 되돌리지 못한다)
