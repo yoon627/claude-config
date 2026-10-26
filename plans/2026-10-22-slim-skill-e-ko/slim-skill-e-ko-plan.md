@@ -1,6 +1,6 @@
 ---
 title: slim-skill-e-ko — skills/e 의 원격 브랜치 삭제 줄이 없어진 선택지를 가리키는 것을 바로잡기
-status: in_progress
+status: done
 started: 2026-10-22
 updated: 2026-10-26
 intent: plans/2026-10-21-ops-docs-rework/intent.md
@@ -25,7 +25,7 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-26) — 격리 runner: Acceptance 1~5 충족, `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, 무관). 판정 DONE
 - [x] (2026-10-26) `plans/2026-10-21-slim-rules-ko/slim-rules-ko-plan.md` 의 [post-merge] wiki Task 체크(공용 wiki 커밋 653e690), intent 갱신
 - [x] 기록 커밋, commit-check (2026-10-26)
-- [ ] 머지 (`/e merge`)
+- [x] 머지 (`/e merge`) (2026-10-26) — PR #241
 - [ ] [post-merge] main 세션에서 plan log Deferred 처리(`worktree-lifecycle.md` §B 조건 번호)
 
 # Acceptance
