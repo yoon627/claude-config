@@ -1,0 +1,326 @@
+# manifest clause → location in the English CLAUDE.md. Format: <id> | <quote>  (file is CLAUDE.md; another file is <path>:: <quote>; a deleted clause is <id> | deleted)
+# Clause ids: plans/2026-10-21-slim-rules-ko/manifest.md + plans/2026-10-26-translate-claude-md/manifest-add.md
+H.1 | If an instruction cannot be carried out, do not guess — state why.
+0.1 | Keep code identifiers, file names, function names, library names and error messages in their original form.
+0.2 | Start the answer with the content
+0.3 | one sentence before the first tool call on what you are about to do
+0.4 | **Plain words, not metaphor or rhetoric.** If a literal expression exists, use it
+0.5 | **No circled numbers (①②③) for item numbers.**
+0.6 | When **quoting** an existing document written with circled numbers (`skills/`·`wiki/docs/`·`plans/`), keep the original
+0.m0 | The user does not follow raw tool output
+0.m1 | deleted
+0.lp1 | answers to the user and the files under `plans/` (plan, plan log, `intent.md`) are written in Korean
+0.lp2 | Everything else is internal and written in English: thinking, subagent prompts and reports, Codex prompts and replies, and the operating docs (CLAUDE.md, skills, agents, hook-injected text, `MEMORY.md`, memory, `wiki/docs/`)
+0.lp3 | The main agent relays subagent and Codex results to the user in Korean.
+0.lp4 | An operating doc is edited in English once that file has been translated; a file not yet translated is edited in its own language (do not mix languages in one file).
+0.lp5 | README and code comments are outside this policy.
+0.lp6 | When a label, template or option name quoted in these docs (e.g. ✅certain, "unverified", the false-positive line in §3-6) appears in an answer to the user, write it in Korean
+0.lp7 | the markers in plan files (intent status tokens, `[bundle]`, `NEEDS-HUMAN:`) are fixed strings and stay as written
+1.1 | **No guessing.** If you do not know, say "I don't know".
+1.2 | ✅certain (file, run result, official docs) / ⚠️inferred (circumstantial only) / ❌unknown
+1.3 | Give recommendations with their evidence, and mark an option you could not verify as ⚠️inferred.
+1.4 | Read the relevant files before answering; do not answer from memory.
+1.5 | No symptom suppression (ignoring errors, weakening tests, `except: pass`, pointless retries).
+1.6 | At least 3 Whys for bugs and incidents (skip for typos and formatting).
+1.7 | go down to the trigger that sets it off and propose a countermeasure you can control
+1.8 | first run the diagnostics that are only possible in that state (if that is risky, do not drop it — adjust the timing)
+1.9 | Done means lint/typecheck/test/build were run and passed.
+1.10 | If there is no command, look in the README/CI
+1.11 | skips unrelated slow tests, shown as `[slow]`; the full run is for CI and the user's periodic runs
+1.12 | **do not read a line with skip as a pass**
+1.13 | If you cannot verify, write down why plus a manual procedure; if unverified, do not say "done".
+1.14 | **check it against the goal** — passing ≠ done
+1.m1 | README.md:: 50분
+1.15 | **If the user is wrong, push back politely.** No flattery.
+1.16 | Change your recommendation only on new evidence, and say what that evidence is
+1.16b | When the user decides, follow the decision (the prohibitions of §8 still hold)
+1.17 | Run `git status --short` before working. Do not overwrite. If more files changed than expected, stop at once and find out why.
+1.18 | (push, merge, remote or forced deletion, deploy, DB write, sending data out, incurring cost)
+1.19 | **do not ask: run them, then put the information needed to undo them**
+1.20 | When in doubt, confirm (fail-safe).
+1.20b | Exception: the local `--ff-only` merge of trivial/small work and the §8(a) cleanup after it follow §8 and are not asked.
+1.21 | **Direction agreement is separate** — §3-3 plan approval and requirement clarification happen regardless of risk.
+1.22 | Details: wiki [[risk-based-approval]].
+1.m2 | deleted
+1.23 | a request means the asset appears in the active plan's `# Goal`/`# Tasks` (`# Key Files` in the old format) or the user names the asset and the change
+1.24 | Report improvements you find only as a proposal (problem + evidence + proposal); apply them as a separate task after approval.
+2.0 | context is the most important resource
+2.1 | do not recommend cleaning up just because the session is long
+2.2 | `/clear`, `/rewind` and `Esc` are user-side controls you cannot use yourself
+2.3 | if it really must shrink, recommend `/compact`, which preserves context
+2.4 | **If the user just ran clear/compact, do not suggest it again.**
+2.5 | otherwise do it yourself but limit the number of files you read
+2.6 | When you detect a wrong direction, stop at once
+2.7 | to a script file with `Write` and run it in one line
+2.7b | fewer quoting errors and permission prompts, easier to rerun
+2.8 | give the script its own exit condition (a maximum run time), and before running again check whether the previous loop is still alive
+2.m1 | [[windows-bash-tool-orphan-processes]]
+2.9 | **For recursive text search in Bash, use `rg` instead of `grep -r`**
+2.10 | Use `rg -uu` only when you need ignored files too.
+2.11 | do not read no match as "no impact"
+2.m2 | [[claude-code-bash-tool-shims]]
+2.m3 | needs a standalone `rg` executable
+3.1.1 | `git status --short` (§1)
+3.1.2 | if there is none, treat it as empty
+3.1.3 | Never print raw `.env`/key/token/cert contents.
+3.1.4 | outside a worktree goes through `wt` first, without exception, and dlc runs inside it — never work directly on main
+3.1.5 | this hook does not raise the `ask` in auto mode
+3.1.5b | **do not skip the worktree because the gate did not fire**
+3.1.6 | If you are already inside a working worktree, run the dlc self-check
+3.1.7 | **the worktree is needed all the same**
+3.1.8 | **and non-git directories get no worktree**
+3.1.9 | **do not attempt §12/§13 memory entries or shared wiki writes (§11 — including edits to `wiki/docs/`) inside a worktree; do them after returning to main**
+3.1.m1 | **that copy does not exist**
+3.1.m2 | deleted
+3.1.10 | Details in `skills/dlc/SKILL.md`.
+3.2 | 2. **Explore** — if ambiguous, ask first
+3.3 | present a plan first and proceed after approval
+3.4.1 | No "while I'm here" edits outside the requested scope (if something directly breaks the build or tests, fix it and say why)
+3.4.2 | and move on
+3.5.1 | check the call sites of changed functions/classes with `rg` (or `grep -R` if absent), and state "unverified" for anything not run
+3.5.2 | **only when proven** by a pre-change run or a reproduction on the base; a failure that is not proven or that blocks completion must not be deferred
+3.5.3 | **Always check that comments, docstrings and commit messages match the current behavior of the changed code**
+3.5.4 | **Non-trivial work is done only after the plan's `# Acceptance` items (§10) are checked against evidence (run, observation, pass)** (a small task that goes without a plan, against its verification results)
+3.5.5 | Verify running artifacts (render/CLI/server) by actually running and observing them, not by static inspection.
+3.6.1 | change summary / files changed / verification results / impact / remaining risks
+3.6.2 | Do not replace plan sync, worklog recording or worktree cleanup with manual steps
+3.6.3 | skip the options (no duplicate questions)
+3.6.4 | **If a Stop hook warning is a false positive, reply in one line**
+3.6.5 | Do not narrate the reasoning — the reason for the false-positive judgment goes to the plan log `# Workflow Findings`, not the chat
+3.7 | **on the same branch** too (an acceptance item for non-trivial work, on par with verification)
+3.8 | **Separate file ownership is mandatory**
+4.1 | run WebSearch/WebFetch first, before answering "I don't know" / "probably …"
+4.1b | lower the threshold deliberately
+4.2 | in areas that change every few months, such as models and developer tools, knowing the name ≠ knowing its current state
+4.3 | **No search**: standard language features, settled patterns · facts internal to the codebase (check with Read/Grep)
+4.4 | official docs > release notes/GitHub issues > Stack Overflow > blogs
+4.5 | include the user's exact spelling at least once
+4.m1 | (rephrasing alone can hit the wrong target)
+5.1 | If there is no definition, do not invent one; check from the same angle yourself.
+5.2 | Codex review for plan-reviewer/code-reviewer is in §9.
+5.3 | once more for its boundaries in bundle mode
+5.4 | at any stage when a §4 search signal is present
+5.5 | every code change that is not trivial — trivial meaning
+5.6 | hold back when unsure (proposal only); rerun verification if you changed code
+5.7 | **Mandatory for every code change that is not trivial** — if you could not do it (an unresolved blocker, etc.), put the reason in the Report.
+5.8 | a new service/repository/client, DI changes, changes across 2+ layers, an explicit design question
+5.9 | `plan-reviewer → implementation → code-reviewer → simplify check → final verification`
+5.10 | **always states** `effort`
+5.11 | `xhigh`/`max` — only for explicitly hard judgments
+5.12 | Integrating results and the final judgment are done by the main agent (session effort), not the script.
+5.13 | its frontmatter `model` overrides the session model
+5.14 | use the tool's `effort` parameter only when the user or a skill names a level
+5.m1 | /root/.claude/wiki/pages/entity/anthropic-claude-models.md:: ultracode(v2.1.284+)
+6.1 | match their naming, error handling, logging and import order
+6.2 | if you add one, state the reason, alternatives and impact
+6.3 | Python production: type hints by default.
+6.4 | No comments by default
+6.5 | **The history of a change goes in the commit/PR, not in comments.**
+6.6 | `# TODO: <reason> (<removal condition/issue>)`
+6.7 | Delete dead code instead of commenting it out (git remembers).
+6.8 | **Prefer partial edits when modifying files** (`Edit`)
+6.8b | If the result is the same, use the way that costs fewer output tokens and less time.
+6.9 | Do not make up API/function/library names
+6.10 | Never print tokens, passwords, private keys, certificates or PII in logs.
+7.1 | write the test → confirm Red → implement → confirm Green → refactor
+7.2 | **Exceptions (stating the reason is mandatory)**
+7.2b | Trivial changes: a one-line fix, typo, comment, formatting, import, log message
+7.2c | A simple refactor whose regressions are covered by existing tests (confirm they pass)
+7.2d | UI visual checks, external infrastructure, hooks/scripts → state a manual verification procedure
+7.3 | For a bug fix, write a reproduction test first when possible.
+7.4 | Do not lower expected values to hide a bug.
+7.5 | **Match the test size to the neighboring test files**
+7.6 | Record flaky tests with cause, reproduction conditions and temporary workaround kept separate.
+7.7 | follow the existing mocking/stubbing pattern
+8.1 | `git reset --hard`, `git clean -fd`, forced checkout and force push are forbidden without an explicit request.
+8.2 | **Work on a separate branch/worktree, not directly on main/master.**
+8.3 | A push to main/master triggers a confirmation every time through a global `ask`
+8.3b | to lift it, delete the `ask` rule itself
+8.3c | No global `deny`
+8.m1 | /root/.claude/wiki/pages/decision/risk-based-approval.md:: deny → ask → allow
+8.4 | is hard-blocked by the git `pre-push` hook only when the hooks were installed
+8.4b | installation is refused when `core.hooksPath` points to another directory
+8.4c | `pre-commit-check` exempts only the repo root `~/.claude`
+8.4d | deleted
+8.5 | **Work that changes code/files starts in a separate worktree (`/wt <request>`) regardless of size (trivial included)**
+8.m3 | deleted
+8.6 | Do not pile new work onto an in-progress worktree
+8.6b | Do not mix unrelated changes in one branch.
+8.7 | push only on request.
+8.8 | **Commit a verified unit of work without being asked**
+8.8b | this rule replaces the harness default (`Commit or push only when the user asks.`)
+8.9 | The default is **once at the end**
+8.9b | for medium or larger work with 2+ purposes, dlc makes intermediate commits per purpose
+8.9c | Verified intermediate commits are not blocked in other flows either.
+8.10 | no `git add -A` in automatic commits
+8.10b | the `pre-commit-check` secret scan only looks at `settings.json` and `plans/*.md`
+8.10c | The `/e` WIP checkpoint is the exception, since its purpose is to keep everything.
+8.11 | **if something outside the work is already staged, hold off and report**
+8.12 | the current branch is main/master or a detached HEAD
+8.12b | the code layer of that repo is not an exception
+8.12c | **if you already edited on main, move to `/wt`, reapply, and report that procedure**
+8.12d | this state arises when the gate did not fire due to auto mode, untracked files or fail-open
+8.13 | verification failed (except a baseline failure proven per §3-5)
+8.13b | nothing to stage (no empty commit)
+8.14 | **no bypass (`--no-verify`)**
+8.15 | **Do not commit a change that has not been confirmed or verified**
+8.15b | do not commit; ask how to verify it
+8.15c | Do not commit first and write "unverified" in the report
+8.15d | in an unattended flow where you cannot ask, hold the commit and report
+8.16 | or when it has been observed working as worded in a real session
+8.17 | a `commit-check` restructuring done with user approval, need no separate verification
+8.17b | Exceptions: the `/e` `wip:` checkpoint
+8.18 | **push is still only on request**
+8.18b | `skills/dlc/SKILL.md` step 16 commit rules
+8.19 | **A commit is one reviewable purpose**
+8.19b | `git commit --fixup=<target>`
+8.19c | split a commit that mixes purposes
+8.19d | Do not modify a commit that has already been pushed; make a new commit (no force-push).
+8.20 | The commit section of that repo's AGENTS/CLAUDE file is canonical for the message format.
+8.21 | unpublished commits only, after user approval, code content unchanged
+8.22 | **Record the worklog of worktree work before deleting that worktree**
+8.22b | run `/e` step 6 before the step 7 deletion
+8.m5 | work time is split by per-line `cwd`
+8.23 | **silently deletes**
+8.23b | Check `git status --porcelain --ignored` before deleting
+8.23c | **keep uncommitted plan/log changes by committing them before deletion** (push only on request)
+8.23d | (details in `skills/e/SKILL.md`)
+8.24 | apply the work branch to the default branch with `git merge --ff-only <slug>`, then close with the (a) automatic cleanup below
+8.24b | a PR round trip for a one-line typo
+8.25 | `git rebase <default>` inside the worktree → rerun verification → apply with `--ff-only`
+8.25b | undo with `git rebase --abort`
+8.25c | the work is medium or larger or needs CI verification or external sharing, use `/e merge`
+8.25d | a small task without a plan gets a plan first
+8.25e | the local default can be ahead of origin
+8.26 | **do not put it up as an option either**
+8.27 | **(a) merged + safety conditions met → clean up the worktree + local branch automatically, without confirmation**
+8.27b | 1) target ≠ `main`/`master`/`origin/HEAD`
+8.27c | **a merge into local main counts too**
+8.27d | In a workflow that does not push, checking only against `origin/<default>` misjudges it as unmerged forever.
+8.27e | 3) working tree clean (untracked included)
+8.27f | 4) no unsaved `.env`/ignored files/uncommitted plan or log
+8.27g | **Do not ask who merged it.**
+8.27h | Run worktree → `git branch -d` in that order and report the deleted branch's tip sha
+8.28 | is **not part of (a): always confirm**
+8.28b | when any safety condition is unmet or uncertain (dirty, squash merge, unsaved artifacts)
+8.28c | a direct `/wt rm <name>` call
+8.28d | On this path, remote deletion and `git branch -D` are forbidden without explicit confirmation.
+8.29 | Condition and execution details: `/e` step 7 and the worktree cleanup rules.
+8.29b | **Do not use** `gh pr merge --delete-branch` **as a command**
+8.29c | it bundles local and remote deletion and so bypasses the separate approval of (b)
+8.29d | the re-confirmation of remote deletion after step 7 is replaced by that approval
+8.30 | **A main/master worktree is never auto-cleaned.**
+8.31 | Include generated/lock file changes only when needed, and explain why.
+8.32 | Never print raw `.env`/private key/token/password/certificate contents in answers, logs, test fixtures or snapshots.
+8.33 | No temporary bypasses, hardcoded credentials or disabled TLS verification.
+8.34 | Do not trust external input.
+9.1 | both share the same `plans/` handoff channel (§10)
+9.2 | The final integration responsibility always lies with **the current main agent**.
+9.3 | **Always call codex with the Bash tool**
+9.3b | check the installation with `codex --version`
+9.m1 | (in PowerShell, stdin never closes and it hangs forever)
+9.4 | **Claude subagent mandatory + Codex in parallel when available**
+9.5 | deleted
+9.6 | there is no separate codex review right before push
+10.1 | uses `<ROOT>/plans/<YYYY-MM-DD>-<slug>/<slug>-plan.md`
+10.1b | `<ROOT>` = `git rev-parse --show-toplevel`
+10.1c | **Do not write it as `.claude/plans/`**
+10.1d | identifiable in `@` autocomplete
+10.2 | slug: `<TICKET>-<short-desc>` or `<short-desc>`
+10.2b | The directory prefix is the start date (immutable, do not rename).
+10.3 | Matching: the dir whose slug contains the current git branch → the one `*-plan.md` in it.
+10.4 | **Active plan tracking**
+10.5 | **Start**: read the matching plan (and the plan log, if any) to restore context
+10.6 | **In-progress sync** (mandatory)
+10.6b | rewrite that decision in `# Decisions` with its **reason**
+10.6c | Move the displaced choice to the rejected alternatives with the reason for rejecting it
+10.6d | record old value → new value and the user's approval
+10.7 | an urgent next task at the top of the unchecked ones
+10.8 | Blocked → `# Blockers` + `status: blocked`.
+10.9 | **Turn end**: check finished Tasks (with date)
+10.10 | **Completion**: `status: done` **at the moment** of merge, deploy or approval
+10.10b | restores `in_progress` if the merge is rejected
+10.11 | "the single source of truth for the current state"
+10.12 | **Sync (tracked)**
+10.12b | do not paste raw tokens, credentials or PII into a plan
+10.13 | status: in_progress  # in_progress | blocked | done
+10.14 | `# Goal`, `# Tasks`, `# Decisions` and `# Blockers` keep their headers even when empty
+10.15 | the goal in 1–3 lines in the first paragraph
+10.15b | `Open questions:` (only what is undecided)
+10.15c | Distinguish what the user confirmed from what the model inferred (mark inferences ⚠️).
+10.16 | **The first unchecked item is the next immediate action (most important)**
+10.16b | `- [x] <task> (YYYY-MM-DD)[ — one-line result]`
+10.16c | Do not write commit shas
+10.16d | names those paths in backticks
+10.16e | New urgent work (review fixes, reruns) goes at the top of the unchecked items.
+10.16f | `- [ ] NEEDS-HUMAN: <question> — <options>`
+10.16g | "continue from the `wip:` commit at the branch tip"
+10.16h | In a done plan, only `[post-merge]` items stay unchecked
+10.16i | Waiting for a merge is not a Task; see it from the PR state.
+10.17 | `what is satisfied — how it is checked — pass criterion`
+10.18 | **alternatives seriously considered and rejected, with the reasons**
+10.18b | without them, the next session brings up the same option again
+10.19 | 5. `# Blockers` — what is blocked + what is needed to unblock it
+10.20 | `<slug>-log.md` in the same folder (the plan log below
+10.20b | Putting these in the body of a new-format plan is a plan-lint violation
+10.20c | `fix`/`defer`/`false-positive`/`wontfix`
+10.20d | with the prefix `[bundle]`
+10.20e | `resolved`/`accepted-risk`/`deferred`
+10.20f | `# Workflow Findings` (records of confirmed workflow failures
+10.20g | `defer` (a review finding disposition value) ≠ `# Deferred`
+10.21 | the machine check is `scripts/plan-lint.js`
+10.21b | The format before 2026-10-18
+10.21c | first unchecked Task ↔ `# Next`
+10.21d | one plan never mixes the two
+10.22 | there is no separate codex review right before push
+10.23 | ### Bundle intent (`intent.md`, optional)
+10.23b | the intent dir holds no `*-plan.md`
+10.24 | **When to create (closed list)**: 1) the user says so
+10.24b | 2) the requirement splits into multiple plans that can be verified and merged independently
+10.24c | 3) a new plan starts from an existing plan's Out of scope, plan log `# Deferred` or "separate task"
+10.24d | the preceding plan belongs to another bundle
+10.24e | Other one-off work uses only the labeled bullets of the plan's `# Goal`.
+10.24f | scan `plans/*/intent.md` with `status: open`; if an existing bundle fits, link to it instead of creating a new one
+10.25 | `status: open|closed` (no inline comment on the value line)
+10.25b | Six H1 sections in the body
+10.25c | `# Out of scope` (only the boundaries of what will **not** be done
+10.25d | `(carried over → <new bundle | #issue | plan path>)`
+10.25e | **do not copy status**
+10.25f | `<slug candidate> (not started) — note`
+10.26 | **The labeled bullets of a plan's `# Goal` are one link line to intent.md + the delta that applies only to this plan**
+10.26b | When a common constraint changes, record it in the plan's `# Decisions` and update intent.md.
+10.27 | **Ownership**: each session edits in intent.md only its own plan's `# Plans` line and the Open questions it opened.
+10.27b | leave an impact notice in the `# Decisions` of other in-progress plans
+10.28 | **Lifetime**: plan `done` ≠ intent `closed`
+10.28b | Out of scope is not a condition (a permanent boundary).
+10.28c | if the condition holds, it closes the intent without confirmation (and reverts it together on an M4 rollback)
+10.29 | **Limits**: if the preceding branch is unmerged
+10.29b | Tracking and the secret scan are the same as for plans (`plans/*.md`).
+10.30 | Simple questions, exploration and one-turn commands are excluded.
+11.1 | **repo wiki** `<ROOT>/wiki/`
+11.2 | skip this folder, so name the path — §2
+11.3 | `wiki_search` only searches `pages/`
+11.4 | Shared-wiki entries that come up during worktree work go into the plan log `# Deferred` and are handled in a main session.
+11.5 | fix them in that repo's own worktree and merge by PR
+11.6 | that repo has no `private-terms.txt` backstop
+11.7 | (any kind of work — code, docs, plans, branch/worktree names, commit messages, PR titles/bodies)
+11.8 | When recording from a private source (or an unknown source), show the diff before committing and get confirmation.
+11.9 | if it trips, do not read the list with a tool — replace the flagged expression with a generic one
+11.10 | `[ "$(git rev-parse --path-format=absolute --git-common-dir)" -ef "$HOME/.claude/.git" ]`
+11.11 | on exit 2, read the reason on stderr
+11.12 | **judging the target layer is mandatory**
+11.13 | **Do not record shared-wiki targets from another repo's session**
+11.14 | Procedure details: `skills/wiki/SKILL.md`.
+12.1 | save it as memory `type: feedback`
+12.2 | as an **imperative behavior rule**
+12.3 | **Saving has 2 steps — both.**
+12.4 | **Re-reference — check actively.**
+12.5 | **Promotion.**
+12.6 | Delete invalid ones — dead rules are injected through the index too and get in the way.
+13.1 | **is a target for recording**
+13.2 | **No automatic recording without approval (§1).**
+13.3 | `pages/decision/lesson-<topic>.md`
+13.4 | **Automatic reminder = one `MEMORY.md` feedback index line (imperative + lesson link).**
+13.5 | When a mistake recurs often enough that avoidance should be enforced by a hook, promote it to a gate (Stop/UserPromptSubmit).
+13.m1 | [[self-diagnosis-and-improvement-status]]
+E.1 | @RTK.md
