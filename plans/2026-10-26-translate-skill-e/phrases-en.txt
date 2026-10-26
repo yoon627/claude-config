@@ -1,0 +1,14 @@
+# Acceptance 2: Korean core phrases of the slim-skill-e-ko set → fixed English counterpart that must appear verbatim in the new skills/e/SKILL.md.
+# Format: <Korean phrase> => <English phrase>. Phrases without Korean are checked verbatim. `/e 머지` is an input token and stays as is.
+/e 머지 => /e 머지
+push 는 요청 시만 => push only on request
+(미착수) => (not started)
+폐기 => dropped
+(해소) => (resolved)
+재수집 invariant => re-collection invariant
+복구 규칙 => recovery rule
+중단 규칙 => Stop rule
+지름길 => Shortcut
+임시 커밋 규칙 => Temporary commit rules
+worktree 정리 규칙 => Worktree cleanup rules
+2단계 경로 표기 => step 2 path notation

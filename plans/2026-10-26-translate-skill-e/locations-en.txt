@@ -1,0 +1,196 @@
+# manifest clause → location in the English skills/e/SKILL.md. Format: <id> | <quote>  (file is skills/e/SKILL.md; another file is <path>:: <quote>)
+# Clause ids: plans/2026-10-22-slim-skill-e-ko/manifest.md
+F.1 | name: e
+H.1 | Record the in-progress §10 plan **against the actual git/code state**, **keep uncommitted changes as a temporary commit**, then wrap up the work. The goal is that the next session can take over right away with `/c`.
+H.2 | The automated version of CLAUDE.md §10 **Turn end**·**Completion** + the §8 git rules — **CLAUDE.md wins on conflict**. The counterpart of c (continue).
+A.1 | An explicit `/e` call, or a request like "record progress and wrap up / that's it for today / save it and stop".
+A.2 | Not for simple questions, exploration, read-only work or one-turn commands.
+A.3 | **If there is no plan, do not create one** (that is the job of dlc / the start of work).
+M.1 | **Checkpoint mode** (default, `/e` with no argument or no merge token): steps 1–8 below. No push.
+M.2 | **Merge mode** (`/e merge` or `/e 머지` — only these two tokens. The words `push` and `PR` are not triggers)
+M.3 | steps 1–4 → **M1~M6** ("merge mode" below) → steps 5–8
+M.4 | The user's `/e merge` argument is itself the push·PR·merge instruction (it satisfies CLAUDE.md §8 "push only on request").
+M.5 | If `permissions.ask` fires on `git push`, that is a gate too — if it is refused, stop and do not touch the plan.
+D.1 | ## Behavior (8 steps: find → collect state·temporary commit → plan sync → wrap-up report → Jira work summary approval·record → worklog record → worktree cleanup → return to main — a non-main worktree session returns before the worklog)
+1.1 | `ROOT = git rev-parse --show-toplevel`, `BR = git rev-parse --abbrev-ref HEAD`.
+1.2 | Search locations (only those that exist, deduplicated): `<ROOT>/plans/`, and if the cwd is a worktree, the main worktree's `plans/`
+1.2b | plans/ is independent per worktree (branch), so look at both to miss nothing
+1.3 | **Matching** (§10): the dir whose **dir name** (`<YYYY-MM-DD>-<slug>`) contains `BR` → the one `*-plan.md` in it. 1 → adopt it / 2+ → present the candidates and let the user choose / 0 → fallback.
+1.4 | **Active plan first** (§10): if a plan was already in progress in the session, it is the target regardless of branch matching
+1.5 | present the `status: in_progress|blocked` plans sorted by `updated` descending → the user chooses. Do not pick one automatically by guessing.
+1.6 | If all are done or none exist, "no plan to wrap up" — still run step 2 (temporary commit) and only report.
+2.1 | `bash skills/e/collect-state.sh` returns read-only state signals as plain `key: value`
+2.1b | (10+ separate git calls bundled into one)
+2.2 | This relative path resolves only when the cwd is the root of `~/.claude` (or its worktree) — in other repos call `~/.claude/skills/e/collect-state.sh` by absolute path
+2.3 | in an isolated worktree session the form `bash "$HOME/…"` can be refused (measured 2026-09-30), so use the absolute path with `$HOME` expanded
+2.3m | (measured 2026-09-30)
+2.4 | **If the helper fails or a field is missing**, say so in the report and fall back to separate git commands.
+2.5 | **The field catalog, parsing rules (split on the first `: `, list fields) and per-condition fallback commands are in `~/.claude/wiki/docs/worktree-lifecycle.md` §A** (Read it in the state-collection branch).
+2.6 | if there are uncommitted changes, keep them as a WIP commit on the work branch. If there are none, skip + state "no changes".
+2.7 | **Merge mode makes no WIP** — if there are uncommitted changes, `AskUserQuestion` (commit with a proper message / cancel).
+2.7b | This is not a §1 risk confirmation but a direction agreement on "is the work done" (§1 proviso).
+3.1 | Re-read the plan (merge external changes), then update it **only from facts** (§1) (for an old-format plan, the §10 mapping table)
+3.2 | `# Tasks`: check finished Tasks (`(YYYY-MM-DD)`), add new tasks (urgent ones at the top of the unchecked items), clean up stale ones — the first unchecked Task is the next session's immediate action.
+3.2b | A Task that changed files names those paths in backticks.
+3.2c | If there is a WIP commit, state "continue from the `wip:` commit at the branch tip — commit-check cleans it up (`/e merge` proposes it before push)" in that unchecked Task → c notices it.
+3.2d | Do not write the sha (only in the report) — once commit-check folds or rewrites that commit, it points to a commit that no longer exists.
+3.3 | `# Decisions`: fill in decisions and scope changes from the session (the §10 way — rewrite that decision with its reason, move the displaced option to the rejected ones).
+3.4 | `# Blockers`: what is blocked + the condition to unblock it.
+3.5 | frontmatter: `status` judgment (step 4) · `updated:` today.
+3.6 | **after writing** the updates above, run `node scripts/plan-lint.js <this plan>` (if present) — it checks the §10 format (frontmatter, mandatory sections, Tasks checkboxes and dates) and **broken Acceptance references**
+3.6b | **Fix violations on the spot** (an additive edit often breaks a reference).
+3.6c | If the command fails (script missing, etc.), skip + state it. Not a hard stop.
+4.1 | `done` only when there is a **confirmed completion signal** such as a merge or deploy — but switching to done needs **user confirmation** (wrapping up = end of the session, not necessarily the end of the work).
+4.2 | **Bundle intent judgment** (when the plan has `intent:`, **at the very point where done is written** — in checkpoint mode the user-confirmed done of this step 4, in merge mode the M4 done commit)
+4.2b | (a note `dropped` counts as done; **an unreadable item or `(not started)` is not done** — fail-safe)
+4.2c | If all are done and every `# Open questions` item is disposed (`(resolved)`/`(carried over → …)`), set `status: closed` + `updated` — an objective judgment, so without confirmation, and **in the same commit as plan done**.
+4.2d | If anything remains, keep it open and list the remaining items in the report. `# Out of scope` is not a condition (§10).
+4.3 | Blocked → `blocked` + `# Blockers`.
+4.4 | **Report**: plan location·title·status / temporary commit sha (or "no changes") / items synced / remaining work (unchecked `# Tasks`·`# Blockers`) / "the next session takes over with `/c`".
+4.4b | **list those lines (`<slug candidate> (not started) — note`) and add "start it with `/wt <slug candidate> — <note>`"** (passing only the slug makes dlc ask for the requirement again)
+4.4c | `/c` does not create plans, so without this note only the first plan gets merged, the siblings are forgotten and the intent stays open forever.
+4.5 | **the `/e` call itself is the "wrap up" instruction**, so under the §3-6 exception (a flow where the user already gave the next instruction → skip the options) do not create a new AskUserQuestion for work options.
+4.5b | However, the approval for writing to the Jira task body in step 5 below is an external write and must always be obtained separately.
+4.5c | The wrap-up actions are handled by the worktree cleanup of step 7 (when the conditions hold) and the "next session `/c`" note of step 8.
+4.5d | **In merge mode, skip the done confirmation question** — `/e merge` is that confirmation (no duplicate questions — §3-6).
+MM.1 | gh commands, JSON fields, the PR body template and the scenario table are in `~/.claude/wiki/docs/worktree-lifecycle.md` §E (Read it on entry). Only gates, order and closed lists are here.
+MM.2 | **M1 entry gate (hard stop, closed list)** — if any one applies, refuse merge mode + report the reason (do not silently fall back to checkpoint)
+MM.2a | (1) the branch is main/master or detached
+MM.2b | (2) no plan
+MM.2c | (3) an unchecked item in `# Acceptance` — if the section itself is absent, pass and report one line; only items prefixed `[post-merge]` are excluded (do not exclude by judging meaning)
+MM.2d | (4) `gh repo view` fails (not authenticated, not GitHub, no permission)
+MM.2e | (5) an unchecked item in `# Tasks` outside the Task(s) that run `/e merge` (including rerun Tasks `/e` wrote) and `[post-merge]` (not applicable to an old-format plan)
+MM.2f | `<default>` = the name from `git symbolic-ref --short refs/remotes/origin/HEAD` with `origin/` removed → on failure `gh repo view`'s `defaultBranchRef.name` → if that is also missing, refuse.
+MM.3 | first `git fetch origin <default>` (to avoid misjudging from a stale ref), then `gh pr list --head <branch> --base <default> --state all` — 2+ candidates → stop and report.
+MM.3b | OPEN → reuse (stop and report if it is a draft).
+MM.3c | **MERGED or CLOSED → do not reuse**
+MM.3d | (as a skip path there would be no PR to carry the plan done commit, and step 7 conditions 2·3·5 could not pass)
+MM.3e | **Shortcut**: if `origin/<default>..HEAD` has 0 commits and the plan is already `done`, revert the plan edits step 3 wrote with `git restore`
+MM.3f | (the merged plan is the single truth — making the branch ahead of base makes `git branch -d` refuse)
+MM.4 | **M3 prerequisite — check for uncleaned commits** (before the push and the "M4 first" branch. Skip it on the M2 shortcut): keep `wip`/`fixup!`-type commits out of the PR — once pushed, they are outside commit-check's range (unpublished) and cannot be fixed.
+MM.4a | 1. `git fetch origin "+refs/heads/<branch>:refs/remotes/origin/<branch>"` (explicit refspec
+MM.4a2 | if the clone's fetch refspec maps only main, a fetch given just the branch name does not update the tracking ref
+MM.4a3 | If the error says the branch does not exist on the remote (`couldn't find remote ref`), delete the remaining `refs/remotes/origin/<branch>` with `git update-ref -d`
+MM.4a4 | (an old tracking ref left after the remote was removed by PR cleanup makes unpublished commits look `published` — a local ref, so no remote impact)
+MM.4a5 | Stop on any other fetch failure.
+MM.4a6 | If it fetched, `git merge-base --is-ancestor origin/<branch> HEAD` — stop on exit 1 (diverged
+MM.4b | 2. `uv run --no-project python "$HOME/.claude/skills/commit-check/commit_units.py" pending origin/<default>` (fixed path — this SKILL is loaded from the main checkout). A command failure is a stop, not 0 results. If `unfolded` is empty, go on to M3.
+MM.4c | 3. If there is `status: rewritable`, call `commit-check` with the Skill tool with the argument "`/e merge` — clean up `wip`·`fixup` flag commits only"
+MM.4c2 | After applying, rerun `pending` and continue only when `rewritable` is 0. commit-check leaving its plan unapplied, apply failure, leftovers, or a flow that cannot ask (unattended) → stop. If you stop after apply succeeded, keep the restructuring and report `backup_ref`·`rollback`.
+MM.4d | 4. Do not fix `published` (reached by the remote), `held` (held by another local branch or tag) or `blocked` (range cannot be restructured, `range_error`) (§8 no force-push)
+MM.4d2 | (for `held`: "after removing that ref, a rerun classifies it again" — the merge or signed commit that ref was hiding may show up and make it `blocked`)
+MM.4d3 | If the repo disallows merge commits (M6 squashes, so these commits do not stay in the default history), report without asking.
+MM.4e | **Stop rule**: do not newly write done. Leave the uncommitted plan edits of step 3 as they are and add a "clean up the commits, then rerun `/e merge`" Task with the reason at the top of the unchecked `# Tasks` (no commit, no push).
+MM.4e2 | If the plan is already done (rerun after UNKNOWN·QUEUED·head mismatch), touch neither the Task nor the status.
+MM.5 | if a new PR is needed because the previous PR is MERGED/CLOSED, **run M4 (plan done commit) first**, then push and create it (`gh pr create` fails with 0 commits)
+MM.5b | `git push -u origin HEAD` (permission prompt refused or failure → stop, plan unchanged — on the path that ran M4 first a local done commit remains, so revert it to `in_progress` by the recovery rule and report)
+MM.5c | If there is no PR, `gh pr create --base <default>` (title = the plan title or the first commit subject, body from a scratch file — §E template).
+MM.5d | Check the PR's `mergeable`/`mergeStateStatus` **before writing done**: CONFLICTING·DIRTY → stop and report the reason (plan unchanged), UNKNOWN → re-query shortly. BEHIND·BLOCKED are normal before required checks, so do not block here; re-evaluate right before M6.
+MM.6 | **M4 plan done commit**: `status: done` · check every Task that runs `/e merge` (add one if missing) as `(YYYY-MM-DD) — PR #N`
+MM.6b | If the plan has `intent:`, run step 4's bundle intent judgment here and put the `intent.md` change in **the same commit**; on the recovery below, also revert a `closed` back to `open` together.
+MM.6c | This moves §10 **Completion** (done at the time of merge) forward to the PR, and the recovery rule below covers the gap.
+MM.6d | **Recovery rule (hard stop)**: **only when REJECTED is confirmed** in M5·M6, immediately restore `status: in_progress` + uncheck the Tasks M4 checked + `# Blockers`
+MM.6e | If the recovery push is refused, keep only the local commit and report.
+MM.6f | **Once REJECTED is confirmed, do not leave done**; an unknown result (UNKNOWN), waiting (QUEUED) or head mismatch keeps done and closes with a rerun note (report) (below).
+MM.7 | compare `gh pr view`'s `headRefOid` with the local HEAD (if different, rerun only M3's push; if still different, stop, plan unchanged)
+MM.7b | `gh pr checks <N> --watch` (tool timeout 10 minutes)
+MM.7c | exit 0 → re-query with **a separate call** `gh pr checks <N> --json name,bucket`; go to M6 only when every bucket ∈ {pass, skipping}; if any is `fail`/`cancel`, REJECTED (--watch does not reflect cancel in its exit)
+MM.7d | exit 8 (pending left) or tool timeout → REJECTED (timeout)
+MM.7e | exit 1 with `no checks reported` in stderr (lowercase substring match) → re-query 3 times 15 seconds apart, and only if still none, treat it as no required checks and go to M6
+MM.7f | any other exit 1 → REJECTED.
+MM.8 | right before merging, recheck `mergeable`/`mergeStateStatus` (CONFLICTING → REJECTED; BEHIND·BLOCKED still present → REJECTED
+MM.8b | `gh pr merge <N> --merge --match-head-commit <headRefOid at M5>` (refused for head mismatch → stop and report, not recovery)
+MM.8c | **No `--delete-branch`** (CLAUDE.md §8
+MM.8d | If the repo disallows merge commits (the setting read with M1's `gh repo view`), `--squash`.
+MM.8e | Classify the result into four: **MERGED** (`gh pr view`'s `mergedAt` non-null) → `git fetch origin <default>`, then step 5
+MM.8f | Every other error is a stop with the plan unchanged.
+MM.8g | **A confirmed `mergedAt` satisfies step 7 condition 4 directly** (for a squash, do not re-derive it even if the git signals are false)
+MM.8h | `collect-state.sh` does not fetch, so without a fetch it can never see a server-side merge
+MM.8i | A rerun does not reuse MERGED at M2, so it does not call merge again.
+MM.9 | Do not delete the remote branch here — after the local cleanup in step 7, merge mode **always asks once** with `AskUserQuestion`
+5.1 | write **only the changes that belong to the task's goal** as outcome-focused one-line items (1–4), together with a to-do list that breaks down the ticket's goal
+5.2 | If a WIP commit was already made, base it on that commit's diff and the items checked that day in the plan's `# Tasks`.
+5.3 | If there is no ticket or nothing to write, skip this step.
+5.4 | run the `jira-task` skill's CLI with the summary file (`--summary-file`) and, only if you made one, the to-do file (`--todo-file`) as arguments (procedure in `skills/jira-task/SKILL.md` steps 5–6). It only reads Jira
+5.4b | if there are existing items for that day, rewrite the summary merging them with this work and rerun the preview
+5.4c | If the fingerprint is `unknown`, do not apply it and report the reason.
+5.5 | ask with `AskUserQuestion` "Apply this work summary to the Jira task body?". **Do not run `--post` before the user approves.**
+5.6 | only when approved, run the last preview arguments once with `--date <preview date> --post --expect-existing <preview fingerprint>` appended
+5.6b | On a fingerprint mismatch (another session updated it meanwhile) or a Jira error, do not retry; report "not posted" in one line that does not expose credentials, and continue the wrap-up.
+5.7 | If neither `~/.agents/skills/jira-task/` nor the repo's `skills/jira-task/` exists, skip this step and report "no jira-task skill".
+6p.1 | If the session is inside a non-main worktree, before step 6 capture the values of the "Worktree cleanup rules" (`target_path`·`target_branch`·`main_path`) and try `ExitWorktree(action: keep)`.
+6p.2 | helper calls of the form `bash "$HOME/..."` inside the worktree (worklog, collect-state) are refused by the native Bash guard
+6p.2m | (measured 2026-09-30 — the absolute path with `$HOME` expanded and `uv run python "$HOME/..."` passed. This can vary by harness version
+6p.3 | Up to step 5, things run inside the worktree as now.
+6p.4 | **If it returned**: run steps 6·7 from the original directory (usually main). For the worklog, give the directory name of `<target_path>` as the argument for both preview and registration — without it, main becomes the target.
+6p.4b | The step 7 re-collection is `(cd "<target_path>" && bash "$HOME/.claude/skills/e/collect-state.sh")`.
+6p.4c | Do not call `ExitWorktree` again after this.
+6p.5 | **If it is a no-op** (the harness started directly in the worktree): run steps 6·7 inside the worktree as now. Call the helpers by the absolute path with `$HOME` expanded (step 2 path notation).
+6p.5b | If worklog or collect-state is still refused or fails, skip the step 7 cleanup (leave the worktree so the worklog can be run again).
+6p.6 | If it stopped midway through steps 6·7, the same session continues the remaining steps with the captured values, and a new session enters with `/wt <name>` and runs them again.
+6.1 | Run it **before the step 7 deletion** — once the worktree is deleted, it cannot be selected by name and cannot be registered (only displayed).
+6.2 | If `~/.claude/skills/jira-worklog/` does not exist, skip this step + one line "no worklog skill".
+6.3 | **Run**: on POSIX `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh"` (dry-run), on Windows PowerShell `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1"` (dry-run)
+6.3b | The launcher prefers `uv`, falling back to `python3`/`python` (on Windows including `py`).
+6.3c | Attribution is by per-line cwd, so **even run after returning to main, the time of that worktree is captured exactly** (give the name as an argument). But it must be before the worktree is deleted.
+6.4 | **Register**: if a ticket is detected (worktree name prefix) and `~/.jira-kit/.env` has a token
+6.4b | an upsert of **that worktree's** item for the day (idempotent, no duplicates even if /e repeats. Other worktrees' items on the same ticket are not touched, and Jira sums the ticket total)
+6.4c | **No ticket / no token / no session activity → preview only and move on quietly**
+6.4d | The user putting this behavior into /e = standing consent to registration (no separate AskUserQuestion).
+6.5 | **Non-blocking**: a lookup or network failure gets only a one-line report and the wrap-up continues (a worklog failure does not block /e). However, **it does block the step 7 cleanup**
+6.5b | The worklog ended with non-zero (for any reason — e.g. registration blocked or Jira error 1, config or git error 2, no runner 127).
+6.5c | No session activity, no ticket and no token file are normal skips with exit 0, so the cleanup continues. If the worklog skill does not exist, this condition does not apply.
+6.6 | One-line report: the registration result
+6.6b | if registration was blocked, after checking, `run_worklog.sh <name> --register --allow-large-change`, then enter with `/wt <name>` and run `/e`. To give up the time, `/wt rm <name>`.
+7.1 | If the step 6 worklog ended in failure (step 6 non-blocking bullet), do not judge the conditions below; skip the cleanup.
+7.1b | **when all conditions below hold, delete the worktree + local branch without asking** (CLAUDE.md §8(a) — regardless of who merged it)
+7.1c | **Remote branch deletion is not part of this — always AskUserQuestion** (§8(b)).
+7.2 | **run `bash skills/e/collect-state.sh` once more right before deletion** (same path notation as step 2) and judge by those signals (do not reuse the step 2 snapshot — re-collection invariant)
+7.2b | **If the helper fails, a field is missing or it cannot be parsed, skip the cleanup (conservative)**.
+7.3 | 1. **Non-main worktree** (`root` ≠ `mainWorktree`; if it is main, do not propose)
+7.4 | 2. **`detached`=false + plan `status == done`** (confirmed in step 4)
+7.5 | 3. **Working tree clean** (untracked included; skip if `dirty`=unknown)
+7.6 | 4. **Merged into the default branch** — `mergedToLocalBase`=true (the helper judges with `git branch --merged <localDefault>`) **or** `inBase`/`patchInBase`=true. **A merge into local `main` counts too**
+7.6b | in a workflow that does not push, `inBase`, based on `origin/<default>`, stays false/unknown forever
+7.6c | **Exception: if M6 confirmed `mergedAt` in merge mode, this condition holds** — do not re-derive it even if the git signals are false.
+7.7 | 5. **Unsaved artifacts safe**
+7.8 | 6. **No process holding the worktree**
+7.8b | (Windows: "Invalid argument"·"Access is denied")
+7.9 | **The git commands that judge each condition, fallbacks, details of `inBase`/`patchInBase`/`remoteContainingHead`, and the squash/rebase limits are in `~/.claude/wiki/docs/worktree-lifecycle.md` §B**
+7.10 | → skip the cleanup + one reason line in the report ("unmerged → kept"·"dirty → kept"·"plan inside the worktree → kept"·"worklog failed → kept").
+7.11 | **Run**: when the conditions hold, clean up **without asking** in the order worktree → local `git branch -d`, and report the deleted branch's tip sha in one line (`git branch <name> <sha>` restores it).
+7.11b | `git worktree remove` can partly succeed (registration removed but directory deletion failed), so **check the result**, and if a directory is left, handle condition 6 and finish deleting it.
+7.12 | **The remote branch is separate** — in checkpoint mode ask with AskUserQuestion only when you judge it needs deleting, in merge mode always ask once with AskUserQuestion after a successful merge + finished local cleanup (§8(b)).
+7.12b | If the local cleanup was skipped (e.g. worklog failure), postpone the remote question too, and leave one line in the report "remote branch kept — confirm at worktree cleanup" (keep the order: remote after local deletion).
+8.1 | After steps 1–7, return the session to the main worktree
+8.2 | **`ExitWorktree` target**: when the session is still in a **non-main worktree** after step 7 (`--show-toplevel` ≠ main path, compared after normalization). If the session was on main from the start, skip.
+8.3 | If step 7 **deleted the worktree**, or the session already left in step 6 pre → already back on main → skip (no duplicate `ExitWorktree`). The main update below still runs.
+8.4 | Otherwise (kept, proposal skipped, conditions unmet) → return to the original directory (usually main) with `ExitWorktree(action: keep)`.
+8.5 | **If `ExitWorktree` is a no-op** (the harness started directly in the worktree, without `EnterWorktree`) → returning within the session is impossible. Do not force a move
+8.6 | **Update main after returning (main-autopull ⓑ)**: **only when the session actually returned to main**
+8.6b | **Skip on no-op (still on the feature), dirty, ff failure or no origin** (prevents the destructive merge of origin/main into a feature). No automatic rebase, stash or force (§8).
+8.7 | One-line report: whether it returned to main (or why it could not).
+T.1 | At wrap-up, keep uncommitted changes on the work branch so they are not lost. **Runs automatically, but the safeguards below are mandatory.**
+T.2 | **Branch protection (§8)**: if the current branch is `main`/`master` (or the `origin/HEAD` default), no direct commit.
+T.3 | **Risky file check (§8)**: if `git status` shows suspicious items such as `.env`·`*.key`·`*.pem`·`id_rsa`·certificates·large files (build artifacts, etc.), hold the commit + ask the user
+T.4 | Message `wip: <one-line summary of the work> (e checkpoint)` + the convention trailer (Co-Authored-By).
+T.5 | **No push** — §8, only on user request.
+T.6 | If there are no uncommitted changes, skip the commit.
+R.1 | Only when step 7 deletes the worktree. **The cwd may be inside the deletion target, so order matters**
+R.2 | **Capture values before moving**: fix `target_path`·`target_branch`·`main_path` (the first worktree of `git worktree list --porcelain`) **before moving the session**
+R.3 | **Out of the worktree**: return to the original directory (usually main) with `ExitWorktree(action: keep)` — it cannot remove itself from inside the target. If the session already left in step 6 pre, do not call it again
+R.3b | **If `ExitWorktree` is a no-op** (the harness started in the worktree), the fallback is `~/.claude/wiki/docs/worktree-lifecycle.md` §C (go through another linked worktree, or skip remove + report) — **no forced progress**. If the move failed and the cwd is inside the target, **stop + report** (no remove).
+R.4 | **Remove**: after confirming the cwd is outside the target, `git worktree remove <target_path>`.
+R.5 | **Safety gate (§8) — never without confirmation**: `--force`, `git branch -D` (unmerged) and remote `git push origin --delete` **only after a separate AskUserQuestion confirmation**.
+R.5b | Exception: if remove refuses a worktree that meets all step 7 conditions with `working trees containing submodules cannot be moved or removed`
+R.6 | **Local branch**: `git branch -d <target_branch>` (if `-d` is refused as unmerged, `-D` only after confirmation).
+R.7 | **Remote**: only after the worktree and local deletion succeeded, and only if the user chose remote deletion, `git push origin --delete <target_branch>`
+R.8 | One-line report: the removed worktree and branch (or the reason they were kept).
+B.1 | **Checkpoint mode does not push** (§8). push, PR and merge happen **only in merge mode (`/e merge`·`/e 머지`)**
+B.2 | **No direct commit to main/master** — split it off after confirmation.
+B.3 | If there is no plan, **do not create one** — only a temporary commit + a "no plan to wrap up" report (if a plan looks worthwhile, one line proposing dlc).
+B.4 | **No automatic switch to done** — only with a confirmed completion signal + user confirmation.
+B.5 | Plan updates are **facts only** (§1) — only what git or files confirm. Do not check Tasks or fill Decisions by guessing.
+B.6 | Not delegated to a subagent — the main agent is the plan's single writer. The main agent commits and records directly.
+B.7 | **Worktree cleanup runs without confirmation when the step 7 conditions (non-main, done, clean, merged, no unsaved artifacts, no holding process) hold**
+B.8 | **Returning to main (step 6 pre, step 8) is automatic**
