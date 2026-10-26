@@ -125,7 +125,7 @@ gh 명령·JSON 필드·PR body 템플릿·시나리오 표는 `~/.claude/wiki/d
 - **worktree 밖으로**: `ExitWorktree(action: keep)` 로 원래 디렉토리(보통 main) 복귀 — 대상 안에선 자기 remove 불가. 6 전 단계에서 이미 나왔으면 다시 부르지 않는다 — 그 재호출이 돌려주는 no-op 을 아래 no-op 폴백으로 처리하지 않는다. **`ExitWorktree` no-op**(harness 가 worktree 에서 시작)이면 폴백은 `~/.claude/wiki/docs/worktree-lifecycle.md` §C(다른 linked worktree 경유 or remove 생략+보고) — **강제 진행 금지**. 이동 실패로 cwd 가 대상 안이면 **중단+보고**(remove 금지).
 - **제거**: cwd 가 대상 밖 확인 후 `git worktree remove <target_path>`. 실패 시 stderr 분기(untracked→확인 후 `--force`·submodule→§C 점검 통과 시 무확인 `--force`·파일점유·부분성공 prune) 세부는 `~/.claude/wiki/docs/worktree-lifecycle.md` §C.
 - **안전 게이트(§8) — 무확인 금지**: `--force`·`git branch -D`(미머지)·원격 `git push origin --delete` 는 **별도 AskUserQuestion 확인 후에만**. 예외: 7단계 조건을 모두 충족한 worktree 를 remove 가 `working trees containing submodules cannot be moved or removed` 로 거부하고, `~/.claude/wiki/docs/worktree-lifecycle.md` §C 의 submodule 점검 두 가지(모든 module git dir 이 작업 트리 있는 submodule 의 것인지, 그 submodule 들에 변경·ignored·원격 밖 커밋이 없는지)를 모두 통과하면 `--force` 는 묻지 않는다 — 더 지워지는 것이 마지막 fetch 기준 원격 추적 ref 에 있는 것뿐이다.
-- **로컬 브랜치(옵션 ②·③)**: `git branch -d <target_branch>`(미머지 `-d` 거부 시 `-D` 는 확인 후). **원격(옵션 ③만)**: worktree·로컬 삭제 성공 후 `git push origin --delete <target_branch>`(원격 ref 부재 no-op). 조건5 확정 아님 → 사용자가 경고 보고 택한 경우만(orphan 방지). 그 외 push 안 함.
+- **로컬 브랜치**: `git branch -d <target_branch>`(미머지로 `-d` 가 거부되면 `-D` 는 확인 후). **원격**: worktree·로컬 삭제가 성공한 뒤, 사용자가 원격 삭제를 택했을 때만 `git push origin --delete <target_branch>`(원격 ref 가 없으면 no-op). git 신호로 본 merged(7단계 조건4)는 확정이 아니므로 묻는 본문에 그 근거(로컬 default 에만 머지됨인지, `inBase`/`patchInBase` 인지)를 적고, 그것을 본 사용자가 택한 경우에만 지운다(미머지 원격 사본 유실 방지). M6 가 확인한 `mergedAt` 은 확정이다. 그 외 push 안 함.
 - 한 줄 보고: 제거한 worktree·브랜치(또는 유지 사유).
 
 ## 경계 (안 하는 것)
