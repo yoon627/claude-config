@@ -5,7 +5,7 @@ description: 현재 worktree/repo 의 진행 중인 plan(CLAUDE.md §10)을 찾�
 
 # c — plan 이어가기 (plan continue)
 
-진행 중이던 §10 plan 을 찾아 **남은 작업 + sync 상태**를 진단하고, 어긋난 plan 을 실제 상태로 보정한 뒤 첫 미완료 Task 가 명확하면 이어서 실행한다(예외 시 정지·제시). CLAUDE.md §10 "시작: 매칭 plan read 후 컨텍스트 복원 / 진행 중 동기화"의 자동화 버전 — **충돌 시 CLAUDE.md 우선**.
+진행 중이던 §10 plan 을 찾아 **남은 작업 + sync 상태**를 진단하고, 어긋난 plan 을 실제 상태로 보정한 뒤 첫 미완료 Task 가 명확하면 이어서 실행한다(예외 시 정지·제시). CLAUDE.md §10 **Start**·**In-progress sync** 의 자동화 버전 — **충돌 시 CLAUDE.md 우선**.
 
 ## 적용
 - `/c` 명시 호출, 또는 진행하던 plan 을 이어가려 할 때.

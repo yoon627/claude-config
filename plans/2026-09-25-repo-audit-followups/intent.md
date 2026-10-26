@@ -11,7 +11,7 @@ updated: 2026-09-30
 
 # Proposed outcome
 
-각 그룹이 자기 plan 으로 착수·머지된다. 아직 손대지 않은 그룹은 아래 `# Plans` 에 `(미착수)` 로 남아 `/e` 가 알린다. 항목별 상세(파일:줄·수정 방향)는 첫 plan 의 `# Deferred` 에 있다.
+각 그룹이 자기 plan 으로 착수·머지된다. 아직 손대지 않은 그룹은 아래 `# Plans` 에 `(not started)` 로 남아 `/e` 가 알린다. 항목별 상세(파일:줄·수정 방향)는 첫 plan 의 `# Deferred` 에 있다.
 
 # Constraints
 
@@ -25,9 +25,9 @@ updated: 2026-09-30
 
 # Open questions
 
-- (해소) `push-remote-scope` 가 가드의 인자 없는 호출 의미를 바꾸면 `scripts/ci-secret-scan.sh` 도 맞춰야 하는가 — 가드가 원격 이름 대신 stdin remote sha 로 판단하게 되어 인자 없는 호출은 그대로이고, CI 는 이미 base 를 remote sha 로 넘기고 있었다. 추적 ref 를 피하려던 임시 repo 는 필요 없어져 같은 커밋에서 없앴다(push-remote-scope plan).
+- (resolved) `push-remote-scope` 가 가드의 인자 없는 호출 의미를 바꾸면 `scripts/ci-secret-scan.sh` 도 맞춰야 하는가 — 가드가 원격 이름 대신 stdin remote sha 로 판단하게 되어 인자 없는 호출은 그대로이고, CI 는 이미 base 를 remote sha 로 넘기고 있었다. 추적 ref 를 피하려던 임시 repo 는 필요 없어져 같은 커밋에서 없앴다(push-remote-scope plan).
 
-- (해소) Codex 용 `AGENTS.md` 는 CLAUDE.md 심링크 — 2026-06-10 사용자 결정(`a3d7bdc`)을 2026-09-25 복원(config-docs-sync).
+- (resolved) Codex 용 `AGENTS.md` 는 CLAUDE.md 심링크 — 2026-06-10 사용자 결정(`a3d7bdc`)을 2026-09-25 복원(config-docs-sync).
 
 # Plans
 
@@ -48,7 +48,7 @@ updated: 2026-09-30
 - `plans/2026-09-27-native-overlap-recheck/native-overlap-recheck-plan.md` — `/improve deep`(2026-09-27)으로 `native-overlap-ledger` 재판정(창 v2.1.223~283 전수, 새 `retire` 0·신규 `watch` 1), workflow-failures 의 라우터 알림 턴 행·중간 턴 행 가산. 거기서 찾은 새 개선 3개는 이 묶음의 Out of scope(감사 밖 새 개선)라 새 묶음 `plans/2026-09-27-improve-followups/intent.md` 로 보냈다.
 - `plans/2026-09-29-windows-ps1-verify/windows-ps1-verify-plan.md` — 첫 단위: Windows verify 를 빨갛게 하던 3건(install-hooks 테스트의 pwsh 경로, ps1 테스트의 USERPROFILE 격리, jq 없을 때 skip). 나머지는 그 plan `# Deferred` 와 이슈 #190. 원래 메모: Windows 에서만 검증 가능한 것: pre-commit 경로 ps1 의 native 출력 CP949 디코딩(PS5.1), `setup.ps1`·`install-codex-skill.ps1` 의 Codex skill 7종·`%USERPROFILE%\.codex\AGENTS.md` 연결(macOS 는 audit-install-fixes). pwsh·Windows 실행 없이는 넣지 않는다(공용 wiki `lesson-no-speculative-platform-switch`). **선행: audit-install-fixes** — 그 단위가 README 에 적는 macOS/Windows 차이 서술을 지우고, `install-codex-skill.ps1`·`.test.ps1` 에 `.sh` 의 `--file` 에 해당하는 옵션을 맞춘다. heal 의 Windows 경로(read-only 해제 재시도, 트리 안 junction — 핸들러의 `os.path.islink` 는 junction 을 못 본다)도 여기서 확인. audit-leftovers 에서 넘어온 것(2026-09-28): `pre-commit-check.ps1` pre-push 스캔이 커밋을 `git log` 인자로 넘겨 790+ ref 신규 push 에서 명령줄 한계 — sh 는 `--stdin` 으로 고쳤다(`^<sha>` 제외 줄·중복 제거), ps1 도 같게 하되 PS5.1 의 native stdin 파이프 확인 · ps1 `~/.claude` 면제 판정의 `Resolve-Path` 가 symlink 를 풀지 못함(sh 는 면제, ps1 은 main push 차단 — 2026-09-25 pwsh 7 실측) · notify.ps1 balloon — 2026-06 감사가 `ShowBalloonTip` 뒤 `Start-Sleep 5`+`Dispose()` 추가를 제안했고(표시 전 소멸 가능) 아직 적용하지 않았다. Windows 에서 표시 여부를 확인한 뒤 적용을 정한다.
 - `plans/2026-09-29-windows-ps1-rest/windows-ps1-rest-plan.md` — 이슈 #190 의 Windows 항목: PS5.1 BOM(가드 파싱 실패), setup.ps1·install-codex-skill.ps1 의 Codex skill 7종·AGENTS.md 연결(`-File`), heal junction 실측, ps1 pre-push `git log --stdin`(+5.1 stdin BOM), notify.ps1 balloon 관찰.
-- macos-resolve-path-symlink (미착수) — 이슈 #190 항목 5: ps1 `~/.claude` 면제 판정의 `Resolve-Path` 가 symlink 를 풀지 못해 macOS pwsh 에서 sh 와 판정이 갈린다. macOS 에서만 검증 가능해 windows-ps1-rest 에서 뺐다(사용자 지시 2026-09-29).
+- macos-resolve-path-symlink (not started) — 이슈 #190 항목 5: ps1 `~/.claude` 면제 판정의 `Resolve-Path` 가 symlink 를 풀지 못해 macOS pwsh 에서 sh 와 판정이 갈린다. macOS 에서만 검증 가능해 windows-ps1-rest 에서 뺐다(사용자 지시 2026-09-29).
 - `plans/2026-09-29-autopull-fetch-stall/autopull-fetch-stall-plan.md` — 이슈 #204: 자동 pull 의 fetch 가 계속 실패하면 브리프 N 이 알린다(`.git/claude-autopull-attempt`·`-ok` 스탬프). 감사 항목이 아니라 autopull-verified-client 의 code-review 결함이라 이 묶음에 연결했다(해석은 그 plan `# Decisions`).
 - `plans/2026-09-28-audit-leftovers/audit-leftovers-plan.md` — `repo-audit-remaining` plan `# Deferred` 저우선 절의 미배정 항목 처분(사용자 결정 2026-09-28): 고침 5 — sh pre-push 스캔을 `git log --stdin`(중복 제거·빈 입력 차단)으로, heal `deinit` 에 `--literal-pathspecs`(+ `GIT_*_PATHSPECS` 제거)·`.git` 은 `gitdir: ` 일 때만 gitlink·OS 중립 복구 안내, statusline 쿼터 표시 헬퍼·lock/refresh 결합 주석 · 이관 3 → windows-ps1-verify(ps1 pre-push stdin, ps1 `Resolve-Path` symlink, notify.ps1 balloon) · 닫음 2(statusline readdir, heal `_force_rmtree` symlink) · 기각 1(corrupt 시그니처 확인 후 reset).
 - `plans/2026-09-30-hook-wait-shell-verify-body/hook-wait-shell-verify-body-plan.md` — ledger-bash-edits 후속(그 # Deferred 의 래퍼 스크립트 본문 판정 포함): 이번 턴에 띄운 background shell 을 기다리는 턴은 경고를 미루고, `bash <file>.sh` 래퍼는 작은 스크립트 본문으로 검증을 인식한다. `/improve` 2026-09-30 의 transcript 분류(결론 경고 7건·검증 경고 2건)가 근거. 규모 medium.

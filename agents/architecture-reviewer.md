@@ -93,7 +93,7 @@ model: opus
 - destructive 명령 (rm, DB write, prod mutation, migration 실행) 금지. 리뷰는 read-only.
 
 ## Codex 병행 검토 (optional, 보수적)
-> 공통 호출 규약(preflight·phase owner·sandbox·Windows fallback·출력 처리·실패 fallback·통합·외부 codex 모드)은 **먼저 `~/.claude/wiki/docs/codex-review.md` 를 절대경로로 Read** 해 따른다(subagent 는 docs 를 자동 로드하지 않고, 상대경로는 프로젝트 cwd 에서 해석되지 않는다). 아래는 본 agent 고유의 트리거·프롬프트. 글로벌 CLAUDE.md §9 상 본 agent 는 "선택" 카테고리.
+> 공통 호출 규약(preflight·phase owner·sandbox·Windows fallback·출력 처리·실패 fallback·통합·외부 codex 모드)은 **먼저 `~/.claude/wiki/docs/codex-review.md` 를 절대경로로 Read** 해 따른다(subagent 는 docs 를 자동 로드하지 않고, 상대경로는 프로젝트 cwd 에서 해석되지 않는다). 아래는 본 agent 고유의 트리거·프롬프트. 글로벌 CLAUDE.md §9 상 본 agent 는 "optional" 카테고리.
 
 **호출 조건** (모두 만족 시만):
 - 다중 모듈 / 다중 레이어 영향이 있는 큰 구조 변경 (단순 신규 service 추가 정도는 호출 안 함)

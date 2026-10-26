@@ -7,7 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 
-// §10: "현재 git branch 가 slug 에 포함된 dir". worktree- prefix 는 EnterWorktree 가 붙인다.
+// §10: "the dir whose slug contains the current git branch". worktree- prefix 는 EnterWorktree 가 붙인다.
 function anchorMatches(branch, slug) {
   if (!slug || !branch) return false;
   return branch === slug || branch === `worktree-${slug}` || branch.endsWith(`-${slug}`);

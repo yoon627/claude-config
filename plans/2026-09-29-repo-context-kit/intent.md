@@ -43,12 +43,12 @@ consumer repo 가 한 번의 초기화로 맥락 킷을 세우고, 킷이 코드
 
 # Open questions
 
-- (열림) 배포 형태 — consumer repo 가 `~/.claude/skills/wiki/*.py` 를 직접 부르나, repo 안에 복사(vendoring)하나. consumer repo 의 CI 에는 `~/.claude` 가 없어 직접 호출이 불가능하다. — 결정: wiki-init 착수 전.
-- (열림) 정본 파일 — 상시 진입 문서를 무엇으로 두나. Claude Code v2.1.277+ 는 CLAUDE.md 가 없으면 AGENTS.md 를 직접 읽고, 둘 다 있으면 CLAUDE.md 만 읽는다. CLAUDE.md 가 `@AGENTS.md` 로 import 하거나 AGENTS.md 로 심링크하면 한 번만 읽는다(공용 wiki `claude-code-agents-md-loading`). 이 repo 의 선례는 Codex 용 `~/.codex/AGENTS.md` 를 CLAUDE.md 심링크로 둔 것이다(2026-06-10 결정, 2026-09-25 복원). Windows 에서의 심링크 동작은 미검증. — 결정: repo-init 착수 전.
-- (열림) pilot repo — 킷을 처음 적용할 consumer repo. 적용 자체는 그 repo 세션의 일이다(Constraints). — 결정: context-eval 착수 전.
-- (열림) eval 예산 — context-eval 의 규모와 비용 상한. — 결정: context-eval 착수 전.
-- (열림) 게이트 등록 위치 — `stale --stop-hook` 을 전역 `~/.claude/settings.json` 에 두나(머신마다 손으로 등록, 모든 repo 에서 돌고 wiki·`covers` 가 없으면 무동작 — wiki 경로·`--config` 를 넘기지 않을 때만. 넘기면 그 경로가 없는 repo 마다 매 턴 `systemMessage` 가 뜬다), consumer repo 의 project settings 에 두나(opt-in, 그 repo 세션이 등록한다). 자체 게이트가 이미 있는 repo 에서 전역 등록이 겹치면 같은 변경을 두 번 알린다 — 첫 단위의 config `[stale] stop_hook = false` 로 끌 수 있다. — 결정: wiki-init 착수 전.
-- (열림) path-scoped-context 의 전달 방식. 두 안이 있다(#220).
+- (open) 배포 형태 — consumer repo 가 `~/.claude/skills/wiki/*.py` 를 직접 부르나, repo 안에 복사(vendoring)하나. consumer repo 의 CI 에는 `~/.claude` 가 없어 직접 호출이 불가능하다. — 결정: wiki-init 착수 전.
+- (open) 정본 파일 — 상시 진입 문서를 무엇으로 두나. Claude Code v2.1.277+ 는 CLAUDE.md 가 없으면 AGENTS.md 를 직접 읽고, 둘 다 있으면 CLAUDE.md 만 읽는다. CLAUDE.md 가 `@AGENTS.md` 로 import 하거나 AGENTS.md 로 심링크하면 한 번만 읽는다(공용 wiki `claude-code-agents-md-loading`). 이 repo 의 선례는 Codex 용 `~/.codex/AGENTS.md` 를 CLAUDE.md 심링크로 둔 것이다(2026-06-10 결정, 2026-09-25 복원). Windows 에서의 심링크 동작은 미검증. — 결정: repo-init 착수 전.
+- (open) pilot repo — 킷을 처음 적용할 consumer repo. 적용 자체는 그 repo 세션의 일이다(Constraints). — 결정: context-eval 착수 전.
+- (open) eval 예산 — context-eval 의 규모와 비용 상한. — 결정: context-eval 착수 전.
+- (open) 게이트 등록 위치 — `stale --stop-hook` 을 전역 `~/.claude/settings.json` 에 두나(머신마다 손으로 등록, 모든 repo 에서 돌고 wiki·`covers` 가 없으면 무동작 — wiki 경로·`--config` 를 넘기지 않을 때만. 넘기면 그 경로가 없는 repo 마다 매 턴 `systemMessage` 가 뜬다), consumer repo 의 project settings 에 두나(opt-in, 그 repo 세션이 등록한다). 자체 게이트가 이미 있는 repo 에서 전역 등록이 겹치면 같은 변경을 두 번 알린다 — 첫 단위의 config `[stale] stop_hook = false` 로 끌 수 있다. — 결정: wiki-init 착수 전.
+- (open) path-scoped-context 의 전달 방식. 두 안이 있다(#220).
   - B: `covers` 에서 `.claude/rules` 의 `paths:` 규칙을 생성한다.
   - C: PostToolUse(Read) hook 이 wiki-covers-query 의 조회 결과를 `additionalContext` 로 넣는다.
 
@@ -61,36 +61,36 @@ consumer repo 가 한 번의 초기화로 맥락 킷을 세우고, 킷이 코드
   - Edit·Write 가 규칙을 트리거하는지: 공식 문서에 없고, anthropics/claude-code 이슈 #38487·#88565 가 상충한다. 로컬 재현이 필요하다.
 
   결정: wiki-covers-query 착수 전. C 로 정하면 covers 조회의 출력 계약과 지연 예산을 그 단위에서 함께 정해야 해서, path-scoped-context 착수 전으로는 늦다.
-- (열림) 공용 wiki 페이지가 `~/.claude` 코드를 `covers` 로 가리키는 방법.
+- (open) 공용 wiki 페이지가 `~/.claude` 코드를 `covers` 로 가리키는 방법.
   - `covers` 는 페이지가 속한 git 최상위 기준이다(`wiki_check.py` 의 `covers_match` — covers 문법의 유일한 정의).
   - 공용 wiki 는 별도 clone(#216)이라 git 최상위가 `~/.claude/wiki` 이고, `~/.claude` 코드를 가리킬 수 없다(공용 wiki `wiki-shared-layer` 한계). 지금 공용 wiki 에 covers 페이지는 0개다.
   - 선택지 1: 비대상으로 유지한다. `~/.claude` 코드의 결정은 코드 옆 주석과 커밋에 둔다.
   - 선택지 2: 기준 repo 를 명시하는 키를 두고 `wiki_check`·`wiki_search` 가 함께 따르게 한다.
   - 결정: wiki-covers-query 착수 전.
-- (열림) wiki-graph-search 사용 측정 — 머지 뒤 2주(2026-10-14 무렵부터) transcript 로 잰다. 제외·중복 제거·신호·임계값은 그 plan 의 `# Decisions` 에 있다. 처분: 측정 결과를 적고, 임계값 미만이면 문서 안내를 고치거나 되돌림을 검토한다.
-- (열림) 후순위 후보(용어집, repo 전용 skill, 외부 사실 자동 생성)를 이 묶음에 넣을지. — 결정: context-eval 결과를 본 뒤. 빈틈이 보이면 새 단위, 아니면 이월하거나 Out of scope 로 옮긴다.
+- (open) wiki-graph-search 사용 측정 — 머지 뒤 2주(2026-10-14 무렵부터) transcript 로 잰다. 제외·중복 제거·신호·임계값은 그 plan 의 `# Decisions` 에 있다. 처분: 측정 결과를 적고, 임계값 미만이면 문서 안내를 고치거나 되돌림을 검토한다.
+- (open) 후순위 후보(용어집, repo 전용 skill, 외부 사실 자동 생성)를 이 묶음에 넣을지. — 결정: context-eval 결과를 본 뒤. 빈틈이 보이면 새 단위, 아니면 이월하거나 Out of scope 로 옮긴다.
 
 # Plans
 
 - `plans/2026-09-29-wiki-freshness-gate/wiki-freshness-gate-plan.md` — 첫 단위. frontmatter 형식 검사, `covers` 신선도 검사(보고·브랜치·Stop hook 모드), 대표 질문 검사를 `skills/wiki/wiki_check.py` 로 일반화한다. 설정 템플릿과 `covers`·`verified_at` 규약의 정본 문서(`skills/wiki/SKILL.md`)를 둔다. 대표 질문 형식(`[[smoke.questions]]`)의 정본이다. 등록(hook·CI)은 하지 않는다.
-- wiki-init (미착수) — `/wiki init`: consumer repo 에 wiki 뼈대(WIKI.md·index·log 템플릿과 검사 config)를 만들고, 첫 단위의 검사를 등록하는 절차(Stop hook·CI 예시)를 낸다. WIKI.md 템플릿은 `covers` 규약을 다시 쓰지 않고 SKILL.md 를 가리킨다. consumer 파일을 쓰는 새 명령이라 structural 후보이고 규모는 착수 때 판정한다. 선행: wiki-freshness-gate. 배포 형태·게이트 등록 위치가 정해져야 한다. 등록 전에 확인할 항목(스크립트 부재 guard, CI `fetch-depth`, 인터프리터 고정, 다른 Stop hook 과의 출력 합쳐짐, vendoring 버전 차이)은 첫 단위 plan 의 `# Deferred` 에 있다.
-- repo-init (미착수) — `/repo-init` 과 점검(`check`): 상시 진입 문서, 검증 명령 식별, 킷 상태 점검. `check` 는 그 시점에 머지된 층만 보고, 뒤 단위가 자기 층의 점검 항목을 더한다. 정본이 AGENTS.md 로 정해지면 전역 CLAUDE.md §3-1 의 "per-repo CLAUDE.md" 문구를 같은 plan 에서 맞춘다. 정본 파일이 정해져야 한다.
-- lsp-first (미착수) — 탐색에서 LSP 진단·심볼 조회를 먼저 쓰게 한다(plugin 활성, 언어 서버 설치 점검). 이력: 2026-07-26 lifetime 사용 0 으로 끔 → 2026-09-03 되돌림 → 2026-09-26 바이너리 없음으로 끔(사용자 결정) → 2026-09-28 `/doctor` 로 제거. 착수 전에 0회의 원인을 밝히거나 context-eval 로 필요를 보인다(Constraints). plugin 활성은 `settings.json` 이라 머지로 전달되지 않는다. README `enabledPlugins` 서술 drift 는 `plans/2026-09-28-push-colon-delete-hook` 의 `# Deferred` 에 있다.
-- context-eval (미착수) — 맥락이 실제로 도움이 되는지 LLM 응답으로 잰다. 첫 단위의 `[[smoke.questions]]` 를 질문 세트로 재사용하고 과거 작업 replay 를 더한다. 킷 없는 기준선을 먼저 잰다. pilot repo 와 eval 예산이 정해져야 한다.
-- path-scoped-context (미착수) — 해당 파일을 읽을 때만 관련 결정을 로드한다. 전달 방식(B: `covers` 에서 `.claude/rules` 의 `paths:` 규칙 생성 / C: Read 시점 hook 주입, #220)은 Open question 이다.
+- wiki-init (not started) — `/wiki init`: consumer repo 에 wiki 뼈대(WIKI.md·index·log 템플릿과 검사 config)를 만들고, 첫 단위의 검사를 등록하는 절차(Stop hook·CI 예시)를 낸다. WIKI.md 템플릿은 `covers` 규약을 다시 쓰지 않고 SKILL.md 를 가리킨다. consumer 파일을 쓰는 새 명령이라 structural 후보이고 규모는 착수 때 판정한다. 선행: wiki-freshness-gate. 배포 형태·게이트 등록 위치가 정해져야 한다. 등록 전에 확인할 항목(스크립트 부재 guard, CI `fetch-depth`, 인터프리터 고정, 다른 Stop hook 과의 출력 합쳐짐, vendoring 버전 차이)은 첫 단위 plan 의 `# Deferred` 에 있다.
+- repo-init (not started) — `/repo-init` 과 점검(`check`): 상시 진입 문서, 검증 명령 식별, 킷 상태 점검. `check` 는 그 시점에 머지된 층만 보고, 뒤 단위가 자기 층의 점검 항목을 더한다. 정본이 AGENTS.md 로 정해지면 전역 CLAUDE.md §3-1 의 "per-repo CLAUDE.md" 문구를 같은 plan 에서 맞춘다. 정본 파일이 정해져야 한다.
+- lsp-first (not started) — 탐색에서 LSP 진단·심볼 조회를 먼저 쓰게 한다(plugin 활성, 언어 서버 설치 점검). 이력: 2026-07-26 lifetime 사용 0 으로 끔 → 2026-09-03 되돌림 → 2026-09-26 바이너리 없음으로 끔(사용자 결정) → 2026-09-28 `/doctor` 로 제거. 착수 전에 0회의 원인을 밝히거나 context-eval 로 필요를 보인다(Constraints). plugin 활성은 `settings.json` 이라 머지로 전달되지 않는다. README `enabledPlugins` 서술 drift 는 `plans/2026-09-28-push-colon-delete-hook` 의 `# Deferred` 에 있다.
+- context-eval (not started) — 맥락이 실제로 도움이 되는지 LLM 응답으로 잰다. 첫 단위의 `[[smoke.questions]]` 를 질문 세트로 재사용하고 과거 작업 replay 를 더한다. 킷 없는 기준선을 먼저 잰다. pilot repo 와 eval 예산이 정해져야 한다.
+- path-scoped-context (not started) — 해당 파일을 읽을 때만 관련 결정을 로드한다. 전달 방식(B: `covers` 에서 `.claude/rules` 의 `paths:` 규칙 생성 / C: Read 시점 hook 주입, #220)은 Open question 이다.
   - B 로 가면 두 가지를 함께 한다. `covers` 는 fnmatch(`*` 가 `/` 를 넘는다)이고 `paths:` 는 glob 이라 변환 규칙이 필요하다. 생성한 규칙이 `covers` 와 어긋나는지 보는 검사도 이 단위가 가진다.
   - 선행: wiki-freshness-gate(`covers` 형식). C 로 가면 wiki-covers-query 도 선행이다.
-- git-impact (미착수) — git 이력에서 함께 바뀌어 온 파일을 뽑아 변경 영향 범위를 제시한다(피드백 층).
+- git-impact (not started) — git 이력에서 함께 바뀌어 온 파일을 뽑아 변경 영향 범위를 제시한다(피드백 층).
 - `plans/2026-09-30-wiki-graph-search/wiki-graph-search-plan.md` — #221 첫 단위, "요청 시" 층. 규모는 medium.
   - `wiki_search.py` 가 wiki 를 섹션 트리·`[[링크]]`(별칭 포함)·`[!open]`/`[!conflict]` 구조로 읽는다.
   - 결과에 섹션 위치와 관련 페이지를 붙이고, `--links-to`·`--open` 질의를 둔다.
-- wiki-covers-query (미착수) — #221 둘째 단위. 규모는 착수 때 판정한다(예비값 medium).
+- wiki-covers-query (not started) — #221 둘째 단위. 규모는 착수 때 판정한다(예비값 medium).
   - covers 간선을 두고 `--covers <파일>` 질의(그 파일에 걸린 결정)를 둔다.
   - covers 가 가리키는 파일이 없는 경우는 새로 판정하지 않는다. `wiki_check.py` 의 판정("covers 매칭 0건")을 재사용해 질의 출력에 표시만 한다.
   - 공용 wiki 의 covers 기준은 Open question 이다.
   - 쓰는 곳: CLI, 그리고 C 안이면 path-scoped-context·#220.
   - 선행: wiki-graph-search.
-- wiki-multi-search (미착수) — #221 셋째 단위. 규모는 착수 때 판정한다(예비값 medium).
+- wiki-multi-search (not started) — #221 셋째 단위. 규모는 착수 때 판정한다(예비값 medium).
   - 머신 로컬 목록(추적하지 않는 파일)으로 여러 repo wiki 를 함께 검색한다. 결과마다 출처를 표시한다.
   - 공개 경계는 fail-closed 다. 공개 repo 세션, 판정할 수 없는 세션, 공개 여부 표시가 없는 wiki 는 모두 비공개 wiki 를 빼는 쪽으로 다룬다.
   - 선행: wiki-graph-search. 같은 파일을 고치고, 질의 모드가 wiki 여러 개에서 어떻게 동작할지 정해야 한다(stem 겹침, 링크는 같은 wiki 안에서만).
