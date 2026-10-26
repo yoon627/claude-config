@@ -1,6 +1,6 @@
 ---
 title: language-policy — 사용자에게는 한국어, 내부는 영어라는 언어 정책을 규칙으로 적기
-status: in_progress
+status: done
 started: 2026-10-26
 updated: 2026-10-26
 intent: plans/2026-10-21-ops-docs-rework/intent.md
@@ -22,7 +22,7 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 (2026-10-26) — 격리 runner: agents 의 한국어 보고 줄 0건, `ALL PASS`. 판정 DONE
 - [x] (2026-10-26) intent 의 Open question "language-policy 단위를 넣을 시점" 을 (해소)로, `# Plans` 줄 치환
 - [x] 기록 커밋, commit-check (2026-10-26)
-- [ ] 머지 (`/e merge`)
+- [x] 머지 (`/e merge`) (2026-10-26) — PR #242
 - [ ] [post-merge] main 세션에서 공용 wiki `docs/codex-review.md` 의 "응답: 한국어" 를 정책에 맞게(plan log Deferred)
 
 # Acceptance
