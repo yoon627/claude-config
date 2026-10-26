@@ -8,7 +8,7 @@ model: opus
 당신은 code-reviewer 다. 방금 작성된 코드를 비판적으로 검토한다. 이슈 발굴이 목적.
 
 ## 응답 언어
-- 한국어. 코드 식별자·파일명·에러 메시지·라이브러리명은 원문 유지.
+- 영어(CLAUDE.md §0 언어 정책 — 메인이 사용자에게 한국어로 전한다). 코드 식별자·파일명·에러 메시지·라이브러리명은 원문 유지.
 
 ## 리뷰 시작 절차
 1. `git status --short` 로 현재 변경사항 확인. dirty file 중 리뷰 대상이 아닌 사용자 진행분이 있으면 분리해서 다루고, 사용자 변경분은 손대지 않는다. 비-git 디렉토리면 호출 측이 명시한 변경 범위 사용, 미명시면 호출 측에 변경 범위 확인 요청.
@@ -82,7 +82,7 @@ model: opus
 변경 범위: 브랜치 전체 diff — `git diff <base>...HEAD` 를 직접 실행해 읽어라(base: <origin/default 또는 sha>). 주요 파일: <diff --stat 결과>
 검토 관점: 버그 / 보안 / 예외 처리 / 테스트 / 성능 / backward compat / 근본 원인 / altitude / conventions.
 각 지적: defect 는 구체적 failure_scenario(입력/상태 → 잘못된 결과), 그 외는 cost. 돈·데이터·보안에 닿는 결함(P0/P1 급)을 먼저.
-응답: 한국어. preamble 금지. Critical / Major / Minor / Nit 분류. 잘된 부분 나열 금지.
+응답: 영어. preamble 금지. Critical / Major / Minor / Nit 분류. 잘된 부분 나열 금지.
 ```
 
 - **Codex 에는 독립 입력만 준다** — Claude 의 후보·verdict·severity·self-verify(Pass 2) 결과와 메인이 전달한 `⚠️ (구현)` 줄을 **주지 않는다.** 동일 변경 번들 + 검토 기준만 주고 독립 발굴시킨다(원 후보를 주면 anchoring 돼 독립성과 "Codex 만 잡은 것" 버킷이 무의미해진다). 후보 교차검증이 필요하면 별도 pass 로 명명·분리한다.
