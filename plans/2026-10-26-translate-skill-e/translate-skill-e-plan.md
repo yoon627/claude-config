@@ -1,6 +1,6 @@
 ---
 title: translate-skill-e — skills/e/SKILL.md 를 규칙 손실 없이 영어로 옮긴다
-status: in_progress
+status: done
 started: 2026-10-26
 updated: 2026-10-26
 intent: plans/2026-10-21-ops-docs-rework/intent.md
@@ -25,8 +25,8 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] simplify 점검 (2026-10-26) — 생략: 코드 변경 없음(§5 는 코드 변경에 필수)
 - [x] 사용자 diff 확인 (2026-10-26) — 사용자 "커밋"
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-26) — 격리 runner: `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, .ps1 변경 없음), check-e PASS, plan-lint·frontmatter-lint 통과. 크기 35,850B → 36,255B(보조). 판정 DONE
-- [ ] 기록 커밋(plan·log·phrases·locations·intent), commit-check
-- [ ] 머지 (`/e merge`)
+- [x] 기록 커밋(plan·log·phrases·locations·intent), commit-check (2026-10-26) — 커밋 2개(번역·기록), commit-check 이상 없음
+- [x] 머지 (`/e merge`) (2026-10-26) — PR #244
 - [ ] [post-merge] 새 세션에서 관찰 — 한국어 요청("오늘 여기까지")에 e 가 불리는지, e 의 보고·질문이 한국어인지
 - [ ] [post-merge] main 세션에서 공용 wiki 갱신 — pointers.md 의 [post-merge] 절, log. 관찰 뒤에 한다
 
