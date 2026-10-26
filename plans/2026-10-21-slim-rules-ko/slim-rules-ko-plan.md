@@ -30,7 +30,7 @@ CLAUDE.md 를 규칙 하나 빠짐없이 짧게 고쳐 쓰고(한국어), 추천
 - [x] 선행 plan 정리 (2026-10-21) — `plans/2026-10-18-plan-format/plan-format-plan.md` 에 `intent:` 1줄과 끝난 [post-merge] wiki Task 체크(0c6f7e2), `plans/2026-10-20-remove-conclusion-block/remove-conclusion-block-plan.md` 에 `intent:` 1줄과 [post-merge] Task 체크(wiki 5b0950a, Acceptance 5 관찰)
 - [x] 기록 커밋(plan·log·manifest·intent·선행 plan), commit-check (2026-10-21)
 - [x] 머지 (`/e merge`) (2026-10-21) — PR #240
-- [ ] [post-merge] main 세션에서 공용 wiki 갱신 — plan log Deferred 의 이력 메모(있을 때)
+- [x] [post-merge] main 세션에서 공용 wiki 갱신 — plan log Deferred 의 이력 메모(있을 때) (2026-10-24) — 공용 wiki 커밋 653e690(ops-doc-slimming 결과·native-overlap-ledger 위치). 이력 메모는 모두 이미 wiki·README 에 있어 더할 것 없음
 
 # Acceptance
 1. 규칙 손실 0 — manifest 의 인라인·세부·신규 조항마다 새 위치 `§N «인용»`(또는 `경로 «인용»`)이 있고 그 인용이 그 파일에서 글자 그대로 찾힌다, CLAUDE.md 를 다시 가리키는 파일은 새 위치로 쓰지 않는다 — scratch 검사 스크립트로 전 조항 확인 + code-reviewer 가 단위 2·3 diff 를 조항 단위로 대조 — 새 위치 없는 조항 0
