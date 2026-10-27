@@ -1,6 +1,6 @@
 ---
 title: translate-skill-wt — skills/wt(본문·references 2개)를 규칙 손실 없이 영어로 옮긴다
-status: in_progress
+status: done
 started: 2026-10-27
 updated: 2026-10-27
 intent: plans/2026-10-21-ops-docs-rework/intent.md
@@ -24,7 +24,7 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] 사용자 diff 확인 (2026-10-27) — 사용자 "커밋": 포인터 바로잡음 3곳·원문 그대로 둔 출력 글자·Acceptance 문구 강화 포함
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-27) — `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, 무관), check-wt PASS, 변형 21/21·228/228, Acceptance 1~4·6 관찰
 - [x] 기록 커밋(plan·log·manifest·locations·check-wt·pointers·intent), commit-check (2026-10-27)
-- [ ] 머지 (`/e merge`)
+- [x] 머지 (`/e merge`) (2026-10-27) — PR #246
 - [ ] [post-merge] 새 세션에서 관찰 — 한국어 요청("로그인 버그 고쳐줘" 같은 작업 요청)과 `/wt` 호출에 맞는 skill 로 wt 가 골라지는지
 - [ ] [post-merge] main 세션에서 공용 wiki 확인·갱신 — pointers.md 의 [post-merge] 절
 
