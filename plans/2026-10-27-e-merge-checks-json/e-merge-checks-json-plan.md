@@ -20,7 +20,7 @@ updated: 2026-10-27
 - [x] 사용자 diff 확인 (2026-10-27) — "커밋 (추천)", Acceptance 1·2·5 변경 포함
 - [x] `bash scripts/verify.sh changed`, 수동 검증(대체 경로를 실제 PR 데이터로 돌려 본다) (2026-10-27) — 격리 runner: `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, 무관), 가짜 rollup 9개 모두 gh 판정과 같음(queued 0시각 행은 시험 파일의 기대값 표기가 틀렸고 gh 도 PASS), PR #253 은 gh 2.45 로 `PASS` — Acceptance 1·2·4 충족
 - [x] 머지 (`/e merge`) — 이 PR 의 M5 가 새 대체 경로를 처음 쓴다 (2026-10-27) — PR #254
-- [ ] [post-merge] main 세션에서 공용 wiki 갱신 — `docs/worktree-lifecycle.md` §E M5 줄, `pages/decision/e-merge-mode.md` checks 줄, `pages/entity/claude-code-bash-tool-shims.md` rtk 절 끝 줄, `index.md` 35줄(claude-code-bash-tool-shims 요약의 "`--json` 재조회") + log
+- [x] [post-merge] main 세션에서 공용 wiki 갱신 — `docs/worktree-lifecycle.md` §E M5 줄, `pages/decision/e-merge-mode.md` checks 줄, `pages/entity/claude-code-bash-tool-shims.md` rtk 절 끝 줄, `index.md` 35줄(claude-code-bash-tool-shims 요약의 "`--json` 재조회") + log (2026-10-27) — 공용 wiki 커밋 a84c508, 4곳 모두 대체 경로를 함께 적음(log.md 의 10-03 기록은 이력이라 그대로), check_links·schema clean — Acceptance 5 통과. 이 PR(#254)의 M5 가 실제로 대체 경로를 탔다: `--json` → `unknown flag: --json`, 식 → `PASS` → M6 머지 — Acceptance 3 통과
 
 # Acceptance
 1. M5 가 gh 2.50 미만을 다룬다 — `skills/e/SKILL.md` M5 줄 — `unknown flag: --json` 일 때 `gh pr view <N> --json statusCheckRollup --jq <식>` 으로 판정하는 규칙(check 별 최신 하나 — check run 은 이름+workflow, status 는 context, 완료 여부, 통과 값 목록, `NOTPASS`·`NONE`·호출 실패는 REJECTED)이 있고, `--json` 이 되는 경우의 기존 규칙은 그대로
