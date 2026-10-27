@@ -1,6 +1,6 @@
 ---
 title: e-merge-checks-json — /e merge M5 가 gh 2.50 미만에서도 checks 를 판정한다
-status: in_progress
+status: done
 started: 2026-10-27
 updated: 2026-10-27
 ---
@@ -19,7 +19,7 @@ updated: 2026-10-27
 - [x] simplify 점검 (2026-10-27) — 문장 규칙을 식 하나로 줄인 것이 곧 단순화, 더 줄일 곳 없음
 - [x] 사용자 diff 확인 (2026-10-27) — "커밋 (추천)", Acceptance 1·2·5 변경 포함
 - [x] `bash scripts/verify.sh changed`, 수동 검증(대체 경로를 실제 PR 데이터로 돌려 본다) (2026-10-27) — 격리 runner: `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, 무관), 가짜 rollup 9개 모두 gh 판정과 같음(queued 0시각 행은 시험 파일의 기대값 표기가 틀렸고 gh 도 PASS), PR #253 은 gh 2.45 로 `PASS` — Acceptance 1·2·4 충족
-- [ ] 머지 (`/e merge`) — 이 PR 의 M5 가 새 대체 경로를 처음 쓴다
+- [x] 머지 (`/e merge`) — 이 PR 의 M5 가 새 대체 경로를 처음 쓴다 (2026-10-27) — PR #254
 - [ ] [post-merge] main 세션에서 공용 wiki 갱신 — `docs/worktree-lifecycle.md` §E M5 줄, `pages/decision/e-merge-mode.md` checks 줄, `pages/entity/claude-code-bash-tool-shims.md` rtk 절 끝 줄, `index.md` 35줄(claude-code-bash-tool-shims 요약의 "`--json` 재조회") + log
 
 # Acceptance
