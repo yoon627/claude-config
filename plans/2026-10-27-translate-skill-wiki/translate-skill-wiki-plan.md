@@ -1,6 +1,6 @@
 ---
 title: translate-skill-wiki — skills/wiki 를 규칙 손실 없이 영어로 옮긴다
-status: in_progress
+status: done
 started: 2026-10-27
 updated: 2026-10-27
 intent: plans/2026-10-21-ops-docs-rework/intent.md
@@ -23,8 +23,8 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] simplify 점검 (2026-10-27) — 생략: 코드 로직 변경 없음(문서 번역과 문자열 4곳), 군더더기는 리뷰 4개가 문장 단위로 봤다
 - [x] 사용자 diff 확인 (2026-10-27) — "커밋 (추천)", 147줄 명확화·Acceptance 6 변경 포함
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-27) — 격리 runner: `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, 느린 테스트 2개는 변경과 무관), 공통 검사 PASS(조항 179·핵심 문구 204), 변형 전부 잡힘, wiki 테스트 3종·frontmatter-lint·plan-lint 통과, "신선도 절" 0건 — Acceptance 1~7 충족
-- [ ] 기록 커밋(plan·log·manifest·locations·check.json·terms·intent), commit-check
-- [ ] 머지 (`/e merge`)
+- [x] 기록 커밋(plan·log·manifest·locations·check.json·terms·intent), commit-check (2026-10-27) — 커밋 단위 이상 없음
+- [x] 머지 (`/e merge`) (2026-10-27) — PR #253
 - [ ] [post-merge] 새 세션에서 관찰 — `/wiki query <질문>` 명시 호출이 wiki 를 불러 `wiki_search.py` 를 실행하는지, 단순 질문에는 골라지지 않는지
 - [ ] [post-merge] main 세션에서 공용 wiki 확인 — `~/.claude/wiki/WIKI.md` 61줄 "(절차는 `skills/wiki/SKILL.md` 공개 점검)" → "Public check"(같은 줄의 "CLAUDE.md §11 공개 점검" 도 함께), ops-doc-slimming·log 기록
 
