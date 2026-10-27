@@ -1,0 +1,239 @@
+{
+  "file": "skills/wiki/SKILL.md",
+  "base": "2f6a760",
+  "manifest": "plans/2026-10-27-translate-skill-wiki/manifest.md",
+  "locations": "plans/2026-10-27-translate-skill-wiki/locations-en.txt",
+  "keep": [
+    "`[공용]`",
+    "`L20 §결정 (L18-35): …`",
+    "`관련: → 나가는 · ← 들어오는`",
+    "`훅`",
+    "`찾을 wiki 가 없다`",
+    "`UTF-8 아님`",
+    "check_links: 읽기 실패",
+    "\"covers 읽기 실패\"",
+    "\"검사 대상 아님\"",
+    "\"미확인\"",
+    "\"작업 트리 기준 — … 미커밋 변경 N개\"",
+    "\"인자 오류\""
+  ],
+  "frontmatter": [
+    "---",
+    "name: wiki",
+    null,
+    "---"
+  ],
+  "headings": [
+    "# wiki — operating the LLM Wiki (persistent project memory)",
+    "## When to use",
+    "## Arguments",
+    "## Public check (everything that a shared-wiki entry publishes)",
+    "## ingest",
+    "## query",
+    "## lint",
+    "## Freshness (`covers`·`verified_at`)",
+    "## Boundaries"
+  ],
+  "numbered": [
+    {
+      "from": "## ingest",
+      "to": "## query",
+      "first": 1,
+      "last": 10
+    },
+    {
+      "from": "## query",
+      "to": "## lint",
+      "first": 1,
+      "last": 4
+    },
+    {
+      "from": "**Clearing the notice**",
+      "to": "**Registering the hook**",
+      "first": 1,
+      "last": 3
+    }
+  ],
+  "mutations": [
+    [
+      "main-only writes",
+      "Page writes are done **only by the main agent**",
+      "Page writes are done by any agent"
+    ],
+    [
+      "WIKI.md optional",
+      "**always read the target wiki's `WIKI.md`**",
+      "read the target wiki's `WIKI.md` if needed"
+    ],
+    [
+      "skill wins",
+      "On conflict, CLAUDE.md wins.",
+      "On conflict, this skill wins."
+    ],
+    [
+      "worktree writes",
+      "so writes happen only in a main session",
+      "so writes may happen in a worktree session"
+    ],
+    [
+      "git -C allowed",
+      "Do not judge it with `git -C ~/.claude …`",
+      "Judge it with `git -C ~/.claude …`"
+    ],
+    [
+      "ingest automatic",
+      "propose ingest (not automatic)",
+      "run ingest automatically"
+    ],
+    [
+      "no diff confirmation",
+      "show the final diff before committing and confirm",
+      "commit without showing the diff and confirm"
+    ],
+    [
+      "unknown is public",
+      "(unknown = treated as private)",
+      "(unknown = treated as public)"
+    ],
+    [
+      "unsure goes shared",
+      "If unsure, the repo wiki.",
+      "If unsure, the shared wiki."
+    ],
+    [
+      "other repo writes shared",
+      "**A shared-wiki target in another repo** is not written",
+      "**A shared-wiki target in another repo** is written directly"
+    ],
+    [
+      "private names allowed",
+      "(do not write private repo names)",
+      "(write the private repo name)"
+    ],
+    [
+      "raw editable",
+      "(once, immutable afterwards — never edited or deleted)",
+      "(edit it as needed)"
+    ],
+    [
+      "warn and proceed",
+      "(no proceeding after a warning)",
+      "(warn and proceed)"
+    ],
+    [
+      "one outbound link",
+      "≥2 outbound `[[links]]`",
+      "≥1 outbound `[[links]]`"
+    ],
+    [
+      "push always",
+      "Push only on request.",
+      "Push every time."
+    ],
+    [
+      "skip on any exit 2",
+      "skip the lookup only for `찾을 wiki 가 없다`",
+      "skip the lookup on any exit 2 such as `찾을 wiki 가 없다`"
+    ],
+    [
+      "guess when missing",
+      "state \"not in the wiki\" (no guessing)",
+      "answer from general knowledge"
+    ],
+    [
+      "cite without wiki",
+      "**together with which wiki they belong to**",
+      "without naming the wiki"
+    ],
+    [
+      "shared points to private",
+      "Shared pages do not point to pages of private repos.",
+      "Shared pages may point to pages of private repos."
+    ],
+    [
+      "lint auto fix",
+      "Checks only, no automatic fixes",
+      "Checks and fixes automatically"
+    ],
+    [
+      "follows limit",
+      "They do not follow `--limit`.",
+      "They follow `--limit`."
+    ],
+    [
+      "default 10",
+      "`--limit N` (default 5)",
+      "`--limit N` (default 10)"
+    ],
+    [
+      "config on 3.9",
+      "Reading a config needs Python 3.11+ (`tomllib`).",
+      "Reading a config works on Python 3.9+."
+    ],
+    [
+      "missing value violates",
+      "(unconfirmed, not a violation)",
+      "(unconfirmed, a violation)"
+    ],
+    [
+      "value without check",
+      "Write that value only after checking the page's claims",
+      "Write that value whenever stale reports it, checking the page's claims"
+    ],
+    [
+      "report takes base",
+      "`--report` does not take `--base` (exit 2).",
+      "`--report` also takes `--base`."
+    ],
+    [
+      "project dir allowed",
+      "Do not use `${CLAUDE_PROJECT_DIR}` in the wiki path",
+      "Use `${CLAUDE_PROJECT_DIR}` in the wiki path"
+    ],
+    [
+      "global paths",
+      "But do not pass the wiki path·`--config` when registering globally",
+      "Also pass the wiki path·`--config` when registering globally"
+    ],
+    [
+      "hook nonzero exit",
+      "always with exit 0",
+      "with exit 2 on failure"
+    ],
+    [
+      "skill registers hook",
+      "this skill does not register hooks or CI",
+      "this skill registers the hook"
+    ],
+    [
+      "other repos write",
+      "Sessions of other repos do not write to the shared wiki (proposals only).",
+      "Sessions of other repos may write to the shared wiki."
+    ],
+    [
+      "kept literal translated",
+      "`UTF-8 아님`",
+      "`not UTF-8`"
+    ],
+    [
+      "old format accepted",
+      "7–64 hex characters are the old format (a commit value) and a violation",
+      "7–64 hex characters are the old format (a commit value) and still accepted"
+    ],
+    [
+      "unknown version accepted",
+      "needs a script update (exit 2)",
+      "is accepted as is"
+    ],
+    [
+      "shared skips public check",
+      "Every write to the shared wiki must pass the public check.",
+      "Writes to the shared wiki may skip the public check."
+    ],
+    [
+      "shared lookup skipped",
+      "Even if the current repo has no wiki, look up the shared wiki",
+      "If the current repo has no wiki, skip the shared wiki"
+    ]
+  ]
+}
