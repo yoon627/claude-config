@@ -1,0 +1,56 @@
+# manifest clause → location in skills/commit-check/SKILL.md. Format: <id> | <quote>; several quotes joined by " ‖ "
+F.1 | Checks whether the current branch's not-yet-published (unpushed) commits are each "one reviewable purpose", builds a proposal table of folds (fixup), splits (by file), reordering and message fixes, and once the user approves, restructures only the commit boundaries while keeping the code content unchanged.
+F.2 | Called at dlc wrap-up (after the step 16 commit) and from `/e merge` (before push, when there are uncleaned commits), and also used for an explicit `/commit-check` call or requests like "clean up my commits / split this commit / fold these commits".
+F.3 | It does not push.
+P.1 | A commit is one reviewable purpose. This skill looks at the branch's **unpublished** commits by that standard, and when something needs fixing it goes propose → approve → restructure.
+P.2 | The model judges; `commit_units.py` collects, validates and restructures (the script enforces every safety condition — do not bypass it by composing git commands yourself).
+J.1 | **Fold (fixup)**: follow-up fixes to the same work — review fixes, corrections of typos and simple mistakes, polishing the same file after a draft, `wip:`·`fixup!` commits. Fold them into the earlier commit with the same purpose.
+J.2 | For a `fixup!` commit, the default proposal is to fold it into `fixup_of` (the in-range target that approximates the target selection of git `rebase --autosquash` — ref names and `HEAD~n` are not resolved) (no `show` check needed).
+J.3 | This default takes precedence over the `plan-only` default below — a `fixup!` holding only plan files is folded into its target too.
+J.4 | When a `/e` WIP commit spans several units, make one `{"from": [unit, WIP], "paths": [that unit's paths]}` entry per unit to split the WIP by path and fold each part.
+J.5 | `squash!`·`amend!` also point to a target through `fixup_of`, but folding them carries a message meaning (squash = combine the bodies, amend = replace the message), so state `message` in the plan entry.
+J.6 | If `fixup_of` is null, write "target unconfirmed/out of range" (a typo in the title, or the target is already published, on the default branch, on another branch or tagged) and do not fold.
+J.7 | When several units changed the same file, folding into an earlier unit can conflict and make apply refuse — then leave it unapplied and put the reason in the proposal table.
+J.8 | For other follow-up fixes, `overlaps` (a later commit changes an earlier commit's file again) is the first signal; check with `show` whether the purpose is really the same.
+J.9 | **Split**: a commit that mixes two or more purposes — fixes for different problems, a refactor or config change unrelated to the feature. Split it when the purposes separate by file.
+J.10 | If the purposes are mixed inside one file (by hunk), do not split automatically; only write "manual split needed" in the proposal table.
+J.11 | **Fix the message**: when the title differs from the repo's convention. The canonical convention is the commit section of that repo's AGENTS.md·CLAUDE.md; without one, read it from `convention_samples` (recent titles on the default branch). The title says what changed, the body says why.
+J.12 | **Leave as is**: if it is already one purpose in one commit, do not touch it. A plan-only commit (`plan-only`) serves a different purpose (keeping a record), so the default is not to fold it (but for a `fixup!` with a `fixup_of`, the fold default above wins).
+J.13 | **Out of range**: published commits (reachable from a remote), tagged commits and commits on another local branch drop out at the collection step (`excluded`). If a signed commit or a merge commit is in the range, do not restructure.
+S.1 | 1. **Collect** — from the repo root: ‖    uv run --no-project python "${CLAUDE_SKILL_DIR}/commit_units.py" collect
+S.1b | On failure (detached HEAD, a merge commit in the range, no base branch), report the reason and stop. If `on_default_branch` is true, it is the default branch, so do not restructure (report only).
+S.2 | 2. **Fast path** — with 0 commits in the range, end without a question with one line "no unpublished commits to check".
+S.2b | Even with 1, judge it — end with one line "no issues" only when the file list looks like one purpose (no unrelated areas mixed), there are no flags and the title fits the convention.
+S.3 | 3. **Judge** — look at each commit's `files`·`flags`·`overlaps`, and check the patch only of the commits that need it with `commit_units.py show <sha>` (do not run raw `git log/show`).
+S.4 | 4. **Proposal table** — if nothing needs changing, end with "no issues" (no question). Otherwise, with a `current commit → proposal → reason` table, write the following only when applicable:
+S.4a | - Intermediate commits unverified — intermediate commits made by the restructuring are combinations that never went through hooks or builds (the final tree is the same as the original).
+S.4b | - Removing a commit together with its revert by folding them (drop) is not supported.
+S.4c | - Manual split needed (by hunk).
+S.4d | - The number of commits excluded because this branch already pushed them (`excluded.published`) and excluded by tags (`excluded.tags`).
+S.5 | 5. **Approve** — ask apply / leave unapplied with `AskUserQuestion`. It is unpublished local history and can be undone, but approval before restructuring is a rule the user set (2026-09-24).
+S.5b | In a flow that cannot ask the user (unattended), do not apply; leave only the proposal table in the report.
+S.6 | 6. **Apply** — write the plan JSON to a scratch file with `Write`, then: ‖    uv run --no-project python "${CLAUDE_SKILL_DIR}/commit_units.py" apply <plan file>
+S.6b | On success you get `new_head`, `commits` (sha, title and files per commit), `backup_ref` and `rollback`.
+S.6c | On failure the branch, index and work tree are as they were before the call (except side effects the repo's commit-msg hook caused itself) — report the error text as is, then fix the plan and retry or leave it unapplied.
+S.7 | 7. **Report** — check that the files per commit in `commits` match the proposal table (reordering can cancel one commit's change against a later commit and drop a file — even if the final tree is the same, if it differs from the proposal, tell the user how to undo it (`rollback`)).
+S.7b | Put the new commit sha list, the backup ref and the undo command (`rollback`) in the report. Do not write to the caller's record files (plan etc.).
+M.1 | Before push, `/e merge` finds, among the commits going into the PR, the `wip`·`fixup` (including `squash!`·`amend!`) flag commits with `commit_units.py pending origin/<default>`,
+M.2 | and sorts each into `rewritable` (within this skill's range) / `published` (reached by a remote-tracking ref) / `held` (not on the remote, held by another local branch or tag) / `blocked` (the range cannot be restructured — `range_error`: merge commits, signed commits, the default branch, etc.; `pending` checks in advance the conditions apply would refuse).
+M.3 | Only when there is a `rewritable` one does it call this skill, **narrowed to cleaning up the `wip`·`fixup` flag commits** (`review-followup`·`plan-only` flags are not targets). In that case:
+M.4 | - For each `wip`·`fixup` flag commit, propose either a fold (into `fixup_of` or an earlier commit with the same purpose) or a reword to a proper title (`{"from": [sha], "message": ...}`)
+M.5 | — if the target is out of range (`fixup_of` null — e.g. a `fixup!` for an already published unit), reword is the answer. Reword also when the first commit of the range is a `wip` and there is no earlier commit to fold into.
+M.6 | - For a flag commit you propose to fold, also write "reword on conflict: `<title>`" in the proposal table, so one approval covers both.
+M.7 | If apply refuses with a conflict (`merge-tree --write-tree 실패`), do not leave it unapplied; switch only that commit to the reword written in the table and apply once more — a `fixup!` after several units changed the same file is this case, and leaving it unapplied makes `/e merge` stop at the same spot even when rerun.
+M.8 | If you need to change to a plan that was not in the table, ask again.
+M.9 | - Split, reorder and message proposals unrelated to the flags go in the table only for reference and not into the plan (if they were left unapplied, the whole merge would stop).
+M.10 | - Follow-up handling when the plan is left unapplied or apply fails is done by `/e` (this skill only returns the result).
+K.1 | Send back the `base`·`head` that `collect` gave unchanged (if the branch moved in between, apply refuses). `commits` is **the order of the new history**.
+K.2 | "schema": 1, ‖ "base": "<collect.base>", ‖ "head": "<collect.head>", ‖ "commits": [ ‖ {"from": ["<A>", "<C>"]}, ‖ {"from": ["<B>"], "message": "feat: new title\n\nbody\n"}, ‖ {"from": ["<D>"], "paths": ["src/a.py"], "message": "fix: fix a\n"}, ‖ {"from": ["<D>"], "paths": ["docs/b.md"], "message": "docs: update b\n"}
+K.3 | - `from`: the original commits to put into this new commit (in their original order). Several means a fold — the first commit is the target, and the new commit takes its author and message. The trailers of the rest (`Co-Authored-By` etc.) are merged without duplicates.
+K.4 | - `paths`: only when splitting by file. Only these paths of those commits' changes go in. A split entry requires a `message`, and every file of the original commit must be assigned to the entries with nothing missing and nothing overlapping. For a rename, put the old and new paths in the same entry.
+K.5 | - `message`: the new message. If omitted, the target commit's message. When the plan gives a message, or trailer merging makes the resulting message differ from the original, it goes through the repo's `commit-msg` hook (if the hook refuses, the whole apply is refused; a message the hook changed is used as is).
+K.6 | Folding commits that carry trailers that differ per session (`Claude-Session` etc.) almost always runs the hook.
+K.7 | - The canonical plan format is `validate_plan` in `commit_units.py`.
+N.1 | - push or force-push — published commits never enter the range, so there is no case that needs it.
+N.2 | - Restructuring the default branch (main, master, etc.), restructuring a range with a signed commit or merge commit, splitting by hunk, drop.
+N.3 | - Bypassing what the script refused by running git commands directly.
