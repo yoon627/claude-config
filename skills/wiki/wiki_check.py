@@ -10,7 +10,7 @@ stale 은 페이지 frontmatter `covers`(git 최상위 기준 fnmatch 패턴)에
 바뀌지 않은 것을 찾는다. --branch 는 merge-base(HEAD, base)..HEAD 의 commit 만 보고(CI·push 전),
 --stop-hook 은 Claude Code Stop hook 어댑터로 작업 트리까지 본다. --report 는 이력을 보지 않고 페이지의
 `verified_at`(페이지를 코드와 대조한 때의 covers 파일 내용 지문)을 지금 지문과 비교한다. 규약의 정본은
-SKILL.md 신선도 절이다.
+SKILL.md Freshness 절이다.
 
 smoke 는 config `[smoke]` 의 대표 질문마다 답할 페이지가 있고 index.md 에 등재됐고 본문에 근거가 있는지,
 `[smoke.forbid]` 의 금지 흔적(작업 브랜치 이름·plan 상태·사용자 패턴)이 pages 에 없는지 본다. `[smoke]` 가
@@ -698,7 +698,7 @@ def _date_problems(key: str, value: str, match, rule: str, want: str):
 
 
 def _covers_problems(value):
-    """covers 는 git 최상위 기준 상대 경로의 fnmatch 패턴이다(SKILL.md 신선도 절)."""
+    """covers 는 git 최상위 기준 상대 경로의 fnmatch 패턴이다(SKILL.md Freshness 절)."""
     if is_empty(value):
         yield "covers 빈 값", "경로 패턴이 하나도 없다 — 채우거나 키를 지운다"
         return
@@ -1066,7 +1066,7 @@ def stale_pages(
     covers: list[CoversPage], changed: set[str], deadline: float | None = None
 ) -> list[tuple[str, list[str]]]:
     """covers 에 걸린 변경이 있는데 페이지 자신은 변경 집합에 없는 페이지와 걸린 파일. 순서는 보지 않는다
-    — 페이지를 한 번 고쳤으면 같은 범위의 다른 변경은 알리지 않는다(SKILL.md 신선도 절의 한계). 페이지 수 ×
+    — 페이지를 한 번 고쳤으면 같은 범위의 다른 변경은 알리지 않는다(SKILL.md Freshness 절의 한계). 페이지 수 ×
     변경 수만큼 맞춰 보므로 hook 은 deadline 을 넘긴다. 패턴이 많은 페이지 하나로도 예산을 넘어 경로마다 본다."""
     stale = []
     for page in covers:
@@ -1814,7 +1814,7 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "페이지 frontmatter covers(git 최상위 기준 fnmatch 패턴)에 걸린 파일이 바뀌었는데 페이지는"
             " 바뀌지 않은 것을 찾는다(--branch·--stop-hook). --report 는 verified_at(대조한 때의 covers 파일"
-            " 지문)을 지금 지문과 비교한다. 규약은 SKILL.md 신선도 절."
+            " 지문)을 지금 지문과 비교한다. 규약은 SKILL.md Freshness 절."
         ),
     )
     stale.add_argument(
