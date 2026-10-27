@@ -25,8 +25,8 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-27) — `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, 무관), check-cc PASS, 변형 24/24·8/8·113/113, Acceptance 1~4·6 관찰
 - [x] 기록 커밋(plan·log·manifest·locations·check-cc·mut-cc·intent), commit-check (2026-10-27)
 - [x] 머지 (`/e merge`) (2026-10-27) — PR #247
-- [ ] [post-merge] 새 세션에서 관찰 — 한국어 요청("커밋 정리해줘")에 맞는 skill 로 commit-check 가 골라지는지
-- [ ] [post-merge] main 세션에서 공용 wiki 확인 — commit-check 문구를 인용한 곳이 있으면 영어로(지금 조사로는 이름·경로 참조만), ops-doc-slimming·log 기록
+- [x] [post-merge] 새 세션에서 관찰 — 한국어 요청("커밋 정리해줘")에 맞는 skill 로 commit-check 가 골라지는지 (2026-10-27) — 새 headless 세션이 "커밋 정리해줘"·"이 두 커밋 하나로 합쳐줘" 둘 다 `commit-check` 를 골랐다(직접 질문 표본 1개 ⚠️)
+- [x] [post-merge] main 세션에서 공용 wiki 확인 — commit-check 문구를 인용한 곳이 있으면 영어로(지금 조사로는 이름·경로 참조만), ops-doc-slimming·log 기록 (2026-10-27) — 인용 없음(이름·경로 참조만), 공용 wiki 커밋 441f2e5(ops-doc-slimming 5단계·log)
 
 # Acceptance
 1. 규칙 손실 0 — manifest 조항마다 locations-en.txt 의 영어 인용(조항 전체를 덮는 하나 이상, 파일 안에서 한 번)이 글자 그대로, 인용 밖에 글자가 없고(제목·frontmatter 틀·`description: ` 키·코드 펜스 제외), 변형을 넣으면 잡힌다 — `check-cc.js` 1·4·5절 + `node plans/2026-10-27-translate-skill-commit-check/mut-cc.js <root> <scratch 파일>`(규칙 변형·경계 삽입·H1·모든 문장 삭제) — missing·not found·uncovered 0, 변형 전부 FAIL. 뜻이 원문과 같다는 근거는 이 검사가 아니라 5(독립 대조)와 사용자 diff 확인이다
