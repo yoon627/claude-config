@@ -1,6 +1,6 @@
 ---
 title: translate-agent-plan-reviewer — 공통 대조 검사를 만들고 agents/plan-reviewer 를 규칙 손실 없이 영어로 옮긴다
-status: in_progress
+status: done
 started: 2026-10-27
 updated: 2026-10-27
 intent: plans/2026-10-21-ops-docs-rework/intent.md
@@ -25,7 +25,7 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] 사용자 diff 확인 (2026-10-27) — 사용자 "커밋": Codex 제목 접두 유지·Codex 프롬프트와 grep 영어화·공통 검사·Acceptance 강화와 9 추가 포함
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-27) — `ALL PASS`, 공통 검사 PASS, 변형 R 22/22·G 전부(swap 45·edge 120·blank 80·indent 11·fence 4·del 93), sync 테스트 11 OK·dry-run exit 0, Acceptance 1~4·6 관찰
 - [x] 기록 커밋(plan·log·manifest·locations·check.json·공통 검사·terms·intent), commit-check (2026-10-27)
-- [ ] 머지 (`/e merge`)
+- [x] 머지 (`/e merge`) (2026-10-27) — PR #249
 - [ ] [post-merge] 새 세션에서 관찰 — 계획 검토 요청에 plan-reviewer 가 골라지는지
 - [ ] [post-merge] main 세션에서 공용 wiki 확인 — plan-reviewer 문구 인용 확인, ops-doc-slimming·log 기록
 - [ ] [post-merge] Codex 가 있는 머신에서 `scripts/bootstrap/sync_codex_agents.py` 재실행
