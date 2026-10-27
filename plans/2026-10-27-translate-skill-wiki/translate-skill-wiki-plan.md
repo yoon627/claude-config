@@ -25,8 +25,8 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-27) — 격리 runner: `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, 느린 테스트 2개는 변경과 무관), 공통 검사 PASS(조항 179·핵심 문구 204), 변형 전부 잡힘, wiki 테스트 3종·frontmatter-lint·plan-lint 통과, "신선도 절" 0건 — Acceptance 1~7 충족
 - [x] 기록 커밋(plan·log·manifest·locations·check.json·terms·intent), commit-check (2026-10-27) — 커밋 단위 이상 없음
 - [x] 머지 (`/e merge`) (2026-10-27) — PR #253
-- [ ] [post-merge] 새 세션에서 관찰 — `/wiki query <질문>` 명시 호출이 wiki 를 불러 `wiki_search.py` 를 실행하는지, 단순 질문에는 골라지지 않는지
-- [ ] [post-merge] main 세션에서 공용 wiki 확인 — `~/.claude/wiki/WIKI.md` 61줄 "(절차는 `skills/wiki/SKILL.md` 공개 점검)" → "Public check"(같은 줄의 "CLAUDE.md §11 공개 점검" 도 함께), ops-doc-slimming·log 기록
+- [x] [post-merge] 새 세션에서 관찰 — `/wiki query <질문>` 명시 호출이 wiki 를 불러 `wiki_search.py` 를 실행하는지, 단순 질문에는 골라지지 않는지 (2026-10-27) — headless 2개(repo 밖 scratch 폴더, 쓰기 도구 없음): `/wiki query` 는 `wiki_search.py` 실행 → 공용 페이지 2개를 `[공용]` 표시와 함께 인용해 한국어로 답함(공용 wiki 변경 없음), "파이썬 리스트 뒤집기" 는 Skill 호출 없이 답함 — Acceptance 9 통과
+- [x] [post-merge] main 세션에서 공용 wiki 확인 — `~/.claude/wiki/WIKI.md` 61줄 "(절차는 `skills/wiki/SKILL.md` 공개 점검)" → "Public check"(같은 줄의 "CLAUDE.md §11 공개 점검" 도 함께), ops-doc-slimming·log 기록 (2026-10-27) — 공용 wiki 커밋 896cb3e, check_links·schema clean — Acceptance 8 통과
 
 # Acceptance
 1. 규칙 손실 0 — `node plans/2026-10-21-ops-docs-rework/check-translation.js <root> plans/2026-10-27-translate-skill-wiki/check.json` 이 PASS(인용 글자 그대로·한 번·manifest 순서, 인용 밖은 공백과 줄 머리 목록 표시만, 줄 모양·들여쓰기·단어 없는 줄·코드 펜스가 원문과 같다, 용어표 대조), 그리고 `node plans/2026-10-21-ops-docs-rework/mut-translation.js <root> <check.json> <scratch>` 가 원본 PASS 를 확인한 뒤 규칙 변형(R)·생성 변형(G, 용어 포함) 전부 FAIL, 종료 코드 0. 뜻이 원문과 같다는 근거는 이 검사가 아니라 5(독립 대조)와 사용자 diff 확인이다
