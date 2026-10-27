@@ -2,7 +2,7 @@
 title: translate-skill-e — skills/e/SKILL.md 를 규칙 손실 없이 영어로 옮긴다
 status: done
 started: 2026-10-26
-updated: 2026-10-26
+updated: 2026-10-27
 intent: plans/2026-10-21-ops-docs-rework/intent.md
 ---
 
@@ -27,8 +27,8 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-26) — 격리 runner: `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, .ps1 변경 없음), check-e PASS, plan-lint·frontmatter-lint 통과. 크기 35,850B → 36,255B(보조). 판정 DONE
 - [x] 기록 커밋(plan·log·phrases·locations·intent), commit-check (2026-10-26) — 커밋 2개(번역·기록), commit-check 이상 없음
 - [x] 머지 (`/e merge`) (2026-10-26) — PR #244
-- [ ] [post-merge] 새 세션에서 관찰 — 한국어 요청("오늘 여기까지")에 e 가 불리는지, e 의 보고·질문이 한국어인지
-- [ ] [post-merge] main 세션에서 공용 wiki 갱신 — pointers.md 의 [post-merge] 절, log. 관찰 뒤에 한다
+- [x] [post-merge] 새 세션에서 관찰 — 한국어 요청("오늘 여기까지")에 e 가 불리는지, e 의 보고·질문이 한국어인지 (2026-10-27) — 직접 물으면 한국어 요청에 맞는 skill 로 `e` 를 고름, 답은 한국어. plan 모드·2턴 실행에서는 e 를 부르기 전에 상태부터 확인했다(plan 모드 탓으로 보임 ⚠️). 표본 작음
+- [x] [post-merge] main 세션에서 공용 wiki 갱신 — pointers.md 의 [post-merge] 절, log. 관찰 뒤에 한다 (2026-10-27) — 공용 wiki 커밋 5ac030a(worktree-lifecycle·worktree-isolation-bash-guard·ops-doc-slimming·log)
 
 # Acceptance
 1. 규칙 손실 0 — slim-skill-e-ko manifest 의 조항(194개)마다 locations-en.txt 에 새 SKILL 의 영어 인용이 있고 글자 그대로 찾힌다 — scratch `check-e.js` — missing·not found 0
