@@ -17,7 +17,8 @@ const { execFileSync } = require('child_process');
 
 const [root, cfgPath, tmp] = process.argv.slice(2);
 const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
-const src = fs.readFileSync(path.join(root, cfg.file), 'utf8');
+const lf = (x) => x.replace(/\r\n/g, '\n');
+const src = lf(fs.readFileSync(path.join(root, cfg.file), 'utf8'));
 const check = path.join(__dirname, 'check-translation.js');
 const run = (text) => {
   fs.writeFileSync(tmp, text);
@@ -55,11 +56,11 @@ for (let i = fmLen; i < lines.length - 1; i++) {
   [copy[i], copy[i + 1]] = [copy[i + 1], copy[i]];
   record('G.swap', `${i + 1}<->${i + 2}`, run(copy.join('\n')));
 }
-for (const line of fs.readFileSync(path.join(root, cfg.locations), 'utf8').split('\n')) {
+for (const line of lf(fs.readFileSync(path.join(root, cfg.locations), 'utf8')).split('\n')) {
   if (!line.trim() || line.startsWith('# ')) continue;
-  for (const q of line.slice(line.indexOf(' | ') + 3).split(' ‖ ')) {
+  for (const q of line.slice(line.indexOf(' | ') + 3).split(' ‖ ').map((x) => x.split('⏎').join('\n'))) {
     const at = src.indexOf(q);
-    if (at < 0) continue;
+    if (at < 0) { console.log(`SETUP G.edge quote not found: ${q.slice(0, 40)}`); record('G.edge', q.slice(0, 40), false); continue; }
     const end = at + q.length;
     record('G.edge', q.slice(0, 40), run(src.slice(0, end) + ' Or skip it.' + src.slice(end)));
     record('G.edge', '** ' + q.slice(0, 37), run(src.slice(0, end) + '**' + src.slice(end)));
