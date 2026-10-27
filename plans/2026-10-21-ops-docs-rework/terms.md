@@ -16,6 +16,8 @@ translate-repo 단위는 착수 때 이 표를 읽고 따른다. 새로 정한 �
 | `merge-tree --write-tree 실패` | `commit_units.py` 의 git 실패 문구 — 충돌 거부를 알아본다 | translate-skill-commit-check |
 | git/OS stderr("modified or untracked files"·"Access is denied" 등) | 원래 영어 — 핵심 문구로 지킨다 | translate-skill-wt |
 | `"plan 반영용 요약"`(임시) | agent 출력 절의 옛 이름 — 아직 한국어인 agent 가 쓰는 동안 `skills/dlc/SKILL.md` 격리 경계 절과 공용 wiki(`pages/concept/plan-handoff.md`·`pages/concept/hub-and-spoke-isolation.md`)가 두 이름("Summary for the plan")을 함께 적는다. **agent 4개(researcher·plan-reviewer·code-reviewer·architecture-reviewer)를 다 옮긴 단위가 한국어 이름을 지운다** — dlc 를 먼저 옮기면 영어 dlc 도 이 따옴표를 남긴다 | translate-agent-researcher |
+| plan 파일 표지 `없음 — <…>` | plan 은 한국어 — `없음` 을 그대로 두고 자리표시자만 영어(`없음 — <reason>`). `none — <…>`(Split) 도 같다 | translate-agent-plan-reviewer |
+| `## Codex 병행` 이 붙은 본문 제목 | `## Codex 병행 검토 (optional)` → `## Codex 병행 review (optional)` — 접두만 원문, 나머지는 영어. 남은 reviewer agent 도 같게 | translate-agent-plan-reviewer |
 
 ## 용어 (한국어 → 영어)
 | 한국어 | 영어 | 메모 |
@@ -39,6 +41,12 @@ translate-repo 단위는 착수 때 이 표를 읽고 따른다. 새로 정한 �
 | agent 공통 절 제목 응답 언어 / 출처 우선순위 / 동작 규칙 / 확신도 / 출력 형식 | Response language / Source priority / Rules / Confidence / Output format | translate-agent-researcher — 남은 agent 3개도 같은 제목을 쓴다 |
 | agent 공통 응답 언어 문장 "영어(CLAUDE.md §0 언어 정책 — 메인이 사용자에게 한국어로 전한다)…" | "English (CLAUDE.md §0 language policy — the main agent relays it to the user in Korean). Keep code identifiers, library names, error messages and option names in their original form." | translate-agent-researcher |
 | 작성일(출처가 쓰인 날) / 기준일(검색한 날) | publication date / As of | translate-agent-researcher — 둘을 "date" 하나로 옮기면 섞인다 |
+| 묶음 모드 / "묶음 분할 리뷰" | Bundle mode / "bundle split review" | translate-agent-plan-reviewer — CLAUDE.md §5 "in bundle mode" |
+| 리뷰 출력 절 종합 판단 / 강한 우려 / 약한 우려 / 누락된 시나리오 / rollback 평가 / 확인한 파일 | Overall verdict / Strong concerns / Weak concerns / Missing scenarios / Rollback evaluation / Files checked | translate-agent-plan-reviewer — 남은 reviewer agent 도 같은 제목을 쓴다(`## Codex 병행` 은 원문 유지) |
+| Codex 프롬프트의 응답 제목 강한 우려 / 약한 우려 / 제안 | strong concerns / weak concerns / suggestions — 추출 grep 은 같은 머지에서 `grep -iE` 영어 제목으로 | translate-agent-plan-reviewer |
+| 검토 관점 | Review checklist (절 제목과 Codex 프롬프트 모두) | translate-agent-plan-reviewer — code-reviewer·architecture-reviewer 도 같은 낱말을 쓴다 |
+| Codex 출력 템플릿 필드 실행 여부 / 합의 항목 / Codex 만 잡은 것 / 메인만 잡은 것 | Run: yes \| skipped (reason: ...) / Agreed items / Found only by Codex / Found only by the main agent | translate-agent-plan-reviewer — `## Codex 병행` 제목은 원문 |
+| 도메인 특화 프롬프트 / 결론부 추출 패턴 | Domain-specific prompt / Conclusion extraction pattern | translate-agent-plan-reviewer — `scripts/bootstrap/test_sync_codex_agents.py` 의 `REMOVED` 가 한국어 "도메인 특화 프롬프트" 를 찾으므로 마지막 reviewer 를 옮기는 단위가 그 테스트를 함께 고친다 |
 
 ## 출처 (단위별 전체 대응표·결정)
 - `plans/2026-10-26-translate-claude-md/phrases-en.txt` — CLAUDE.md 핵심 문구(사용자 승인 2026-10-26)
@@ -48,3 +56,7 @@ translate-repo 단위는 착수 때 이 표를 읽고 따른다. 새로 정한 �
 - `plans/2026-10-27-translate-skill-wt/pointers.md` — wt 의 원문 유지 문자열과 출력 출처(`jira_worklog.py`)
 - `plans/2026-10-27-translate-skill-commit-check/translate-skill-commit-check-log.md` — 보류 → "leave unapplied" 결정
 - `plans/2026-10-27-translate-agent-researcher/translate-agent-researcher-plan.md` `# Decisions` — 출력 절 이름과 agent 공통 제목
+- `plans/2026-10-27-translate-agent-plan-reviewer/translate-agent-plan-reviewer-plan.md` `# Decisions` — 공통 대조 검사, Codex 프롬프트·추출 패턴
+
+## 공통 대조 검사
+- `plans/2026-10-21-ops-docs-rework/check-translation.js`·`mut-translation.js` — 단위는 설정 JSON(manifest·locations·원문 유지·frontmatter·제목 목록·번호 블록·허용 기호·규칙 변형)만 쓴다. 쓰는 법은 스크립트 머리 주석.

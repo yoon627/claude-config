@@ -46,6 +46,7 @@ CLAUDE.md·skills·agents 가 같은 규칙을 더 짧게 담고, 그 다음 영
 - plans/2026-10-27-translate-skill-wt/translate-skill-wt-plan.md — translate-repo 의 네 번째: skills/wt(본문·references) — 여기서부터 대조에 덮이지 않은 구간 검사·문장 삭제 sweep 을 쓴다(그 plan log Workflow Findings)
 - plans/2026-10-27-translate-skill-commit-check/translate-skill-commit-check-plan.md — translate-repo 의 다섯 번째: skills/commit-check — 대조는 인용 밖 글자 0 기준으로 강화(그 plan log)
 - plans/2026-10-27-translate-agent-researcher/translate-agent-researcher-plan.md — translate-repo 의 여섯 번째: agents/researcher — 공통 용어표(terms.md)를 만든 단위, dlc 의 "plan 반영용 요약" 포인터를 두 이름으로
+- plans/2026-10-27-translate-agent-plan-reviewer/translate-agent-plan-reviewer-plan.md — translate-repo 의 일곱 번째: agents/plan-reviewer — 공통 대조 검사(check-translation.js·mut-translation.js)를 만든 단위, 여기서부터 단위는 설정 JSON 만
 - translate-repo (not started) — skills(references·frontmatter description 포함)·agents 를 영어로, 파일별. 줄이기 단위가 모두 done 또는 폐기된 뒤. 각 줄이기 단위의 manifest 가 그 번역의 대조표
 - translate-hooks (not started) — hook 주입 문구와 그것을 확인하는 테스트(코드라 medium 이상·TDD). 사용자에게 보이는 문구는 Open question 을 따른다
 - translate-wiki-docs (not started) — `wiki/docs/` 를 영어로. 공용 wiki 라 main 세션에서, 그 문서를 가리키는 skill 의 번역과 순서를 맞춘다
