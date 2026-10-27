@@ -228,6 +228,40 @@ ok('node a.test.mjs → verified=true', () => assert.strictEqual(V('node a.test.
 ok('node app.js → verified 불변 (테스트 아님)', () => assert.strictEqual(V('node app.js'), false));
 ok('node --test-only server.js → verified 불변 (--test 완전 토큰만)', () =>
   assert.strictEqual(V('node --test-only server.js'), false));
+// gradle·maven 은 도구와 작업 이름 사이에 옵션이 여럿 올 수 있다(다른 repo 실측: `./gradlew --no-daemon :bot:test`).
+ok('gradlew 옵션 뒤 작업 → verified=true', () => {
+  assert.strictEqual(V('./gradlew --no-daemon :bot:test'), true);
+  assert.strictEqual(V('./gradlew --no-daemon --console=plain :app:check'), true);
+  assert.strictEqual(V('mvn -q -B verify'), true);
+  assert.strictEqual(V('./mvnw -q verify'), true);
+  assert.strictEqual(V('./gradlew -x test build'), true);
+});
+ok('gradlew·mvn 옵션 뒤 비검증 작업 → verified 불변', () => {
+  assert.strictEqual(V('./gradlew --no-daemon run'), false);
+  assert.strictEqual(V('mvn -q exec:java'), false);
+});
+ok('옵션 토큰·긴 작업 이름 속 키워드 → verified 불변 (작업은 - 로 시작하지 않고 키워드로 끝난다)', () => {
+  assert.strictEqual(V('mvn -B -DskipTests spring-boot:run'), false);
+  assert.strictEqual(V('./gradlew --no-daemon --build-cache bootRun'), false);
+  assert.strictEqual(V('./gradlew --no-daemon testClasses'), false);
+});
+ok('gradlew 실행 안 하는 플래그(--dry-run·-m·-h·--help) 뒤 작업 → verified 불변', () => {
+  assert.strictEqual(V('./gradlew --dry-run test'), false);
+  assert.strictEqual(V('./gradlew -m test'), false);
+  assert.strictEqual(V('./gradlew --help test'), false);
+  assert.strictEqual(V('./gradlew -h test'), false);
+});
+ok('gradlew -x test(테스트 제외) → verified 불변', () => {
+  assert.strictEqual(V('./gradlew -x test'), false);
+  assert.strictEqual(V('./gradlew --no-daemon -x test bootrun'), false);
+  assert.strictEqual(V('./gradlew --exclude-task test assemble'), false);
+});
+ok('bash run-db-tests.sh·tests.sh → verified=true', () => {
+  assert.strictEqual(V('bash run-db-tests.sh'), true);
+  assert.strictEqual(V('bash scripts/tests.sh'), true);
+});
+ok('bash contests.sh → verified 불변 (tests 는 완전 세그먼트만)', () =>
+  assert.strictEqual(V('bash contests.sh'), false));
 ok('node -e "..x.test.js.." → verified 불변 (인용문 내 미매칭)', () =>
   assert.strictEqual(V('node -e "require(\'./x.test.js\')"'), false));
 

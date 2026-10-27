@@ -187,14 +187,16 @@ const samePath = (a, b) => path.resolve(a).replace(/\\/g, '/') === path.resolve(
 // 실행·적용이지 검증이 아니다. 도구 이름만 보고 verified 로 치면 gate 가 헐거워진다.
 const VERIFY_TOOLS =
   /(\bpytest\b|\bjest\b|vitest|\bmocha\b|playwright|cypress|\bruff\b|eslint|flake8|\bmypy\b|\btsc\b|typecheck|shellcheck|stylelint|yamllint|hadolint|\brspec\b|\bphpunit\b|check_links)/;
+// gradle·maven 은 작업 앞에 옵션이 여럿 올 수 있다. 작업 토큰은 - 로 시작하지 않고 키워드로 끝나야 한다 —
+// 옵션 속 키워드(-DskipTests·--build-cache), 제외 대상(-x test), 실행하지 않는 플래그(--dry-run·-m)는 검증이 아니다.
 const VERIFY_SUBCMD =
-  /(cargo\s+(test|build|check|clippy)|go\s+(test|vet)|gradlew?\s+\S*(test|build|check)|mvn\s+\S*(test|verify|package)|npm\s+(test|run\s+(test|lint|build|typecheck|check|verify))|(pnpm|yarn)\s+(test|lint|typecheck|run\s+\S+)|python\s+-m\s+(pytest|unittest)|node\s+(--test(?=$|\s)|\S*\.test\.[cm]?js\b)|docker[-\s]compose\s+[^&|;]*\bconfig\b|\bmake\s+(test|lint|check|verify|typecheck)(?=$|\s)|dotnet\s+test\b|swift\s+test\b|terraform\s+validate\b|(prettier|black)\s+[^&|;]*--check\b)/;
+  /(cargo\s+(test|build|check|clippy)|go\s+(test|vet)|gradlew?(?:\s+(?:-x|--exclude-task)\s+\S+|\s+(?!-x\s|--exclude-task\s|-m\s|-h\s|--dry-run(?=\s)|--help(?=\s))-\S+)*\s+(?!-)[\w:-]*(test|build|check)(?=$|[\s;&|)])|mvnw?(?:\s+-\S+)*\s+(?!-)[\w:.-]*(test|verify|package)(?=$|[\s;&|)])|npm\s+(test|run\s+(test|lint|build|typecheck|check|verify))|(pnpm|yarn)\s+(test|lint|typecheck|run\s+\S+)|python\s+-m\s+(pytest|unittest)|node\s+(--test(?=$|\s)|\S*\.test\.[cm]?js\b)|docker[-\s]compose\s+[^&|;]*\bconfig\b|\bmake\s+(test|lint|check|verify|typecheck)(?=$|\s)|dotnet\s+test\b|swift\s+test\b|terraform\s+validate\b|(prettier|black)\s+[^&|;]*--check\b)/;
 const VERIFY = new RegExp(`(${VERIFY_TOOLS.source}|${VERIFY_SUBCMD.source})`);
 // 검증으로 오인되기 쉬운 비검증 시작 명령(cat README ... test, grep test, ls build 등)
 const NONVERIFY_START = /^\s*(cat|grep|rg|ls|echo|printf|find|head|tail|sed|awk)\b/;
 // 검증 스크립트 래핑 인식(`bash /tmp/x-verify.sh`). 키워드가 .sh 직전 완전 세그먼트일 때만 —
 // checkout.sh·test-data-loader.sh 처럼 키워드로 시작만 하는 비검증 스크립트를 verified 로 오인식하지 않게.
-const VERIFY_SCRIPT = /(^|&&|;)\s*(?:bash|sh)\s+(?:\S*[\/._-])?(?:verify|check|test)\.sh(?=$|\s|[;&|])/;
+const VERIFY_SCRIPT = /(^|&&|;)\s*(?:bash|sh)\s+(?:\S*[\/._-])?(?:verify|check|tests?)\.sh(?=$|\s|[;&|])/;
 
 // 이름이 규칙에 안 맞는 래퍼(`bash <scratch>/x_final.sh`) 안에서 돌린 검증 — 이름 규칙을 넓히는 대신 본문을 본다.
 // 경로는 명령 원문에서 뽑는다(소문자화하면 대소문자를 가리는 파일시스템에서 못 찾는다). 변수는 풀지 않는다.
