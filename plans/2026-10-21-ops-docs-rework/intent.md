@@ -2,7 +2,7 @@
 title: ops-docs-rework — 운영 문서를 규칙 손실 없이 짧게, 내부 문서는 영어로
 status: open
 started: 2026-10-21
-updated: 2026-10-26
+updated: 2026-10-27
 ---
 
 # Problem
@@ -23,6 +23,7 @@ CLAUDE.md·skills·agents 가 같은 규칙을 더 짧게 담고, 그 다음 영
 - 언어 정책의 행동 규칙은 CLAUDE.md §0 에 있다(language-policy 단위, 2026-10-26). agents 는 영어로 보고하고 메인이 한국어로 전한다.
 - 따옴표·코드 안의 문구(출력 형식·예시·라벨·intent 상태 토큰)도 영어로 옮긴다(사용자, 2026-10-26 "전부 영어로"). 번역 전 한국어 파일 안에 들어간 영어 인용·형식 문자열은 "한 파일에 언어를 섞지 않는다"의 대상이 아니다(인용이다 — `Commit or push only when the user asks.` 선례). intent 상태 토큰은 `(not started)`·`(open)`·`(resolved)`·`(carried over → …)`·`dropped` 이다(translate-claude-md 가 열린 intent 의 토큰을 바꿨다, 사용자 승인 2026-10-26).
 - 번역된 파일이 아직 한국어인 파일의 제목을 가리키면 영어로 옮기고, 그 파일을 번역하는 단위가 제목을 같은 영어로 맞춘다. 대응표는 `plans/2026-10-26-translate-claude-md/pointers.md` 의 "역방향 인용" 절(사용자, 2026-10-26).
+- 번역 단위는 착수 때 `plans/2026-10-21-ops-docs-rework/terms.md`(공통 용어표 — 원문 그대로 두는 문자열·용어)를 읽고 따르며, 새로 정한 것은 그 단위의 머지에서 표에 더한다(사용자, 2026-10-27 — 앞 단위의 용어 결정이 넘어오지 않아 같은 리뷰 지적이 다시 나왔다).
 
 # Out of scope
 - README·코드 주석의 언어(사용자, 2026-10-20).
@@ -44,6 +45,7 @@ CLAUDE.md·skills·agents 가 같은 규칙을 더 짧게 담고, 그 다음 영
 - plans/2026-10-27-translate-skill-c/translate-skill-c-plan.md — translate-repo 의 세 번째 파일: skills/c
 - plans/2026-10-27-translate-skill-wt/translate-skill-wt-plan.md — translate-repo 의 네 번째: skills/wt(본문·references) — 여기서부터 대조에 덮이지 않은 구간 검사·문장 삭제 sweep 을 쓴다(그 plan log Workflow Findings)
 - plans/2026-10-27-translate-skill-commit-check/translate-skill-commit-check-plan.md — translate-repo 의 다섯 번째: skills/commit-check — 대조는 인용 밖 글자 0 기준으로 강화(그 plan log)
+- plans/2026-10-27-translate-agent-researcher/translate-agent-researcher-plan.md — translate-repo 의 여섯 번째: agents/researcher — 공통 용어표(terms.md)를 만든 단위, dlc 의 "plan 반영용 요약" 포인터를 두 이름으로
 - translate-repo (not started) — skills(references·frontmatter description 포함)·agents 를 영어로, 파일별. 줄이기 단위가 모두 done 또는 폐기된 뒤. 각 줄이기 단위의 manifest 가 그 번역의 대조표
 - translate-hooks (not started) — hook 주입 문구와 그것을 확인하는 테스트(코드라 medium 이상·TDD). 사용자에게 보이는 문구는 Open question 을 따른다
 - translate-wiki-docs (not started) — `wiki/docs/` 를 영어로. 공용 wiki 라 main 세션에서, 그 문서를 가리키는 skill 의 번역과 순서를 맞춘다
