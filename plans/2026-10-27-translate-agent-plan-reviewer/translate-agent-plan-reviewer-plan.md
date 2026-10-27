@@ -26,8 +26,8 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-27) — `ALL PASS`, 공통 검사 PASS, 변형 R 22/22·G 전부(swap 45·edge 120·blank 80·indent 11·fence 4·del 93), sync 테스트 11 OK·dry-run exit 0, Acceptance 1~4·6 관찰
 - [x] 기록 커밋(plan·log·manifest·locations·check.json·공통 검사·terms·intent), commit-check (2026-10-27)
 - [x] 머지 (`/e merge`) (2026-10-27) — PR #249
-- [ ] [post-merge] 새 세션에서 관찰 — 계획 검토 요청에 plan-reviewer 가 골라지는지
-- [ ] [post-merge] main 세션에서 공용 wiki 확인 — plan-reviewer 문구 인용 확인, ops-doc-slimming·log 기록
+- [x] [post-merge] 새 세션에서 관찰 — 계획 검토 요청에 plan-reviewer 가 골라지는지 (2026-10-27) — 새 headless 세션이 한국어 계획 검토 요청 2개 모두 `plan-reviewer` 를 골랐다(직접 질문 표본 1개 ⚠️)
+- [x] [post-merge] main 세션에서 공용 wiki 확인 — plan-reviewer 문구 인용 확인, ops-doc-slimming·log 기록 (2026-10-27) — 인용 없음(이름·경로·개념어만), 공용 wiki 커밋 c1913a8(ops-doc-slimming 7단계·log)
 - [ ] [post-merge] Codex 가 있는 머신에서 `scripts/bootstrap/sync_codex_agents.py` 재실행
 - [ ] [post-merge] Codex 가 있는 머신에서 plan-reviewer 의 Codex 병행 검토를 한 번 돌려 결론부 추출 grep(`grep -iE '^##? (strong concerns|weak concerns|suggestions|integration)'`)이 우려 블록을 뽑는지 관찰
 
