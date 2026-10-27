@@ -1,134 +1,134 @@
 ---
 name: wt
-description: Git worktree 빠른 관리 — 목록/이동/생성+dlc/제거. `/wt <N>` 또는 기존 worktree 이름은 그 worktree 로 이동, 그 외 텍스트(요청사항)는 확인 없이 slug 를 정해 worktree 를 새로 만들고 그 안에서 `dlc` 로 작업. 접두 `?`(`/wt ? <막연한 설명>`)는 질문 모드 — AskUserQuestion 으로 요구사항을 구체화한 뒤 같은 생성 경로로 합류. 사용자가 `/wt`, `/wt <N>`, `/wt <기존이름>`, `/wt <요청사항>`, `/wt ? <막연한 설명>`, `/wt rm <name>` 형태로 호출할 때, 또는 dlc 가 worktree 밖에서 파일 변경 작업을 시작해 worktree 를 만들 때 사용.
+description: Quick Git worktree management — list/switch/create+dlc/remove. `/wt <N>` or an existing worktree name switches to that worktree; any other text (a request) picks a slug without confirmation, creates a new worktree and works inside it with `dlc`. The `?` prefix (`/wt ? <vague description>`) is question mode — it refines the requirement with AskUserQuestion, then joins the same creation path. Use when the user calls `/wt`, `/wt <N>`, `/wt <existing name>`, `/wt <request>`, `/wt ? <vague description>` or `/wt rm <name>`, or when dlc starts a file-changing task outside a worktree and creates a worktree.
 ---
 
-# wt — Git Worktree 관리
+# wt — Git worktree management
 
-## 인자
+## Arguments
 
-`args` 를 다음 규칙으로 해석:
+Interpret `args` by these rules:
 
-| 입력 | 동작 |
+| Input | Action |
 |---|---|
-| (빈 인자) | list |
-| `<정수 N>` | N번째 worktree 로 switch |
+| (empty) | list |
+| `<integer N>` | switch to the Nth worktree |
 | `rm <name>` | remove |
-| 기존 worktree branch 와 **정확일치** | 그 worktree 로 switch |
-| 접두 `?` (`? <막연한 설명>`) | 질문 모드 — AskUserQuestion 으로 요구사항 구체화 후 '요청사항' 경로로 합류 |
-| 그 외 모든 텍스트 (요청사항) | slug 파생 → worktree 생성(무확인) → 그 안에서 `dlc` 로 작업 |
+| **exact match** with an existing worktree branch | switch to that worktree |
+| `?` prefix (`? <vague description>`) | question mode — refine the requirement with AskUserQuestion, then join the "request" path |
+| any other text (a request) | derive a slug → create the worktree (no confirmation) → work inside it with `dlc` |
 
-- **해석 순서** (위에서부터 평가, **첫 매치에서 확정** 후 이후 규칙은 보지 않는다 — 표 행 순서가 아니라 이 순서가 우선순위의 단일 소스): ① 빈 인자 → list. ② 첫 토큰 `rm` → remove (worktree 이름으로 `rm` 사용 금지). ②.5 첫 비공백 문자가 `?` → **질문 모드** (ask 섹션 — `?` 제거한 나머지를 seed 로 구체화 후 request 합류). `?rm foo`·`?123` 등 첫 문자가 `?` 면 토큰/정수/정확일치 여부와 무관하게 질문 모드. ③ 인자 전체가 정수 → switch (범위 밖이면 안내 + list). ④ 인자 전체가 기존 worktree branch 와 정확일치 → switch. ⑤ 그 외 전부 → **요청사항**으로 간주 (request 섹션).
-- `rm` 뒤 인자 누락 등 형식 이상 → 위 표 출력 후 종료.
-- **dlc 없는 단순 생성(빈 worktree 만 만들기)은 없다** — 정확일치하지 않는 텍스트는 항상 요청사항으로 처리된다.
+- **Interpretation order** (evaluate from the top, **settle at the first match** and do not look at later rules — this order, not the table row order, is the single source of precedence): 1) empty → list. 2) first token `rm` → remove (do not use `rm` as a worktree name). 2.5) first non-space character is `?` → **question mode** (Question mode section — the rest after removing `?` is the seed to refine, then join request). If the first character is `?`, as in `?rm foo` or `?123`, it is question mode regardless of tokens, integers or exact matches. 3) the whole argument is an integer → switch (if out of range, notice + list). 4) the whole argument exactly matches an existing worktree branch → switch. 5) everything else → treated as **a request** (request section).
+- A malformed form, such as a missing argument after `rm` → print the table above and stop.
+- **There is no plain creation without dlc (creating only an empty worktree)** — text that does not match exactly is always handled as a request.
 
-> **참고**: 단순 list 만 보고 싶을 때는 사용자가 셸 `gwl` 함수(PowerShell 은 `scripts/gwl.ps1`, zsh 는 `scripts/gwl.zsh`)를 쓰는 것이 훨씬 빠름 (모델 왕복 없음). `/wt` 는 가공된 출력이나 후속 동작이 필요할 때만.
+> **Note**: when the user only wants the plain list, the shell `gwl` function (`scripts/gwl.ps1` for PowerShell, `scripts/gwl.zsh` for zsh) is much faster (no model round trip). `/wt` only when processed output or a follow-up action is needed.
 
-## 공통 규칙
+## Common rules
 
-- worktree path 는 항상 `.claude/worktrees/<name>` 으로 통일.
-- 브랜치 이름 = worktree 이름 (1:1).
-- **EnterWorktree 호출 시 항상 `path` 인자만 사용**. `name` 인자는 절대 쓰지 않는다 (prefix 자동 부착됨).
-- 실행 전 git repo 안인지 확인 (`git rev-parse --show-toplevel`).
-- 이름(slug·rm 대상) 검증: `^[a-zA-Z0-9._/-]+$`. 요청사항 원문은 검증 대상이 아니며, 그로부터 파생/입력된 slug 가 이 패턴을 만족해야 한다.
+- The worktree path is always `.claude/worktrees/<name>`.
+- Branch name = worktree name (1:1).
+- **When calling EnterWorktree, always use only the `path` argument**. Never use the `name` argument (it attaches a prefix automatically).
+- Before running, check that you are in a git repo (`git rev-parse --show-toplevel`).
+- Name (slug, rm target) validation: `^[a-zA-Z0-9._/-]+$`. The request text itself is not validated; the slug derived or entered from it must match this pattern.
 
 ## list
 
-`git worktree list` 결과를 `<path>  <sha>  [<branch>]` 형태로 인덱스(1-based) 와 함께 출력. 현재 cwd 와 일치하는 행 앞에 `→` 마커.
+Print `git worktree list` as `<path>  <sha>  [<branch>]` with an index (1-based). Put a `→` marker before the row matching the current cwd.
 
 ## switch
 
-먼저 **대상 worktree 를 해석**한다 (경로 2가지):
-1. `/wt <N>` (정수) — list N번째 worktree. 범위 밖이면 안내 + list.
-2. `/wt <기존이름>` — `git worktree list` 의 branch 이름과 **정확일치**하는 worktree 1개. 정확일치 0개면 **request** (요청사항 → 생성 + dlc) 로 폴백.
+First **resolve the target worktree** (2 ways):
+1. `/wt <N>` (integer) — the Nth worktree of the list. If out of range, notice + list.
+2. `/wt <existing name>` — the one worktree whose branch name in `git worktree list` is an **exact match**. With 0 exact matches, fall back to **request** (request → create + dlc).
 
-부분일치/모호 매칭 없음. 정확일치만.
+No partial or fuzzy matching. Exact match only.
 
-### 이동 방식 — 대상이 main 인지로 분기
-worktree 세션 안에서 `EnterWorktree` 는 `.claude/worktrees/` 하위 대상만 받는다 (main = repo 루트는 못 들어간다). 그래서 대상이 어디냐로 도구를 가른다:
+### How to move — branch on whether the target is main
+Inside a worktree session, `EnterWorktree` only accepts targets under `.claude/worktrees/` (it cannot enter main = the repo root). So the tool depends on where the target is:
 
-- **main 판정 = path 기준** (브랜치명 아님 — main/master 무관): 대상 path == `git worktree list --porcelain` 첫 `worktree <path>`(= main checkout). `/wt 1`(정수 1) 과 `/wt <main브랜치명>`(정확일치) 양 경로 모두 이 판정을 탄다.
-- **대상이 main 이면**:
-  - 이미 cwd 가 main (= `git rev-parse --show-toplevel` 가 위 첫 porcelain worktree path 와 일치) → `ExitWorktree` 호출 없이 "이미 main" 보고.
-  - 아니면 → **`ExitWorktree(action: keep)`** 로 세션을 원래(main) 위치로 복귀. 반환이 복귀 성공이면 완료. 반환이 "활성 worktree 세션 없음" no-op 이고 cwd 가 여전히 worktree 면(세션이 `/wt`/EnterWorktree 경유가 아니라 worktree 안에서 시작된 경우) → 자동 복귀 불가를 사용자에게 안내(새 세션에서 열거나 수동 이동). 세션 이력을 추측하지 말고 **툴 반환으로 판정**한다.
-- **대상이 그 외(하위 worktree)면** → `EnterWorktree(path: <abs>)`.
+- **Main detection = by path** (not by branch name — regardless of main/master): target path == the first `worktree <path>` of `git worktree list --porcelain` (= the main checkout). Both `/wt 1` (integer 1) and `/wt <main branch name>` (exact match) go through this detection.
+- **If the target is main**:
+  - If the cwd is already main (= `git rev-parse --show-toplevel` matches the first porcelain worktree path above) → report "already on main" without calling `ExitWorktree`.
+  - Otherwise → return the session to its original (main) location with **`ExitWorktree(action: keep)`**. If the return is a successful return to main, done. If it returns a "no active worktree session" no-op and the cwd is still the worktree (the session started inside the worktree, not via `/wt`/EnterWorktree) → tell the user automatic return is impossible (open a new session or move manually). Do not guess the session history; **judge by the tool's return**.
+- **If the target is anything else (a worktree below)** → `EnterWorktree(path: <abs>)`.
 
-## request (요청사항 → 생성 + dlc)
+## request (request → create + dlc)
 
-정수도 `rm` 도 아니고 기존 worktree branch 와 정확일치도 아닌 **모든 텍스트**는 요청사항으로 처리한다. 요청사항 원문은 worktree 생성 후 `dlc` 의 task 로 그대로 넘긴다.
+**All text** that is not an integer, not `rm` and not an exact match with an existing worktree branch is handled as a request. The request text is passed unchanged as the `dlc` task after the worktree is created.
 
-### 1. slug 파생
-- 요청사항에서 짧은 kebab-case slug 를 만든다: ASCII 소문자/숫자/`-`, ≤ ~30자, `^[a-zA-Z0-9._/-]+$` 만족.
-- 한글·비ASCII 요청은 핵심 의미를 영문으로 요약해 slug 화 (예: "로그인 리다이렉트 버그 수정" → `login-redirect-fix`).
-- 동사+대상 중심으로 간결하게, 불용어 제거.
+### 1. Derive the slug
+- Make a short kebab-case slug from the request: ASCII lowercase/digits/`-`, ≤ ~30 characters, matching `^[a-zA-Z0-9._/-]+$`.
+- For a Korean or other non-ASCII request, summarize the core meaning in English for the slug (e.g. "로그인 리다이렉트 버그 수정" → `login-redirect-fix`).
+- Keep it short, centered on verb+object, without filler words.
 
-### 2. 충돌 검사
-- 기존 브랜치(`git rev-parse --verify --quiet refs/heads/<slug>`) 또는 디렉토리(`.claude/worktrees/<slug>`) 존재 시 → `<slug>-2`, `<slug>-3` … 으로 비어있는 첫 후보를 자동 채택하고, 충돌 사실을 §4 보고에 표시.
+### 2. Collision check
+- If the branch (`git rev-parse --verify --quiet refs/heads/<slug>`) or the directory (`.claude/worktrees/<slug>`) exists → adopt the first free candidate among `<slug>-2`, `<slug>-3` … automatically, and show the collision in the §4 report.
 
-### 3. 생성 (확인 없이 — 위험기반 승인, CLAUDE.md §1)
-worktree 생성은 로컬·비파괴이고 `/wt rm <slug>` 한 번으로 되돌아가므로 **slug 승인을 묻지 않는다**. 대신 되돌리는 데 필요한 정보를 §4 보고에 담는다.
-0. **main dirty 확인**: `git status --porcelain` 으로 main worktree 의 미커밋 변경을 본다. 요청 대상 파일이 dirty 면 새 worktree 는 `origin/<default>` 기준이라 **그 편집이 담기지 않으므로** 생성 전에 그 사실을 보고한다(§1 사용자 변경사항 보호 — 모르고 옛 버전을 고치면 머지 때 충돌하거나 사용자 편집을 조용히 되돌린다).
-1. `<default>` = `git symbolic-ref --short refs/remotes/origin/HEAD` 출력에서 `origin/` 을 뗀 이름(실패 시 `main`). base ref 는 `origin/<default>`.
-2. `git fetch origin <default>` (실패해도 경고만 — 단 **fetch 실패 사실은 §4 보고에 stale base 로 노출**). fetch 후 `git rev-parse --short origin/<default>` 로 **base sha 를 캡처**(§4 보고값 — 어느 시점 base 위에 만들었는지가 되돌림 판단의 근거).
-3. `git worktree add --no-track -b <slug> .claude/worktrees/<slug> origin/<default>`. (`--no-track` 이유·첫 push autoSetupRemote 는 `references/rm-recovery.md` §A.)
-4. **ignored 설정 자동 복사** (옵트아웃 없음): **main worktree** 에서 ① basename 이 정확히 `.env` 인 파일과 ② repo-relative 경로가 정확히 `.claude/settings.local.json` 인 파일을 **동일 상대경로**로 `.claude/worktrees/<slug>/` 안에 복사. **이미 있으면 skip(덮어쓰지 않음)**, 복사 실패(권한 등)는 경고만·worktree 유지. ②를 복사하는 이유: Windows 등 repo 루트의 파일을 쓰지 않는 경우(목록은 `references/env-copy.md`)에는 로컬 설정을 세션의 작업 디렉토리(`EnterWorktree` 로 들어간 worktree)에서 읽어, 안 하면 worktree 세션의 **권한 허용목록이 0개**로 시작한다(§8 이 worktree 작업을 강제하므로 실사용 경로가 전부 해당). 그 밖의 경우는 2.1.211 부터 worktree 세션도 main checkout 의 파일을 읽어 복사본은 보조다. 후보 선정 predicate·제외 규칙·앵커드 일치가 필요한 이유도 `references/env-copy.md`.
+### 3. Create (without confirmation — risk-based approval, CLAUDE.md §1)
+Creating a worktree is local and non-destructive and is undone with one `/wt rm <slug>`, so **do not ask for slug approval**. Instead put the information needed to undo it in the §4 report.
+0. **Check whether main is dirty**: look at the main worktree's uncommitted changes with `git status --porcelain`. If a requested target file is dirty, the new worktree is based on `origin/<default>` and **will not contain that edit**, so report it before creating (§1 protect the user's changes — editing an old version unknowingly conflicts at merge or silently reverts the user's edit).
+1. `<default>` = the name from `git symbolic-ref --short refs/remotes/origin/HEAD` with `origin/` removed (`main` on failure). The base ref is `origin/<default>`.
+2. `git fetch origin <default>` (only a warning on failure — but **expose a fetch failure as a stale base in the §4 report**). After the fetch, **capture the base sha** with `git rev-parse --short origin/<default>` (the §4 report value — which base it was created on is the basis for judging an undo).
+3. `git worktree add --no-track -b <slug> .claude/worktrees/<slug> origin/<default>`. (The reason for `--no-track` and the first push's autoSetupRemote are in `references/rm-recovery.md` §A.)
+4. **Automatic copy of ignored settings** (no opt-out): from the **main worktree**, copy 1) files whose basename is exactly `.env` and 2) the file whose repo-relative path is exactly `.claude/settings.local.json` to **the same relative path** inside `.claude/worktrees/<slug>/`. **If it already exists, skip (do not overwrite)**; a copy failure (permissions, etc.) is only a warning and the worktree stays. The reason for copying 2): where the file at the repo root is not used, such as Windows (list in `references/env-copy.md`), local settings are read from the session's working directory (the worktree entered with `EnterWorktree`), so without it the worktree session starts with **0 allowed permissions** (§8 enforces worktree work, so every real path falls here). Otherwise, since 2.1.211, worktree sessions also read the main checkout's file, and the copy is a supplement. The candidate predicates, exclusion rules and why an anchored match is needed are also in `references/env-copy.md`.
 5. `EnterWorktree(path: <repo-root>/.claude/worktrees/<slug>)`.
-6. 새 cwd 에서 환경 셋업 (순서대로): **submodule self-heal**(`heal_submodules.py`) → **bootstrap**(`tools/bootstrap/bootstrap.py` 있으면, 없으면 skip). heal 을 **bootstrap 보다 먼저**(중단 corrupt submodule 이 이후 단계를 죽이는 것 방지). 무엇이 실패해도 **worktree 유지·에러 그대로 보고**(사용자가 수동 재실행 결정). self-heal/bootstrap 상세는 `references/rm-recovery.md` §B.
+6. Environment setup in the new cwd (in order): **submodule self-heal** (`heal_submodules.py`) → **bootstrap** (`tools/bootstrap/bootstrap.py` if present, otherwise skip). Heal **before bootstrap** (keeps an interrupted, corrupt submodule from killing the later steps). Whatever fails, **keep the worktree and report the error as is** (the user decides on a manual rerun). Self-heal/bootstrap details are in `references/rm-recovery.md` §B.
 
-### 4. 보고 + dlc 작업
-- 생성·진입 완료 후, 새 worktree(현재 cwd)에서 **`dlc` Skill 을 요청사항 원문을 인자로 invoke** (Skill 도구, `skill: dlc`, `args: <요청사항 원문>`). 이후는 dlc 가 규모 gate 부터 파이프라인까지 진행한다.
-- **dlc 시작 직전 보고 (무확인 생성의 안전망 — 승인 대신 되돌릴 정보를 준다)**: "신규 생성: `<slug>` (base `origin/<default>@<short-sha>`) — 되돌리기 `/wt rm <slug>`" + 해당될 때만 덧붙임:
-  - `.env: N copied, M skipped` · `settings.local: N copied, M skipped` (각각 둘 다 0 이면 생략)
-  - `git fetch` 실패로 **stale base** 사용 / heal·bootstrap skip·실패 (§3.6 은 실패해도 worktree 유지 — 무엇이 실패했는지 반드시 노출)
-  - 충돌 suffix 채택(`<slug>` 이미 있어 `<slug>-2` 로 생성)
-  - **near-miss 주의** (오타 오생성 대비 — 묻지 말고 생성하되 되돌릴 길을 알린다): **요청사항 원문에 공백이 없을 때만** 판정한다. 정규화 = 소문자화 + `-`/`_`/`.` 제거. 정규화한 요청사항이 정규화한 기존 worktree branch 와 **일치하거나 Levenshtein 거리 ≤2** 인 후보를 모은다. **후보가 정확히 1개일 때만** 보고에 한 줄 덧붙인다: "기존 `<name>` 오타였다면 `/wt rm <slug>` 후 `/wt <name>`". 후보 0개면 침묵, **2개 이상이면 후보명만 나열**하고 되돌리기 명령은 붙이지 않는다(잘못된 후보를 지목해 오도하지 않기 위함).
-- 마지막 줄: "→ dlc 시작: <요청사항>".
+### 4. Report + dlc work
+- After creating and entering, **invoke the `dlc` Skill with the request text as the argument** in the new worktree (the current cwd) (Skill tool, `skill: dlc`, `args: <request text>`). From there dlc proceeds from the size gate through the pipeline.
+- **Report right before dlc starts (the safety net of creating without confirmation — it gives the information to undo instead of approval)**: "Created: `<slug>` (base `origin/<default>@<short-sha>`) — undo with `/wt rm <slug>`" + append only when applicable:
+  - `.env: N copied, M skipped` · `settings.local: N copied, M skipped` (omit each when both are 0)
+  - a **stale base** used because `git fetch` failed / heal or bootstrap skipped or failed (§3.6 keeps the worktree even on failure — always expose what failed)
+  - a collision suffix adopted (`<slug>` already existed, so created as `<slug>-2`)
+  - **Near-miss note** (guards against creating by typo — create without asking, but point to the way back): judge it **only when the request text has no spaces**. Normalize = lowercase + remove `-`/`_`/`.`. Collect the candidates whose normalized existing worktree branch **equals the normalized request or is within Levenshtein distance ≤2**. **Only when there is exactly 1 candidate**, add one line to the report: "If you meant the existing `<name>`, `/wt rm <slug>`, then `/wt <name>`". With 0 candidates stay silent; **with 2 or more, list only the candidate names** and attach no undo command (so as not to mislead by pointing at the wrong candidate).
+- Last line: "→ dlc start: <request>".
 
-## 질문 모드 (`?` 접두 → 구체화 → request)
+## Question mode (`?` prefix → refine → request)
 
-요청이 막연해 바로 slug 로 굳히기 이른 경우, 접두 `?` 로 **요구사항을 먼저 대화로 좁힌 뒤** request 경로에 합류시킨다. 접미 `?` 는 쓰지 않는다 (일반 의문형 요청과 충돌하므로 접두만 트리거).
+When a request is too vague to fix into a slug yet, the `?` prefix **narrows the requirement in conversation first**, then joins the request path. A `?` suffix is not used (it would clash with ordinary question-form requests, so only the prefix triggers).
 
-### 1. seed 추출
-- `args` 에서 맨 앞 `?` 와 뒤따르는 공백을 제거한 나머지를 seed(막연한 설명)로 본다. `/wt ?` 처럼 seed 가 비어도 된다.
+### 1. Extract the seed
+- The seed (vague description) is `args` with the leading `?` and the spaces after it removed. The seed may be empty, as in `/wt ?`.
 
-### 2. 구체화 (AskUserQuestion)
-- seed 를 바탕으로 **무엇을 / 어디를 / 어떤 결과로** 끝낼지 좁히는 질문을 한다. seed 가 비면 "무엇을 하려는지"부터 묻는다.
-- 한 번에 안 좁혀지면 추가로 물어 작업 범위·대상·완료 기준을 확정한다. `?` 를 붙였다는 것 자체가 "대화로 좁히고 싶다"는 신호이므로 최소 1회는 묻는다.
-- 사용자가 취소/거부하면 아무것도 만들지 않고 종료.
-- 추가로 물어도 범위·대상·완료 기준이 확정되지 않으면 request 로 넘기지 않는다 — 더 묻거나 종료한다 (모호한 채 §3 으로 넘기면 slug 파생·dlc task 가 부실해진다).
+### 2. Refine (AskUserQuestion)
+- Based on the seed, ask questions that narrow **what / where / with what result** to finish. If the seed is empty, start with "what you want to do".
+- If one round does not narrow it, ask more to settle the scope, target and completion criteria. Adding `?` is itself a sign of "I want to narrow it in conversation", so ask at least once.
+- If the user cancels or refuses, create nothing and stop.
+- If asking more still does not settle the scope, target and completion criteria, do not hand it to request — ask more or stop (handing it to §3 while vague makes the slug and the dlc task weak).
 
-### 3. request 합류
-- 확정된 요구사항을 **요청사항 원문으로 삼아** 위 request 섹션 §1(slug 파생) → §4(보고+dlc) 를 그대로 수행한다. 질문 모드는 이 앞단(요구사항 확정)만 더할 뿐, slug·충돌검사·생성·`.env` 복사·dlc 로직은 재사용한다.
+### 3. Join request
+- Use the settled requirement **as the request text** and run the request section §1 (derive the slug) → §4 (report + dlc) as is. Question mode only adds this front step (settling the requirement); the slug, collision check, creation, `.env` copy and dlc logic are reused.
 
 ## rm `<name>`
 
-1. `<name>` 미지정 → 사용법 안내 + list.
-2. 매칭: 정수면 list N번째, 아니면 branch 이름 **정확일치** 1개.
-3. 0개 → 안내 + list. (정확일치만 하므로 2개+ 모호 케이스 없음.)
-4. 안전 검사:
-   - 메인 worktree 거부.
-   - cwd 가 대상 하위면 거부 + 다른 worktree 로 switch 안내.
-   - 대상에서 `git status --porcelain` 비어있지 않으면 경고.
-   - unpushed 커밋 있으면 경고 (`git log origin/<branch>..<branch>` 또는 upstream 없으면 `git log <branch> --not --remotes`).
-   - **gitignored 산출물 점검 (필수)** — `git worktree remove` 는 gitignored 파일을 **경고 없이 함께 삭제**한다. 이 repo 는 whitelist `.gitignore` 라 `.env`·`.claude/settings.local.json` 이 ignored → 위 `git status --porcelain` 엔 안 잡힌다. `git -C <대상 worktree path> status --porcelain --ignored` 로 인벤토리를 수집하고(`/e` 와 달리 대상이 cwd 가 아닐 수 있어 `-C <대상>` 필수), `.env`·secret 후보·기타 미보존 산출물이 있으면 삭제될 목록을 5단계 AskUserQuestion 본문에 **명시**(기본 유지). `plans/` 는 tracked(§10)라 미커밋 plan·log 는 위 `git status --porcelain` 에 잡히고 remove 가 거부한다 — 커밋한 뒤 삭제한다.
-   - **미머지 탐지 (옵션 3 원격 삭제 판단 근거)**: `git branch --merged origin/<default>` 에 대상 branch 가 없거나 `git log origin/<default>..<branch>` 가 비어있지 않으면 **미머지** — 단 `git branch --merged <default>`(로컬 default 브랜치)에는 있으면 미머지가 아니라 **"로컬 default 에만 머지됨(origin 미반영)"** 으로 구분해 적는다(커밋은 로컬 default 에 남아 있어 유실 위험은 낮지만, 원격 브랜치를 지우면 그 커밋의 원격 사본은 default 를 push 할 때까지 없다). 원격 삭제(옵션 3)는 데이터 유실 위험이므로 이 사실을 옵션 3 경고에 명시(e 는 조건5 게이트로 차단하나 wt 는 수동이라 사용자 판단; 미탐지 시 삭제 안 함 전제). `<default>` = `git symbolic-ref --short refs/remotes/origin/HEAD` 출력에서 `origin/` 을 뗀 이름(실패 시 `main`).
-   - **worklog 미리보기** — 지운 worktree 의 AI 작업시간은 이름으로 고를 수 없어 Jira 에 등록할 수 없다(표시만 된다). 위 거부 검사를 모두 통과했고 `~/.claude/skills/jira-worklog/` 가 있으면(`/e` 6단계 미리보기와 같다 — 미리보기는 자격증명 없이 돈다) 2단계에서 확정한 대상의 **디렉터리 이름**으로 미리보기한다: POSIX `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh" <이름>`, Windows PowerShell `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1" <이름>`(격리 worktree 세션이면 `$HOME` 을 펼친 절대경로 — `skills/e/SKILL.md` 2단계). 출력에서는 머리줄이 `[<이름>]` 인 블록만 읽는다 — 한 이름이 다른 worktree 의 branch 에도 맞을 수 있고, 뒤에 삭제된 worktree 목록이 붙는다.
-     - 머리줄에 티켓(`ticket=<키>`)과 합계가 있으면 5단계 본문에 "등록하지 않았다면 이 시간(<합계>)은 지운 뒤 등록할 수 없다 — 먼저 위 미리보기 명령에 `--register` 를 붙여 돌린다(upsert 라 다시 돌려도 중복 없음. 등록 차단이 나면 사유를 확인하고 `--allow-large-change` 를 더한다)" 를 적는다.
-     - `ticket=(없음)` 이거나 `[<이름>] 세션 활동 없음` 이면 적지 않는다.
-     - 대상 머리줄도 "세션 활동 없음" 줄도 없으면(비0 종료 포함 — Windows 에서는 비0 이 보이는지 모른다, #190) 미리보기 실패로 본문에 적는다.
-     - 등록은 대신 하지 않는다 — 삭제 확인과 별개의 동의다.
-5. AskUserQuestion (옵션 1: worktree 만 / 옵션 2: worktree + 로컬 브랜치 / 옵션 3: worktree + 로컬·원격 브랜치 / 옵션 4: 취소). 경고(특히 unpushed·미머지·등록하지 않은 worklog 시간)는 question 본문에 명시 — 원격 삭제(옵션 3)는 그 경고를 본 사용자가 택할 때만.
-6. 실행: `git worktree remove <path>`. 실패 시 stderr 원인으로 분기:
-   - **"modified or untracked files"/"use --force" 류**(변경·untracked 잔존): `--force` 적용 여부는 **별도 AskUserQuestion 후에만**(절대 묻지 않고 강제 실행 금지).
-   - **파일 점유 류**(OS 삭제 실패 — "Access is denied"·"being used"·"Directory not empty"·Windows "Invalid argument"): 살아있는 프로세스가 그 worktree 파일(`.venv` 등)을 잡고 있다. `wt rm` 은 사용자가 직접 부르는 경로라 점유 프로세스가 이 세션 것인지 알 수 없으므로 **자동 종료하지 않고** 점유 프로세스를 알려 소유자 종료 후 재시도하도록 안내(`--force` 는 OS 점유엔 무효). 부분 성공(등록만 해제·디렉토리 잔존) 확인·`prune` 은 `~/.claude/wiki/docs/worktree-lifecycle.md` §C.
-   - 옵션 2·3(로컬 브랜치 삭제): **remove 성공 후에만** `git branch -D <branch>` (remove 실패·거부 시 브랜치 보존).
-   - 옵션 3(원격도 삭제): 로컬 삭제 후 `git push origin --delete <branch>` (원격 ref 부재면 no-op·경고만).
-7. 한 줄 보고.
+1. `<name>` missing → usage notice + list.
+2. Matching: if an integer, the Nth of the list; otherwise the one **exact match** of the branch name.
+3. 0 → notice + list. (Exact match only, so there is no 2+ ambiguous case.)
+4. Safety checks:
+   - Refuse the main worktree.
+   - If the cwd is under the target, refuse + suggest switching to another worktree.
+   - If `git status --porcelain` in the target is not empty, warn.
+   - If there are unpushed commits, warn (`git log origin/<branch>..<branch>`, or without an upstream `git log <branch> --not --remotes`).
+   - **Gitignored artifact check (mandatory)** — `git worktree remove` **deletes gitignored files along with it without a warning**. This repo has a whitelist `.gitignore`, so `.env` and `.claude/settings.local.json` are ignored → the `git status --porcelain` above does not catch them. Collect the inventory with `git -C <target worktree path> status --porcelain --ignored` (unlike `/e`, the target may not be the cwd, so `-C <target>` is mandatory), and if there are `.env` files, secret candidates or other unsaved artifacts, **state** the list that will be deleted in the step 5 AskUserQuestion body (default keep). `plans/` is tracked (§10), so uncommitted plans and logs are caught by the `git status --porcelain` above and remove refuses — commit them, then delete.
+   - **Unmerged detection (the basis for the option 3 remote deletion judgment)**: if the target branch is not in `git branch --merged origin/<default>` or `git log origin/<default>..<branch>` is not empty, it is **unmerged** — but if it is in `git branch --merged <default>` (the local default branch), write it not as unmerged but as **"merged only into the local default (not reflected in origin)"** (the commits remain in the local default, so the loss risk is low, but if the remote branch is deleted, those commits have no remote copy until the default is pushed). Remote deletion (option 3) carries a data-loss risk, so state this in the option 3 warning (e blocks it with its step 7 condition 4 (merged) gate, but wt is manual, so it is the user's judgment; if the merge state cannot be determined, the premise is not to delete). `<default>` = the name from `git symbolic-ref --short refs/remotes/origin/HEAD` with `origin/` removed (`main` on failure).
+   - **Worklog preview** — the AI work time of a deleted worktree cannot be selected by name and so cannot be registered in Jira (only displayed). If all refusal checks above passed and `~/.claude/skills/jira-worklog/` exists (same as the `/e` step 6 preview — the preview runs without credentials), preview with the target's **directory name** settled in step 2: POSIX `bash "$HOME/.claude/skills/jira-worklog/run_worklog.sh" <name>`, Windows PowerShell `& "$HOME/.claude/skills/jira-worklog/run_worklog.ps1" <name>` (in an isolated worktree session, the absolute path with `$HOME` expanded — `skills/e/SKILL.md` step 2). In the output, read only the block whose header is `[<name>]` — one name can also match another worktree's branch, and a list of deleted worktrees follows.
+     - If the header has a ticket (`ticket=<key>`) and a total (`합계 <duration>`), write in the step 5 body "if this time (<total>) is not registered, it cannot be registered after deletion — first rerun the preview command above with `--register` (an upsert, so rerunning makes no duplicates; if registration is blocked (`등록 차단`), check the reason and add `--allow-large-change`)".
+     - Do not write it for `ticket=(없음)` or `[<name>] 세션 활동 없음`.
+     - If there is neither the target header nor a "세션 활동 없음" line (including a non-zero exit — on Windows it is unknown whether a non-zero exit is visible, #190), write it in the body as a preview failure.
+     - Do not register on the user's behalf — it is a consent separate from the deletion confirmation.
+5. AskUserQuestion (option 1: worktree only / option 2: worktree + local branch / option 3: worktree + local and remote branch / option 4: cancel). State the warnings (especially unpushed, unmerged and unregistered worklog time) in the question body — remote deletion (option 3) only when the user who saw that warning chooses it.
+6. Run: `git worktree remove <path>`. On failure, branch on the stderr cause:
+   - **"modified or untracked files"/"use --force" type** (changes or untracked files left): apply `--force` **only after a separate AskUserQuestion** (never force without asking).
+   - **File held type** (OS deletion failure — "Access is denied"·"being used"·"Directory not empty"·Windows "Invalid argument"): a live process holds files of that worktree (`.venv` etc.). `wt rm` is a path the user calls directly, so it cannot know whether the holding process belongs to this session; **do not stop it automatically**, tell the user the holding process and suggest retrying after its owner stops it (`--force` has no effect on an OS hold). Checking for a partial success (registration removed, directory left) and `prune` are in `~/.claude/wiki/docs/worktree-lifecycle.md` §C.
+   - Options 2·3 (local branch deletion): `git branch -D <branch>` **only after remove succeeded** (keep the branch when remove fails or is refused).
+   - Option 3 (remote deletion too): after the local deletion, `git push origin --delete <branch>` (if the remote ref is absent: a no-op with only a warning).
+7. One-line report.
 
-## 주의
+## Cautions
 
-- `git worktree remove --force`, `git branch -D`, 원격 브랜치 삭제(`git push origin --delete`)는 사용자 명시 확인 없이 실행 금지. (`wt rm <이름>` 은 사용자가 대상을 직접 지목하는 경로 = CLAUDE.md §8(b) — **오타로 엉뚱한 worktree 를 지울 수 있어 항상 확인**. merged 면 묻지 않는 자동 정리는 §8(a) — `/e`·머지 직후 흐름이며 `wt rm` 이 아니다.)
-- 정확일치하지 않는 텍스트는 요청사항으로 간주해 worktree 를 새로 만든다. **생성 전 확인은 묻지 않는다**(위험기반 승인 — CLAUDE.md §1): 이름 오타로 인한 오생성은 승인이 아니라 §4 의 near-miss 보고 + `/wt rm <slug>` 로 되돌린다. 반면 삭제 계열(아래 첫 bullet)은 비가역이라 확인을 유지한다 — **이 스킬 안에서 생성은 무확인·삭제는 확인**이 위험기반 기준의 적용 결과다.
-- 요청사항 path 는 생성 후 `dlc` 를 자동 실행한다. worktree 를 만들 필요가 없는 단순 질문·탐색·읽기 전용 작업이면 `/wt` 대신 현재 worktree 에서 직접 처리.
-- EnterWorktree 후 후속 명령은 새 cwd 기준.
-- **자동 복사는 신규 생성 경로만** 덮는다. 그 경로로 만들지 않은 worktree 에는 `.claude/settings.local.json` 이 없을 수 있다 — Windows 등 repo 루트의 파일을 쓰지 않는 경우(`references/env-copy.md`)에는 그 worktree 세션의 권한 허용목록이 비어 있으니 필요하면 main 에서 한 번 복사한다(그 밖의 경우 2.1.211+ 는 main 의 파일을 읽어 필요 없다): `cp <main worktree>/.claude/settings.local.json <worktree>/.claude/settings.local.json`(`<main worktree>` = `git worktree list` 첫 줄 경로). 일괄 소급 복사는 두지 않는다(사용자가 의도적으로 지운 파일을 되살릴 수 있고, `wt` 는 생성·이동·삭제 스킬이지 동기화 도구가 아니다).
+- `git worktree remove --force`, `git branch -D` and remote branch deletion (`git push origin --delete`) are forbidden without the user's explicit confirmation. (`wt rm <name>` is the path where the user names the target directly = CLAUDE.md §8(b) — **a typo can delete the wrong worktree, so always confirm**. The automatic cleanup without asking when merged is §8(a) — the `/e` and right-after-merge flow, not `wt rm`.)
+- Text that does not match exactly is treated as a request and creates a new worktree. **Do not ask for confirmation before creating** (risk-based approval — CLAUDE.md §1): a wrong creation from a name typo is undone not by approval but by the §4 near-miss report + `/wt rm <slug>`. Deletion (the first bullet above) is irreversible and keeps confirmation — **within this skill, creation without confirmation and deletion with confirmation** is the result of applying the risk-based standard.
+- The request path runs `dlc` automatically after creation. For simple questions, exploration or read-only work that needs no worktree, handle it in the current worktree instead of `/wt`.
+- After EnterWorktree, follow-up commands are relative to the new cwd.
+- **The automatic copy only covers the new-creation path**. A worktree not made through that path may lack `.claude/settings.local.json` — where the file at the repo root is not used, such as Windows (`references/env-copy.md`), that worktree session's permission allowlist is empty, so copy it once from main if needed (otherwise, 2.1.211+ reads main's file and it is not needed): `cp <main worktree>/.claude/settings.local.json <worktree>/.claude/settings.local.json` (`<main worktree>` = the first line path of `git worktree list`). No bulk retroactive copy (it could revive files the user deliberately deleted, and `wt` is a skill for creating, moving and deleting, not a sync tool).

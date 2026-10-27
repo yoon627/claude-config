@@ -1,33 +1,33 @@
-# env-copy — wt 신규 생성 시 자동 복사 메커닉 (참조)
+# env-copy — automatic copy mechanics when wt creates a worktree (reference)
 
-`wt` request 경로의 worktree 생성 §3.4 자동 복사(옵트아웃 없음)의 **후보 선정·제외 규칙**을 담는다. 대상은 두 종류다 — `.env`(민감정보)와 `.claude/settings.local.json`(권한 허용목록). SKILL 본문엔 "main 에서 복사, 이미 있으면 skip, 실패 경고만"만 남기고 세부는 여기로.
+This holds the **candidate selection and exclusion rules** of the automatic copy (no opt-out) in §3.4 worktree creation of the `wt` request path. There are two kinds of target — `.env` (secrets) and `.claude/settings.local.json` (the permission allowlist). The SKILL body keeps only "copy from main, skip if it already exists, a failure is only a warning"; the details are here.
 
-> 파일명은 `.env` 시절 그대로다(README·wiki 인벤토리가 인용) — 내용은 두 대상을 모두 다룬다.
+> The file name is the same as in the `.env` days (README and the wiki inventory quote it) — the content covers both targets.
 
-> 이 파일은 자동 로드되지 않는다 — `wt` 가 **worktree 를 새로 생성(request §3.4 `.env` 복사)할 때** 이 파일을 Read 한다. "복사한다·덮어쓰지 않는다·실패해도 worktree 유지"라는 동작 골격은 SKILL 본문이 단일 소스이고, 여기는 "어떤 파일을 후보로/제외로 고르나"만.
+> This file is not loaded automatically — `wt` Reads it **when it creates a new worktree (request §3.4 `.env` copy)**. The behavior skeleton "copy, do not overwrite, keep the worktree even on failure" has the SKILL body as its single source; this file covers only "which files are picked as candidates or excluded".
 
-## 후보 선정
-- **source = main worktree path** = `git worktree list --porcelain` 의 첫 `worktree <path>` 라인. 현재 cwd 가 worktree 안이어도 **항상 main 기준**.
-- **후보 목록 = `git -C <main> ls-files --others --ignored --exclude-standard`** (ignored 파일만 나열). 이 목록에서 아래 두 predicate 로 고른다.
-  - **A. `.env`** — basename 이 정확히 `.env` 인 행. (디렉토리째 ignored 된 캐시 안 `.env` 는 git 이 listing 에 넣지 않으므로 자동 제외됨.)
-  - **B. 권한 허용목록** — repo-relative 경로가 **정확히 `.claude/settings.local.json`** 인 행(앵커드 일치, basename 매칭 금지).
+## Candidate selection
+- **source = the main worktree path** = the first `worktree <path>` line of `git worktree list --porcelain`. **Always based on main**, even when the current cwd is inside a worktree.
+- **Candidate list = `git -C <main> ls-files --others --ignored --exclude-standard`** (lists only ignored files). Pick from this list with the two predicates below.
+  - **A. `.env`** — rows whose basename is exactly `.env`. (A `.env` inside a cache ignored as a whole directory is not put in the listing by git, so it is excluded automatically.)
+  - **B. Permission allowlist** — the row whose repo-relative path is **exactly `.claude/settings.local.json`** (anchored match, no basename matching).
 
-### B 를 앵커드 정확일치로 두는 이유
-Claude Code 가 읽는 로컬 설정 파일의 repo 기준 상대경로는 `.claude/settings.local.json` **하나**다([settings](https://code.claude.com/docs/en/settings) "Where Claude Code keeps the local file in a git repository"). 2.1.211 부터 git repo 안에서는 repo 루트의 파일을 쓰고, worktree 세션은 main checkout 루트의 파일을 쓴다 — 그래서 아래 예외가 아니면 복사하지 않아도 main 의 권한 규칙이 걸린다(2.1.288 macOS 실측). 예외(Windows, repo 루트가 홈 디렉토리, git 밖, repo 루트나 그 `.git`·`.claude` 의 소유자가 현재 사용자가 아님)에서는 세션의 작업 디렉토리(`EnterWorktree`·`/cd` 로 옮긴 곳 포함)의 파일을 읽어, 복사하지 않으면 worktree 세션의 권한 허용목록이 **0개**로 시작한다(CLAUDE.md §8 이 worktree 작업을 강제하므로 실사용 경로가 전부 여기 해당) — 복사가 필요한 이유는 이 예외다. 그 밖의 경우 복사본은 보조다. 문서는 옛 버전이 시작 디렉토리에 남긴 파일도 루트 파일과 함께 읽고 권한 규칙은 둘 다 적용된다고 한다 — worktree 에서 바로 시작한 세션이면 복사본의 규칙도 더해지고, 그 사본은 만든 시점의 것이라 그 뒤 main 에서 지운 allow 도 남는다. `EnterWorktree` 로 들어간 세션이 복사본을 함께 읽는지는 문서에 없고 재지 않았다.
+### Why B is an anchored exact match
+Claude Code reads the local settings file at one repo-relative path only: `.claude/settings.local.json` ([settings](https://code.claude.com/docs/en/settings) "Where Claude Code keeps the local file in a git repository"). Since 2.1.211, inside a git repo it uses the file at the repo root, and a worktree session uses the file at the main checkout root — so, apart from the exceptions below, main's permission rules apply even without the copy (measured on 2.1.288 macOS). In the exceptions (Windows, the repo root is the home directory, outside git, the owner of the repo root or its `.git`·`.claude` is not the current user) it reads the file in the session's working directory (including where `EnterWorktree` or `/cd` moved it), so without the copy the worktree session starts with **0 allowed permissions** (CLAUDE.md §8 enforces worktree work, so every real path falls here) — these exceptions are why the copy is needed. Otherwise the copy is a supplement. The docs say that a file an old version left in the start directory is also read together with the root file and both sets of permission rules apply — for a session started directly in the worktree, the copy's rules are added too, and since the copy is from when it was made, an allow later deleted on main also stays. Whether a session entered with `EnterWorktree` also reads the copy is not in the docs and was not measured.
 
-basename 이나 접두 매칭으로 넓히면 실제로 엉뚱한 파일이 딸려온다 — 이 repo 실측에서 같은 listing 에 `.claude/settings.local.json.bak`(백업)과 `settings.local.json`(repo 루트 — cwd 가 `$HOME` 인 세션 전용이라 worktree 와 무관)이 함께 나온다. 중첩 worktree 사본(`.claude/worktrees/<other>/.claude/settings.local.json`)도 같은 이유로 배제된다.
+Widening to basename or prefix matching actually drags in the wrong files — in this repo's measurement the same listing shows `.claude/settings.local.json.bak` (a backup) and `settings.local.json` (at the repo root — only for sessions whose cwd is `$HOME`, unrelated to worktrees). Nested worktree copies (`.claude/worktrees/<other>/.claude/settings.local.json`) are excluded for the same reason.
 
-### B 대상을 하나로 좁힌 이유
-`.claude/` 아래 다른 ignored 파일은 성격이 다르다 — `.credentials.json`(인증정보, 복사하면 유출면 확대) · `history.jsonl`(세션 이력) · `*.lock`(락) · `*.bak`(백업) · `worktrees/`(재귀). 넓히면 얻는 것 없이 위험만 는다.
+### Why B is narrowed to one target
+The other ignored files under `.claude/` are of a different nature — `.credentials.json` (credentials; copying widens the exposure) · `history.jsonl` (session history) · `*.lock` (locks) · `*.bak` (backups) · `worktrees/` (recursion). Widening gains nothing and only adds risk.
 
-### 후보 목록이 ignored 파일이라는 점 자체가 안전장치다
-어떤 repo 가 `.claude/settings.local.json` 을 tracked 로 두면 애초에 후보에 안 잡히고(그 경우 worktree checkout 이 이미 갖고 있다), untracked-but-not-ignored 여도 안 잡혀 **커밋 위험 파일을 worktree 로 밀어넣지 않는다**.
+### That the candidate list is ignored files is itself a safeguard
+If a repo keeps `.claude/settings.local.json` tracked, it is never a candidate (the worktree checkout already has it then), and if it is untracked but not ignored it is not picked either, so **files at risk of being committed are not pushed into the worktree**.
 
-## 추가 제외 (정규식, 어느 세그먼트에서든 매치)
-`(^|/)(\.venv|node_modules|__pycache__|\.uv-cache|\.cache|dist|build)/` — 디렉토리 단위가 아닌 패턴 ignore 케이스 대비 안전망.
+## Extra exclusions (regex, matching at any segment)
+`(^|/)(\.venv|node_modules|__pycache__|\.uv-cache|\.cache|dist|build)/` — a safety net for pattern ignores that are not by directory.
 
-## 복사
-- 각 후보를 **동일 상대경로**로 `.claude/worktrees/<slug>/` 안에 복사. 부모 디렉토리 없으면 mkdir.
-- **이미 같은 경로에 파일 존재하면 skip (덮어쓰지 않음).**
-- 복사 실패(권한 등)는 경고만 출력하고 worktree 는 유지.
-- 보고: `.env: N copied, M skipped` · `settings.local: N copied, M skipped` (각각 둘 다 0 이면 생략).
+## Copy
+- Copy each candidate to **the same relative path** inside `.claude/worktrees/<slug>/`. mkdir the parent directory if it is missing.
+- **If a file already exists at the same path, skip (do not overwrite).**
+- A copy failure (permissions, etc.) only prints a warning, and the worktree stays.
+- Report: `.env: N copied, M skipped` · `settings.local: N copied, M skipped` (omit each when both are 0).
