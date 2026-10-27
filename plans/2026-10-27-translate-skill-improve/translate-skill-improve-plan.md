@@ -24,8 +24,8 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-27) — 격리 runner: `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, 문서 번역과 무관), 공통 검사 PASS(조항 62·핵심 문구 69), 변형 전부 잡힘, `improve.test.sh`·frontmatter-lint·plan-lint 통과 — Acceptance 1~6 충족
 - [x] 기록 커밋(plan·log·manifest·locations·check.json·terms·intent), commit-check (2026-10-27) — 커밋 단위 이상 없음
 - [x] 머지 (`/e merge`) (2026-10-27) — PR #252
-- [ ] [post-merge] 새 세션에서 관찰 — `/improve` 명시 호출이 improve 를 불러 `improve.sh` 를 실행하는지, 단순 질문에는 골라지지 않는지
-- [ ] [post-merge] main 세션에서 공용 wiki 확인 — improve 문구 인용 확인, ops-doc-slimming·log 기록
+- [x] [post-merge] 새 세션에서 관찰 — `/improve` 명시 호출이 improve 를 불러 `improve.sh` 를 실행하는지, 단순 질문에는 골라지지 않는지 (2026-10-27) — headless 2개: `/improve` 는 `improve.sh` 실행 → 랭킹·제안(수정 없음, 답은 한국어) → 보고 직전 `dlc-signal.js mark` 1회(`CLAUDE_DLC_SIGNAL_DIR` 를 scratch 로 돌려 실제 마커 불변), "README 에 뭐가 있어?" 는 Skill 호출 없이 답함 — Acceptance 8 통과
+- [x] [post-merge] main 세션에서 공용 wiki 확인 — improve 문구 인용 확인, ops-doc-slimming·log 기록 (2026-10-27) — 공용 wiki 는 improve 를 이름·"§6"·점검 9 번호로만 가리켜 그대로 맞다, 공용 wiki 커밋 760b909 — Acceptance 7 통과
 
 # Acceptance
 1. 규칙 손실 0 — `node plans/2026-10-21-ops-docs-rework/check-translation.js <root> plans/2026-10-27-translate-skill-improve/check.json` 이 PASS(인용 글자 그대로·한 번·manifest 순서, 인용 밖은 공백과 줄 머리 목록 표시만, 줄 모양·들여쓰기·단어 없는 줄·코드 펜스가 원문과 같다, 용어표 대조), 그리고 `node plans/2026-10-21-ops-docs-rework/mut-translation.js <root> <check.json> <scratch>` 가 원본 PASS 를 확인한 뒤 규칙 변형(R)·생성 변형(G, 용어 포함) 전부 FAIL, 종료 코드 0. 뜻이 원문과 같다는 근거는 이 검사가 아니라 5(독립 대조)와 사용자 diff 확인이다
