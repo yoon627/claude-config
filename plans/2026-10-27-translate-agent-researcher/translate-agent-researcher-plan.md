@@ -1,6 +1,6 @@
 ---
 title: translate-agent-researcher — agents/researcher 를 규칙 손실 없이 영어로 옮기고 묶음 공통 용어표를 만든다
-status: in_progress
+status: done
 started: 2026-10-27
 updated: 2026-10-27
 intent: plans/2026-10-21-ops-docs-rework/intent.md
@@ -25,7 +25,7 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] 사용자 diff 확인 (2026-10-27) — 사용자 "커밋": 출력 절 이름 영어화·dlc 두 이름 병기·terms.md 신설·Acceptance 문구 강화 포함
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-27) — `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, 무관), check-rs PASS, 변형 S 4/4·A 18/18·B 13/13·문장 삭제 43/43, sync 테스트 11 OK, Acceptance 1~4·6 관찰
 - [x] 기록 커밋(plan·log·manifest·locations·check-rs·mut-rs·terms·intent), commit-check (2026-10-27)
-- [ ] 머지 (`/e merge`)
+- [x] 머지 (`/e merge`) (2026-10-27) — PR #248
 - [ ] [post-merge] 새 세션에서 관찰 — 외부 사실 질문(예: "최신 버전 릴리스 노트 확인해줘")에 맞는 agent 로 researcher 가 골라지고, 보고가 영어 절 이름으로 오는지
 - [ ] [post-merge] main 세션에서 공용 wiki — `pages/concept/plan-handoff.md`(45행)·`pages/concept/hub-and-spoke-isolation.md`(13행)의 "plan 반영용 요약" 에 "Summary for the plan" 을 함께 적기, 그 밖의 researcher 문구 인용 확인, ops-doc-slimming·log 기록
 - [ ] [post-merge] Codex 가 있는 머신에서 `scripts/bootstrap/sync_codex_agents.py` 재실행 — agent 파일이 바뀐 커밋이 main 에 들어오면 다시 돌린다(`scripts/bootstrap/README.md`). 이 머신에는 `~/.codex/agents` 가 없다
