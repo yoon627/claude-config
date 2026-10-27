@@ -26,8 +26,8 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-27) — `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, 무관), check-rs PASS, 변형 S 4/4·A 18/18·B 13/13·문장 삭제 43/43, sync 테스트 11 OK, Acceptance 1~4·6 관찰
 - [x] 기록 커밋(plan·log·manifest·locations·check-rs·mut-rs·terms·intent), commit-check (2026-10-27)
 - [x] 머지 (`/e merge`) (2026-10-27) — PR #248
-- [ ] [post-merge] 새 세션에서 관찰 — 외부 사실 질문(예: "최신 버전 릴리스 노트 확인해줘")에 맞는 agent 로 researcher 가 골라지고, 보고가 영어 절 이름으로 오는지
-- [ ] [post-merge] main 세션에서 공용 wiki — `pages/concept/plan-handoff.md`(45행)·`pages/concept/hub-and-spoke-isolation.md`(13행)의 "plan 반영용 요약" 에 "Summary for the plan" 을 함께 적기, 그 밖의 researcher 문구 인용 확인, ops-doc-slimming·log 기록
+- [x] [post-merge] 새 세션에서 관찰 — 외부 사실 질문(예: "최신 버전 릴리스 노트 확인해줘")에 맞는 agent 로 researcher 가 골라지고, 보고가 영어 절 이름으로 오는지 (2026-10-27) — 새 headless 세션이 한국어 외부 사실 질문 2개 모두 `researcher` 를 골랐다(직접 질문 표본 1개 ⚠️). 보고의 절 이름은 다음에 researcher 를 실제로 부를 때 확인
+- [x] [post-merge] main 세션에서 공용 wiki — `pages/concept/plan-handoff.md`(45행)·`pages/concept/hub-and-spoke-isolation.md`(13행)의 "plan 반영용 요약" 에 "Summary for the plan" 을 함께 적기, 그 밖의 researcher 문구 인용 확인, ops-doc-slimming·log 기록 (2026-10-27) — 공용 wiki 커밋 b562a6e(두 페이지·ops-doc-slimming 6단계·log), 그 밖은 이름·모델 참조만
 - [ ] [post-merge] Codex 가 있는 머신에서 `scripts/bootstrap/sync_codex_agents.py` 재실행 — agent 파일이 바뀐 커밋이 main 에 들어오면 다시 돌린다(`scripts/bootstrap/README.md`). 이 머신에는 `~/.codex/agents` 가 없다
 
 # Acceptance
