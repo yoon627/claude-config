@@ -33,6 +33,7 @@ CLAUDE.md·skills·agents 가 같은 규칙을 더 짧게 담고, 그 다음 영
 - 번역 범위 밖으로 남은 것: `wiki/pages`·repo wiki·plan log·`intent.md`(plan 파일은 한국어라는 사용자 결정에 들어가는지)는 정하지 않았다 — plan log·`intent.md` 는 한국어로 정함(language-policy, 사용자 확인 2026-10-26). `wiki/pages`·repo wiki 는 (open)
 - 사용자에게 보이는 hook 문구(`permissionDecisionReason`·데스크톱 알림)는 한국어로 둘지 — 표시 방식을 확인한 뒤 translate-hooks 가 정한다 (open)
 - 다른 머신의 `MEMORY.md`·memory 번역을 누가 언제 하는지 (open)
+- `skills/wiki/templates/wiki-check.toml` 의 한국어 주석(29줄, 키 설명·smoke 예시)이 translate-repo 인지 Out of scope(코드 주석)인지 — `skills/wiki/test_wiki_check.py` 의 `test_template_smoke_example_is_valid_once_uncommented` 가 주석 속 예시를 정규식으로 읽고 예시에 한국어 정규식이 있어, 옮긴다면 코드·테스트를 함께 보는 단위다 (open) — translate-skill-wiki 가 열었다
 - language-policy 단위를 넣을 시점 — 번역 단계의 첫 단위로 둘지, 더 앞으로 당길지 (resolved) — 번역 단계의 첫 단위로 넣었다(2026-10-26)
 
 # Plans
@@ -51,6 +52,7 @@ CLAUDE.md·skills·agents 가 같은 규칙을 더 짧게 담고, 그 다음 영
 - plans/2026-10-27-translate-agent-arch-reviewer/translate-agent-arch-reviewer-plan.md — translate-repo 의 여덟 번째: agents/architecture-reviewer — 공통 검사에 인용 줄바꿈 표지 `⏎` 를 더했다
 - plans/2026-10-27-translate-check-terms/translate-check-terms-plan.md — 공통 대조 검사에 용어표 기계 대조(개수 비교·용어 변형) — jira-task 번역은 사용자 지시로 철회
 - plans/2026-10-27-translate-skill-improve/translate-skill-improve-plan.md — translate-repo: skills/improve
+- plans/2026-10-27-translate-skill-wiki/translate-skill-wiki-plan.md — translate-repo: skills/wiki
 - translate-repo (not started) — skills(references·frontmatter description 포함)·agents 를 영어로, 파일별. 줄이기 단위가 모두 done 또는 폐기된 뒤. 각 줄이기 단위의 manifest 가 그 번역의 대조표
 - translate-hooks (not started) — hook 주입 문구와 그것을 확인하는 테스트(코드라 medium 이상·TDD). 사용자에게 보이는 문구는 Open question 을 따른다
 - translate-wiki-docs (not started) — `wiki/docs/` 를 영어로. 공용 wiki 라 main 세션에서, 그 문서를 가리키는 skill 의 번역과 순서를 맞춘다
