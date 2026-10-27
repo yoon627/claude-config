@@ -23,7 +23,7 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] 최종 격리 검증 (2026-10-27) — `ALL PASS`, 머지된 네 단위 PASS(4·11·23·24쌍), G.term 46/46·48/48, 음성 시험 다섯 개 FAIL, `skills/` 변경 0
 - [x] 커밋, commit-check (2026-10-27)
 - [x] 머지 (`/e merge`) (2026-10-27) — PR #251
-- [ ] [post-merge] main 세션에서 공용 wiki ops-doc-slimming·log 기록
+- [x] [post-merge] main 세션에서 공용 wiki ops-doc-slimming·log 기록 (2026-10-27) — 공용 wiki 커밋 13efe22
 
 # Acceptance
 1. 머지된 단위가 그대로 통과 — `node plans/2026-10-21-ops-docs-rework/check-translation.js <root> <설정>` 을 plans/2026-10-27-translate-agent-plan-reviewer/check.json·plans/2026-10-27-translate-agent-arch-reviewer/check.json 과 scratch 의 commit-check·researcher 설정으로 — 모두 PASS, 용어 쌍이 적용된다
