@@ -19,6 +19,7 @@ translate-repo 단위는 착수 때 이 표를 읽고 따른다. 새로 정한 �
 | plan 파일 표지 `없음 — <…>` | plan 은 한국어 — `없음` 을 그대로 두고 자리표시자만 영어(`없음 — <reason>`). `none — <…>`(Split) 도 같다 | translate-agent-plan-reviewer |
 | `## Codex 병행` 이 붙은 본문 제목 | `## Codex 병행 검토 (optional)` → `## Codex 병행 review (optional)` — 접두만 원문, 나머지는 영어. 남은 reviewer agent 도 같게 | translate-agent-plan-reviewer |
 | `mode: planning` · `mode: post-implementation` | architecture-reviewer 가 스스로 정한 입력 토큰(호출 측이 프롬프트 첫 줄에 이 글자로 쓴다 — dlc 본문에는 아직 이 글자가 없다, 그 plan log Deferred) | translate-agent-arch-reviewer |
+| `신호 집계 실행 실패` · `last-improve 마커 갱신:` · `/improve 권장 — failure 신호 N세션 누적 (마커 이후)` | `skills/improve/improve.sh`·`scripts/dlc-signal.js mark`·`scripts/session-brief.js` 가 찍는 글자 — improve 7단계가 이 글자로 마커 갱신 여부·성공을 판단한다. 이 출력을 바꾸는 작업(예: translate-hooks 의 `session-brief.js`)은 같은 머지에서 `skills/improve/SKILL.md` 7단계 인용도 고친다 | translate-skill-improve |
 
 ## 용어 (한국어 → 영어)
 | 한국어 | 영어 | 메모 |
