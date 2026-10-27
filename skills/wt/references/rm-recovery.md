@@ -1,23 +1,23 @@
-# rm-recovery — wt 생성 git 시퀀스 상세 · rm 실패 복구 분기 (참조)
+# rm-recovery — details of wt's creation git sequence · rm failure recovery branches (reference)
 
-`wt` 의 worktree **생성 git 시퀀스 상세**(§3.1~3.3·3.6 self-heal/bootstrap 이유)와 **`rm` 실패 stderr 분기 복구**(§6)를 담는다. SKILL 본문엔 절차 스텝·안전 게이트만 남기고 메커닉·폴백은 여기로.
+This holds the **details of `wt`'s worktree creation git sequence** (§3.1~3.3, and the reasons for the §3.6 self-heal/bootstrap) and the **recovery branches by stderr when `rm` fails** (§6). The SKILL body keeps only the procedure steps and safety gates; the mechanics and fallbacks are here.
 
-> 이 파일은 자동 로드되지 않는다 — `wt` 가 **worktree 생성(§3 base ref·`--no-track`·self-heal 판단)** 또는 **`rm` 이 `git worktree remove` 실패로 분기할 때** 이 파일을 Read 한다. 안전 게이트(`--force`/`-D`/원격삭제 무확인 금지, remove 성공 후에만 branch 삭제)는 SKILL 본문(`## 주의`·rm §6)이 단일 소스이고, 여기는 "왜/어떻게"만.
+> This file is not loaded automatically — `wt` Reads it **when creating a worktree (§3 base ref, `--no-track`, the self-heal judgment)** or **when `rm` branches on a `git worktree remove` failure**. The safety gates (no `--force`/`-D`/remote deletion without confirmation, branch deletion only after remove succeeded) have the SKILL body (`## Cautions`, rm §6) as their single source; this file covers only the "why/how".
 
-## A. 생성 git 시퀀스 상세 (§3.1~3.3)
-- **`<default>`**: `git symbolic-ref --short refs/remotes/origin/HEAD` 출력에서 `origin/` 을 뗀 이름(실패 시 `main`). base ref 는 `origin/<default>`.
-- `git fetch origin <default>` (실패해도 경고만).
+## A. Creation git sequence details (§3.1~3.3)
+- **`<default>`**: the name from `git symbolic-ref --short refs/remotes/origin/HEAD` with `origin/` removed (`main` on failure). The base ref is `origin/<default>`.
+- `git fetch origin <default>` (only a warning on failure).
 - `git worktree add --no-track -b <slug> .claude/worktrees/<slug> origin/<default>`.
-  - **`--no-track` 이유**: 새 브랜치 upstream 자동 설정 차단 → 첫 `git push` 시 global `push.autoSetupRemote=true` 가 `origin/<slug>` 으로 set(=자기 이름 원격 브랜치). track 두면 origin/<default> 로 잘못 향함.
+  - **Why `--no-track`**: it blocks the automatic upstream setting of the new branch → on the first `git push`, the global `push.autoSetupRemote=true` sets it to `origin/<slug>` (= a remote branch with its own name). With track, it would wrongly point to origin/<default>.
 
-## B. 환경 셋업 순서·self-heal (§3.6 heal/bootstrap)
-새 cwd 에서 순서대로. 무엇이 실패해도 worktree 는 유지하고 에러를 그대로 보고(사용자가 수동 재실행 결정).
-1. **submodule self-heal init**: `uv run --no-project python "${CLAUDE_SKILL_DIR}/heal_submodules.py"`. 중단됐던 submodule clone(objects 불완전 → "Unable to find current revision")을 자동 복구한 뒤 init. `.gitmodules` 없는 레포는 no-op(무해).
-   - **bootstrap 보다 먼저 실행하는 이유**: bootstrap 의 submodule update 가 중단 corrupt 로 죽으면 이후 단계(uv sync 등)가 안 도는 것을 방지.
-   - **자동 복구를 거부하고 exit 1 로 멈추는 경우**(어떤 deinit·삭제보다 먼저 판정): `.gitmodules` 의 path 를 읽을 수 없을 때(문법 오류·값 없는 path·항목 없음), submodule name 의 module dir 이 이 worktree 의 `modules` 디렉토리 밖을 가리킬 때(`..` 구성요소·절대경로 — linked worktree 에선 `<main>/.git/objects` 까지 닿는다), work tree 에 보존할 파일이 남았을 때(`.git` 은 `gitdir: ` 로 시작하는 gitlink 파일일 때만 빼고 센다 — 디렉토리이거나 다른 내용이면 보존할 파일로 본다). clone 한 repo 가 정하는 `.gitmodules` 를 삭제 경로로 믿지 않기 위해서다. 멈춘 뒤에는 원인을 확인하고 수동으로 복구한다.
-2. `tools/bootstrap/bootstrap.py` 있으면 `uv run tools/bootstrap/bootstrap.py`(없으면 skip — 다른 프로젝트 무영향).
+## B. Environment setup order · self-heal (§3.6 heal/bootstrap)
+In order, in the new cwd. Whatever fails, keep the worktree and report the error as is (the user decides on a manual rerun).
+1. **submodule self-heal init**: `uv run --no-project python "${CLAUDE_SKILL_DIR}/heal_submodules.py"`. Automatically repairs an interrupted submodule clone (incomplete objects → "Unable to find current revision"), then inits. A no-op (harmless) in a repo without `.gitmodules`.
+   - **Why it runs before bootstrap**: it keeps bootstrap's submodule update from dying on an interrupted, corrupt submodule and stopping the later steps (uv sync etc.).
+   - **When it refuses the automatic repair and stops with exit 1** (judged before any deinit or deletion): when a path in `.gitmodules` cannot be read (syntax error, a path without a value, no entries), when the module dir of a submodule name points outside this worktree's `modules` directory (a `..` component or an absolute path — in a linked worktree it reaches as far as `<main>/.git/objects`), or when files to keep remain in the work tree (`.git` is left out of the count only when it is a gitlink file starting with `gitdir: ` — a directory or other content counts as a file to keep). This is so as not to trust the `.gitmodules` set by the cloned repo as a deletion path. After it stops, check the cause and repair manually.
+2. If `tools/bootstrap/bootstrap.py` exists, `uv run tools/bootstrap/bootstrap.py` (skip if absent — no effect on other projects).
 
-## C. rm 실패 stderr 분기 — 파일 점유 (§6)
-`git worktree remove <path>` 실패 시 SKILL 본문 §6 이 stderr 로 분기한다. **안전 게이트·브랜치 삭제 순서(`--force`/`-D`/원격삭제 무확인 금지, remove 성공 후에만 branch 삭제)는 SKILL 본문(`## 주의`·rm §6)이 단일 소스** — 여기는 "파일 점유" 분기의 이유만:
-- **파일 점유 류**("Access is denied"·"being used by another process"·"Directory not empty"·Windows "Invalid argument" 등 OS 삭제 실패): 살아있는 프로세스가 worktree 파일(`.venv` 등)을 잡고 있다. `wt rm` 은 **자동 종료하지 않고 안내**한다 — 사용자가 직접 부르는 경로라 점유 프로세스를 띄운 세션이 이 세션인지 알 수 없고, 경로 필터만으로는 사용자 서버와 구분되지 않는다(`/e` 7단계는 같은 세션이 띄운 프로세스를 회수할 수 있다 — `~/.claude/wiki/docs/worktree-lifecycle.md` §C). (`--force` 는 git 레벨이라 OS 파일점유는 못 푼다.)
-- **부분 성공**(등록은 해제됐는데 디렉토리 잔존)은 점유와 별도 분기 — 확인·`prune` 절차는 `~/.claude/wiki/docs/worktree-lifecycle.md` §C.
+## C. rm failure stderr branch — file held (§6)
+When `git worktree remove <path>` fails, SKILL body §6 branches on stderr. **The safety gates and the branch deletion order (no `--force`/`-D`/remote deletion without confirmation, branch deletion only after remove succeeded) have the SKILL body (`## Cautions`, rm §6) as their single source** — here only the reason for the "file held" branch:
+- **File held type** (OS deletion failures such as "Access is denied"·"being used by another process"·"Directory not empty"·Windows "Invalid argument"): a live process holds files of the worktree (`.venv` etc.). `wt rm` **does not stop it automatically; it tells the user** — it is a path the user calls directly, so it cannot know whether the session that started the holding process is this session, and a path filter alone cannot tell it apart from a user server (`/e` step 7 can reclaim processes the same session started — `~/.claude/wiki/docs/worktree-lifecycle.md` §C). (`--force` works at the git level and cannot release an OS file hold.)
+- **Partial success** (registration removed but the directory left) is a branch separate from the hold — the check and `prune` procedure are in `~/.claude/wiki/docs/worktree-lifecycle.md` §C.
