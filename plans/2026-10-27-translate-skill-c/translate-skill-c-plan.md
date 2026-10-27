@@ -1,6 +1,6 @@
 ---
 title: translate-skill-c — skills/c/SKILL.md 를 규칙 손실 없이 영어로 옮긴다
-status: in_progress
+status: done
 started: 2026-10-27
 updated: 2026-10-27
 intent: plans/2026-10-21-ops-docs-rework/intent.md
@@ -25,8 +25,8 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] simplify 점검 (2026-10-27) — 생략: 코드 변경 없음
 - [x] 사용자 diff 확인 (2026-10-27) — 사용자 "커밋"(69행·60행 문구 포함)
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-27) — 격리 runner: `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, .ps1 변경 없음), check-c PASS(조항 75·핵심 문구 34·한글 0), 변형 8/8, plan-lint·frontmatter-lint 통과. 판정 DONE
-- [ ] 기록 커밋(plan·log·manifest·locations·check-c·intent), commit-check
-- [ ] 머지 (`/e merge`)
+- [x] 기록 커밋(plan·log·manifest·locations·check-c·intent), commit-check (2026-10-27) — 커밋 2개(번역·기록), 정리할 커밋 없음
+- [x] 머지 (`/e merge`) (2026-10-27) — PR #245
 - [ ] [post-merge] 새 세션에서 관찰 — 한국어 요청("진행하던 작업 이어가자")에 맞는 skill 로 c 가 골라지는지
 - [ ] [post-merge] main 세션에서 공용 wiki 갱신 — pointers.md 의 [post-merge] 절(`pages/concept/feedback-memory.md:30`), log
 
