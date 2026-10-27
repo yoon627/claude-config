@@ -1,53 +1,53 @@
 ---
 name: commit-check
-description: 현재 브랜치의 아직 게시(push)되지 않은 커밋들이 "리뷰 가능한 하나의 목적 단위"인지 점검하고, 합치기(fixup)·나누기(파일 단위)·순서·메시지 수정 제안 표를 만든 뒤 사용자가 승인하면 코드 내용은 그대로 둔 채 커밋 경계만 재구성한다. dlc 마무리(16단계 커밋 뒤)와 `/e merge`(push 전, 정리 안 된 커밋이 있을 때)에서 호출하며, `/commit-check` 명시 호출이나 "커밋 정리해줘 / 커밋 나눠줘 / 이 커밋 합쳐줘"류 요청에도 쓴다. push 는 하지 않는다.
+description: Checks whether the current branch's not-yet-published (unpushed) commits are each "one reviewable purpose", builds a proposal table of folds (fixup), splits (by file), reordering and message fixes, and once the user approves, restructures only the commit boundaries while keeping the code content unchanged. Called at dlc wrap-up (after the step 16 commit) and from `/e merge` (before push, when there are uncleaned commits), and also used for an explicit `/commit-check` call or requests like "clean up my commits / split this commit / fold these commits". It does not push.
 ---
 
-# commit-check — 커밋 단위 점검·재구성
+# commit-check — check and restructure commit units
 
-커밋은 리뷰 가능한 하나의 목적 단위다. 이 스킬은 브랜치의 **미게시** 커밋을 그 기준으로 보고, 고칠 것이 있으면 제안 → 승인 → 재구성한다. 판단은 모델이, 수집·검증·재구성은 `commit_units.py` 가 한다(스크립트가 안전 조건을 모두 강제한다 — git 명령을 직접 조합해 우회하지 않는다).
+A commit is one reviewable purpose. This skill looks at the branch's **unpublished** commits by that standard, and when something needs fixing it goes propose → approve → restructure. The model judges; `commit_units.py` collects, validates and restructures (the script enforces every safety condition — do not bypass it by composing git commands yourself).
 
-## 판정 기준
+## Judgment criteria
 
-- **합친다(fixup)**: 같은 작업의 후속 수정 — 리뷰 반영, 오타·단순 실수 정정, 같은 파일의 초안 뒤 다듬기, `wip:`·`fixup!` 커밋. 목적이 같은 앞 커밋에 합친다. `fixup!` 커밋은 `fixup_of`(git `rebase --autosquash` 의 대상 선택을 근사한 범위 안 대상 — ref 이름·`HEAD~n` 은 해석하지 않는다)에 합치는 것이 기본 제안이다(`show` 확인 불필요). 이 기본값은 아래 `plan-only` 기본값보다 우선한다 — plan 파일만 담은 `fixup!` 도 대상에 합친다. `/e` WIP 커밋이 여러 단위에 걸치면 `{"from": [단위, WIP], "paths": [그 단위 경로]}` 항목을 단위마다 만들어 WIP 를 경로별로 나눠 합친다. `squash!`·`amend!` 도 `fixup_of` 가 대상을 가리키지만 합칠 때 메시지 의미(squash=본문 결합, amend=메시지 교체)가 있으므로 계획 항목에 `message` 를 명시한다. `fixup_of` 가 null 이면 "대상 미확인/범위 밖"(제목 오타, 대상이 이미 게시·기본 브랜치·다른 브랜치·태그에 있음)으로 적고 합치지 않는다. 같은 파일을 여러 단위가 고친 상태에서 앞 단위로 합치면 충돌해 apply 가 거부될 수 있다 — 그러면 보류하고 사유를 제안 표에 남긴다. 그 밖의 후속 수정은 `overlaps`(뒤 커밋이 앞 커밋 파일을 다시 고침)가 1차 신호이고, 실제로 같은 목적인지는 `show` 로 확인한다.
-- **나눈다(split)**: 목적이 둘 이상 섞인 커밋 — 서로 다른 문제의 수정, 기능과 무관한 리팩터링·설정 변경. 파일 단위로 나뉘면 나눈다. 한 파일 안에서 목적이 섞였으면(hunk 단위) 자동으로 나누지 않고 제안 표에 "수동 분할 필요"로만 적는다.
-- **메시지를 고친다**: 제목이 repo 관례와 다를 때. 관례의 정본은 그 repo 의 AGENTS.md·CLAUDE.md 커밋 절이고, 없으면 `convention_samples`(기본 브랜치 최근 제목)에서 읽는다. 제목은 무엇을 바꿨는지, 본문은 왜.
-- **그대로 둔다**: 이미 한 목적 한 커밋이면 손대지 않는다. plan 전용 커밋(`plan-only`)은 기록 목적이 달라 합치지 않는 것이 기본이다(단 `fixup_of` 가 있는 `fixup!` 이면 위 합치기 기본값이 우선).
-- **범위 밖**: 게시된 커밋(원격에서 도달 가능)·태그가 걸린 커밋·다른 로컬 브랜치에 있는 커밋은 수집 단계에서 빠진다(`excluded`). 서명 커밋·merge 커밋이 범위에 있으면 재구성하지 않는다.
+- **Fold (fixup)**: follow-up fixes to the same work — review fixes, corrections of typos and simple mistakes, polishing the same file after a draft, `wip:`·`fixup!` commits. Fold them into the earlier commit with the same purpose. For a `fixup!` commit, the default proposal is to fold it into `fixup_of` (the in-range target that approximates the target selection of git `rebase --autosquash` — ref names and `HEAD~n` are not resolved) (no `show` check needed). This default takes precedence over the `plan-only` default below — a `fixup!` holding only plan files is folded into its target too. When a `/e` WIP commit spans several units, make one `{"from": [unit, WIP], "paths": [that unit's paths]}` entry per unit to split the WIP by path and fold each part. `squash!`·`amend!` also point to a target through `fixup_of`, but folding them carries a message meaning (squash = combine the bodies, amend = replace the message), so state `message` in the plan entry. If `fixup_of` is null, write "target unconfirmed/out of range" (a typo in the title, or the target is already published, on the default branch, on another branch or tagged) and do not fold. When several units changed the same file, folding into an earlier unit can conflict and make apply refuse — then leave it unapplied and put the reason in the proposal table. For other follow-up fixes, `overlaps` (a later commit changes an earlier commit's file again) is the first signal; check with `show` whether the purpose is really the same.
+- **Split**: a commit that mixes two or more purposes — fixes for different problems, a refactor or config change unrelated to the feature. Split it when the purposes separate by file. If the purposes are mixed inside one file (by hunk), do not split automatically; only write "manual split needed" in the proposal table.
+- **Fix the message**: when the title differs from the repo's convention. The canonical convention is the commit section of that repo's AGENTS.md·CLAUDE.md; without one, read it from `convention_samples` (recent titles on the default branch). The title says what changed, the body says why.
+- **Leave as is**: if it is already one purpose in one commit, do not touch it. A plan-only commit (`plan-only`) serves a different purpose (keeping a record), so the default is not to fold it (but for a `fixup!` with a `fixup_of`, the fold default above wins).
+- **Out of range**: published commits (reachable from a remote), tagged commits and commits on another local branch drop out at the collection step (`excluded`). If a signed commit or a merge commit is in the range, do not restructure.
 
-## 절차
+## Procedure
 
-1. **수집** — repo 루트에서:
+1. **Collect** — from the repo root:
    ```
    uv run --no-project python "${CLAUDE_SKILL_DIR}/commit_units.py" collect
    ```
-   실패(detached HEAD·범위에 merge 커밋·기준 브랜치 없음)면 그 사유를 보고하고 끝낸다. `on_default_branch` 가 true 면 기본 브랜치라 재구성하지 않는다(보고만).
-2. **빠른 경로** — 범위 커밋이 0개면 질문 없이 "점검할 미게시 커밋 없음" 한 줄로 끝낸다. 1개여도 판정은 한다 — 파일 목록이 한 목적으로 보이고(서로 무관한 영역이 섞이지 않음) 플래그가 없고 제목이 관례에 맞을 때만 "이상 없음" 한 줄로 끝낸다.
-3. **판정** — 커밋별 `files`·`flags`·`overlaps` 를 보고, 필요한 커밋만 `commit_units.py show <sha>` 로 패치를 확인한다(raw `git log/show` 를 치지 않는다).
-4. **제안 표** — 바꿀 것이 없으면 "이상 없음"으로 끝낸다(질문 없음). 있으면 `현재 커밋 → 제안 → 이유` 표와 함께 해당될 때만 다음을 적는다:
-   - 중간 커밋 미검증 — 재구성으로 생긴 중간 커밋은 hook·빌드를 거친 적 없는 조합이다(최종 tree 는 원래와 같다).
-   - 커밋과 그 되돌림을 합쳐 없애는 것(drop)은 지원하지 않는다.
-   - 수동 분할 필요(hunk 단위).
-   - 이 브랜치에서 이미 push 돼 제외된 커밋 수(`excluded.published`)·태그로 제외된 커밋 수(`excluded.tags`).
-5. **승인** — `AskUserQuestion` 으로 적용 / 보류를 묻는다. 미게시 로컬 이력이라 되돌릴 수 있지만, 재구성 전 승인은 사용자가 정한 규칙이다(2026-09-24). 사용자에게 물을 수 없는 흐름(무인 실행)이면 적용하지 않고 제안 표만 보고에 남긴다.
-6. **적용** — 계획 JSON 을 스크래치 파일에 `Write` 로 쓰고:
+   On failure (detached HEAD, a merge commit in the range, no base branch), report the reason and stop. If `on_default_branch` is true, it is the default branch, so do not restructure (report only).
+2. **Fast path** — with 0 commits in the range, end without a question with one line "no unpublished commits to check". Even with 1, judge it — end with one line "no issues" only when the file list looks like one purpose (no unrelated areas mixed), there are no flags and the title fits the convention.
+3. **Judge** — look at each commit's `files`·`flags`·`overlaps`, and check the patch only of the commits that need it with `commit_units.py show <sha>` (do not run raw `git log/show`).
+4. **Proposal table** — if nothing needs changing, end with "no issues" (no question). Otherwise, with a `current commit → proposal → reason` table, write the following only when applicable:
+   - Intermediate commits unverified — intermediate commits made by the restructuring are combinations that never went through hooks or builds (the final tree is the same as the original).
+   - Removing a commit together with its revert by folding them (drop) is not supported.
+   - Manual split needed (by hunk).
+   - The number of commits excluded because this branch already pushed them (`excluded.published`) and excluded by tags (`excluded.tags`).
+5. **Approve** — ask apply / leave unapplied with `AskUserQuestion`. It is unpublished local history and can be undone, but approval before restructuring is a rule the user set (2026-09-24). In a flow that cannot ask the user (unattended), do not apply; leave only the proposal table in the report.
+6. **Apply** — write the plan JSON to a scratch file with `Write`, then:
    ```
-   uv run --no-project python "${CLAUDE_SKILL_DIR}/commit_units.py" apply <계획 파일>
+   uv run --no-project python "${CLAUDE_SKILL_DIR}/commit_units.py" apply <plan file>
    ```
-   성공하면 `new_head`·`commits`(커밋별 sha·제목·파일)·`backup_ref`·`rollback` 을 받는다. 실패하면 브랜치·index·작업트리는 호출 전 그대로다(repo 의 commit-msg hook 이 스스로 일으킨 부작용은 예외) — 오류 문구를 그대로 보고하고, 계획을 고쳐 다시 시도하거나 보류한다.
-7. **보고** — `commits` 의 커밋별 파일이 제안 표와 맞는지 확인한다(순서를 바꾸면 한 커밋의 변경이 뒤 커밋과 상쇄돼 파일이 빠질 수 있다 — 최종 tree 는 같아도 제안과 다르면 되돌리기를 안내한다). 새 커밋 sha 목록, 백업 ref, 되돌리기 명령(`rollback`)을 보고에 적는다. 호출한 쪽의 기록 파일(plan 등)에는 쓰지 않는다.
+   On success you get `new_head`, `commits` (sha, title and files per commit), `backup_ref` and `rollback`. On failure the branch, index and work tree are as they were before the call (except side effects the repo's commit-msg hook caused itself) — report the error text as is, then fix the plan and retry or leave it unapplied.
+7. **Report** — check that the files per commit in `commits` match the proposal table (reordering can cancel one commit's change against a later commit and drop a file — even if the final tree is the same, if it differs from the proposal, tell the user how to undo it (`rollback`)). Put the new commit sha list, the backup ref and the undo command (`rollback`) in the report. Do not write to the caller's record files (plan etc.).
 
-## `/e merge` 에서 부를 때
+## When called from `/e merge`
 
-`/e merge` 는 push 전에 `commit_units.py pending origin/<default>` 로 PR 에 실릴 커밋 중 `wip`·`fixup`(`squash!`·`amend!` 포함) flag 커밋을 찾고, 각각을 `rewritable`(이 스킬 범위 안) / `published`(원격 추적 ref 가 도달) / `held`(원격엔 없고 다른 로컬 브랜치·태그가 붙잡음) / `blocked`(범위를 재구성할 수 없음 — `range_error`: merge 커밋·서명 커밋·기본 브랜치 등, apply 가 거부할 조건을 `pending` 이 미리 본다) 로 나눈다. `rewritable` 이 있을 때만 이 스킬을 **`wip`·`fixup` flag 커밋 정리로 범위를 좁혀** 부른다(`review-followup`·`plan-only` flag 는 대상 아님). 이때는:
-- `wip`·`fixup` flag 커밋마다 합치기(`fixup_of` 또는 목적이 같은 앞 커밋) 또는 정식 제목으로 reword(`{"from": [sha], "message": ...}`) 중 하나를 제안한다 — 대상이 범위 밖(`fixup_of` null — 이미 게시된 단위에 대한 `fixup!` 등)이면 reword 가 답이다. 범위 첫 커밋이 `wip` 라 합칠 앞 커밋이 없어도 reword.
-- 합치기를 제안하는 flag 커밋에는 제안 표에 "충돌 시 reword: `<제목>`" 을 함께 적어 한 번의 승인으로 둘 다 덮는다. apply 가 충돌(`merge-tree --write-tree 실패`)로 거부하면 보류하지 말고 그 커밋만 표에 적은 reword 로 바꿔 한 번 다시 적용한다 — 같은 파일을 여러 단위가 고친 뒤의 `fixup!` 이 이 경우라, 보류하면 `/e merge` 가 재실행해도 같은 자리에서 멈춘다. 표에 없던 계획으로 바꿔야 하면 다시 묻는다.
-- flag 와 무관한 split·순서·메시지 제안은 표에 참고로만 적고 계획에 넣지 않는다(보류하면 머지 전체가 멈춘다).
-- 보류·적용 실패의 후속 처리는 `/e` 가 한다(이 스킬은 결과만 돌려준다).
+Before push, `/e merge` finds, among the commits going into the PR, the `wip`·`fixup` (including `squash!`·`amend!`) flag commits with `commit_units.py pending origin/<default>`, and sorts each into `rewritable` (within this skill's range) / `published` (reached by a remote-tracking ref) / `held` (not on the remote, held by another local branch or tag) / `blocked` (the range cannot be restructured — `range_error`: merge commits, signed commits, the default branch, etc.; `pending` checks in advance the conditions apply would refuse). Only when there is a `rewritable` one does it call this skill, **narrowed to cleaning up the `wip`·`fixup` flag commits** (`review-followup`·`plan-only` flags are not targets). In that case:
+- For each `wip`·`fixup` flag commit, propose either a fold (into `fixup_of` or an earlier commit with the same purpose) or a reword to a proper title (`{"from": [sha], "message": ...}`) — if the target is out of range (`fixup_of` null — e.g. a `fixup!` for an already published unit), reword is the answer. Reword also when the first commit of the range is a `wip` and there is no earlier commit to fold into.
+- For a flag commit you propose to fold, also write "reword on conflict: `<title>`" in the proposal table, so one approval covers both. If apply refuses with a conflict (`merge-tree --write-tree 실패`), do not leave it unapplied; switch only that commit to the reword written in the table and apply once more — a `fixup!` after several units changed the same file is this case, and leaving it unapplied makes `/e merge` stop at the same spot even when rerun. If you need to change to a plan that was not in the table, ask again.
+- Split, reorder and message proposals unrelated to the flags go in the table only for reference and not into the plan (if they were left unapplied, the whole merge would stop).
+- Follow-up handling when the plan is left unapplied or apply fails is done by `/e` (this skill only returns the result).
 
-## 계획 JSON
+## Plan JSON
 
-`collect` 가 준 `base`·`head` 를 그대로 돌려보낸다(그 사이 브랜치가 움직였으면 apply 가 거부한다). `commits` 는 **새 이력의 순서**다.
+Send back the `base`·`head` that `collect` gave unchanged (if the branch moved in between, apply refuses). `commits` is **the order of the new history**.
 
 ```json
 {
@@ -56,20 +56,20 @@ description: 현재 브랜치의 아직 게시(push)되지 않은 커밋들이 "
   "head": "<collect.head>",
   "commits": [
     {"from": ["<A>", "<C>"]},
-    {"from": ["<B>"], "message": "feat: 새 제목\n\n본문\n"},
-    {"from": ["<D>"], "paths": ["src/a.py"], "message": "fix: a 수정\n"},
-    {"from": ["<D>"], "paths": ["docs/b.md"], "message": "docs: b 갱신\n"}
+    {"from": ["<B>"], "message": "feat: new title\n\nbody\n"},
+    {"from": ["<D>"], "paths": ["src/a.py"], "message": "fix: fix a\n"},
+    {"from": ["<D>"], "paths": ["docs/b.md"], "message": "docs: update b\n"}
   ]
 }
 ```
 
-- `from`: 이 새 커밋에 담을 원래 커밋들(원래 순서대로). 여럿이면 합치기 — 첫 커밋이 대상이고 author·메시지를 물려받는다. 나머지의 트레일러(`Co-Authored-By` 등)는 중복 없이 합쳐진다.
-- `paths`: 파일 단위로 나눌 때만. 그 커밋들의 변경 중 이 경로만 담는다. 나눈 항목은 `message` 가 필수이고, 원래 커밋의 모든 파일이 항목들에 빠짐없이·겹침 없이 배정돼야 한다. rename 은 옛 경로·새 경로를 같은 항목에 둔다.
-- `message`: 새 메시지. 생략하면 대상 커밋 메시지. 계획이 메시지를 주거나 트레일러 병합으로 결과 메시지가 원본과 달라지면 repo 의 `commit-msg` hook 을 거친다(거부되면 적용 전체가 거부, hook 이 고친 메시지는 그대로 쓴다). 세션마다 다른 트레일러(`Claude-Session` 등)가 있는 커밋끼리 합치면 거의 항상 hook 이 돈다.
-- 계획 형식의 정본은 `commit_units.py` 의 `validate_plan` 이다.
+- `from`: the original commits to put into this new commit (in their original order). Several means a fold — the first commit is the target, and the new commit takes its author and message. The trailers of the rest (`Co-Authored-By` etc.) are merged without duplicates.
+- `paths`: only when splitting by file. Only these paths of those commits' changes go in. A split entry requires a `message`, and every file of the original commit must be assigned to the entries with nothing missing and nothing overlapping. For a rename, put the old and new paths in the same entry.
+- `message`: the new message. If omitted, the target commit's message. When the plan gives a message, or trailer merging makes the resulting message differ from the original, it goes through the repo's `commit-msg` hook (if the hook refuses, the whole apply is refused; a message the hook changed is used as is). Folding commits that carry trailers that differ per session (`Claude-Session` etc.) almost always runs the hook.
+- The canonical plan format is `validate_plan` in `commit_units.py`.
 
-## 하지 않는 것
+## What it does not do
 
-- push·force-push — 게시 커밋은 범위에 들어오지 않으므로 필요한 경우가 없다.
-- 기본 브랜치(main·master 등)의 재구성, 서명 커밋·merge 커밋이 있는 범위의 재구성, hunk 단위 분할, drop.
-- 스크립트가 거부한 것을 git 명령으로 직접 우회하는 것.
+- push or force-push — published commits never enter the range, so there is no case that needs it.
+- Restructuring the default branch (main, master, etc.), restructuring a range with a signed commit or merge commit, splitting by hunk, drop.
+- Bypassing what the script refused by running git commands directly.
