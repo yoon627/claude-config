@@ -46,6 +46,6 @@ T.2 | ## Strong concerns (must fix) ‖ - [✅|⚠️|❌] concern + evidence (p
 T.3 | ## Weak concerns (review recommended)
 T.4 | ## Missing scenarios
 T.5 | ## Rollback evaluation
-T.6 | - Run: yes | skipped (reason: ...) ‖ - Agreed items: ... ‖ - Found only by Codex: ... ‖ - Found only by the main agent: ...
+T.6 | - Run: yes | skipped (reason: ...) ‖ - Agreed items: ... ‖ - Found only by Codex: ... ‖ - Found only by this review: ...
 T.7 | ## Summary for the plan (1–3 lines the main agent applies to `<ROOT>/plans/<dir>/<slug>-plan.md`)
 T.8 | ## Files checked ‖ - path:line — note

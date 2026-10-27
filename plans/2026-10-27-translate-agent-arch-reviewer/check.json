@@ -1,0 +1,50 @@
+{
+  "file": "agents/architecture-reviewer.md",
+  "base": "c43c564",
+  "manifest": "plans/2026-10-27-translate-agent-arch-reviewer/manifest.md",
+  "locations": "plans/2026-10-27-translate-agent-arch-reviewer/locations-en.txt",
+  "keep": ["## Codex 병행"],
+  "frontmatter": ["---", "name: architecture-reviewer", null, "tools: Read, Grep, Glob, Bash, WebFetch, WebSearch", "model: opus", "---"],
+  "headings": [
+    "## Response language", "## Responsibility boundaries (always keep)", "## Modes: planning | post-implementation",
+    "## Call triggers (check before starting the review)", "## Minimum input bundle (a diff alone is not enough)",
+    "## Review start procedure", "## Review checklist", "## Non-goals (not covered)", "## Prohibitions",
+    "## Codex 병행 review (optional, conservative)", "## Severity", "## Rules", "## Output format",
+    "## Overall verdict", "## Call appropriateness", "## Critical", "## Major", "## Minor", "## Collection limits",
+    "## Delegated to other agents", "## Codex 병행",
+    "## Summary for the plan (1–3 lines the main agent applies to `<ROOT>/plans/<dir>/<slug>-plan.md`)", "## Files checked"
+  ],
+  "numbered": [
+    {"from": "## Call triggers", "to": "If called but", "first": 1, "last": 3},
+    {"from": "A design review must look", "to": "State any bundle item", "first": 1, "last": 6},
+    {"from": "## Review start procedure", "to": "## Review checklist", "first": 0, "last": 4},
+    {"from": "## Review checklist", "to": "## Non-goals", "first": 1, "last": 8}
+  ],
+  "mutations": [
+    ["default mode planning", "If not given, the default is `post-implementation`", "If not given, the default is `planning`"],
+    ["planning collects diff", "Skip the git-diff-based \"Minimum input bundle\" collection.", "Also collect the git-diff-based \"Minimum input bundle\"."],
+    ["planning cites future code", "Do not attach `file:line` evidence to code that does not exist yet", "Attach `file:line` evidence even to code that does not exist yet"],
+    ["planning codex on", "Nested codex call: **off** in planning mode", "Nested codex call: **on** in planning mode"],
+    ["trigger any becomes all", "when the change matches any of these", "when the change matches all of these"],
+    ["do-not-call output widened", "output only the one line", "end the output with one line"],
+    ["caller scope precedence lost", "(if the caller stated the change scope, use that instead)", "(or the change scope the caller stated)"],
+    ["branches dropped", "whether branches force simultaneous edits", "whether adding values forces simultaneous edits"],
+    ["codex finding attribution", "- Found only by this review: ...", "- Found only by the main agent: ..."],
+    ["diff threshold", "a diff of 150+ lines (excluding formatting/generated code)", "a diff of 50+ lines"],
+    ["fixture exception dropped", "test-only changes (a change to the test fixture structure is the exception)", "test-only changes"],
+    ["forced review allowed", "No forced review.", "Review anyway."],
+    ["guessing allowed in bundle", "State any bundle item you could not collect in the output section `## Collection limits`. No guessing.", "Skip any bundle item you could not collect."],
+    ["dirty files touched", "Do not touch dirty files outside the review target.", "Clean up dirty files outside the review target."],
+    ["do not call continues", "If do not call, stop at once.", "If do not call, review briefly."],
+    ["taste proposals allowed", "**No taste-based refactoring proposals.**", "**Taste-based refactoring proposals are welcome.**"],
+    ["edits allowed", "**No code changes.** This agent is read-only.", "**Small code changes are fine.**"],
+    ["destructive allowed", "No destructive commands (rm, DB write, prod mutation, running migrations).", "Destructive commands are allowed when needed."],
+    ["codex conditions any", "**Call conditions** (only when all hold):", "**Call conditions** (when any holds):"],
+    ["critical not before merge", "Fix before merge.", "Fix when convenient."],
+    ["nit level added", "(No Nit level — taste items are not created)", "(Nit level for taste items)"],
+    ["confidence optional", "Confidence prefix mandatory:", "Confidence prefix optional:"],
+    ["forced digging", "No forced digging.", "Always find something."],
+    ["verdict values", "APPROVE | REQUEST CHANGES | NEEDS DISCUSSION", "APPROVE | REQUEST CHANGES"],
+    ["description do-not-call dropped", " Do not call it for a bug fix inside a single function, formatting, typos or doc changes.", ""]
+  ]
+}

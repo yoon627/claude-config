@@ -6,7 +6,7 @@
 //   base          commit holding the Korean original (line count must match)
 //   manifest      clause manifest (Korean); clause lines are "- <id> …" (every "- " line before "## 다른 파일이 가리키는 표지" or
 //                 "## 핵심 문구" must parse as one), core phrases are the first non-blank line after "## 핵심 문구"
-//   locations     "<id> | <quote>[ ‖ <quote>…]" — each quote verbatim, once, in manifest order
+//   locations     "<id> | <quote>[ ‖ <quote>…]" — each quote verbatim, once, in manifest order; "⏎" in a quote is a line break
 //   keep          strings allowed to contain Hangul (kept verbatim)
 //   frontmatter   expected lines from the first "---" to the closing "---"; null marks the description line
 //   headings      exact list of every line starting with "#", in order (required)
@@ -52,7 +52,7 @@ let n1 = 0; let last = -1;
 for (const id of ids) {
   const loc = locs.get(id);
   if (loc === undefined) { bad(`no location: ${id}`); continue; }
-  const quotes = loc.split(' ‖ ');
+  const quotes = loc.split(' ‖ ').map((q) => q.split('⏎').join('\n'));
   const miss = quotes.filter((q) => !en.includes(q));
   if (miss.length) { bad(`not found: ${id} — ${miss.join(' ‖ ').slice(0, 100)}`); continue; }
   for (const q of quotes) {
