@@ -1,6 +1,6 @@
 ---
 title: translate-agent-arch-reviewer — agents/architecture-reviewer 를 규칙 손실 없이 영어로 옮긴다
-status: in_progress
+status: done
 started: 2026-10-27
 updated: 2026-10-27
 intent: plans/2026-10-21-ops-docs-rework/intent.md
@@ -24,7 +24,7 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] 사용자 diff 확인 (2026-10-27) — 사용자 "커밋": mode 토큰·Codex 제목 원문 유지, "Review checklist", plan-reviewer "Found only by this review" 함께, 공통 검사 ⏎·CRLF, Acceptance 4 문구 포함
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-27) — `ALL PASS`, 공통 검사 PASS(arch·plan-reviewer), 변형 R 25/25·G 전부, sync 테스트 11 OK, Acceptance 1~4·6 관찰
 - [x] 기록 커밋(plan·log·manifest·locations·check.json·terms·intent·공통 검사), commit-check (2026-10-27)
-- [ ] 머지 (`/e merge`)
+- [x] 머지 (`/e merge`) (2026-10-27) — PR #250
 - [ ] [post-merge] 새 세션에서 관찰 — 설계 질문("이거 메서드로 빼야 하나", "주입해야 하나")에 architecture-reviewer 가 골라지는지
 - [ ] [post-merge] main 세션에서 공용 wiki 확인 — architecture-reviewer 문구 인용 확인, ops-doc-slimming·log 기록
 - [ ] [post-merge] Codex 가 있는 머신에서 `scripts/bootstrap/sync_codex_agents.py` 재실행
