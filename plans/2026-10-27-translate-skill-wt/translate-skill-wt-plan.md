@@ -25,8 +25,8 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-27) — `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, 무관), check-wt PASS, 변형 21/21·228/228, Acceptance 1~4·6 관찰
 - [x] 기록 커밋(plan·log·manifest·locations·check-wt·pointers·intent), commit-check (2026-10-27)
 - [x] 머지 (`/e merge`) (2026-10-27) — PR #246
-- [ ] [post-merge] 새 세션에서 관찰 — 한국어 요청("로그인 버그 고쳐줘" 같은 작업 요청)과 `/wt` 호출에 맞는 skill 로 wt 가 골라지는지
-- [ ] [post-merge] main 세션에서 공용 wiki 확인·갱신 — pointers.md 의 [post-merge] 절
+- [x] [post-merge] 새 세션에서 관찰 — 한국어 요청("로그인 버그 고쳐줘" 같은 작업 요청)과 `/wt` 호출에 맞는 skill 로 wt 가 골라지는지 (2026-10-27) — 새 headless 세션이 "로그인 리다이렉트 버그 고쳐줘"·"/wt rm old-branch" 둘 다 `wt` 를 골랐다(직접 질문 표본 1개 ⚠️)
+- [x] [post-merge] main 세션에서 공용 wiki 확인·갱신 — pointers.md 의 [post-merge] 절 (2026-10-27) — wt 를 가리키는 곳은 모두 경로·절 번호라 고칠 인용 없음, 공용 wiki 커밋 4d674f1(ops-doc-slimming 4단계·log)
 
 # Acceptance
 1. 규칙 손실 0 — manifest 조항(122개)마다 locations-en.txt 의 영어 인용(조항 전체를 덮는 하나 이상, 파일 안에서 한 번)이 그 파일에 글자 그대로, 인용 밖에 규칙 문장이 없고, 변형을 넣으면 잡힌다 — `check-wt.js` 1절·5절 + 변형 시험(손으로 고른 변형과 모든 문장 삭제) — missing·not found·uncovered 0, 변형 전부 FAIL
