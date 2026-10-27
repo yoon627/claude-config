@@ -41,6 +41,7 @@ CLAUDE.md·skills·agents 가 같은 규칙을 더 짧게 담고, 그 다음 영
 - plans/2026-10-26-language-policy/language-policy-plan.md — 언어 정책을 CLAUDE.md §0 에, agents 의 보고 언어를 영어로
 - plans/2026-10-26-translate-claude-md/translate-claude-md-plan.md — translate-repo 의 첫 파일: CLAUDE.md 를 영어로, 같은 문구를 인용·공유하는 곳도 함께
 - plans/2026-10-26-translate-skill-e/translate-skill-e-plan.md — translate-repo 의 두 번째 파일: skills/e
+- plans/2026-10-27-translate-skill-c/translate-skill-c-plan.md — translate-repo 의 세 번째 파일: skills/c
 - translate-repo (not started) — skills(references·frontmatter description 포함)·agents 를 영어로, 파일별. 줄이기 단위가 모두 done 또는 폐기된 뒤. 각 줄이기 단위의 manifest 가 그 번역의 대조표
 - translate-hooks (not started) — hook 주입 문구와 그것을 확인하는 테스트(코드라 medium 이상·TDD). 사용자에게 보이는 문구는 Open question 을 따른다
 - translate-wiki-docs (not started) — `wiki/docs/` 를 영어로. 공용 wiki 라 main 세션에서, 그 문서를 가리키는 skill 의 번역과 순서를 맞춘다
