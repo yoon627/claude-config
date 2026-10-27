@@ -27,8 +27,8 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-27) — 격리 runner: `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, .ps1 변경 없음), check-c PASS(조항 75·핵심 문구 34·한글 0), 변형 8/8, plan-lint·frontmatter-lint 통과. 판정 DONE
 - [x] 기록 커밋(plan·log·manifest·locations·check-c·intent), commit-check (2026-10-27) — 커밋 2개(번역·기록), 정리할 커밋 없음
 - [x] 머지 (`/e merge`) (2026-10-27) — PR #245
-- [ ] [post-merge] 새 세션에서 관찰 — 한국어 요청("진행하던 작업 이어가자")에 맞는 skill 로 c 가 골라지는지
-- [ ] [post-merge] main 세션에서 공용 wiki 갱신 — pointers.md 의 [post-merge] 절(`pages/concept/feedback-memory.md:30`), log
+- [x] [post-merge] 새 세션에서 관찰 — 한국어 요청("진행하던 작업 이어가자")에 맞는 skill 로 c 가 골라지는지 (2026-10-27) — 새 headless 세션이 `c` 를 골랐다(직접 질문 표본 1개 ⚠️)
+- [x] [post-merge] main 세션에서 공용 wiki 갱신 — pointers.md 의 [post-merge] 절(`pages/concept/feedback-memory.md:30`), log (2026-10-27) — 공용 wiki 커밋 93ef774(feedback-memory·ops-doc-slimming·log)
 
 # Acceptance
 1. 규칙 손실 0 — manifest 조항(75개)마다 locations-en.txt 의 영어 인용(조항 전체를 덮는 하나 이상)이 새 SKILL 에 글자 그대로, 그리고 변형을 넣으면 잡힌다 — `check-c.js` 1절 + 변형 시험(조항 일부를 바꾼 사본 8개가 각각 FAIL) — missing·not found 0, 변형 8/8 FAIL
