@@ -1,6 +1,6 @@
 ---
 title: translate-skill-commit-check — skills/commit-check 를 규칙 손실 없이 영어로 옮긴다
-status: in_progress
+status: done
 started: 2026-10-27
 updated: 2026-10-27
 intent: plans/2026-10-21-ops-docs-rework/intent.md
@@ -24,7 +24,7 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] 사용자 diff 확인 (2026-10-27) — 사용자 "커밋": 보류 → "leave unapplied"·요청 예시 영어화·스크립트 오류 문구 유지·Acceptance 문구 강화 포함
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-27) — `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, 무관), check-cc PASS, 변형 24/24·8/8·113/113, Acceptance 1~4·6 관찰
 - [x] 기록 커밋(plan·log·manifest·locations·check-cc·mut-cc·intent), commit-check (2026-10-27)
-- [ ] 머지 (`/e merge`)
+- [x] 머지 (`/e merge`) (2026-10-27) — PR #247
 - [ ] [post-merge] 새 세션에서 관찰 — 한국어 요청("커밋 정리해줘")에 맞는 skill 로 commit-check 가 골라지는지
 - [ ] [post-merge] main 세션에서 공용 wiki 확인 — commit-check 문구를 인용한 곳이 있으면 영어로(지금 조사로는 이름·경로 참조만), ops-doc-slimming·log 기록
 
