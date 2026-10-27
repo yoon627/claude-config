@@ -1,82 +1,82 @@
 ---
 name: c
-description: 현재 worktree/repo 의 진행 중인 plan(CLAUDE.md §10)을 찾아 남은 작업과 plan↔실제(git/코드) sync 상태를 진단하고, 어긋나면 plan 을 보정한 뒤 다음 액션이 명확하면 이어서 실행하는 plan 이어가기(plan-continue) 오케스트레이션. 그 브랜치 PR 의 사람 리뷰 코멘트도 intake 한다. `/c` 명시 호출 또는 "진행하던 작업 이어가자"류 요청 시 사용. 단순 질문·탐색·신규 작업 시작에는 쓰지 않는다(새 plan 생성은 dlc 몫).
+description: plan-continue orchestration that finds the in-progress plan (CLAUDE.md §10) of the current worktree/repo, diagnoses the remaining work and the plan↔actual (git/code) sync state, corrects the plan if they diverge, then continues with the next action when it is clear. It also takes in human review comments from that branch's PR. Use on an explicit `/c` call or a request like "let's continue the work in progress". Not for simple questions, exploration or starting new work (creating a new plan is dlc's job).
 ---
 
-# c — plan 이어가기 (plan continue)
+# c — plan continue
 
-진행 중이던 §10 plan 을 찾아 **남은 작업 + sync 상태**를 진단하고, 어긋난 plan 을 실제 상태로 보정한 뒤 첫 미완료 Task 가 명확하면 이어서 실행한다(예외 시 정지·제시). CLAUDE.md §10 **Start**·**In-progress sync** 의 자동화 버전 — **충돌 시 CLAUDE.md 우선**.
+Find the in-progress §10 plan, diagnose **the remaining work + the sync state**, correct a diverged plan to match the actual state, and then, if the first unchecked Task is clear, continue running it (on an exception, stop and present). The automated version of CLAUDE.md §10 **Start**·**In-progress sync** — **CLAUDE.md wins on conflict**.
 
-## 적용
-- `/c` 명시 호출, 또는 진행하던 plan 을 이어가려 할 때.
-- 단순 질문·탐색·읽기 전용·신규 작업 시작은 제외. **plan 이 없으면 새로 만들지 않는다** (그건 dlc/작업 시작의 몫).
+## When to use
+- An explicit `/c` call, or when you are about to continue a plan that was in progress.
+- Not for simple questions, exploration, read-only work or starting new work. **If there is no plan, do not create one** (that is the job of dlc / the start of work).
 
-## 동작 (3단계: 찾기 → 진단 → 보정·이어실행)
+## Behavior (3 steps: find → diagnose → correct·continue)
 
-### 1. plan 찾기
+### 1. Find the plan
 - `ROOT = git rev-parse --show-toplevel`, `BR = git rev-parse --abbrev-ref HEAD`.
-- 탐색 위치 (존재하는 것만, 중복 제거):
+- Search locations (only those that exist, deduplicated):
   1. `<ROOT>/plans/`
-  2. cwd 가 worktree 일 때 main worktree 의 plans — `git worktree list --porcelain` 의 첫 `worktree <path>` 라인 → `<main>/plans/`. (1)과 동일하면 생략.
-  > plans/ 는 worktree(브랜치)별 독립이라 양쪽을 봐야 누락이 없다(tracked 지만 브랜치마다 내용이 다르다).
-- **매칭** (§10 규칙): `BR` 문자열이 plan **dir 이름**(`<YYYY-MM-DD>-<slug>`)에 포함되는 dir → 그 안의 `*-plan.md` 1개.
-  - 1개 → 채택.
-  - 2개+ → 후보 목록 제시 후 사용자 선택.
-  - 0개 → fallback.
-- **fallback (매칭 0개)**: 탐색 위치의 모든 plan(`*/*-plan.md` + 루트 직속 `*.md`) frontmatter 를 읽어 `status: in_progress|blocked` 인 것을 `updated` 내림차순으로 **목록 제시 → 사용자 선택**. 추측으로 자동 선택하지 않는다. 전부 done 이거나 없으면 "이어갈 plan 없음" 보고 후 종료.
+  2. When the cwd is a worktree, the main worktree's plans — the first `worktree <path>` line of `git worktree list --porcelain` → `<main>/plans/`. Skip it if it is the same as (1).
+  > plans/ is independent per worktree (branch), so look at both to miss nothing (it is tracked, but its content differs per branch).
+- **Matching** (§10 rule): the dir whose **dir name** (`<YYYY-MM-DD>-<slug>`) contains the `BR` string → the one `*-plan.md` in it.
+  - 1 → adopt it.
+  - 2+ → present the candidate list and let the user choose.
+  - 0 → fallback.
+- **Fallback (0 matches)**: read the frontmatter of every plan in the search locations (`*/*-plan.md` + `*.md` directly under each plans/ root), and **present those with `status: in_progress|blocked` sorted by `updated` descending → the user chooses**. Do not pick one automatically by guessing. If all are done or none exist, report "no plan to continue" and stop.
 
-### 2. 진단 (plan read 후)
-plan 을 read 하고(같은 폴더 plan log 가 있으면 함께 — 이전 리뷰 처분·Deferred 를 이어받는다) 두 축을 본다. frontmatter `intent:` 가 있으면 그 `intent.md`(§10 묶음 intent)도 read 한다 — 공통 Constraints·Open questions·`# Plans`(형제 plan) 가 거기 있어 plan `# Goal` 라벨 불릿의 델타만으로는 요구가 복원되지 않는다. 파일이 없으면 보고에 "intent 링크 끊김" 1줄(3단계 보정 대상). 옛 형식 plan(`# Tasks` 없음)은 §10 대응표대로 읽고 보정한다.
-- **남은 작업**: `status` + `# Tasks` 미완료 항목(첫 항목 = 다음 액션) + `# Blockers`.
-  - `done` → "이미 done" 안내 후 그래도 이어갈지 확인.
-  - `blocked` → `# Blockers` 노출, 해소 가능 여부 판단.
-  - 미완료 Task 가 없거나 첫 항목이 실효 → 3단계에서 실제 상태로 재구성.
-- **sync 점검** (plan ↔ 실제):
+### 2. Diagnose (after reading the plan)
+Read the plan (together with the plan log in the same folder if there is one — it carries over earlier review dispositions and Deferred items) and look at two axes. If the frontmatter has `intent:`, also read that `intent.md` (§10 bundle intent) — the common Constraints, Open questions and `# Plans` (sibling plans) live there, so the delta in the plan's `# Goal` labeled bullets alone does not restore the requirement. If the file is missing, one line "intent link broken" in the report (a correction target in step 3). Read and correct an old-format plan (no `# Tasks`) by the §10 mapping table.
+- **Remaining work**: `status` + the unchecked items of `# Tasks` (the first item = the next action) + `# Blockers`.
+  - `done` → note "already done", then ask whether to continue anyway.
+  - `blocked` → show `# Blockers` and judge whether it can be unblocked.
+  - No unchecked Task, or the first item is no longer valid → rebuild it from the actual state in step 3.
+- **Sync check** (plan ↔ actual):
 
-  | 점검 | 방법 | 어긋남 신호 |
+  | Check | How | Divergence signal |
   |---|---|---|
-  | 최신성 | frontmatter `updated` vs 최근 커밋 날짜 | `updated` 가 한참 과거 |
-  | Task 경로 실재 | 미완료 Task 의 backtick 경로 존재 확인 | 없는/이동된 파일 |
-  | 커밋 반영 | `git log --oneline origin/main..HEAD` | 체크된 Task 에 없는 커밋 |
-  | 미반영 변경 | `git status --short` | 어느 Task 에도 없는 uncommitted |
-  | 완료 여부 | `git log --oneline origin/main..HEAD` 비었나 / `git branch --merged origin/main` | 머지됐는데 `status≠done` |
-  | plan 무결성 | `node scripts/plan-lint.js <채택 plan>`(있으면) | §10 형식(frontmatter 필수키·필수 섹션·Tasks 체크박스와 날짜)·**끊긴 Acceptance 참조** 위반 |
+  | Freshness | frontmatter `updated` vs the latest commit date | `updated` is long past |
+  | Task paths exist | check that the backtick paths of unchecked Tasks exist | missing/moved files |
+  | Commits reflected | `git log --oneline origin/main..HEAD` | commits not in any checked Task |
+  | Unreflected changes | `git status --short` | uncommitted changes not in any Task |
+  | Completion | is `git log --oneline origin/main..HEAD` empty / `git branch --merged origin/main` | merged but `status≠done` |
+  | Plan integrity | `node scripts/plan-lint.js <adopted plan>` (if present) | violations of the §10 format (mandatory frontmatter keys, mandatory sections, Tasks checkboxes and dates) and **broken Acceptance references** |
 
-  - 점검 명령이 실패(origin 없음 등)하면 그 점검만 skip 하고 보고에 명시. **plan-lint 위반은 노출·보정 대상(hard-stop 아님)** — 3단계 보정에 반영.
-- **PR 리뷰 intake** (plan 이 매칭된 경우만, read-only): 그 브랜치 PR 의 **사람** 리뷰 지적(요약·conversation·**인라인 line**)을 수집해 3단계 처분으로 넘긴다.
-  - PR 식별: `gh pr list --head <BR> --state all --limit 3 --json number,state,title`.
-  - 수집 (3소스 — **인라인이 코드지적의 주 형태라 필수**):
-    - 리뷰 요약·state: `gh pr view <n> --json reviews` (`reviews[].body`·`state`·`author`).
-    - conversation 코멘트: `gh pr view <n> --json comments`.
-    - **인라인(line-level) 코멘트**: `gh api repos/{owner}/{repo}/pulls/<n>/comments --jq '.[] | {user:.user.login, path, line, body}'`. ⚠️ `gh pr view --json reviews,comments` 는 인라인을 **주지 않는다**(cli/cli #11477) — 빠뜨리면 사용자가 남긴 코드 지적을 '없음'으로 오보(silent false-negative).
-  - **사람만**: `user.login`(또는 `author.login`)이 현재 사용자(`gh api user --jq .login`)와 같으면 제외(자기), `[bot]` 로 끝나면 제외(봇).
-  - **fail-open**: `gh` 미설치·미인증·원격/PR 없음 → 이 점검만 skip 하고 "PR 리뷰: 확인 불가(<사유>)" 1줄. (네트워크 왕복 2-3회, plan 매칭 시에만.)
+  - If a check command fails (no origin, etc.), skip only that check and state it in the report. **plan-lint violations are shown and corrected (not a hard stop)** — reflect them in the step 3 correction.
+- **PR review intake** (only when a plan matched, read-only): collect the **human** review points of that branch's PR (summary, conversation, **inline line**) and pass them to the step 3 disposition.
+  - Identify the PR: `gh pr list --head <BR> --state all --limit 3 --json number,state,title`.
+  - Collect (3 sources — **inline is mandatory, since it is the main form of code comments**):
+    - Review summary·state: `gh pr view <n> --json reviews` (`reviews[].body`·`state`·`author`).
+    - Conversation comments: `gh pr view <n> --json comments`.
+    - **Inline (line-level) comments**: `gh api repos/{owner}/{repo}/pulls/<n>/comments --jq '.[] | {user:.user.login, path, line, body}'`. ⚠️ `gh pr view --json reviews,comments` **does not return** inline comments (cli/cli #11477) — missing them misreports the code comments the user left as "none" (silent false-negative).
+  - **Humans only**: exclude when `user.login` (or `author.login`) equals the current user (`gh api user --jq .login`) (self), and when it ends with `[bot]` (bot).
+  - **fail-open**: `gh` not installed, not authenticated, no remote or no PR → skip only this check and one line "PR review: could not check (<reason>)". (2–3 network round trips, only when a plan matched.)
 
-### 3. 보정 + 다음 액션 (이어서 실행)
-- sync 어긋남이 있으면 **plan 파일을 먼저 보정** (메인이 single writer; §10 진행중 동기화):
-  - 체크된 Task 에 없는 커밋 → 그 커밋이 끝낸 Task 를 체크(없으면 체크된 Task 로 추가) + 커밋 날짜(sha 는 적지 않는다). `wip:`·`fixup!` 커밋은 체크 근거가 아니다.
-  - uncommitted 변경 → 현황 반영.
-  - 없어진/이동된 파일 → 미완료 Task 의 경로 갱신.
-  - 실제와 다른 `status` → 정정(머지=done, 막힘=blocked + `# Blockers`). (머지=done 은 **객관적 사실 기록** — done 이 되면 아래 예외5 로 정지하므로 e 의 '세션종료 done 확인'과 구분되어 안전.)
-  - 실효된 미완료 Task → 고쳐 쓰고, 실제 다음 액션을 미완료 맨 위에.
-  - frontmatter `updated:` 오늘로.
-  - 끊긴 `intent:` 링크 → §10 한계대로 형제 worktree·선행 브랜치에서 `git show` 로 복원, 불가면 링크를 제거하고 보고.
-  - 실제와 다른 `# Decisions` → §10 방식(고쳐 쓰고 이유, 밀려난 안은 기각안으로).
-- **PR 리뷰 처분** (intake 수집분이 있으면):
-  - (a) **코드 지적**(버그·수정 요청) → 미완료 맨 위에 `- [ ] PR#n 리뷰 반영: <요지>` Task 추가(미해결은 코멘트 상태·후속 커밋으로 추정, 불확실하면 그대로 노출).
-  - (b) **작업방식 교정**(스타일·절차) → §12 feedback memory 저장 **판정**을 보고에 포함(대상이면 저장 제안, 저장 자체는 사용자 확인 후 — 판정 의무는 dlc Report 와 동일, 단 intake 는 사용자 미지시라 저장 전 확인).
-- **요약 보고**: plan 위치·title·status / 남은 작업(미완료 Task·`# Blockers`) / sync 진단·보정 항목 / PR 리뷰 intake 결과 / 다음 액션.
-- **그 다음 이어서 실행** — 첫 미완료 Task 가 명확하면 "진행해도 되나?" 재확인 없이 곧장 진행한다. 코드/파일을 바꾸는 구현이면 규모 불문 dlc 파이프라인으로 넘기며, **dlc 가 main 밖이면 wt-first 게이트를 적용하므로 worktree 격리는 그대로 유지**된다(우회 아님 — 다만 worktree 생성 자체는 로컬·가역이라 확인 없이 만들고 되돌릴 정보를 보고한다, §1 위험기반 승인). **단 아래 예외면 멈추고 사용자 결정을 기다린다 (닫힌 목록 5종)**:
-  1. `status: blocked` 또는 미완료 Task 에 `NEEDS-HUMAN:` — 해소가 사용자 몫.
-  2. plan 매칭 실패로 **fallback 선택**이 필요한 경우(1단계) — 후보가 1개여도 사용자 선택을 받는다.
-  3. 미완료 Task 가 없거나 실효돼 **재구성**한 경우 — 방향 확인 1회.
-  4. 다음 액션이 **파괴적·비가역·외부공개**(push·머지·삭제·배포·DB migration/write 등 — §8 게이트 및 그에 준하는 것; 분류 애매하면 멈춤) — 명시 확인.
-  5. `done` plan — 이어갈지 확인. 단 그 브랜치 PR 이 `OPEN` 이면(`/e` 머지 모드의 QUEUED/UNKNOWN) 완료가 아니라 **머지 대기 중** — merge queue 에 있으면 끝날 때까지 기다리고, 그 뒤 `/e merge` 재실행을 안내한다(외부 쓰기라 예외 4 대로 확인).
+### 3. Correct + next action (continue)
+- If there is a sync divergence, **correct the plan file first** (the main agent is the single writer; §10 in-progress sync):
+  - A commit not in any checked Task → check the Task that commit finished (if there is none, add it as a checked Task) + the commit date (do not write the sha). `wip:`·`fixup!` commits are not grounds for checking.
+  - Uncommitted changes → reflect the current state.
+  - Missing/moved files → update the paths of unchecked Tasks.
+  - A `status` that differs from reality → correct it (merged=done, stuck=blocked + `# Blockers`). (merged=done is **recording an objective fact** — once it is done, it stops at exception 5 below, so it is distinct from the done confirmation of e's step 4 and safe.)
+  - An unchecked Task that is no longer valid → rewrite it, and put the actual next action at the top of the unchecked items.
+  - frontmatter `updated:` to today.
+  - A broken `intent:` link → restore it with `git show` from a sibling worktree or the preceding branch per the §10 limits; if that is impossible, remove the link and report.
+  - `# Decisions` that differ from reality → the §10 way (rewrite with the reason, move the displaced option to the rejected ones).
+- **PR review disposition** (if intake collected anything):
+  - (a) **Code comments** (bugs, change requests) → add a `- [ ] PR#n address review: <gist>` Task at the top of the unchecked items (judge unresolved ones from the comment state and later commits; if unsure, show them as they are).
+  - (b) **Corrections to how you work** (style, procedure) → include the §12 feedback memory saving **judgment** in the report (if it is a target, propose saving; the save itself only after user confirmation — the judgment duty is the same as the dlc Report, but intake was not instructed by the user, so confirm before saving).
+- **Summary report**: plan location·title·status / remaining work (unchecked Tasks·`# Blockers`) / sync diagnosis·corrections / PR review intake result / next action.
+- **Then continue** — if the first unchecked Task is clear, proceed right away without re-asking "may I proceed?". An implementation that changes code/files goes to the dlc pipeline regardless of size, and **since dlc applies the wt-first gate whenever it is not in a work worktree (on main or outside), worktree isolation stays in place** (not a bypass — but creating the worktree itself is local and reversible, so create it without asking and report the information to undo it, §1 risk-based approval). **However, on the exceptions below, stop and wait for the user's decision (closed list of 5)**:
+  1. `status: blocked` or `NEEDS-HUMAN:` in an unchecked Task — unblocking is the user's part.
+  2. A **fallback choice** is needed because plan matching failed (step 1) — get the user's choice even if there is only 1 candidate.
+  3. The unchecked Tasks were missing or no longer valid and were **rebuilt** — confirm the direction once.
+  4. The next action is **destructive, irreversible or publicly visible** (push, merge, delete, deploy, DB migration/write, etc. — the §8 gates and their equivalents; if the classification is unclear, stop) — explicit confirmation.
+  5. A `done` plan — confirm whether to continue. But if that branch's PR is `OPEN` (QUEUED/UNKNOWN of `/e` merge mode), it is not finished but **waiting to merge** — if it is in the merge queue, wait until it finishes, then suggest rerunning `/e merge` (an external write, so confirm per exception 4).
 
-## 경계 (안 하는 것)
-- **파괴적·외부공개 액션은 이어서 실행하지 않음** (push·머지·삭제·배포 — §8 게이트) — 그 외 명확한 첫 미완료 Task 는 이어서 진행(3단계 예외 5종).
-- **PR 리뷰 intake 는 read-only** — 코멘트를 수집·분류만 하고 **자동 회신·comment·resolve 는 하지 않는다**.
-- plan 이 없으면 **새로 만들지 않음** — "이어갈 plan 없음"만 보고.
-- 매칭 실패 시 추측 자동 선택 안 함 — 항상 목록 제시.
-- subagent 위임 아님 — plan single writer 는 메인. 메인이 직접 read/보정한다.
-- plan 보정은 **사실 기반만** — git/파일로 확인된 것만 기록. 추측으로 Task 체크·Decisions 를 채우지 않는다(CLAUDE.md §1).
+## Boundaries (what this skill does not do)
+- **Destructive or publicly visible actions are not continued** (push, merge, delete, deploy — §8 gates) — other clear first unchecked Tasks are continued (the 5 exceptions of step 3).
+- **PR review intake is read-only** — it only collects and classifies comments; **no automatic replies, comments or resolves**.
+- If there is no plan, **do not create one** — only report "no plan to continue".
+- On a matching failure, no automatic choice by guessing — always present the list.
+- Not delegated to a subagent — the main agent is the plan's single writer. The main agent reads and corrects directly.
+- Plan corrections are **facts only** — record only what git or files confirm. Do not check Tasks or fill Decisions by guessing (CLAUDE.md §1).
