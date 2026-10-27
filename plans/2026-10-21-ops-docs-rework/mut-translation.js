@@ -11,6 +11,7 @@
 //    fence  each code fence given a language tag
 //    blank  each blank line turned into a heading, a "tools:" line, a rule sentence, a symbol
 //    del    each sentence of each non-exempt line deleted
+//    term   for each term-table pair that applies, its English replaced in one place and everywhere
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -93,5 +94,14 @@ lines.forEach((l, i) => {
     record('G.del', `${i + 1}: ${m[0].slice(0, 60)}`, run(copy.join('\n')));
   }
 });
+const readTermBlock = require('./terms-block');
+const ko = lf(execFileSync('git', ['-C', root, 'show', `${cfg.base}:${cfg.file}`], { encoding: 'utf8' }));
+for (const [k, e] of readTermBlock(cfg.terms ? path.resolve(root, cfg.terms) : path.join(__dirname, 'terms.md')).pairs) {
+  if (!ko.includes(k) || (cfg.termsSkip || {})[k]) continue;
+  const re = new RegExp(e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+  if (!re.test(src)) continue;
+  record('G.term', `${k} once`, run(src.replace(new RegExp(re.source, 'i'), 'ZZterm')));
+  record('G.term', `${k} all`, run(src.replace(re, 'ZZterm')));
+}
 for (const [g, [c, t]] of Object.entries(tally)) console.log(`${g}: caught ${c}/${t}`);
 if (bad) { console.log(`NOT ALL CAUGHT: ${bad}`); process.exitCode = 1; }
