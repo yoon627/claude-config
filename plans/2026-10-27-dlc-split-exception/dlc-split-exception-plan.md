@@ -20,7 +20,7 @@ dlc 분할 판정에 예외를 둔다: 같은 출처에서 온 결합 없는 작
 - [x] 사용자 diff 확인 (2026-10-27) — "커밋 (추천)"
 - [x] `bash scripts/verify.sh changed` (2026-10-27) — 격리 runner: `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, 무관), 표지가 세 파일에 하나씩 — Acceptance 1~4 충족
 - [x] 머지 (`/e merge`) (2026-10-27) — PR #255
-- [ ] [post-merge] main 세션에서 공용 wiki workflow-failures #55 → fixed, log
+- [x] [post-merge] main 세션에서 공용 wiki workflow-failures #55 → fixed, log (2026-10-27) — 공용 wiki 커밋 8552faf — Acceptance 5 통과
 
 # Acceptance
 1. 세 곳이 같은 예외를 같은 표지로 말한다 — `rg -n "purpose-commit bundle" CLAUDE.md agents/plan-reviewer.md skills/dlc/SKILL.md` — 세 파일 모두에 나온다
