@@ -50,6 +50,7 @@ CLAUDE.md·skills·agents 가 같은 규칙을 더 짧게 담고, 그 다음 영
 - plans/2026-10-27-translate-agent-plan-reviewer/translate-agent-plan-reviewer-plan.md — translate-repo 의 일곱 번째: agents/plan-reviewer — 공통 대조 검사(check-translation.js·mut-translation.js)를 만든 단위, 여기서부터 단위는 설정 JSON 만
 - plans/2026-10-27-translate-agent-arch-reviewer/translate-agent-arch-reviewer-plan.md — translate-repo 의 여덟 번째: agents/architecture-reviewer — 공통 검사에 인용 줄바꿈 표지 `⏎` 를 더했다
 - plans/2026-10-27-translate-check-terms/translate-check-terms-plan.md — 공통 대조 검사에 용어표 기계 대조(개수 비교·용어 변형) — jira-task 번역은 사용자 지시로 철회
+- plans/2026-10-27-translate-skill-improve/translate-skill-improve-plan.md — translate-repo: skills/improve
 - translate-repo (not started) — skills(references·frontmatter description 포함)·agents 를 영어로, 파일별. 줄이기 단위가 모두 done 또는 폐기된 뒤. 각 줄이기 단위의 manifest 가 그 번역의 대조표
 - translate-hooks (not started) — hook 주입 문구와 그것을 확인하는 테스트(코드라 medium 이상·TDD). 사용자에게 보이는 문구는 Open question 을 따른다
 - translate-wiki-docs (not started) — `wiki/docs/` 를 영어로. 공용 wiki 라 main 세션에서, 그 문서를 가리키는 skill 의 번역과 순서를 맞춘다

@@ -1,0 +1,161 @@
+{
+  "file": "skills/improve/SKILL.md",
+  "base": "c6b0076",
+  "manifest": "plans/2026-10-27-translate-skill-improve/manifest.md",
+  "locations": "plans/2026-10-27-translate-skill-improve/locations-en.txt",
+  "keep": [
+    "`신호 집계 실행 실패`",
+    "`last-improve 마커 갱신:`",
+    "\"/improve 권장 — failure 신호 N세션 누적 (마커 이후)\""
+  ],
+  "frontmatter": [
+    "---",
+    "name: improve",
+    null,
+    "---"
+  ],
+  "headings": [
+    "# improve — the analysis axis of the self-improvement loop (assets read-only, ranking, proposals)",
+    "## When to use",
+    "## Role boundaries (avoiding overlap — important)",
+    "## Behavior (4 basic steps + 2 `deep` axes + wrap-up)",
+    "### 1. Mechanical checks + signal aggregation — `improve.sh`",
+    "### 2. Comparison with accumulated history",
+    "### 3. Semantic checks — LLM judgment (what machines cannot catch)",
+    "### 4. Improvement candidate ranking + disposition proposals (no fixes)",
+    "### 5. Wide observation — `improve.sh deep` (opt-in)",
+    "### 6. Native overlap check — deep only, periodic (cleanup in the other direction)",
+    "### 7. Wrap-up — update the `last-improve` marker (basic and deep alike)",
+    "## Boundaries (what it does not do)"
+  ],
+  "numbered": [
+    {
+      "from": "**Procedure**:",
+      "to": "**Boundary (important)**",
+      "first": 1,
+      "last": 5
+    }
+  ],
+  "mutations": [
+    [
+      "auto fixes",
+      "fixes happen only after user approval, through wt→dlc",
+      "fixes are applied automatically"
+    ],
+    [
+      "subagent delegation",
+      "the main agent runs it directly (not delegated to a subagent)",
+      "a subagent runs it"
+    ],
+    [
+      "re-judges drift",
+      "improve **does not re-judge it**",
+      "improve **re-judges it**"
+    ],
+    [
+      "ledger written",
+      "improve goes **up to a draft judgment**; the write is done by ingest after approval",
+      "improve writes the ledger"
+    ],
+    [
+      "run many times",
+      "Run `bash skills/improve/improve.sh` **once**",
+      "Run `bash skills/improve/improve.sh` repeatedly"
+    ],
+    [
+      "home path allowed",
+      "and `~` or `$HOME` is an error",
+      "and `~` or `$HOME` is fine"
+    ],
+    [
+      "raw first",
+      "Judge effects by sessions (unique) first",
+      "Judge effects by raw first"
+    ],
+    [
+      "check 9 warns",
+      "**It emits only `[info]`**",
+      "**It emits `[warn]`**"
+    ],
+    [
+      "bad ledger fails",
+      "are only stated as facts and skipped (keeping `exit 0`)",
+      "fail the run"
+    ],
+    [
+      "guessing allowed",
+      "Read the related files and judge from evidence (no guessing §1).",
+      "Judge from experience."
+    ],
+    [
+      "fix inline",
+      "the fix is **a separate task (wt→dlc)**",
+      "the fix is applied in place"
+    ],
+    [
+      "deep prints secrets",
+      "(still read-only, no secrets printed)",
+      "(prints full details)"
+    ],
+    [
+      "local data to web",
+      "**does not put local transcript, MCP or telemetry contents into the web prompt**.",
+      "may include local transcript contents in the web prompt."
+    ],
+    [
+      "deep in basic",
+      "It does not run in a basic (non-deep) run (web lookup cost).",
+      "It also runs in a basic (non-deep) run."
+    ],
+    [
+      "full changelog always",
+      "**only after `checked_version`**",
+      "in full"
+    ],
+    [
+      "drafts modify files",
+      "**do not modify files.**",
+      "**update the ledger.**"
+    ],
+    [
+      "judgment without evidence",
+      "**No judgment without evidence** (§1)",
+      "**Judgment by impression is fine**"
+    ],
+    [
+      "retire removes",
+      "it does not remove the home-grown component",
+      "it removes the home-grown component"
+    ],
+    [
+      "marker without signals",
+      "If you did not actually see the signals, **do not run it**",
+      "Always run it"
+    ],
+    [
+      "error is failure",
+      "A check **finding** an `[error]` is not a run failure.",
+      "A check finding an `[error]` is a run failure."
+    ],
+    [
+      "relative path",
+      "Why the path is fixed to `~/.claude/scripts/`",
+      "Why the path may be relative"
+    ],
+    [
+      "marker failure silent",
+      "it failed — put one line in the report",
+      "ignore it"
+    ],
+    [
+      "dead scripts deleted",
+      "**No concluding or deleting dead scripts**",
+      "**Delete dead scripts**"
+    ],
+    [
+      "kept literal translated",
+      "check 7 printed `신호 집계 실행 실패`",
+      "check 7 printed `signal aggregation failed`"
+    ]
+  ]
+}
