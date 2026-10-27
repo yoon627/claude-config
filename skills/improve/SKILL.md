@@ -1,81 +1,81 @@
 ---
 name: improve
-description: dlc 자기개선 loop 의 분석 축 — 운영 자산 정합성 기계 점검과 hook 이 자동 누적한 workflow 실패 신호(telemetry)·wiki workflow-failures·feedback memory 를 함께 읽어 개선 후보를 근거·빈도 기반으로 랭킹 제시하는 오케스트레이션. `deep` 에서는 Claude Code 네이티브가 흡수한 기능과 자작 하네스의 중복을 주기(45일) 재판정하는 축도 돈다. 발견은 보고·제안까지, 수정은 사용자 승인 후 wt→dlc(운영 자산 자가수정 금지 §1 — 자동 수정 안 함). `/improve` 명시 호출 시 사용. 단순 질문·코드 변경에는 쓰지 않는다.
+description: The analysis axis of the dlc self-improvement loop — an orchestration that reads mechanical checks of operating-asset consistency together with the workflow failure signals hooks accumulate automatically (telemetry), the wiki workflow-failures page and feedback memory, and presents improvement candidates ranked by evidence and frequency. In `deep`, it also runs an axis that periodically (45 days) re-judges overlap between features Claude Code absorbed natively and the home-grown harness. Findings stop at reporting and proposals; fixes happen only after user approval, through wt→dlc (no self-modification of operating assets §1 — no automatic fixes). Use on an explicit `/improve` call. Not for simple questions or code changes.
 ---
 
-# improve — 자기개선 loop 의 분석 축 (자산 읽기전용·랭킹·제안)
+# improve — the analysis axis of the self-improvement loop (assets read-only, ranking, proposals)
 
-`/improve` 로 ① 운영 자산 정합성(구 `/audit` 승계)과 ② hook 이 자동 누적한 신호(telemetry)를 함께 분석해 **개선 후보를 랭킹**으로 제시한다. loop 의 다른 축과의 관계: **수집**은 hook 이 자동(`scripts/dlc-signal.js` — early-stop·guard·doc-drift·router·plan 신호), **분석·제안**이 이 skill, **반영**은 사용자 승인 후 `wt→dlc` 별도 작업, **효과 확인**은 다음 `/improve` 의 신호 추이. c/e 처럼 메인이 직접 수행(subagent 위임 아님).
+`/improve` analyzes 1) operating-asset consistency (successor of the old `/audit`) and 2) the signals hooks accumulate automatically (telemetry) together, and presents **improvement candidates as a ranking**. Relation to the other axes of the loop: **collection** is automatic by hooks (`scripts/dlc-signal.js` — early-stop, guard, doc-drift, router and plan signals), **analysis and proposals** are this skill, **applying** is a separate task through `wt→dlc` after user approval, and **checking the effect** is the signal trend at the next `/improve`. Like c/e, the main agent runs it directly (not delegated to a subagent).
 
-## 적용
-- `/improve` 명시 호출 시. 자산 추가/리네임 후, workflow 마찰이 반복된다고 느낄 때, 개선 효과를 확인하고 싶을 때.
-- 단순 질문·탐색·코드 변경에는 쓰지 않는다.
+## When to use
+- On an explicit `/improve` call. After adding or renaming assets, when workflow friction feels repetitive, or when you want to check the effect of an improvement.
+- Not for simple questions, exploration or code changes.
 
-## 역할 경계 (중복 회피 — 중요)
-- **README ↔ surface drift** → `dlc-doc-drift` hook(세션 중 Stop 경고) 영역. improve 는 **재판정하지 않고** hook 이 emit 한 `doc-drift-*` 신호를 **사후 집계**만 한다.
-- **wiki 내부 무결성**(orphan·dead link·모순) → `/wiki lint` 영역. improve 는 공용 wiki(`~/.claude/wiki` clone, 경로 override `CLAUDE_IMPROVE_WIKI`)의 index↔pages 개수만 보고 lint 를 권장한다. 같은 점검 6 이 이 repo 가 `wiki/` 를 추적하면 error 를 낸다(공용 wiki 는 비공개 repo — CI 게이트).
-- **대장 갱신**(네이티브 중복 판정을 wiki 에 적립) → `/wiki ingest` 영역. improve 는 **판정 초안까지**, write 는 승인 후 ingest 가 한다(§6 경계).
-- improve 고유: 자산 간 크로스참조(settings↔scripts·MEMORY↔memory·문서↔agents·죽은 스크립트 후보) + **신호·실패 이력의 종합 분석과 개선 후보 랭킹** + **네이티브 흡수분과의 중복 재판정**(§6) — 다른 어떤 메커니즘도 안 하는 부분.
+## Role boundaries (avoiding overlap — important)
+- **README ↔ surface drift** → the area of the `dlc-doc-drift` hook (Stop warning during the session). improve **does not re-judge it**; it only **aggregates after the fact** the `doc-drift-*` signals the hook emitted.
+- **Internal integrity of the wiki** (orphans, dead links, contradictions) → the area of `/wiki lint`. improve only checks the index↔pages counts of the shared wiki (`~/.claude/wiki` clone, path override `CLAUDE_IMPROVE_WIKI`) and recommends lint. Check 6 also reports an error if this repo tracks `wiki/` (the shared wiki is a private repo — a CI gate).
+- **Updating the ledger** (recording native-overlap judgments in the wiki) → the area of `/wiki ingest`. improve goes **up to a draft judgment**; the write is done by ingest after approval (§6 boundary).
+- Unique to improve: cross-references between assets (settings↔scripts, MEMORY↔memory, docs↔agents, dead-script candidates) + **combined analysis of signal and failure history and the ranking of improvement candidates** + **re-judging overlap with what was absorbed natively** (§6) — the part no other mechanism does.
 
-## 동작 (기본 4단계 + `deep` 축 2종 + 마무리)
+## Behavior (4 basic steps + 2 `deep` axes + wrap-up)
 
-### 1. 기계 점검 + 신호 집계 — `improve.sh`
-repo root 에서 `bash skills/improve/improve.sh` 를 **1회** 실행(read-only). 출력:
-- 점검 1~6(구 audit 승계): `[error]` 실행경로 깨짐(settings→scripts 부재 — exec form `args` 의 절대경로는 그 경로 그대로 확인하고 `~`·`$HOME` 은 error, CLAUDE.md→agent 부재, skill·agent frontmatter 형식 위반 — YAML 오류·허용 형식 밖·name/description 누락, `scripts/frontmatter-lint.js`) / `[warn]` 미등록·한쪽 누락(MEMORY 인덱스, wiki 개수) / `[info]` 죽은 스크립트 *후보*(단정 아님) / `[ok]`.
-- 점검 8 = **plan-lint**(tracked plan 전수, 항상): `scripts/plan-lint.js` 로 §10 plan 형식·무결성(frontmatter 필수키·필수 H1 섹션·Tasks 체크박스와 날짜·**끊긴 Acceptance 참조**) 검사, 위반은 `[warn]`. tracked plan 없으면 skip. (셸엔 active-plan 개념 없어 전수 — /c·/e 만 active plan 대상.)
-- 점검 7(신규): `~/.claude/telemetry/dlc-signals.jsonl` 집계 — kind 별 `sessions`(unique)·`raw`·기간. **failure 축**(early-stop-verify·early-stop-plan-drift·doc-drift-*·guard-worktree-deny·main-edit-ask·plan-blocked)과 **activity 축**(router-*·review-disposition·early-stop-wait-shell — 실패 아님, 활동량·대기 턴 수)을 분리 표시. kind 목록의 정본은 `scripts/dlc-signal.js` 의 `KINDS` 다. 효과 판단은 sessions(unique) 우선 — raw 는 같은 세션 반복 발동에 지배될 수 있다.
-- 점검 9 = **네이티브 중복 대장 신선도**(주기 게이트): `~/.claude/wiki/pages/decision/native-overlap-ledger.md`(경로 override `CLAUDE_IMPROVE_LEDGER`)의 `checked` 가 임계(45일, `CLAUDE_IMPROVE_NATIVE_MAX_AGE_DAYS`)를 넘었으면 §6 재판정을 권고. **`[info]` 만 낸다** — 정합성 위반이 아니라 리마인더라 err/warn 카운터·랭킹 심각도 축을 오염시키지 않는다. 대장 부재·frontmatter 불량·날짜 불량·미래 날짜는 사실만 적고 skip(`exit 0` 유지). 판정 로직은 `scripts/native-overlap-lint.js`(순수함수+CLI, 테스트 있음).
+### 1. Mechanical checks + signal aggregation — `improve.sh`
+Run `bash skills/improve/improve.sh` **once** from the repo root (read-only). Output:
+- Checks 1–6 (successors of the old audit): `[error]` broken execution path (settings→scripts missing — an absolute path in an exec-form `args` is checked as that exact path, and `~` or `$HOME` is an error; CLAUDE.md→agent missing; skill or agent frontmatter format violations — YAML errors, outside the allowed format, missing name/description, `scripts/frontmatter-lint.js`) / `[warn]` unregistered or missing on one side (MEMORY index, wiki counts) / `[info]` dead-script *candidates* (not conclusive) / `[ok]`.
+- Check 8 = **plan-lint** (all tracked plans, always): `scripts/plan-lint.js` checks the §10 plan format and integrity (mandatory frontmatter keys, mandatory H1 sections, Tasks checkboxes and dates, **broken Acceptance references**); violations are `[warn]`. Skip if there are no tracked plans. (The shell has no active-plan concept, so it checks all of them — only /c and /e target the active plan.)
+- Check 7 (new): aggregates `~/.claude/telemetry/dlc-signals.jsonl` — per kind, `sessions` (unique), `raw` and the time span. It shows the **failure axis** (early-stop-verify, early-stop-plan-drift, doc-drift-*, guard-worktree-deny, main-edit-ask, plan-blocked) and the **activity axis** (router-*, review-disposition, early-stop-wait-shell — not failures; activity volume and waiting turns) separately. The canonical kind list is `KINDS` in `scripts/dlc-signal.js`. Judge effects by sessions (unique) first — raw can be dominated by repeated firing in the same session.
+- Check 9 = **freshness of the native-overlap ledger** (periodic gate): if the `checked` date in `~/.claude/wiki/pages/decision/native-overlap-ledger.md` (path override `CLAUDE_IMPROVE_LEDGER`) is older than the threshold (45 days, `CLAUDE_IMPROVE_NATIVE_MAX_AGE_DAYS`), recommend the §6 re-judgment. **It emits only `[info]`** — it is a reminder, not a consistency violation, so it does not pollute the err/warn counters or the severity axis of the ranking. A missing ledger, bad frontmatter, a bad date or a future date are only stated as facts and skipped (keeping `exit 0`). The judgment logic is `scripts/native-overlap-lint.js` (pure functions + CLI, with tests).
 
-### 2. 누적 이력 대조
-- `~/.claude/wiki/pages/decision/workflow-failures.md` 추적 표(실패·횟수·상태) read — 신호와 대조해 **횟수 갱신이 누락된 실패**를 찾는다.
-- `MEMORY.md` 인덱스(feedback 행동지시문) — 최근 작업에서 실제 반영됐는지, 죽은 규칙이 없는지.
-- 현재/최근 plan log(`<slug>-log.md`, 옛 형식 plan 은 본문)의 `# Workflow Findings`·`# Deferred` — plan log(또는 옛 plan 본문)에만 있고 wiki 로 승격 안 된 반복 항목.
+### 2. Comparison with accumulated history
+- Read the tracking table (failure, count, status) of `~/.claude/wiki/pages/decision/workflow-failures.md` — compare it with the signals to find **failures whose count update was missed**.
+- The `MEMORY.md` index (feedback behavior instructions) — whether they were actually applied in recent work, and whether there are dead rules.
+- `# Workflow Findings` and `# Deferred` of the current/recent plan logs (`<slug>-log.md`; the body for an old-format plan) — repeated items that exist only in the plan log (or old plan body) and were not promoted to the wiki.
 
-### 3. 의미 점검 — LLM 판단 (기계가 못 잡는 것)
-- 문서 간 모순(CLAUDE.md ↔ SKILL.md 규칙 충돌), 같은 trigger 의 skill 중복, 죽은 규칙(더는 유효하지 않은 항목).
-- 관련 파일을 read 해 근거로 판단(추측 금지 §1).
+### 3. Semantic checks — LLM judgment (what machines cannot catch)
+- Contradictions between documents (rule conflicts between CLAUDE.md ↔ SKILL.md), duplicate skills on the same trigger, dead rules (items no longer valid).
+- Read the related files and judge from evidence (no guessing §1).
 
-### 4. 개선 후보 랭킹 + 처분 제안 (수정 안 함)
-- 각 후보 = `무엇이 문제 · 근거(신호 수치/파일:라인) · 제안 변경(어느 파일을 어떻게) · 예상 효과(어떤 신호가 줄어야 하나)`.
-- 랭킹 기준: failure 신호 unique-session 빈도 × 심각도(실행경로 깨짐 > 반복 마찰 > 인벤토리) × 수정 비용(작을수록 위).
-- **효과 확인**: 이전에 `fixed` 로 처리된 항목의 신호가 실제로 줄었는지 추이를 보고(안 줄었으면 재개선 후보로 복귀).
-- **처분**: 사용자 승인 시 그 수정은 **별도 작업(wt→dlc)** — 운영 자산 변경은 파일 변경이라 worktree 필수. dlc 의 "같은 실패 2회+ 반복 시 해결 제안" 규칙(wiki workflow-failures)과 동일 경로로 합류. error 0 + 유의미 신호 없음이면 "개선 후보 없음" 보고.
+### 4. Improvement candidate ranking + disposition proposals (no fixes)
+- Each candidate = `what is wrong · evidence (signal numbers/file:line) · proposed change (which file, how) · expected effect (which signal should drop)`.
+- Ranking criteria: unique-session frequency of failure signals × severity (broken execution path > repeated friction > inventory) × cost of fixing (smaller ranks higher).
+- **Effect check**: report the trend of whether the signals of items previously handled as `fixed` actually dropped (if not, they go back to being improvement candidates).
+- **Disposition**: if the user approves, the fix is **a separate task (wt→dlc)** — changing operating assets is a file change, so a worktree is mandatory. It joins the same path as dlc's rule "propose a fix when the same failure repeats 2+ times" (wiki workflow-failures). With 0 errors and no meaningful signal, report "no improvement candidates".
 
-### 5. 광역 관측 — `improve.sh deep` (opt-in)
-기본 4단계로 부족하거나 주기 점검 시 `bash skills/improve/improve.sh deep` 로 3개 섹션을 더 본다(여전히 read-only·secret 미출력):
-- ⑩ **주입·로드 표면 크기**(`wc -c`): CLAUDE.md·skills/*/SKILL.md·agents/*.md 바이트 + 합계 — 매 세션/작업 토큰 압박의 정량 근거(슬림화 후보).
-- ⑪ **사용량 카운트**(`scripts/usage-count.js`): transcript 기반 skill·subagent·codex 호출 빈도(카운트·slug 만, 원문·파일명 미출력) — 실사용 낮은 자산(죽은 후보) vs 고빈도 마찰 지점 식별.
-- ⑫ **MCP 서버 인벤토리**(`~/.claude.json` 이름만): 등록 MCP 서버 목록 — 미사용·중복 후보.
+### 5. Wide observation — `improve.sh deep` (opt-in)
+When the 4 basic steps are not enough, or for a periodic check, `bash skills/improve/improve.sh deep` adds 3 more sections (still read-only, no secrets printed):
+- Check 10 **size of the injected and loaded surface** (`wc -c`): bytes of CLAUDE.md, skills/*/SKILL.md and agents/*.md + total — quantitative evidence of the token pressure on every session and task (slimming candidates).
+- Check 11 **usage counts** (`scripts/usage-count.js`): transcript-based frequency of skill, subagent and codex calls (counts and slugs only, no raw text or file names) — identifies rarely used assets (dead candidates) vs high-frequency friction points.
+- Check 12 **MCP server inventory** (names only from `~/.claude.json`): the registered MCP servers — unused or duplicate candidates.
 
-deep 에서는 점검 ⑨ 도 한 줄 늘어난다 — **delta 창**(대장 `checked_version` → 설치 `claude --version`)을 출력해 §6 이 changelog 를 어디부터 읽으면 되는지 알려준다.
+In deep, check 9 also gets one more line — it prints the **delta window** (the ledger's `checked_version` → the installed `claude --version`), telling §6 where to start reading the changelog.
 
-deep 은 **광역 관측 보강일 뿐** — 판단·제안·처분 경로는 4단계와 동일(측정→판단→제안, 수정 금지, main 직접). 외부 조회(생태계·버전)가 필요하면 main 이 별도 researcher 로 판단하되 **로컬 transcript·MCP·telemetry 내용을 web 프롬프트에 넣지 않는다**.
+deep is **only a wider observation** — the judgment, proposal and disposition path is the same as the 4 steps (measure→judge→propose, no fixes, the main agent directly). If an external lookup (ecosystem, versions) is needed, the main agent judges it with a separate researcher, but **does not put local transcript, MCP or telemetry contents into the web prompt**.
 
-### 6. 네이티브 중복 점검 — deep 전용 · 주기 (역방향 정리)
+### 6. Native overlap check — deep only, periodic (cleanup in the other direction)
 
-자작 하네스가 **Claude Code 네이티브에 흡수된 기능을 붙들고 있지 않은지** 재판정한다. 1~5 가 "자산이 서로 어긋났나"를 보는 반면 이 축은 "자산이 **아직 필요한가**"를 본다 — 유일하게 밖(네이티브)을 기준으로 삼는 축이다.
+Re-judges whether the home-grown harness **is holding on to features Claude Code absorbed natively**. Where 1–5 look at "do the assets disagree with each other", this axis looks at "is the asset **still needed**" — the only axis that takes the outside (native) as its reference.
 
-**언제**: 점검 9 가 임계 경과를 알릴 때, 또는 네이티브 대규모 릴리스 직후. 기본 4단계에서는 돌지 않는다(웹 조회 비용).
+**When**: when check 9 reports that the threshold has passed, or right after a large native release. It does not run in a basic (non-deep) run (web lookup cost).
 
-**절차**:
-1. **대장 read** — `~/.claude/wiki/pages/decision/native-overlap-ledger.md` 의 기존 판정과 `checked_version`.
-2. **delta 조회** — 공식 changelog(`https://code.claude.com/docs/en/changelog`)를 **`checked_version` 이후만**. 전수 조회는 대장이 없거나 `checked_version` 이 없을 때만. 그보다 이전 이력은 `github.com/anthropics/claude-code/blob/main/CHANGELOG.md`. 이 조회는 위 "외부 조회" 규칙 아래 — **로컬 transcript·MCP·telemetry 내용을 web 프롬프트에 넣지 않는다**.
-3. **재판정 초안** — **파일은 수정하지 않는다.** 뒤집힐 근거가 생긴 기존 행과 delta 에서 새로 겹친 컴포넌트를 **표 형태 초안으로 제시**한다. 값은 `keep`/`watch`/`retire`(정의는 대장). **근거 없는 판정 금지**(§1) — 각 행은 `vX.Y.Z + 날짜` 또는 로컬 파일 경로로 뒷받침한다.
-4. **랭킹 합류** — 이 축의 후보는 telemetry 신호가 0 이라 4단계의 "unique-session 빈도" 축에서 항상 바닥이다. **대체 점수: 중복도(`retire` > `watch`) × 유지비용(⑩ 표면 바이트·항상주입 여부) × 제거 비용.**
-5. **처분** — 4단계와 동일하게 **제안까지**. 아래 경계 참조.
+**Procedure**:
+1. **Read the ledger** — the existing judgments and `checked_version` in `~/.claude/wiki/pages/decision/native-overlap-ledger.md`.
+2. **Look up the delta** — the official changelog (`https://code.claude.com/docs/en/changelog`) **only after `checked_version`**. A full lookup only when there is no ledger or no `checked_version`. Older history is in `github.com/anthropics/claude-code/blob/main/CHANGELOG.md`. This lookup falls under the "external lookup" rule above — **do not put local transcript, MCP or telemetry contents into the web prompt**.
+3. **Draft re-judgments** — **do not modify files.** Present the existing rows that now have grounds to be overturned, and the components that newly overlap in the delta, **as a draft table**. Values are `keep`/`watch`/`retire` (defined in the ledger). **No judgment without evidence** (§1) — each row is backed by `vX.Y.Z + date` or a local file path.
+4. **Join the ranking** — this axis's candidates have 0 telemetry signals, so they are always at the bottom of step 4's "unique-session frequency" axis. **Substitute score: degree of overlap (`retire` > `watch`) × upkeep cost (check 10 surface bytes, whether always injected) × removal cost.**
+5. **Disposition** — as in step 4, **up to proposals**. See the boundary below.
 
-**경계 (중요)**: `/improve` 는 **대장을 쓰지 않는다.** 판정은 초안으로 제시하고, 대장·`index.md`·`log.md` 갱신은 **사용자 승인 후 `/wiki ingest`** 가 한다. `retire` 판정이 나와도 자작 컴포넌트를 제거하지 않는다 — 랭킹 후보로 올릴 뿐이고, 실제 제거는 승인 후 `wt→dlc` 별도 작업이다(§1 운영 자산 자가수정 금지, §11 ingest 는 제안, §13 무승인 적립 금지).
+**Boundary (important)**: `/improve` **does not write the ledger.** Judgments are presented as drafts, and updating the ledger, `index.md` and `log.md` is done by **`/wiki ingest` after user approval**. Even with a `retire` judgment, it does not remove the home-grown component — it only puts it up as a ranking candidate, and the actual removal is a separate task through `wt→dlc` after approval (§1 no self-modification of operating assets, §11 ingest is a proposal, §13 no recording without approval).
 
-**한계**: 설치 버전이 최신 릴리스보다 뒤처져 있으면 delta 창이 최신 흡수분을 못 덮는다 — **"버전 변화 없음 ≠ 중복 없음"**. 자동 업데이트를 끈 설치에서 특히 그렇다.
+**Limits**: if the installed version lags behind the latest release, the delta window cannot cover the latest absorptions — **"no version change ≠ no overlap"**. This is especially true of installs with automatic updates turned off.
 
-### 7. 마무리 — `last-improve` 마커 갱신 (기본·deep 공통)
-랭킹·처분 제안(또는 "개선 후보 없음")을 확정했으면 **최종 보고를 출력하기 직전에** `node ~/.claude/scripts/dlc-signal.js mark` 를 1회 실행하고 그 결과를 보고에 넣는다. SessionStart 의 "/improve 권장 — failure 신호 N세션 누적 (마커 이후)" 는 이 마커 시각 이후의 세션만 센다 — 갱신하지 않으면 한 번 넘은 임계가 영영 내려오지 않아 권장이 신호로서 의미를 잃는다.
-- 신호를 실제로 보지 못했으면 **실행하지 않는다** — `improve.sh` 가 비0 으로 끝났거나, 점검 7 이 `신호 집계 실행 실패` 를 출력했거나, 보고 전에 중단한 경우. 보지 않은 신호까지 카운트에서 빠진다. 점검이 `[error]` 를 **발견**한 것은 실행 실패가 아니다.
-- 경로를 `~/.claude/scripts/` 로 고정하는 이유: 이 SKILL 은 user-level(main checkout)에서 로드되는데, cwd 상대경로로 부르면 worktree 세션에서 이 기능이 없는 옛 스크립트가 돌 수 있다.
-- 출력에 `last-improve 마커 갱신:` 줄이 없거나 비0 으로 끝나면 실패다 — 보고에 한 줄 적는다(다음 세션도 권장이 계속 뜬다).
+### 7. Wrap-up — update the `last-improve` marker (basic and deep alike)
+Once the ranking and disposition proposals (or "no improvement candidates") are settled, run `node ~/.claude/scripts/dlc-signal.js mark` once **right before printing the final report**, and put its result in the report. The SessionStart notice "/improve 권장 — failure 신호 N세션 누적 (마커 이후)" counts only sessions after this marker time — without the update, a threshold once crossed never comes back down, and the recommendation loses its meaning as a signal.
+- If you did not actually see the signals, **do not run it** — when `improve.sh` ended non-zero, check 7 printed `신호 집계 실행 실패`, or you stopped before the report. Running it anyway would also drop signals you never saw from the count. A check **finding** an `[error]` is not a run failure.
+- Why the path is fixed to `~/.claude/scripts/`: this SKILL is loaded at user level (main checkout), and calling it by a cwd-relative path can run an old script without this feature in a worktree session.
+- If the output has no `last-improve 마커 갱신:` line or ends non-zero, it failed — put one line in the report (the recommendation keeps showing in the next session too).
 
-## 경계 (안 하는 것)
-- **수정 안 함** — 점검·집계·랭킹·제안까지. 운영 자산 자가수정 금지(§1). improve.sh 에 수정/파괴 명령 없음(read-only). 유일한 write 는 7단계 마커(`<signalDir>/last-improve` — 기본 `~/.claude/telemetry`, `CLAUDE_DLC_SIGNAL_DIR` 로 override. gitignored 로컬 상태, 운영 자산 아님)다. **wiki 대장도 예외 아님** — §6 판정은 초안이고 write 는 승인 후 `/wiki ingest`.
-- **신호 재판정 안 함** — telemetry 는 hook 판정의 사후 집계. README drift·wiki 내부는 각각 hook·`/wiki lint` 영역.
-- **죽은 스크립트 단정·삭제 안 함** — info 후보로만, 실제 판단은 사람.
-- subagent 위임 아님 — 메인이 직접 실행·판단·보고.
+## Boundaries (what it does not do)
+- **No fixes** — up to checks, aggregation, ranking and proposals. No self-modification of operating assets (§1). improve.sh has no modifying or destructive commands (read-only). The only write is the step 7 marker (`<signalDir>/last-improve` — default `~/.claude/telemetry`, overridden by `CLAUDE_DLC_SIGNAL_DIR`; gitignored local state, not an operating asset). **The wiki ledger is no exception** — the §6 judgment is a draft and the write is `/wiki ingest` after approval.
+- **No re-judging of signals** — telemetry is the after-the-fact aggregation of hook judgments. README drift and wiki internals are the hook's and `/wiki lint`'s areas respectively.
+- **No concluding or deleting dead scripts** — info candidates only; the actual judgment is a person's.
+- Not delegated to a subagent — the main agent runs, judges and reports directly.
