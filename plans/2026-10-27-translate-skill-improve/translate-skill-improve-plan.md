@@ -1,6 +1,6 @@
 ---
 title: translate-skill-improve — skills/improve 를 규칙 손실 없이 영어로 옮긴다
-status: in_progress
+status: done
 started: 2026-10-27
 updated: 2026-10-27
 intent: plans/2026-10-21-ops-docs-rework/intent.md
@@ -22,8 +22,8 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] simplify 점검 (2026-10-27) — 생략: 코드 변경 없음(문서 번역), 번역문의 군더더기는 리뷰 4개가 문장 단위로 봤다
 - [x] 사용자 diff 확인 (2026-10-27) — "커밋 (추천)", Acceptance 8 변경 포함
 - [x] `bash scripts/verify.sh changed`, Acceptance 대조 최종 격리 검증 (2026-10-27) — 격리 runner: `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, 문서 번역과 무관), 공통 검사 PASS(조항 62·핵심 문구 69), 변형 전부 잡힘, `improve.test.sh`·frontmatter-lint·plan-lint 통과 — Acceptance 1~6 충족
-- [ ] 기록 커밋(plan·log·manifest·locations·check.json·terms·intent), commit-check
-- [ ] 머지 (`/e merge`)
+- [x] 기록 커밋(plan·log·manifest·locations·check.json·terms·intent), commit-check (2026-10-27) — 커밋 단위 이상 없음
+- [x] 머지 (`/e merge`) (2026-10-27) — PR #252
 - [ ] [post-merge] 새 세션에서 관찰 — `/improve` 명시 호출이 improve 를 불러 `improve.sh` 를 실행하는지, 단순 질문에는 골라지지 않는지
 - [ ] [post-merge] main 세션에서 공용 wiki 확인 — improve 문구 인용 확인, ops-doc-slimming·log 기록
 
