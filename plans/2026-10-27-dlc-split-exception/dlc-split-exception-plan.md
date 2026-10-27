@@ -1,6 +1,6 @@
 ---
 title: dlc-split-exception — 같은 출처의 작은 후속을 목적 단위 커밋으로 한 plan 에 묶는 예외
-status: in_progress
+status: done
 started: 2026-10-27
 updated: 2026-10-27
 ---
@@ -19,7 +19,7 @@ dlc 분할 판정에 예외를 둔다: 같은 출처에서 온 결합 없는 작
 - [x] 재리뷰(code-reviewer — plan 대조 포함) (2026-10-27) — Critical·Major 0, Acceptance 1~3 충족. Minor 반영: plan-reviewer 의 "한 파일에 섞임" 을 "한 커밋 단위로 합쳐질 만큼 섞임(같은 파일을 커밋을 나눠 고치는 것은 괜찮다)" 으로, 정의 없는 "작은/small" 삭제. "같은 open intent" 가 넓다는 점은 리뷰어가 반박하므로 그대로(처분은 `plans/2026-10-27-dlc-split-exception/dlc-split-exception-log.md`)
 - [x] 사용자 diff 확인 (2026-10-27) — "커밋 (추천)"
 - [x] `bash scripts/verify.sh changed` (2026-10-27) — 격리 runner: `ALL PASS (skip: install-codex-skill.test.ps1)`(PowerShell 미설치, 무관), 표지가 세 파일에 하나씩 — Acceptance 1~4 충족
-- [ ] 머지 (`/e merge`)
+- [x] 머지 (`/e merge`) (2026-10-27) — PR #255
 - [ ] [post-merge] main 세션에서 공용 wiki workflow-failures #55 → fixed, log
 
 # Acceptance
