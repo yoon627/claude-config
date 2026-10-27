@@ -12,6 +12,12 @@
 //   headings      exact list of every line starting with "#", in order (required)
 //   numbered      [{ "from": "<line start>", "to": "<line start>", "first": 1, "last": N }] — "N. " items between two lines
 //   extra         optional module (relative to the config) exporting (ctx) => void for unit-specific checks
+//   terms         term table whose "## 기계 대조" section holds a ```text block of "<Korean> => <English>" lines
+//                 (default: terms.md next to this script; parsed by terms-block.js — a malformed line or an empty block
+//                 fails); for every pair, the English must occur (case-insensitive) at least as often in the translation
+//                 as the Korean occurs in the original outside the kept strings
+//   termsSkip     { "<Korean>": "<reason>" } for table terms this file uses in another sense — each must be in the
+//                 table and in the original, and the skipped terms are printed
 //   outside       extra characters allowed outside the quotes besides whitespace and a leading list marker (e.g. "{}[]" for a JSON example)
 //
 // Sections: 1 quotes (found, once, in order) · 2 core phrases (as written in the manifest) · 3 Hangul only in keep
@@ -124,8 +130,29 @@ const pinned = (l) => wordless(l) || shape(l) === 'fence';
 const wordDiff = lines.map((l, i) => ((pinned(l) || pinned(koLines[i] || '')) && l !== koLines[i] ? i + 1 : 0)).filter(Boolean);
 if (wordDiff.length) bad(`lines without words and code fences must equal the original: ${wordDiff.slice(0, 10).join(',')}`);
 if (/[①-⑳]/.test(stripped)) bad('circled numbers');
+const readTermBlock = require('./terms-block');
+const termsPath = cfg.terms ? path.resolve(root, cfg.terms) : path.join(__dirname, 'terms.md');
+const { pairs: termPairs, errors: termErrors } = readTermBlock(termsPath);
+termErrors.forEach(bad);
+const skip = cfg.termsSkip || {};
+if (Array.isArray(skip)) bad('config: termsSkip must be { "<Korean>": "<reason>" }');
+let koOutsideKept = ko;
+for (const k of cfg.keep || []) koOutsideKept = koOutsideKept.split(k).join('');
+for (const [k, why] of Object.entries(skip)) {
+  if (!termPairs.some(([t]) => t === k)) bad(`termsSkip: "${k}" is not in the term table`);
+  if (!ko.includes(k)) bad(`termsSkip: "${k}" is not in the original`);
+  if (!String(why || '').trim()) bad(`termsSkip: "${k}" has no reason`);
+}
+let nTerms = 0;
+for (const [k, e] of termPairs) {
+  const want = readTermBlock.count(koOutsideKept, k);
+  if (!want || k in skip) continue;
+  nTerms++;
+  const got = readTermBlock.count(en.toLowerCase(), e.toLowerCase());
+  if (got < want) bad(`term table: "${k}" ×${want} in the original must be "${e}" ×${want} (found ${got})`);
+}
 if (cfg.extra) require(path.resolve(path.dirname(cfgPath), cfg.extra))({ root, cfg, en, ko, lines, bad, show });
-console.log('4. markers checked');
+console.log(`4. markers checked (term pairs applied ${nTerms}${Object.keys(skip).length ? `, skipped ${Object.keys(skip).join(', ')}` : ''})`);
 
 const allowed = cfg.outside || '';
 let n5 = 0; let pos = 0;

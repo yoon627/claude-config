@@ -51,6 +51,55 @@ translate-repo 단위는 착수 때 이 표를 읽고 따른다. 새로 정한 �
 | architecture-reviewer 절 제목 책임 경계 / 호출 트리거 / 입력 최소 번들 / 검토 시작 절차 / 비-목표 / 금지 사항 / 심각도 | Responsibility boundaries / Call triggers / Minimum input bundle / Review start procedure / Non-goals / Prohibitions / Severity | translate-agent-arch-reviewer — code-reviewer 에 같은 절이 있으면 같은 말 |
 | 리뷰 출력 절 호출 적정성 / 수집 한계 / 다른 agent 위임 · 출력 값 "없음" | Call appropriateness / Collection limits / Delegated to other agents · "none" | translate-agent-arch-reviewer — agent 출력 값 "없음" 은 plan 표지 `없음` 과 달라 영어로 |
 
+## 기계 대조 (공통 대조 검사가 읽는다)
+원문(한국어, 원문 유지 문자열 밖)에 왼쪽 낱말이 나온 횟수만큼 번역에 오른쪽 낱말이 있어야 한다(대소문자 무시). 다른 뜻으로 쓰인 원문이면 단위 설정의 `termsSkip` 에 `{ "<왼쪽 낱말>": "<이유>" }` 로 적는다. **한 뜻으로만 쓰이는 절 제목·필드·라벨만 넣는다** — 여러 뜻의 일상어(보류·합치기·나누기·제안)는 넣지 않는다(사람용 표에만). 형식이 틀린 줄이나 빈 블록은 검사가 FAIL 한다. 줄을 더하기만 한다(위 규칙과 같다).
+
+```text
+검토 관점 => Review checklist
+메인만 잡은 것 => Found only by this review
+Codex 만 잡은 것 => Found only by Codex
+합의 항목 => Agreed items
+plan 반영용 요약 => Summary for the plan
+종합 판단 => Overall verdict
+확인한 파일 => Files checked
+누락된 시나리오 => Missing scenarios
+응답 언어 => Response language
+출력 형식 => Output format
+## 동작 규칙 => ## Rules
+수집 한계 => Collection limits
+호출 적정성 => Call appropriateness
+책임 경계 => Responsibility boundaries
+금지 사항 => Prohibitions
+묶음 모드 => bundle mode
+✅확실 => ✅certain
+⚠️추정 => ⚠️inferred
+❌모름 => ❌unknown
+미검증 => unverified
+작성일 => publication date
+공개 점검 => Public check
+회사 repo => company repo
+무인 실행 => unattended
+미게시 => unpublished
+정리 안 된 커밋 => uncleaned commits
+push 는 요청 시만 => push only on request
+대응표 => mapping table
+확신도 => Confidence
+심각도 => Severity
+도메인 특화 프롬프트 => Domain-specific prompt
+결론부 추출 패턴 => Conclusion extraction pattern
+강한 우려 => strong concerns
+약한 우려 => weak concerns
+rollback 평가 => Rollback evaluation
+출처 우선순위 => Source priority
+호출 트리거 => Call triggers
+입력 최소 번들 => Minimum input bundle
+검토 시작 절차 => Review start procedure
+비-목표 => Non-goals
+다른 agent 위임 => Delegated to other agents
+묶음 분할 리뷰 => bundle split review
+기준일 => as of
+```
+
 ## 출처 (단위별 전체 대응표·결정)
 - `plans/2026-10-26-translate-claude-md/phrases-en.txt` — CLAUDE.md 핵심 문구(사용자 승인 2026-10-26)
 - `plans/2026-10-26-translate-claude-md/pointers.md` "역방향 인용" — CLAUDE.md 가 가리키는 한국어 skill 제목의 영어
