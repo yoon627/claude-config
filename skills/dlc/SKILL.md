@@ -134,7 +134,7 @@ ingest 제안은 조건부·opt-in, 16단계 표 안 늘림. **단 계획 전 de
 - **검증 실패는 12단계 fix loop 와 별개** — 객관적이라 disposition(false-positive/wontfix) 대상 아님, 통과까지 메인이 수정·재검증.
 - **메인 직접 검증(격리 아님)**: 10단계 Green·14단계 targeted 재검증·trivial 검증 — 짧고 즉시 루프라 격리 오버헤드가 손해.
 - **simplify 체크(13단계)**: 격리 아니라 **메인 직접**(모든 spoke read-only). diff 범위에서 중복·과한 추상화·불필요 옵션/죽은 분기·죽은 코드·과한 방어·표준 유틸 대체·깊은 nesting 을 점검(항목 나열은 `~/.claude/wiki/docs/dlc-details.md` §E). 동작 보존 · 범위 내 · 불확실하면 보류(제안만 Report). substantive 수정 시 targeted test + 14 targeted 재리뷰 필수.
-- subagent 끼리 context 미공유. 입력은 메인이 번들 전달, 결과는 각 agent 의 "plan 반영용 요약"으로 수신.
+- subagent 끼리 context 미공유. 입력은 메인이 번들 전달, 결과는 각 agent 의 "plan 반영용 요약"(영어로 옮긴 agent 는 "Summary for the plan")으로 수신.
 
 ## codex phase owner
 - 규약 `~/.claude/wiki/docs/codex-review.md`. 한 phase 에 reviewer 여럿이면 codex owner 1개만 지정, 나머지에는 프롬프트에 §7 문구("Codex review is already running externally. Do not invoke Codex.").
