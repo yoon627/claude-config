@@ -1,6 +1,6 @@
 ---
 title: translate-check-terms — 공통 대조 검사에 용어표 기계 대조를 더한다
-status: in_progress
+status: done
 started: 2026-10-27
 updated: 2026-10-27
 intent: plans/2026-10-21-ops-docs-rework/intent.md
@@ -22,7 +22,7 @@ intent: plans/2026-10-21-ops-docs-rework/intent.md
 - [x] 사용자 diff 확인 (2026-10-27) — 2026-10-27 "커밋" 승인(jira-task 번역과 함께 받은 승인 중 검사 강화 부분), jira-task 번역 철회 뒤 "검사 개선만 남겨 머지"
 - [x] 최종 격리 검증 (2026-10-27) — `ALL PASS`, 머지된 네 단위 PASS(4·11·23·24쌍), G.term 46/46·48/48, 음성 시험 다섯 개 FAIL, `skills/` 변경 0
 - [x] 커밋, commit-check (2026-10-27)
-- [ ] 머지 (`/e merge`)
+- [x] 머지 (`/e merge`) (2026-10-27) — PR #251
 - [ ] [post-merge] main 세션에서 공용 wiki ops-doc-slimming·log 기록
 
 # Acceptance
