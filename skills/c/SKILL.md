@@ -48,7 +48,7 @@ Read the plan (together with the plan log in the same folder if there is one —
   - Collect (3 sources — **inline is mandatory, since it is the main form of code comments**):
     - Review summary·state: `gh pr view <n> --json reviews` (`reviews[].body`·`state`·`author`).
     - Conversation comments: `gh pr view <n> --json comments`.
-    - **Inline (line-level) comments**: `gh api repos/{owner}/{repo}/pulls/<n>/comments --jq '.[] | {user:.user.login, path, line, body}'`. ⚠️ `gh pr view --json reviews,comments` **does not return** inline comments (cli/cli #11477) — missing them misreports the code comments the user left as "none" (silent false-negative).
+    - **Inline (line-level) comments**: `gh api --paginate repos/{owner}/{repo}/pulls/<n>/comments --jq '.[] | {user:.user.login, path, line, body}'` (`--paginate` — the API returns 30 per page, so without it the rest are silently dropped). ⚠️ `gh pr view --json reviews,comments` **does not return** inline comments (cli/cli #11477) — missing them misreports the code comments the user left as "none" (silent false-negative).
   - **Humans only**: exclude when `user.login` (or `author.login`) equals the current user (`gh api user --jq .login`) (self), and when it ends with `[bot]` (bot).
   - **fail-open**: `gh` not installed, not authenticated, no remote or no PR → skip only this check and one line "PR review: could not check (<reason>)". (2–3 network round trips, only when a plan matched.)
 
