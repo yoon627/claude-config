@@ -24,3 +24,5 @@
 - `skills/c/SKILL.md` 1단계의 "2+ 후보 → 사용자 선택" 정지가 3단계 "닫힌 목록 5종" 예외에 없다(예외 2 는 fallback 만). README 343행은 예외 2 를 "plan 후보 다수" 로 적어 SKILL 과 어긋난다. 심각도 낮음 — 규칙 변경이라 별도 작업.
 - `skills/c/SKILL.md` PR intake — 자기 코멘트를 빼는 규칙(현재 사용자 login 제외)과 "사용자가 남긴 코드 지적" 이 혼자 쓰는 흐름(같은 계정으로 PR 작성·리뷰)에서 충돌해 intake 가 늘 빈다. 심각도 중간 — 별도 작업.
 - `skills/c/SKILL.md` 인라인 코멘트 수집 `gh api repos/{owner}/{repo}/pulls/<n>/comments` 에 `--paginate` 가 없어 30개를 넘으면 조용히 빠진다. 심각도 중간 — 별도 작업.
+- (2026-10-30 처리) 위 인라인 코멘트 `--paginate` 누락과 자기 코멘트 제외 충돌 — `fix(c)` 커밋 2개(c-intake-fixes): `gh api --paginate`, 본인 계정 코멘트는 self 로 모아 보고에만(할 일은 사용자가 말할 때만 — 같은 계정의 Claude 코멘트와 구분되지 않는다)
+- `skills/c/SKILL.md` PR intake 의 bot 판정 — `[bot]` 접미사는 `gh pr view` 의 reviews·comments(GraphQL)에 없고 Copilot 인라인에는 어느 API 에도 없다(`github-actions`·`copilot-pull-request-reviewer`·`Copilot`). 그래서 bot 코멘트가 사람 코멘트로 Task 가 되어 자동 실행된다 — Claude 코멘트 자동 실행과 같은 종류의 해. 세 출처를 REST(`--paginate`)로 바꾸고 `user.type == "Bot"` 으로 거르는 안. 심각도 중간(c-intake-fixes code-reviewer)
