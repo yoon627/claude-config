@@ -19,7 +19,7 @@ Interpret `args` by these rules:
 | any other text (a request) | derive a slug → create the worktree (no confirmation) → work inside it with `dlc` |
 
 - **Interpretation order** (evaluate from the top, **settle at the first match** and do not look at later rules — this order, not the table row order, is the single source of precedence): 1) empty → list. 2) first token `rm` → remove (do not use `rm` as a worktree name). 2.5) first non-space character is `?` → **question mode** (Question mode section — the rest after removing `?` is the seed to refine, then join request). If the first character is `?`, as in `?rm foo` or `?123`, it is question mode regardless of tokens, integers or exact matches. 3) the whole argument is an integer → switch (if out of range, notice + list). 4) the whole argument exactly matches an existing worktree branch → switch. 5) everything else → treated as **a request** (request section).
-- A malformed form, such as a missing argument after `rm` → print the table above and stop.
+- A malformed form, such as a missing argument after `rm` → print the table above and stop (`rm` with no argument also prints the list — rm step 1).
 - **There is no plain creation without dlc (creating only an empty worktree)** — text that does not match exactly is always handled as a request.
 
 > **Note**: when the user only wants the plain list, the shell `gwl` function (`scripts/gwl.ps1` for PowerShell, `scripts/gwl.zsh` for zsh) is much faster (no model round trip). `/wt` only when processed output or a follow-up action is needed.
@@ -102,7 +102,7 @@ When a request is too vague to fix into a slug yet, the `?` prefix **narrows the
 
 ## rm `<name>`
 
-1. `<name>` missing → usage notice + list.
+1. `<name>` missing → print the Arguments table (usage) + list and stop.
 2. Matching: if an integer, the Nth of the list; otherwise the one **exact match** of the branch name.
 3. 0 → notice + list. (Exact match only, so there is no 2+ ambiguous case.)
 4. Safety checks:
