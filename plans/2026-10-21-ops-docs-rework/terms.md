@@ -61,6 +61,10 @@ translate-repo 단위는 착수 때 이 표를 읽고 따른다. 새로 정한 �
 | wiki 절 제목 신선도 / 대표 질문 / 대상 계층 / 알림 해소 / hook 등록 | Freshness / representative questions / target layer / Clearing the notice / Registering the hook | translate-skill-wiki — `wiki_check.py`·README 의 "SKILL.md 신선도 절" 은 같은 머지에서 "SKILL.md Freshness 절" 로 |
 | 외부공개(CLAUDE.md §1 승인 대상) | publicly visible | CLAUDE.md §1·`skills/c` 와 같음 — translate-skill-wiki 에서 "publishing externally" 로 옮겼다가 리뷰가 잡음 |
 | refuted 후보(감사 로그) · 구현 ⚠️ 응답 · 검증 실행 결과 · 제안 · 타당 \| 반박 · 검토 항목 통과 · 검증 명령 미식별 · 검증 칸 | refuted candidates (audit log) · Implementation ⚠️ responses · Verification run results · Suggestion · valid \| rebutted · review items passed · verification command not identified · verification field | translate-agent-code-reviewer — dlc 도 "검증 명령 미식별"·"검증 칸" 을 같은 말로 |
+| 요구사항 명확화 · 분할 판정 · 진입 매트릭스 · 자기 진단 · 조사 프로토콜 · wiki 연계 · 격리 경계 · 정식 완료 커밋 · 단위 커밋 · 우선 검토 · 위임 예외 | Requirement clarification · Split judgment · Entry matrix · Self-diagnosis · Investigation protocol · wiki integration · Isolation boundary · formal completion commit · unit commit · review first · handover exception | translate-skill-dlc — dlc 절 제목, 공용 wiki docs·hooks 도 같은 이름 |
+| `## 읽을 곳` · `확인 필요:` | `## Where to read` · `Needs confirmation:` | translate-skill-dlc — Report 라벨(스크립트가 읽지 않는다). code-reviewer·README 인용도 같은 머지에서 맞췄다 — 위 원문 유지 표의 `"읽을 곳"` 줄을 대체 |
+| 공통 호출 규약 · 호출 측 · 세션 캐시 · 자체 검토 · 차등 표 · 외부 codex 모드 | common invocation convention · the caller · session cache · the reviewer's own review · tiering table · external codex mode | translate-wiki-docs(codex-review) |
+| 파일 점유 류 · 부분 성공 · 결과 처리 · 미보존 산출물 · 선행 검사 · 재수집 · "SKILL N단계" | File held type · Partial success · Result handling · unsaved artifacts · prerequisite check · re-collection · "SKILL step N" | translate-wiki-docs(worktree-lifecycle) |
 
 ## 기계 대조 (공통 대조 검사가 읽는다)
 원문(한국어, 원문 유지 문자열 밖)에 왼쪽 낱말이 나온 횟수만큼 번역에 오른쪽 낱말이 있어야 한다(대소문자 무시). 다른 뜻으로 쓰인 원문이면 단위 설정의 `termsSkip` 에 `{ "<왼쪽 낱말>": "<이유>" }` 로 적는다. **한 뜻으로만 쓰이는 절 제목·필드·라벨만 넣는다** — 여러 뜻의 일상어(보류·합치기·나누기·제안)는 넣지 않는다(사람용 표에만). 형식이 틀린 줄이나 빈 블록은 검사가 FAIL 한다. 줄을 더하기만 한다(위 규칙과 같다).

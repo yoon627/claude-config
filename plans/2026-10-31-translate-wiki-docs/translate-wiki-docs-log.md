@@ -18,3 +18,4 @@
 - 공용 wiki 페이지 5곳(`pages/decision/wiki-shared-layer.md`·`workflow-failures.md`·`lesson-agent-hook-if-best-effort.md`, `pages/entity/codegraph.md`·`worktree-isolation-bash-guard.md`)과 `log.md` 에 개인 repo 이름이 있다 — 그 repo 가 비공개면 §11 공개 점검 위반. 이 세션은 그 repo 에 접근할 수 없어 공개 여부를 모른다 — 사용자 결정
 - `docs/worktree-lifecycle.md` 5·18행의 옛 서술("no automatic deletion"·"skip the proposal")을 CLAUDE.md §8(a) 자동 정리에 맞추기 — 확인 서술을 느슨하게 하는 변경이라 사용자 확인 필요
 - `docs/dlc-details.md` 30행 Workflow Findings 기록 형식과 `pages/decision/workflow-failures.md` 표 머리 맞추기 — wiki/pages 언어 결정(intent Open question)과 함께
+- 참고(2026-10-31): 번역 커밋 뒤 같은 날 `codex-review.md`(repo 이름)·`worktree-lifecycle.md`(§E M5 동기화)를 별도 커밋으로 고쳐, 두 문서의 대조 검사는 이제 그 줄에서 FAIL 한다 — 대조는 번역 커밋 시점의 기록이다.

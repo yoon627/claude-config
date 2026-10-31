@@ -15,3 +15,4 @@
 - `agents/code-reviewer.md` Codex 프롬프트(85행)에 `## Critical`·`## Major`·`## Minor`·`## Nit` 제목을 쓰라고 정하기(plan-reviewer a4f39e7 과 같은 방식) — 원문부터의 빈틈, 심각도 낮음. 2026-10-31 시도는 auto 모드 분류기가 Self-Modification 으로 거부 → 사용자 결정 필요
 - `agents/code-reviewer.md` verdict 대응(111행)을 "앞에서부터 첫 일치: CONFIRMED Critical/Major → REQUEST CHANGES · 그 밖에 PLAUSIBLE 이 있으면 NEEDS DISCUSSION · 그 밖(CONFIRMED Minor/Nit 만, 또는 없음) → APPROVE" 로 — 원문부터의 빈틈, 심각도 낮음. 위와 같은 이유로 사용자 결정 필요
 - 공용 wiki `pages/concept/plan-handoff.md`·`pages/concept/hub-and-spoke-isolation.md` 의 옛 이름 "plan 반영용 요약" 지우기 — translate-skill-dlc 머지 뒤 main 세션에서
+- 참고(2026-10-31): 머지 뒤 translate-skill-dlc 가 49행 포인터("읽을 곳" → "Where to read")를 고쳐 이 단위의 대조 검사는 이제 K.11b 에서 FAIL 한다 — 대조는 번역 커밋(4a29c87) 시점의 기록이다.
