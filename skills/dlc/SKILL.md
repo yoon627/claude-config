@@ -108,14 +108,14 @@ description: 비자명한 코드 변경(버그 수정·기능 추가·리팩토�
 1  Explore
 2  researcher       [조건부 · 격리]
 3  draft plan       관련 decision 조회(먼저 — 아래 wiki 연계) · 테스트전략 · rollback · 영향범위 · 구조의도 · # Acceptance 항목화 · ⚠️ self-flag(해당 시) · `intent:` 링크(묶음이면) · 커밋 단위 선언 · 규모표의 단계를 Tasks 에 처음부터 전부(나중에 더하는 Task 는 이유를 적고, 조건부 단계가 해당 없거나 사용자가 생략을 정한 단계는 `- [x] <단계> (YYYY-MM-DD) — 생략: <사유>` 로 닫는다)
-4  arch planning    [격리 · structural 만 · codex off]
+4  arch planning    [격리 · structural 만 · codex off · 프롬프트 첫 줄 `mode: planning`]
 5  plan 수정
 6  plan-reviewer    [격리 · codex owner]
 7  지적 반영         ⚠️ self-flag 를 리뷰 지적과 함께 먼저 처분 · 구조 바뀌면 4~6 재실행
 8  TDD Red          새 테스트가 의도한 이유로 실패하는지 확인 · 쓴 테스트의 식별자를 # Acceptance 검증 칸에
 9  구현             `⚠️ (구현)` 신고(8~15단계, 해당 시 — self-flag 절)
 10 Green            test/build/typecheck 최소 → 끝난 단위는 단위 커밋(목적 2+ 일 때)
-11 arch(정밀) + code-reviewer   [격리 · 병렬 · codex owner 1개 · 입력에 plan·(있으면) plan log **경로** · 단위 커밋이 있으면 범위 `<base>...HEAD`+작업트리 · code-reviewer 에 `⚠️ (구현)` 우선 검토 전달]
+11 arch(정밀) + code-reviewer   [격리 · 병렬 · codex owner 1개 · arch 프롬프트 첫 줄 `mode: post-implementation` · 입력에 plan·(있으면) plan log **경로** · 단위 커밋이 있으면 범위 `<base>...HEAD`+작업트리 · code-reviewer 에 `⚠️ (구현)` 우선 검토 전달]
 12 fix loop         관련 reviewer 만 · ≤2회 · disposition · 커밋된 단위 수정은 fixup · `⚠️ (구현)` 처분(새 줄은 재리뷰에 전달)
 13 simplify 체크    [메인 직접 · blocker 없을 때만]
 14 재리뷰           simplify 체크의 substantive edit 시 targeted · 새 `⚠️ (구현)` 전달
