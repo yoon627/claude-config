@@ -1,0 +1,43 @@
+{
+  "file": "docs/wiki-inbox.md",
+  "base": "3eaa4f4",
+  "manifest": "../plans/2026-10-31-translate-wiki-docs/wiki-inbox/manifest.md",
+  "locations": "../plans/2026-10-31-translate-wiki-docs/wiki-inbox/locations-en.txt",
+  "keep": [],
+  "frontmatter": [],
+  "headings": [
+    "# wiki-inbox — procedure for processing the request inbox (reference)",
+    "## Item format",
+    "## A. Unattended run (claude -p)",
+    "## B. Manual processing (interactive session)"
+  ],
+  "numbered": [
+    {"from": "## A. Unattended run", "to": "## B. Manual processing", "first": 1, "last": 8},
+    {"from": "## B. Manual processing", "to": "6. If the log of the unattended run", "first": 1, "last": 5}
+  ],
+  "mutations": [
+    ["public items only dropped", "hands only `source: public` items to `claude -p`", "hands every item to `claude -p`"],
+    ["private on either path", "`source: private` items are processed only on this path.", "`source: private` items are processed on either path."],
+    ["WIKI.md not the source", "`WIKI.md` is the single source for the page format", "This file is the single source for the page format"],
+    ["shell allowed", "(no shell·MCP)", "(shell allowed)"],
+    ["new page preferred", "Prefer updating an existing page. Create a new page only when no page fits.", "Prefer creating a new page."],
+    ["unverified applied", "do not apply it and leave it `deferred`", "apply it anyway"],
+    ["silent overwrite", "do not overwrite it silently", "overwrite it"],
+    ["one link enough", "2 or more `[[links]]`", "1 or more `[[links]]`"],
+    ["model list anywhere", "Write model versions·lists only in `anthropic-claude-models`.", "Write model versions·lists in any page."],
+    ["public declaration trusted", "Look again even if the item declared itself `public`.", "Trust items that declared themselves `public`."],
+    ["delete allowed", "Do not delete files", "Delete files as needed"],
+    ["result partial", "**every** item id read", "the applied item ids"],
+    ["names in summary", "Do not write private information·people's names.", "Include the submitter's name."],
+    ["applied kept without pages", "`applied` is archived as `deferred`", "`applied` is stored as `applied`"],
+    ["push on failure", "it does not push and the items stay pending", "it pushes the rest"],
+    ["manual in worktree", "Do it in a `~/.claude/wiki` main session", "Do it in a `~/.claude/wiki` worktree session"],
+    ["private confirmation dropped", "**Show the diff to the user before committing and get confirmation.**", "**Commit directly.**"],
+    ["push automatic", "push only on request", "push right away"],
+    ["private code is a target", "is not a shared-wiki target", "is a shared-wiki target"],
+    ["unreadable ignored", "open that file and fix or delete it", "ignore it"],
+    ["section label swapped", "Section A below is the procedure of that session.", "Section B below is the procedure of that session."],
+    ["rejected softened", "if the meaning still does not survive, `rejected`", "if the meaning still does not survive, `deferred`"],
+    ["missing items closed", "A missing item stays pending and is looked at again in the next run.", "A missing item is closed as `deferred`."]
+  ]
+}

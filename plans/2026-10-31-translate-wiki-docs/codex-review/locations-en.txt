@@ -1,0 +1,69 @@
+# manifest clause → location in docs/codex-review.md. Format: <id> | <quote>; several quotes joined by " ‖ "
+P.1 | The **single convention** that the reviewer subagents (plan-reviewer / code-reviewer / architecture-reviewer) and the dlc pipeline follow when they call codex parallel review.
+P.2 | It replaces the codex call blocks scattered across each agent definition. Based on global CLAUDE.md §9.
+P.3 | > Subagents run in an isolated context, so they do not see this file automatically. The caller (agent definition/dlc) references this absolute path explicitly or Reads it when needed.
+A.1 | Check in order. If any step decides to skip, **skip** the codex parallel run and proceed alone, with one line `Codex 미가용: <reason>` in the output.
+A.2 | **The agent's own review continues** (non-blocking — a codex failure does not block the review).
+A.3 | If the **session marker** `<scratch>/codex-unavailable` exists, **do not call** — the reason is the file content as is (`Codex 미가용: <content> (session cache)`).
+A.4 | `<scratch>` is the absolute path of the session scratchpad in §3 (the main agent and subagents receive the same path).
+A.5 | If `codex --version` fails (not installed / not on PATH), skip.
+A.6 | If the output after the call is a **limit or billing error**, write the marker and skip — this error does not clear by itself within a session, so there is no reason for the next reviewer to repeat the same call and wait (observed 2026-09-10: after plan-reviewer reported `out of credits`, the code-reviewer of the same session tried again). Writing the marker: ‖ printf '%s %s\n' "$(date -u +%FT%TZ)" "workspace out of credits" > "<scratch>/codex-unavailable"
+A.7 | Output treated as a limit error (case-insensitive, if it contains any one): `out of credits` · `insufficient_quota` · `usage limit` · `rate limit` · `429`.
+A.8 | Environment issues (stdin hang·git-repo·sandbox) do **not** write the marker — the next reviewer may succeed with a different cwd or method.
+A.9 | The marker disappears with the scratchpad when the session ends (the next session tries again).
+A.10 | If the user has topped up the credits, deleting the file makes it retry within that session too.
+A.11 | When the caller (dlc) sees the marker, it gives the reviewers the external codex mode text of §7 so they skip the attempt itself.
+B.1 | If one phase has several reviewers (e.g. `architecture-reviewer` + `code-reviewer` in parallel after implementation), the caller (dlc) assigns **only one codex owner**.
+B.2 | For the reviewers that are not the owner, the caller puts the §7 text ("Codex review is already running externally. Do not invoke Codex.") in the prompt
+B.3 | — such a reviewer skips its own codex call and states "external codex owner assigned — parallel run skipped" in its output.
+B.4 | Default owner choice: `code-reviewer` if the change is mostly bugs/security, `architecture-reviewer` if it is mostly structure, `plan-reviewer` at the planning stage.
+B.5 | **arch's planning mode is always codex off.**
+C.1 | **MUST — call codex with the Bash tool.**
+C.2 | `codex exec` reads stdin in addition even when it has a PROMPT argument, so when it is called with the PowerShell tool, stdin never closes and it hangs forever at `Reading additional input from stdin...` (reproduced).
+C.3 | Before heavy work, first check that it responds with a short smoke test (≤60s); on a hang or a usage overrun, stop at once and proceed alone (one line `Codex 미가용: <reason>` in the output).
+C.4 | (The fallback for environments where only PowerShell is available is §4.)
+C.5 | read-only sandbox, ephemeral.
+C.6 | **effort is tiered by task difficulty** (table below).
+C.7 | Suppress the reasoning log noise with `-c hide_agent_reasoning=true` (it makes the conclusion easier to extract from the output).
+C.8 | **Prompt in a file, command kept short** — the native Bash guard of a worktree-isolated session rejects command text that contains `git` (a mention of `git diff` in a heredoc body, the flag name `--skip-git-repo-check` itself), and it is nondeterministic (wiki `worktree-isolation-bash-guard`, observed 2026-09-02).
+C.9 | Non-trivial reviews always run in a worktree, so the canonical form must avoid that guard.
+C.10 | Do not use `--skip-git-repo-check` — the review runs inside a git repo (worktree), so it is not needed.
+C.11 | **The cwd must be the repo (worktree) root** (this premise is mandatory because the flag was dropped — the main session keeps its Bash cwd, so check any earlier `cd`).
+C.12 | Procedure (`<scratch>` = the absolute path of the session scratchpad that the harness gives in the system prompt — not a shell variable):
+C.13 | Write the prompt to `<scratch>/codex-prompt.txt`.
+C.14 | **If the Write tool is available, use Write**; if it is not, as for reviewer subagents, use Bash `cat > <scratch>/codex-prompt.txt <<'PROMPTEOF' … PROMPTEOF`.
+C.15 | **When creating it with Bash, do not put a `git` token in the body** (the guard looks at the Bash command text, so the content of a file written with Write has no restriction).
+C.16 | Body skeleton: ‖ `<domain-specific prompt>` ‖ `Changed files: <diff --stat or stated scope>` · `Input bundle: <summary of call sites / creation paths / dependency direction / test fixtures>` · `Review checklist: <that agent's checklist>` ‖ `Reply: English. No preamble. Classify as Critical / Major / Minor.`
+C.17 | Run it in one line (shown to pass with the worktree guard active, 2026-09-02·03): ‖ codex exec --sandbox read-only --ephemeral -c 'model_reasoning_effort="medium"' -c hide_agent_reasoning=true - < "<scratch>/codex-prompt.txt" > "<scratch>/codex-review.txt" 2>&1
+C.18 | If the target is a non-git directory, codex itself does not start (`--skip-git-repo-check` is the flag that opens that case, but in a worktree session the flag name trips the guard) → conclude with **skipping the parallel run** per §1 preflight (one line `Codex 미가용: <reason>` in the output).
+C.19 | **effort tiering** (the caller sets it by the phase difficulty): ‖ | Task | effort |
+C.20 | | Discussion·questions·small diffs·doc·config review | `low` |
+C.21 | | plan review · small code review | `medium` |
+C.22 | | **code-reviewer parallel run after implementation — whole-branch diff** | `high` (since 2026-09-03 the only codex code review, replacing the repo pre-push codex gate — coin-trading-bot removed the gate) |
+C.23 | | Security·concurrency·complex bugs·large structural review | `high` |
+C.24 | | Deepest (supported models only) | `xhigh` |
+C.25 | **The scope of a post-implementation review is the whole-branch diff** — state `git diff <base>...HEAD` (base = `origin/<default>` or the sha the caller gave) in the prompt and have codex run it itself inside the read-only sandbox (giving only a list of bundle files misses defects outside that scope which pre-push used to catch).
+C.26 | Have it report P0/P1-level defects (money·data·security) first.
+C.27 | **Always state effort with `-c model_reasoning_effort=...`.** If it is omitted, the `model_reasoning_effort` value of `~/.codex/config.toml`, which differs per machine (codex's built-in default if the key is absent), applies and the per-phase tiering of the table above collapses — a high default wastes tokens, a low one leaves the review too shallow.
+C.28 | `minimal` conflicts (400) with the `web_search`/`image_gen` tools on some models (gpt-5.5 etc.), so the practical minimum is `low`.
+C.29 | `xhigh` is limited to supported models (gpt-5.1-codex-max / gpt-5.2-codex / gpt-5.5 etc.). An unsupported model does not fall back automatically, so check the model before calling.
+C.30 | `hide_agent_reasoning=true` is **for suppressing output noise** — it does not reduce the reasoning tokens themselves (same billing). The only real token savings come from two axes, effort tiering and slimming the global AGENTS.md.
+C.31 | Some codex versions may ignore it (openai/codex#7090), so conclusion extraction is guaranteed by the grep/tail of §5.
+C.32 | **No background**: always call it in the foreground. There is a precedent where a background run corrupted the thinking block of the main conversation and caused the API 400 `thinking blocks ... cannot be modified`.
+C.33 | Keep it domain-specific: instead of a generic "review this change", put that agent's review checklist into the prompt (avoids the handoff drift codex warned about).
+D.1 | The Bash MUST of §3 assumes **that the Bash tool exists** — below is a fallback only for environments where the Bash tool itself is absent and only PowerShell is available (it does not contradict the §3 requirement; the two coexist):
+D.2 | **Primary fallback — file stdin**: after creating the prompt file, `Get-Content -Raw <file> | codex exec [opts] -`. PowerShell does not support `<` input redirection (the parser rejects it as reserved — about_redirection, PowerShell#1629).
+D.3 | ⚠️ Whether the pipe closes stdin and so avoids the hang of §3 is **unverified** (no Windows environment at hand) — check it with a smoke test ≤60s on first use.
+D.4 | When creating the prompt file in PowerShell, write a single-quoted here-string `@'` … `'@` (the closing `'@` must be at column 0) with `Set-Content`.
+D.5 | Output redirect `> file 2>&1` → `| Out-File -Encoding utf8 <file>` (handle stderr separately; do not merge a native exe's stderr with `2>&1` — PowerShell 5.1 wraps it in NativeCommandError).
+D.6 | Conclusion extraction `grep` / `tail` → `Select-String` / `Select-Object -Last <N>`.
+E.1 | If the codex output is large, extract only the conclusion part: `grep -E '^##? (Critical|Major|Minor|결론)' -A 30` or `tail -300`.
+E.2 | **Do not put the whole raw output into the main context.**
+E.3 | If the same block appears twice in the grep result (stream output + final message duplicated, observed 2026-09-03), take only the later block.
+E.4 | Output files go to the session scratchpad (recommended, the `<scratch>` of §3) or `/tmp`·`$env:TEMP`. Do not write them inside the repo (to keep it from getting dirty).
+E.5 | codex output can have reasoning/tool logs mixed in. Take only the final message block (after the last `codex` speaker).
+G.1 | Organize the codex result and the reviewer's own review as **"Agreed items / Found only by Codex / Found only by this review"**.
+G.2 | On a severity conflict, adopt the higher one + state both sides' evidence.
+H.1 | If the caller puts "Codex review is already running externally. Do not invoke Codex." in the prompt, skip your own codex call.
+H.2 | This text is the only way — the environment variable path (`CLAUDE_REVIEW_CODEX_MODE=external`) was dropped on 2026-09-26: the Agent tool cannot pass environment variables to a subagent, and no code read that variable either.
+H.3 | If the caller has already seen the session marker of §1, it puts "Codex is unavailable in this session (<reason>). Do not invoke Codex." in the prompt — the reviewer skips without preflight and writes `Codex 미가용: <reason> (session cache)` in its output.

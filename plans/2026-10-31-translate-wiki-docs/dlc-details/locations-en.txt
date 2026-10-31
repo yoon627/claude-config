@@ -1,0 +1,49 @@
+# manifest clause → location in docs/dlc-details.md. Format: <id> | <quote>; several quotes joined by " ‖ "; "⏎" is a line break
+P.1 | The **details looked up only in specific branches** of the `/dlc` SKILL (`~/.claude/skills/dlc/SKILL.md`): requirement clarification in depth, investigation protocol elaboration, wiki integration mechanics, the Workflow Findings record format, and the isolation boundary runner contract/simplify checklist.
+P.2 | The SKILL body keeps only the entry gate, the size gate, the 16-step table, closed lists, triggers and safety rules; the details are here.
+P.3 | > This file is not loaded automatically — dlc Reads it **when it actually enters that branch** (a wide requirement gap, debugging, wiki integration, recording a workflow failure, step 13 simplify, delegating to the verification runner).
+P.4 | Gates, closed lists and step order have the SKILL body as their single source; this file covers only the "how/why".
+A.0 | Inline in the SKILL are only the 6-item checklist (problem, constraints, completion criteria, scope, deliverables, exclusions) + recording the labeled bullets of plan `# Goal` (always for medium or larger) + the bundle intent scan + the split judgment (medium or larger) + fail-safe questions + silent + the trivial exception + ≤2 rounds. **How to compose and prioritize** the questions:
+A.1 | **Question vs recommendation boundary** — **if the what (requirement, goal, deliverable) is missing, ask**; **if the requirement is there and only the implementation method is open, analyze and recommend**.
+A.1b | If both, the axis that changes acceptance (the what) comes first.
+A.2 | **Question priority** — with several questions, **start with those whose answers change the design or acceptance**;
+A.2b | if the user shows strain at batched questions, ask one at a time (interview style).
+A.2c | The 6-item checklist stays unchanged.
+A.3 | **blind-spot pass (unfamiliar area)** — on a signal that the requested area is unfamiliar to the user (the user said so, or questions do not narrow the gap), do not repeat the same questions; **first brief the area's pitfalls, the criteria for "good" and past decisions (wiki/code)**, then rebuild the questions on top of that
+A.3b | (avoids spinning on questions the user cannot answer either — done within the ≤2 rounds, not a new step).
+A.4 | **Prototype-first (taste·visual deliverables)** — for a deliverable heavy on taste or visual judgment, **present 2~4 low-cost variants (mockups) before implementing** to draw out reactions (taste the user could not articulate either).
+A.4b | Not mandatory (a suggestion to consider) — not every render is a matter of taste, so the model judges.
+A.4c | For render requests, `dlc-task-router` injects this axis early at turn-start.
+B.0 | Inline in the SKILL are the 2 step names (reproduce → causal chain), "no 'fixed' without reproduction" and the principle of refuting alternative causes. The dlc concretization of CLAUDE.md §1 (root cause, at least 3 Whys):
+B.1 | **Reproduce**: reproduce the failure first. No "fixed" without reproduction.
+B.2 | **Causal chain**: confirm symptom → direct cause → root cause with evidence.
+B.2b | If the cause is uncertain, also leave the evidence that refuted other candidate causes (do not settle for the first hypothesis — the number of candidates is not fixed).
+B.2c | No fixes that only suppress the symptom (ignoring errors, pointless retries).
+B.3 | If possible, a reproduction test first (TDD Red) — that test turning green after the fix is the acceptance evidence.
+C.0 | The gate that **forbids omitting** the two judgments (ingest, feedback memory) has the SKILL body as its single source — here is **how** to carry them out (conditional, opt-in at 2 points, without growing the 16-step table).
+C.0b | The wiki has two layers (the current repo's `wiki/` and the shared `~/.claude/wiki/` — the shared one is read by absolute path and written in a main session), and the placement rules are in CLAUDE.md §11:
+C.1 | **1 Explore**: search both wikis (only those that exist — one in `~/.claude`) with the task keywords (`"$HOME/.claude/skills/wiki/wiki_search.py"`, usage in `skills/wiki/SKILL.md` query step 1) and read the related `decision`/`entity` pages (reusing past decisions and verified external facts → fewer researcher re-searches).
+C.1b | On exit 2, read the reason on stderr — skip only for `찾을 wiki 가 없다` (no wiki to search); for any other reason (no words, category or stem; a query mode usage error; a config or read error), fix it and search again.
+C.2 | **3 Before the draft plan (mandatory — the conditions and where to record are single-sourced in the SKILL body)**: filter again by **the target asset name and the kind of work** instead of the keywords of 1 (e.g. `CLAUDE.md` + slim·compress·migrate).
+C.2b | A plan that grew out of analysis easily skips 1, so the lookup runs once more here — measured case (2026-09-28): without this lookup, a slimming plan came out that directly conflicted with the July decision (`ops-doc-slimming`).
+C.3 | **16 Report — ingest judgment target**: reusable knowledge = non-obvious decisions, lessons, confirmed external facts. Trivial, one-off and specific-to-this-task knowledge is excluded.
+C.3b | If it is a target, decide the layer too — repo-specific → repo wiki; publishable facts useful to several repos and lessons about global assets → shared.
+C.3c | If it is a shared target in another repo, or in a `~/.claude` worktree session, do not record it; leave an `in a ~/.claude main session: /wiki ingest …` proposal in the Report and the plan log `# Deferred` in the `<summary · public evidence · source (public/private)>` format
+C.3d | (§11 Public check — if the source is missing, the recording side treats it as private and goes through a diff confirmation).
+C.4 | plan→wiki **one-way promotion** (plans = temporary handoff, wiki = persistent accumulation). No two-way sync.
+D.0 | Inline in the SKILL are only the 3 triggers, the proposal on 2+ repeats and the self-modification boundary. How to record:
+D.1 | **Record (2 places)**: 1) one line in the plan log (`<slug>-log.md`) `# Workflow Findings`
+D.1b | 2) **accumulate in the shared wiki `decision/workflow-failures.md`** (persistent, tracks repeats — dlc is a global asset, so the shared layer.
+D.1c | Written in a main session — in a `~/.claude` worktree session, leave it in the plan log and write it after returning; in another repo's session, this record becomes a §11 shared-wiki proposal).
+D.1d | Format `broken rule/step · recurrence condition · fix candidate location · occurrence count`.
+D.1e | For the same failure, only increase the existing entry's count.
+D.2 | **Relation to automatic signals**: a hook (`~/.claude/scripts/dlc-signal.js`) automatically accumulates early-stop, doc-drift, guard block and plan-blocked signals in `~/.claude/telemetry/dlc-signals.jsonl`, and `/improve` aggregates them and proposes a ranking.
+D.2b | This manual record holds the **context** the signals cannot (cause, recurrence condition, fix candidate location) — complementary (not a replacement).
+E.0 | Inline in the SKILL are only the hub/spoke roles, the runner delegation principle and the simplify step 13 trigger. Details:
+E.1 | **Final verification runner return contract**: the execution principles (command + cwd as verbatim strings, no re-exploration, the cwd-omission false-pass warning) have the inline text of the SKILL isolation boundary as their single source.
+E.1b | The runner is the built-in general-purpose (isolated, no Edit; it does create build/test artifacts and caches).
+E.1c | After running the given commands it returns: **exit code + pass/fail + failed items and the key log lines (structured)**.
+E.1d | If the failure summary is not enough for a fix, the main agent reruns it.
+E.2 | **simplify check (step 13) items for the diff scope**: duplication (consider abstraction only for 3+ repeats) · excess abstraction · unneeded options/dead branches · dead code (delete after checking usages with rg) · excess defensive code · replacement with the standard library/existing utilities · deep nesting.
+E.2b | Preserve behavior · stay in scope · hold back when unsure (proposal only, in the Report).
+E.2c | On a substantive change, targeted tests + a step 14 targeted re-review are mandatory.

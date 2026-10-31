@@ -18,3 +18,4 @@
 - (2026-10-31 처리) 위 `startedAt` 0·null 과 재조회 실패 두 항목 — `fix(e)` 커밋(deferred-small-fixes): 대체 경로 jq 가 null 과 gh 의 0 시각(`0001-01-01T00:00:00Z`)을 가장 새 것으로 보고, `--json` 재조회의 다른 실패는 REJECTED. 첫 수정안(`// "9999"`)은 null 만 잡아 code-reviewer 가 gh 2.45 소스(`StartedAt time.Time`)로 반박해 고쳤다
 - 주 경로(gh 2.50 이상)도 같은 사각지대일 수 있다 — gh 의 `eliminateDuplicates` 가 `StartedAt` 으로 골라 0 시각 재실행이 뒤로 밀린다. `statusCheckRollup` 이 재실행 옆에 이전 run 을 함께 돌려주는지 미확인(심각도 낮음 — required check 는 M6 BLOCKED 가 잡는다, deferred-small-fixes code-reviewer)
 - 공용 wiki `docs/worktree-lifecycle.md` §E M5 의 jq·재조회 실패 문장을 이 변경에 맞춘다 — main 세션에서(translate-wiki-docs 와 함께)
+- (2026-10-31 처리) 위 공용 wiki §E M5 동기화 — 공용 wiki 커밋 `docs(worktree-lifecycle): sync §E M5 with skills/e`(translate-wiki-docs 와 함께)

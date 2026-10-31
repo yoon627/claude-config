@@ -1,0 +1,53 @@
+{
+  "file": "docs/dlc-details.md",
+  "base": "3eaa4f4",
+  "manifest": "../plans/2026-10-31-translate-wiki-docs/dlc-details/manifest.md",
+  "locations": "../plans/2026-10-31-translate-wiki-docs/dlc-details/locations-en.txt",
+  "terms": "../plans/2026-10-21-ops-docs-rework/terms.md",
+  "keep": [
+    "`찾을 wiki 가 없다`"
+  ],
+  "frontmatter": [],
+  "headings": [
+    "# dlc-details — dlc procedure details·edge cases (reference)",
+    "## A. Requirement clarification in depth (SKILL requirement clarification)",
+    "## B. Investigation protocol elaboration (SKILL investigation protocol — debugging·incidents)",
+    "## C. wiki integration mechanics (SKILL wiki integration, CLAUDE.md §11)",
+    "## D. Workflow Findings record format·relation to hooks (SKILL Workflow Findings)",
+    "## E. Isolation boundary details — runner return contract·simplify checklist (SKILL isolation boundary)"
+  ],
+  "numbered": [
+    { "from": "## B.", "to": "## C.", "first": 1, "last": 2 }
+  ],
+  "mutations": [
+    ["not loaded made auto", "> This file is not loaded automatically", "> This file is loaded automatically"],
+    ["single source flipped", "Gates, closed lists and step order have the SKILL body as their single source", "Gates, closed lists and step order have this file as their single source"],
+    ["ask vs recommend swapped", "only the implementation method is open, analyze and recommend", "only the implementation method is open, ask"],
+    ["how first", "the axis that changes acceptance (the what) comes first", "the axis of implementation (the how) comes first"],
+    ["batch always", "ask one at a time (interview style)", "keep asking in batches"],
+    ["checklist shrinks", "The 6-item checklist stays unchanged.", "The 6-item checklist may shrink."],
+    ["rounds unlimited", "done within the ≤2 rounds, not a new step", "add rounds as needed, a new step"],
+    ["prototype mandatory", "Not mandatory (a suggestion to consider)", "Mandatory"],
+    ["mockups after implementing", "**present 2~4 low-cost variants (mockups) before implementing**", "**present 2~4 low-cost variants (mockups) after implementing**"],
+    ["fixed without repro", "No \"fixed\" without reproduction.", "\"Fixed\" is fine without reproduction."],
+    ["candidate count fixed", "the number of candidates is not fixed", "list at least three candidates"],
+    ["retry allowed", "No fixes that only suppress the symptom (ignoring errors, pointless retries).", "Retries are fine when the cause is unclear."],
+    ["omission allowed", "The gate that **forbids omitting** the two judgments", "The gate that **allows omitting** the two judgments"],
+    ["shared written in worktree", "written in a main session), and the placement rules", "written in any session), and the placement rules"],
+    ["skip on any exit 2", "skip only for `찾을 wiki 가 없다` (no wiki to search); for any other reason", "skip for `찾을 wiki 가 없다` (no wiki to search) and for any other reason"],
+    ["pre-plan lookup optional", "**3 Before the draft plan (mandatory", "**3 Before the draft plan (optional"],
+    ["same keywords", "instead of the keywords of 1", "with the same keywords as 1"],
+    ["trivial included", "Trivial, one-off and specific-to-this-task knowledge is excluded.", "Trivial and one-off knowledge is included too."],
+    ["record from other repo", "do not record it; leave an `in a ~/.claude main session: /wiki ingest …` proposal", "record it directly; also leave an `in a ~/.claude main session: /wiki ingest …` proposal"],
+    ["missing source public", "the recording side treats it as private and goes through a diff confirmation", "the recording side treats it as public and skips the diff confirmation"],
+    ["two-way sync", "No two-way sync.", "Sync both ways."],
+    ["new entry each time", "only increase the existing entry's count", "add a new entry each time"],
+    ["manual replaces signals", "complementary (not a replacement)", "a replacement for the signals"],
+    ["runner edits", "(isolated, no Edit;", "(isolated, with Edit;"],
+    ["runner unstructured", "**exit code + pass/fail + failed items and the key log lines (structured)**", "**a free-form summary**"],
+    ["runner reruns", "the main agent reruns it", "the runner re-explores and fixes it"],
+    ["abstract on 2", "(consider abstraction only for 3+ repeats)", "(consider abstraction for 2+ repeats)"],
+    ["apply when unsure", "hold back when unsure (proposal only, in the Report)", "apply it when unsure"],
+    ["re-review optional", "a step 14 targeted re-review are mandatory", "a step 14 targeted re-review are optional"]
+  ]
+}

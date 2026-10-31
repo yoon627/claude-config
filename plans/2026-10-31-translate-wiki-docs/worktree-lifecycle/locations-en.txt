@@ -1,0 +1,177 @@
+# manifest clause → location in docs/worktree-lifecycle.md. Format: <id> | <quote>; several quotes joined by " ‖ "; "⏎" is a line break
+P.1 | The **git/gh mechanics, fallbacks and edge handling** of the `/e` SKILL (`~/.claude/skills/e/SKILL.md`): state collection (step 2), merge mode (M1~M6), the worktree deletion judgment (step 7), cleanup execution (Worktree cleanup rules) and the pull after returning (step 8 ⓑ).
+P.2 | The SKILL body keeps only gates, closed lists and safety rules; the details are here.
+P.3 | > This file is not loaded automatically — `/e` Reads it **when it actually enters the state-collection, merge mode (M1 entry), worktree deletion judgment/execution or return-pull branch**.
+P.4 | The judgment skeleton (6-condition AND, no automatic deletion, safety gates) has the SKILL body as its single source; this file covers only the "how".
+P.5 | The exception: the pass criterion under which the SKILL's submodule `--force` exception does not ask (the two checks of the §C submodule branch) is canonical here.
+P.6 | > **Scope**: this file covers the judgment mechanics of both **CLAUDE.md §8(a) automatic cleanup** (when the conditions hold, the worktree + local branch are cleaned up **without asking**) and **the §8(b) confirmation path** (remote branch deletion, unmet safety conditions, a direct `wt rm <name>` call).
+P.7 | The condition judgment is the same; **only the result handling differs** — all met → run without confirmation, any one unmet → skip the cleanup (no forcing),
+P.8 | remote deletion → always AskUserQuestion (if the branch is not on the remote — never pushed, or deleted automatically by GitHub — do not ask, `/e` step 7).
+P.9 | If the `/e` step 6 worklog ended in failure, do not judge the conditions; skip the cleanup (SKILL step 6 non-blocking bullet).
+A.1 | The signals that `bash skills/e/collect-state.sh` (the call form from other repos and isolated sessions is in SKILL step 2) returns as plain `key: value`, bundling 10+ separate git calls into one:⏎`root·branch·detached·mainWorktree·dirty·status·upstreamStatus·upstream·unpushedStatus·unpushed·base·baseValid·inBase·patchInBase·localDefault·mergedToLocalBase·remoteContainingHead·ignoredStatus·ignored`.
+A.2 | Each line is **split on the first `: ` only** (preserving `C:/` in paths and `:` in commit subjects).
+A.3 | List fields (`status`·`unpushed`·`remoteContainingHead`·`ignored`) are indented lines.
+A.4 | `git log --oneline` (new commits since the plan started) is separate, outside the helper.
+A.5 | A failed check (no origin, status error) leaves that field `none`/`unknown` — it is not flattened to `false`.
+A.6 | If the helper fails or a field is missing, say so in the report and use the per-condition fallback git commands below.
+B.0 | The SKILL states only "6-condition AND + if any one is unmet or the helper is unavailable, skip the proposal (conservative)". How each condition is judged, and its fallback:
+B.1 | **Non-main worktree**: `root` ≠ `mainWorktree`.
+B.1b | Fallback: `git rev-parse --show-toplevel` vs the first `worktree <path>` of `git worktree list --porcelain`.
+B.1c | Compare after normalizing slash direction and case (the main agent's job — the helper gives raw paths).
+B.1d | If it is main, do not propose.
+B.2 | **detached=false + plan status==done**: depends on the plan, so it is outside the helper (the value confirmed in step 4).
+B.2b | If detached, skip.
+B.3 | **Working tree clean** (untracked included): `dirty`=false (`status` empty). Fallback `git status --porcelain`.
+B.3b | If `dirty`=unknown (status failed), it cannot be checked → skip (conservative).
+B.4 | **Merged judgment** (the signals are in 4a below — this item is the core gate of the automatic cleanup).
+B.4b | ⚠️ **unpushed is not a condition of local cleanup**: if merged, the commits are in the default branch, so deleting the local branch loses nothing, and this user has a **workflow that does not push**, so gating on unpushed would mean the automatic cleanup never runs.
+B.4c | `unpushedStatus`·`unpushed` are looked at **only when judging remote branch deletion (§8(b), always confirmed)**.
+B.5 | 4a. **Merged into base or another remote branch (git-only inference)**. Either (a) or (a′) allows automatic cleanup; (b) alone is not definitive and goes to the confirmation path:
+B.5a | **(a) Contained in the default base**: `baseValid`=true and (`inBase`=true **or** `patchInBase`=true).
+B.5a2 | `inBase` = the commit SHAs are contained (ff/no-ff merge), `patchInBase` = patch-equivalents are contained (`git cherry` — **even if a rebase merge rewrote the SHAs**, it detects when every commit of the branch is in base as a patch).
+B.5a3 | If `baseValid`=false, skip.
+B.5a4 | Fallback: `BASE`=`git symbolic-ref --short refs/remotes/origin/HEAD`||`origin/main`, then after `git rev-parse --verify --quiet <BASE>`, whether `git log <BASE>..HEAD` is empty [inBase]; if not empty, whether `git cherry <BASE> HEAD` has 0 `+` lines (unmerged patches) [patchInBase].
+B.5b | **(a′) Contained in the local default**: `mergedToLocalBase`=true. The helper judges it with `git branch --merged <localDefault>`, where `localDefault` is the tail of `origin/HEAD` → if that is absent, whichever of `main`/`master` exists.
+B.5b2 | **In a repo without origin or one that does not push, (a) is unknown and only this signal is left** — a merge into local main counts as a proper merge too.
+B.5b3 | Fallback `git branch --merged <localDefault> --format='%(refname:short)' | grep -qx <branch>`.
+B.5c | **(b) Contained in another remote branch (ticket-to-ticket merge)**: if remote branches remain in `remoteContainingHead` after excluding self (`origin/<current-branch>`) and `origin/HEAD -> ...`, it may have been merged there.
+B.5c2 | ⚠️ **This also includes another in-progress branch that stacked my commits as ancestors**, so it is not definitive → with that branch name as the basis, state in the AskUserQuestion body "`<HEAD7>` is contained in `<remote-branch>` — it may have been merged, or it may still be in progress (not definitive)".
+B.5c3 | Fallback `git branch -r --contains HEAD`.
+B.5d | If none of (a)·(a′)·(b) gives a signal (only self, not in BASE) → treat it as unmerged; skip and keep.
+B.5e | ⚠️ Limits: a **squash merge** (N commits → 1) combines the patches into one with a different patch-id, so even cherry misses it and it looks unmerged (likewise stale remote refs and rebase conflict resolutions). All of these err toward keeping, so they are safe.
+B.5e2 | The PR state is not queried directly because of authentication and headless runs — git-only inference + user confirmation.
+B.5e3 | Priority 1 = blocking false positives (deleting something unmerged), so (b) and `patchInBase` serve only as "evidence to show".
+B.6 | **Unsaved artifact check**: `git worktree remove` (without --force) deletes gitignored files along with it without warning, and `--force` also deletes uncommitted artifacts.
+B.6b | With a whitelist `.gitignore`, gitignored files such as `.env` do not show in `git status` (plans/ is tracked §10, so an uncommitted plan shows and remove refuses, but `--force` loses it).
+B.6c | **If `ignoredStatus`=unknown, skip (conservative)**.
+B.6d | Check the `ignored` list (fallback `git status --porcelain --ignored`) + `git status --short`:
+B.6e | If this worktree's `plans/` has **an uncommitted plan or plan log updated this time → skip the proposal** (keeps the plan just recorded as done from vanishing with the worktree; it is safe only after a branch commit·push or a move to the main worktree's `plans/`).
+B.6f | If there are `.env`, secret candidates or other artifacts, **skip the cleanup** and list them in the report (prevents loss). Whether they may be deleted is the user's call.
+B.7 | **No process holding the worktree**: if a server or daemon this session started holds the worktree, `git worktree remove` fails at the OS level — identify it by path and reclaim it; if that is impossible, skip the cleanup (SKILL step 7 condition 6; the failure branch is the §C File held type).
+B.r1 | **Result handling**:⏎- **All conditions met → run without confirmation**: worktree → local `git branch -d`. Report the deleted branch's tip sha in one line (`git branch <name> <sha>` restores it). Do not ask (§8(a)).
+B.r2 | **Any one unmet → skip the cleanup** + one reason line ("unmerged → kept"·"dirty → kept"·"plan inside the worktree → kept"). A step 6 worklog failure is the same ("worklog failed → kept" + the next command — SKILL step 6 report). Do not force it.
+B.r3 | **Remote branch deletion** (`git push origin --delete`) is **not part of** the automatic run above — only when you judge it needed, AskUserQuestion at that point (§8(b)). The same goes for `--force` (except when the checks of the §C submodule branch pass) and `git branch -D` (unmerged).
+B.r4 | **A direct `wt rm <name>` call** is a path where the user named the target, so **always confirm** regardless of whether the conditions hold (a typo can delete the wrong worktree).
+C.0 | When the §B conditions all hold and it cleans up automatically (§8(a)), or when the user chose deletion on the confirmation path. **The cwd may be inside the deletion target, so order matters** (if the session left through the SKILL "6 pre" section, it is already outside).
+C.1 | **Capture values before moving**: fix `target_path`·`target_branch`·`main_path` (the first worktree of `git worktree list --porcelain`) **before moving the session**. Recomputing after the move points to the wrong target (or main).
+C.2 | **Out of the worktree**: return to the original directory (usually main) with `ExitWorktree(action: keep)` — it cannot remove itself from inside the target.
+C.2b | ⚠️ Do not use `EnterWorktree(path: <main_path>)` (the main working tree is not linked, so it is refused — verified).
+C.3 | **`ExitWorktree` no-op** (the harness started in the worktree, not through `EnterWorktree`): the session is bound and cannot get out.
+C.3b | Fallback — (a) if another **linked** worktree exists, `EnterWorktree(path: <other>)`, then remove; (b) if not, **skip remove + report** ("the harness releases it when the session ends" + instructions for a manual `git worktree remove`/directory deletion). No forcing.
+C.4 | If the move failed and the cwd is still inside the target, **stop + report** (no remove).
+C.5 | **A non-main worktree session** moves this step ahead of step 6 (SKILL "6 pre" section) — in an isolated session, helper calls of the form `bash "$HOME/..."` inside the worktree (worklog, collect-state) are refused by the native Bash guard (measured 2026-09-30, depends on the harness version).
+C.5b | If it returned, from the original directory (usually main) run the worklog, both preview and registration, with the directory name of `<target_path>` as the argument, and the re-collection as `(cd "<target_path>" && bash "$HOME/.claude/skills/e/collect-state.sh")`,
+C.5c | and do not call `ExitWorktree` again (do not treat the no-op of a second call as the no-op fallback above).
+C.5d | If the first try is a no-op, continue steps 6·7 inside the worktree and use the fallback above when deleting.
+C.6 | **Remove**: after confirming the cwd is outside the target, if the target is in `git worktree list --porcelain`, `git worktree remove <target_path>`. On failure, branch on stderr:
+C.6a | **"modified or untracked files" type**: `--force` **only after a separate AskUserQuestion** (§8 no forcing without confirmation).
+C.6b | **"working trees containing submodules cannot be moved or removed"**: a worktree with submodules (its admin directory has `modules/` — it remains even after deinit — or it has a populated submodule) needs `--force` even when clean (git-worktree docs).
+C.6b2 | git runs this check before the clean check, so this message alone does not tell whether the superproject is clean — that is the job of the §B conditions (clean, no unsaved ignored files) re-collected just before.
+C.6b3 | The exit code (128) is the same as for other refusals, so it is not used to tell them apart.
+C.6b4 | What `--force` additionally deletes is the submodule working trees (ignored files included) and the module git dirs (commits, stash and reflog included).
+C.6b5 | `/e` step 7, cleaning up without confirmation because all §B conditions hold, deletes with `--force` without asking when both checks below pass (§8(a)).
+C.6b6 | If a check command (path checks and enumeration included) fails, any check does not pass, or it is the confirmation path (`wt rm` etc.), write the failing items in the question body and do it only after AskUserQuestion, as above.
+C.6b7 | If the `--force` remove itself fails, follow the branches below.
+C.6b8 | On Windows, because of the long-path issue below, delete with `git -c core.longpaths=true worktree remove --force` (shared wiki `git-worktree-remove-submodule-longpaths`).
+C.6c | Shape — every module git dir belongs to a submodule that has a working tree: every line of `git -C <target_path> submodule foreach --recursive --quiet "git rev-parse --absolute-git-dir"` starts with the output of `git -C <target_path> rev-parse --path-format=absolute --git-path modules`, and the number of those lines equals the number of module git dirs under that modules directory.
+C.6c2 | A module git dir is a directory, at any depth, that has both a `HEAD` file and an `objects` directory (those of `find <modules> -type f -name HEAD` whose directory also has `objects` — if a submodule name contains `/`, it sits several levels down).
+C.6c3 | A submodule with a `.git` directory inside its working tree, or the git dir of a submodule that was deinited or removed from `.gitmodules`, breaks the match.
+C.6d | Content — the output of `git -C <target_path> submodule foreach --recursive --quiet "git status --porcelain --ignored && git log --oneline --all --reflog --not --remotes"` is empty with exit 0 (changes, untracked and ignored files, commits not in remote-tracking refs — local branches, stash and abandoned detached commits included).
+C.6e | Limits: remote-tracking refs are as of the last fetch, so commits deleted on the remote after that are not caught.
+C.6e2 | Commits only in remote tags are also printed by check 2 and go to a question (a false positive on the safe side).
+C.6e3 | Files placed in an uninitialized submodule directory are seen by neither check — a plain remove deletes them without warning too.
+C.7 | **File held type** ("Access is denied"·"being used"·"Directory not empty"·Windows **"Invalid argument"**·git `failed to delete` **"Permission denied"**·`rmdir` of the leftover directory **"Device or resource busy"**): a live process holds `.venv` or other files inside that worktree.
+C.7b | But on Linux·macOS "Permission denied" can also be a real permission problem (root-owned files left by docker or sudo) — if no process holds the files, check their owner.
+C.7c | **Reclaim what I started first** (`/e` step 7 only — `wt rm` does not stop it automatically and only tells the user, `skills/wt/SKILL.md` rm §6)
+C.7d | — for servers and daemons run in the background for verification, a shell `kill` often does not stop their child processes (measured: a server started with `uv run` held the worktree `.venv` and remove failed).
+C.7e | **Identify the target by path**, stop it (e.g. `Get-Process python,<app> | Where-Object { $_.Path -like "*worktrees\<name>\*" } | Stop-Process -Force`) and retry.
+C.7f | ⚠️ **Do not touch user servers or other worktrees' processes** — no bulk stop by name alone without a path filter.
+C.7g | A hold that is not mine (a user server, another session's process, etc.) is **not stopped automatically** — tell the user the holding process and suggest retrying after its owner stops it (`--force` has no effect on an OS hold).
+C.8 | **A holder tied to the worktree only by its current directory** is not caught by the path filter above (or a command-line search) — its executable is outside the worktree and its command line has no path.
+C.8b | Example: a language server the harness started inside the worktree for this session (pyright on Windows — `claude.exe` → `pyright-langserver.exe` → `python.exe`, cwd = worktree).
+C.8c | In a 2026-10-01 measurement (Claude Code 2.1.286, depends on the harness version), because of it only the registration was removed and an empty directory was left with `Permission denied`·`Device or resource busy`.
+C.8d | To find it, read each process's current directory from its PEB (case and principle: shared wiki `windows-bash-tool-orphan-processes`).
+C.8e | Treat it as mine only when its parent chain is **this session's** `claude.exe` (an ancestor of my shell process — matched by PID), and stop only that harness's direct child (`pyright-langserver.exe`) and its descendants — do not stop `claude.exe`; the creation time is a secondary check.
+C.8f | That language server's working directory is the worktree about to be deleted, so there is no reason to keep it.
+C.8g | Stop it only in `/e` step 7 (`wt rm` only tells the user about holders found the same way); if it cannot be pinned to this session, skip the cleanup per SKILL condition 6 and report the reason.
+C.8h | Do not touch terminals or editors opened outside Claude, or processes of other Claude sessions.
+C.9 | **Partial success** (git registration removed but the directory left; Windows long-path, holds): even if remove fails, the registration may be gone, so **check the result with `git worktree list`**.
+C.9b | If the directory is left, `git worktree prune` + delete the target directory manually (after reclaiming holds).
+C.9c | In this state, rerunning `git worktree remove` fails with "is not a working tree".
+C.10 | The long-path cause (`error: failed to delete '<dir>': Filename too long`, exit 255 — deep `node_modules` etc.) does not occur if remove gets `-c core.longpaths=true` (`git -c core.longpaths=true worktree remove …`, reproduced 2026-10-13).
+C.10b | If the remove already stopped partway, delete the leftover directory with PowerShell 7's `Remove-Item -LiteralPath <dir> -Recurse -Force`.
+C.10c | Do not turn it on in global or repo config — checkout could then create files over 260 characters without warning (shared wiki `git-worktree-remove-submodule-longpaths`).
+C.11 | **Local branch**: after the worktree removal succeeds, `git branch -d <target_branch>` (part of the automatic cleanup).
+C.11b | If `-d` refuses it as unmerged, `-D` **only after a separate AskUserQuestion** (§8) — the `-d` refusal itself is a sign that the merged judgment was wrong.
+C.12 | **Remote branch**: **not part of** the automatic cleanup. If needed, after the worktree and local deletion succeeded, run `git push origin --delete <target_branch>` **only after confirmation through AskUserQuestion** (if the remote ref does not exist, a no-op with only a warning).
+C.12b | Before asking, if `git ls-remote --exit-code origin refs/heads/<target_branch>` gives exit 2 (not on the remote), do not ask; delete only the leftover tracking ref (`/e` step 7).
+C.12c | The merged judgment is not definitive (especially the in-progress child of 4a(b) and undetected squashes), and remote deletion can delete the only copy another machine has.
+D.1 | **Only when the session actually returned to main**, `git pull --ff-only origin "$(git rev-parse --abbrev-ref HEAD)"` once — brings in merges and remote progress made during the session (the post-checkout hook fires only on `git checkout`, not on an ExitWorktree return, so this covers that gap).
+D.2 | **The remote must be the current branch** (no hardcoded `main` — avoids mishandling a master repo).
+D.3 | Only when all preceding guards hold: 1) main worktree 2) `git rev-parse --abbrev-ref HEAD` ∈ {main,master} 3) working tree clean.
+D.4 | **Skip on no-op (still on a feature branch), dirty, ff failure or no origin** (prevents the destructive merge of origin/main into a feature branch).
+D.5 | No automatic rebase, stash or force (§8).
+E.0 | The SKILL's gates, order and closed lists are the single source. Here: commands, fields, the template and the scenario table.
+E.0b | The JSON fields below were confirmed to exist with gh 2.89 `--help` (2026-09-02).
+E.1 | **M1 lookup**: branch `git rev-parse --abbrev-ref HEAD` (`HEAD` means detached).
+E.1b | One `gh repo view --json defaultBranchRef,mergeCommitAllowed,squashMergeAllowed` gives authentication, whether it is GitHub, the `<default>` fallback and the merge method together (failure = M1 refusal).
+E.1c | `<default>` is the name from `git symbolic-ref --short refs/remotes/origin/HEAD` with `origin/` removed → on failure, `defaultBranchRef.name` above.
+E.2 | **M2 PR lookup**: `git fetch origin <default>` → `gh pr list --head <branch> --base <default> --state all --json number,state,isDraft,url`. `state` ∈ {OPEN, MERGED, CLOSED}.
+E.2b | 2+ candidates → stop.
+E.2c | The shortcut judgment is `git rev-list --count origin/<default>..HEAD` = 0 + plan `status: done`; on entering it, `git restore plans/<dir>/<slug>-plan.md`.
+E.2d | If OPEN, pre-check with `gh pr view <N> --json mergeable,mergeStateStatus,headRefOid`.
+E.3 | **M3 prerequisite check**: `git fetch origin "+refs/heads/<branch>:refs/remotes/origin/<branch>"` (if the branch is not on the remote, it fails with `couldn't find remote ref` — only in that case `git update-ref -d refs/remotes/origin/<branch>`, then move on) → `git merge-base --is-ancestor origin/<branch> HEAD` (0 ancestor / 1 diverged / anything else an error).
+E.3b | The classification is the JSON of `commit_units.py pending origin/<default>` — in `unfolded[]`, `sha` (full), `subject`, `flags` (only `wip`·`fixup`), `status` (`rewritable`/`published`/`held`/`blocked`) and `refs` (for published the remote-tracking refs, for held the local branches and tags),
+E.3c | plus the top-level `range_error` (a range containing merge commits, signed commits, the default branch, before git 2.40 — if present, everything not on the remote is `blocked`, and the local refs holding them stay in `refs`).
+E.4 | **PR creation (M3)**: `gh pr create --base <default> --head <branch> --title "<title>" --body-file <scratchpad>/pr-body.md`.
+E.4b | The body is `## Summary` (plan `# Goal`, bullets of the main changes) · `## Review` (reviewers, summary of dispositions) · `## Verification` (verification commands run, results) · trailer (`🤖 Generated with [Claude Code](https://claude.com/claude-code)` + session URL, exactly as the harness instructs).
+E.4c | It is written to a file because of CLAUDE.md §2 (no long payloads in tool parameters).
+E.5 | **Pre-check values**: `mergeable` ∈ {MERGEABLE, CONFLICTING, UNKNOWN}, `mergeStateStatus` ∈ {CLEAN, UNSTABLE, HAS_HOOKS, UNKNOWN, DIRTY, BEHIND, BLOCKED, DRAFT}.
+E.5b | CONFLICTING/DIRTY/DRAFT → stop and report the reason (plan unchanged).
+E.5c | UNKNOWN → re-query after 10 seconds, at most 3 times.
+E.5d | BEHIND/BLOCKED are normal before required checks, so M3 lets them through; if they remain at the re-evaluation right before M6, REJECTED.
+E.6 | **M5 checks**: compare `gh pr view <N> --json headRefOid` = `git rev-parse HEAD` → `gh pr checks <N> --watch` (Bash timeout 600000).
+E.6b | exit 0 → check bucket ∈ {pass, fail, pending, skipping, cancel} with `gh pr checks <N> --json name,bucket` (a separate call, since `--watch` and `--json` cannot be combined)
+E.6c | — fail·cancel are REJECTED first; then, if there is `pending` (a check registered after `--watch` returned), run `--watch` and the re-query once more, and REJECTED (timeout) only if it still remains.
+E.6d | If that call fails with `unknown flag: --json` (before gh 2.50 — `pr checks --json` arrived in v2.50.0, cli/cli#9079), judge instead with `gh pr view <N> --json statusCheckRollup --jq 'def ok: .v == "SUCCESS" or .v == "SKIPPED" or .v == "NEUTRAL"; def wait: .v == "QUEUED" or .v == "IN_PROGRESS" or .v == "WAITING" or .v == "PENDING" or .v == "REQUESTED" or .v == "EXPECTED"; [.statusCheckRollup[] | {k: [.__typename, (.name // .context), (.workflowName // "")], t: .startedAt, v: (if .__typename == "CheckRun" then (if .status == "COMPLETED" then .conclusion else .status end) else .state end)}] | group_by(.k) | map(max_by(.t)) | if length == 0 then "NONE" elif all(ok) then "PASS" elif all(ok or wait) then "PENDING" else "NOTPASS" end'`
+E.6e | — only `PASS` goes to M6; `PENDING` → run `--watch` and this query once more and judge again, REJECTED (timeout) if still `PENDING`; `NOTPASS`, `NONE` or a failed call → REJECTED.
+E.6f | The `STALE`·`STARTUP_FAILURE` conclusions are put in the `pending` bucket by gh, but waiting does not resolve them, so here they are deliberately `NOTPASS`.
+E.6g | Like `gh pr checks`, the expression keeps only the latest entry per check (a check run by name+workflow, a status by context, separately).
+E.6h | `gh pr view` also exports a status's creation time under the `startedAt` key and does not export the event, so the push and pull_request runs of one workflow are grouped as one.
+E.6i | Do not read the raw table (`gh pr checks <N>`), since the rtk hook turns it into a summary.
+E.6j | exit 8 = pending left.
+E.6k | exit 1 + stderr `no checks reported on the '<branch>' branch` (lowercase substring match `no checks reported`) = no checks → after `sleep 15`, `gh pr view <N> --json statusCheckRollup` 3 times, and only if the array stays empty, no required checks.
+E.7 | **M6 merge·classification**: `gh pr merge <N> --merge --match-head-commit <headRefOid>` (`--squash` if `mergeCommitAllowed: false`).
+E.7b | After a successful exit, `gh pr view <N> --json state,mergedAt,mergeCommit` — `mergedAt` non-null = MERGED, null = QUEUED (merge queue).
+E.7c | Command failure = REJECTED, failure of the confirmation command = UNKNOWN.
+E.7d | If MERGED, `git fetch origin <default>`.
+E.7e | In the step 7 re-collection (`collect-state.sh`), condition 4 is met by this `mergedAt` (for a squash, `inBase`·`patchInBase` can be false — the undetected-squash limit of §B).
+E.8 | **Commit messages**: done `docs(plan): close <slug> (PR #N)`, recovery `docs(plan): reopen <slug> (PR #N <reason>)`.
+T.0 | | Scenario | External writes | plan status | Next Task (first unchecked `# Tasks`, old format `# Next`) | Rerun (`/e merge`) result |
+T.1 | | New PR, checks pass, MERGED | push·PR·merge | done | none (only `[post-merge]`) | M2: 0 commits not in base·done → M6 confirmation·fetch → 5~8 |
+T.2 | | Existing open PR | push (when there are changes) | done | none (only `[post-merge]`) | reuse the same PR |
+T.3 | | Existing merged/closed PR + new commits (plan done etc.) | push·new PR·merge | done | none (only `[post-merge]`) | reuse the new PR |
+T.4 | | Unpublished uncleaned commits (`rewritable`) — commit-check applied | local restructuring → push·PR·merge | done | none (only `[post-merge]`) | the cleaned commits are already published, so they are not caught again |
+T.5 | | Unpublished uncleaned commits — left unapplied·apply failure·leftovers·unattended | none (stop before M3) | unchanged (before done; the step 3 edits stay uncommitted) | reason + "clean up the commits, then rerun `/e merge`" | from the M3 prerequisite check |
+T.6 | | Uncleaned commits that are `published`·`held`·`blocked` | push·PR·merge if proceeding is chosen | done (proceed) / unchanged (stop·unattended) | if stopped, reason + "clean up the commits, then rerun `/e merge`" | `held` is classified again on a rerun after that ref is removed (usually `rewritable`); the same published ones are asked about again on every rerun |
+T.7 | | Same as above, but the repo disallows merge commits (M6 squash) | push·PR·merge (squash) | done | none (only `[post-merge]`) | report only, without asking |
+T.8 | | The remote work branch is not an ancestor of HEAD | none (stop before M3) | unchanged | "rerun after bringing in the remote branch" | from the M3 prerequisite check |
+T.9 | | draft PR | none (stop at M2) | unchanged | unchanged | rerun after leaving draft |
+T.10 | | Pre-check CONFLICTING/DIRTY | push·PR (if created) | unchanged (stop before done) | unchanged | rerun after resolving → reuse at M2 |
+T.11 | | BEHIND/BLOCKED still present right before M6 (REJECTED) | push·PR | in_progress (recovery) | rerun after protection is met | reuse at M2 → M5 |
+T.12 | | Rerun with a MERGED/CLOSED PR + plan not done | push·new PR·merge | done (M4 first) | none | reuse the new PR |
+T.13 | | checks none (even after 3 re-queries) | push·PR·merge | done | none (only `[post-merge]`) | proceed as no required checks |
+T.14 | | checks pending→pass | same as above | done | none (only `[post-merge]`) | — |
+T.15 | | checks fail·cancel (REJECTED) | push·PR | in_progress (recovery) | rerun after fixing | after fix·push, reuse at M2 → M5 |
+T.16 | | checks timeout / exit 8 / still pending after waiting once more (REJECTED) | push·PR | in_progress (recovery) | "PR #N waiting for checks, rerun `/e merge`" | reuse at M2 → M5 |
+T.17 | | CONFLICTING right before merging (REJECTED) | push·PR | in_progress (recovery) | rerun after resolving the conflict | push after rebase/merge → M5 |
+T.18 | | `--match-head-commit` mismatch | push·PR | done kept (stop·report) | unchanged | rerun after checking the head |
+T.19 | | Merge commits disallowed → squash MERGED | push·PR·merge (squash) | done | none (only `[post-merge]`) | condition 4 met by mergedAt |
+T.20 | | Permission prompt refused·branch protection (REJECTED) | push·PR | in_progress (recovery) | rerun after resolving the reason | reuse at M2 |
+T.21 | | QUEUED (merge queue) | push·PR·merge (queue) | done kept | unchanged (report: rerun `/e merge` after the queue completes) | M2: MERGED not reused·0 commits → M6 confirmation·fetch |
+T.22 | | UNKNOWN (confirmation·fetch failed) | push·PR·merge (?) | done kept | unchanged (report: rerun after re-querying `gh pr view`) | M2 branch |
+T.23 | | `gh repo view` failed (not authenticated·not GitHub) | none | unchanged | unchanged | M1 refusal |
+T.24 | | push refused (`permissions.ask` refused) | none | unchanged (if M4 ran first, local done → recovery) | unchanged | M3 stop |
+T.25 | | no plan / branch main·detached / Acceptance unchecked / unchecked Tasks other than the `/e merge` Task(s) and `[post-merge]` items | none | — | — | M1 refusal |
+T.26 | | Steps 5~8 fail after the merge | no additional ones | done | record the failed step | retry 5~8 without calling merge again |
+T.27 | | Recovery push refused | none | in_progress (local only) | report that the local commit needs a push | M2 after push |

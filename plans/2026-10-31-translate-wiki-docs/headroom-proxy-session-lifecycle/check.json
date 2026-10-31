@@ -1,0 +1,40 @@
+{
+  "file": "docs/headroom-proxy-session-lifecycle.md",
+  "base": "3eaa4f4",
+  "manifest": "../plans/2026-10-31-translate-wiki-docs/headroom-proxy-session-lifecycle/manifest.md",
+  "locations": "../plans/2026-10-31-translate-wiki-docs/headroom-proxy-session-lifecycle/locations-en.txt",
+  "keep": [],
+  "frontmatter": [],
+  "headings": [
+    "# Concurrent Claude sessions: headroom proxy process lifecycle (macOS)",
+    "## TL;DR",
+    "## This machine's setup (observed)",
+    "## Operating commands",
+    "## Why the Windows \"session takes the proxy down with it\" bug does not happen here (reference)",
+    "## Diagnostic cheat sheet (macOS / zsh)",
+    "# check the routing (as seen from a new login shell)",
+    "# who LISTENs on 8787 + the parent chain (if launchd owns it, the service is the parent)",
+    "# launchd service registration/status",
+    "# proxy health + actual compression behavior"
+  ],
+  "numbered": [],
+  "mutations": [
+    ["proxy dies with session", "closing a session does not kill the proxy", "closing a session kills the proxy"],
+    ["other sessions affected", "| **no effect** |", "| **all drop** |"],
+    ["no keepalive restart", "that service restarts it immediately (KeepAlive)", "it stays down"],
+    ["proxy child of session", "The proxy is not a child of any claude session.", "The proxy is a child of the first claude session."],
+    ["claude starts proxy", "it neither starts nor kills it", "it starts it when needed"],
+    ["kill stops it", "To really stop the proxy, use `headroom install stop`.", "To really stop the proxy, use `kill`."],
+    ["settings changed", "operating assets are not changed", "operating assets are changed too"],
+    ["running shells apply at once", "pick it up after a restart", "pick it up at once"],
+    ["port changed", "export ANTHROPIC_BASE_URL=\"http://127.0.0.1:8787\"", "export ANTHROPIC_BASE_URL=\"http://127.0.0.1:8080\""],
+    ["no restart on death", "Starts automatically at login + restarts if it dies.", "Starts manually."],
+    ["cache compresses", "cache mode does not compress", "cache mode compresses more"],
+    ["kill recommended", "Do not kill it directly with `kill <proxy_pid>`", "Kill it directly with `kill <proxy_pid>`"],
+    ["wrap needed", "There is no need for wrap either", "Use wrap as well"],
+    ["trigger holds", "the trigger condition of the reference counting bug does not hold", "the trigger condition of the reference counting bug still holds"],
+    ["cache adopted", "so token is kept", "so cache is used"],
+    ["remove keeps settings", "restore the managed settings such as zshrc/plist", "keep zshrc/plist as they are"],
+    ["reinstall mode token", "reinstall with `headroom install apply --mode cache`", "reinstall with `headroom install apply --mode token`"]
+  ]
+}

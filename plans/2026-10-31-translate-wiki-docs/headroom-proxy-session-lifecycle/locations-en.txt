@@ -1,0 +1,31 @@
+# manifest clause → location in docs/headroom-proxy-session-lifecycle.md. Format: <id> | <quote>; several quotes joined by " ‖ "; "⏎" is a line break
+P.1 | An operations note on how the headroom proxy is started and kept alive when several Claude Code sessions run at once, and⏎**which operations affect other sessions**.
+P.2 | Based on headroom `0.25.0`,⏎macOS (Apple Silicon).
+P.3 | The proxy was set up to be owned by a launchd service, so⏎**the proxy lifecycle is independent of individual claude sessions** — closing a session does not kill the proxy.
+T.1 | | Target | Structure | If shut down the wrong way | Other sessions | ‖ | **headroom proxy** (8787) | owned by the launchd service `com.headroom.default`, a single globally shared instance | that service restarts it immediately (KeepAlive) | **no effect** |
+T.2 | The proxy is not a child of any claude session. The launchd service created by `headroom install apply` starts it and keeps it alive.
+T.3 | claude only **routes through** the proxy via `ANTHROPIC_BASE_URL` — it neither starts nor kills it. So closing a session leaves the proxy as it is.
+T.4 | To really stop the proxy, use `headroom install stop`. Even after a manual `kill`, launchd soon brings it back.
+S.1 | Configured with a single `headroom install apply --preset persistent-service --mode token`.
+S.2 | Only two things were touched, the shell env and a launchd plist — the `~/.claude/settings.json`·`~/.claude.json` operating assets are not changed.
+S.3 | **routing** — the `# >>> headroom persistent env >>>` block in `~/.zshrc`: ‖ export HEADROOM_PORT="8787" ‖ export HEADROOM_HOST="127.0.0.1" ‖ export HEADROOM_MODE="token" ‖ export HEADROOM_BACKEND="anthropic" ‖ export ANTHROPIC_BASE_URL="http://127.0.0.1:8787"
+S.4 | → **every** `claude` started from a new login shell routes through this single proxy.
+S.5 | (Shells/sessions already running pick it up after a restart, since a process's env does not change at runtime.)
+S.6 | **always on** — `~/Library/LaunchAgents/com.headroom.default.plist`. Starts automatically at login + restarts if it dies. Shows up as `com.headroom.default` in `launchctl list | grep headroom`.
+S.7 | **mode = token** — it compresses as well, so the token savings are large. Per this machine's proxy.log, compression works normally without timeouts (`content_router: ... compressed`, `cache_hit_pct=100`).
+S.8 | cache mode does not compress, so its savings are small.
+O.1 | headroom install status      # check running/healthy, mode, port
+O.2 | headroom install start|stop|restart   # control the service lifecycle (turn it off and on with this)
+O.3 | headroom install remove      # unregister the service + restore the managed settings such as zshrc/plist
+O.4 | Do not kill it directly with `kill <proxy_pid>` — launchd KeepAlive starts a new instance at once and only the PID changes. To stop it, use `headroom install stop`.
+W.1 | On another (Windows) machine, a session started with `headroom wrap claude` **spawned the proxy as its own child**, so that session became the proxy's "owner".
+W.2 | Closing the owner session ran a cleanup, and because reference counting counted only wrap markers, it misjudged the other sessions attached as "plain `claude`" as 0 → `terminate`d the shared proxy → every other session got `api_error`.
+W.3 | The combination "1 wrap + N plain claude" hit this bug.
+W.4 | **This setup on macOS lacks that premise altogether.** Proxy ownership lies with the launchd service, not with a wrap session, so closing any claude does not run the proxy cleanup.
+W.5 | There is no need for wrap either (the global `ANTHROPIC_BASE_URL` is enough). That is, the trigger condition of the reference counting bug does not hold.
+X.1 | env | grep -E 'ANTHROPIC|HEADROOM'
+X.2 | pid=$(lsof -nP -iTCP:8787 -sTCP:LISTEN | awk 'NR==2{print $2}') ‖ ps -o pid=,ppid=,command= -p "$pid"
+X.3 | launchctl list | grep headroom⏎headroom install status
+X.4 | curl -s http://127.0.0.1:8787/health ‖ grep 'content_router' ~/.headroom/logs/proxy.log | tail -3
+X.5 | Related: the separate issue where token mode compression timeouts caused `api_error` was worked around with `--mode cache` on another (Windows) machine — it does not reproduce on this macOS machine, so token is kept.
+X.6 | If it reproduces, reinstall with `headroom install apply --mode cache`.

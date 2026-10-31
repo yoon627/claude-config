@@ -1,0 +1,42 @@
+# manifest clause → location in docs/wiki-inbox.md. Format: <id> | <quote>; several quotes joined by " ‖ "
+P.1 | This is the procedure for applying to this wiki the requests that other repo sessions left with MCP `wiki_submit`.
+P.2 | Requests pile up in the local inbox (`~/.local/share/repoctx-server/inbox`, one JSON per item) of the machine that runs `repoctx-server`. Processing has two paths.
+P.3 | **Daily (unattended)**: launchd runs the `wiki-inbox` script at a set time.
+P.4 | The script hands only `source: public` items to `claude -p`, and the script itself does the git·checks·push·PR. Section A below is the procedure of that session.
+P.5 | **Manual**: a person processes them in an interactive session. `source: private` items are processed only on this path. Section B below.
+P.6 | > This file is not loaded automatically. The prompt of the unattended run tells it to read this file, and for manual processing the session Reads it directly.
+P.7 | `WIKI.md` is the single source for the page format and invariant rules; this file covers only inbox processing.
+F.1 | {"format": 1, "id": "<16 hex>", "created": "<UTC ISO>", "kind": "update|request",⏎ "title": "<one line>", "body": "<body>", "source": "public|private", "pages": ["<category/name>", …]}
+F.2 | `update`: knowledge to record (verified behavior of tools·platforms·libraries, lessons about global assets) and its evidence. It may contain a draft page.
+F.3 | `request`: something another session did not find in the wiki. The body says what it looked for and why.
+F.4 | `pages`: page keys the submitting session judged relevant (they may be absent, and they may be wrong).
+A.1 | The working directory is a clone dedicated to the script, and the branch is `inbox/<date>` taken from `origin/main`.
+A.2 | It runs in `--restricted` mode, so the only tools are Read·Edit·Write·Glob·Grep·WebSearch·WebFetch (no shell·MCP), and the file tools cannot read outside this clone and the item directory.
+A.3 | The script does the git.
+A.4 | Read `WIKI.md`. Read all the JSON in the item directory (the prompt gives it).
+A.5 | Group the items by topic. Treat items that state the same fact as one.
+A.6 | Process each group. ‖ Find the related pages with Grep (`pages/`·`index.md`). Prefer updating an existing page. Create a new page only when no page fits.
+A.7 | `update`: check whether the evidence is publicly verifiable (official docs·public issues·release notes·a reproduction command and its output). If there is no evidence or it cannot be verified, do not apply it and leave it `deferred`. If needed, confirm the official source with WebSearch·WebFetch and attach it to `sources`.
+A.8 | `request`: if an existing page answers it, edit that page's index summary so it is easier to find, or extend its content. If not, research official sources and write or extend a page. If no reliable evidence is found, `deferred` (one line on what was found and what was missing).
+A.9 | If it conflicts with the existing text, do not overwrite it silently. If the new evidence is more certain, fix it and leave the date and source; if you cannot judge, keep both in a `> [!conflict]` callout (`WIKI.md` invariant rule 3).
+A.10 | Page rules (`WIKI.md`): the required frontmatter keys, `updated` set to today, 2 or more `[[links]]` to other pages (only `[[a-z0-9-]]` names count as links), and a new page receives a link from at least one other page and gets one line in its category section of `index.md`.
+A.11 | Write model versions·lists only in `anthropic-claude-models`.
+A.12 | **Public check**: if an item contains company·organization·customer names, internal domains·hosts·IPs, names·paths·internal tool names of private repos, ticket keys or people's names, replace them with a generic expression ("company repo"); if the meaning still does not survive, `rejected`.
+A.13 | Look again even if the item declared itself `public`.
+A.14 | One entry for this run at the end of `log.md`: `## [YYYY-MM-DD] ingest | inbox (<applied count>/<total>)` and one line per changed page (`[[page]]`: what changed).
+A.15 | Edit only `pages/`·`index.md`·`log.md`. Do not delete files (the script rejects any other change or deletion).
+A.16 | At the end, write two files (the prompt gives their location).
+A.17 | `result.json`: **every** item id read → `{"status": "applied" | "deferred" | "rejected", "note": "<one line>"}`. A missing item stays pending and is looked at again in the next run.
+A.18 | `summary.md`: the PR body. One line per item (title · status · changed pages). Do not write private information·people's names.
+A.19 | After that, the script checks the ids in `result.json` (exported items only), the changed paths, `check_links`·`wiki_check schema`, and credentials·private terms in the lines added this time.
+A.20 | If no page was changed, `applied` is archived as `deferred`.
+A.21 | If any one fails, it does not push and the items stay pending (log: `~/Library/Logs/repoctx-wiki-inbox.log`).
+B.1 | Do it in a `~/.claude/wiki` main session (the shared wiki write rules apply as they are — CLAUDE.md §11).
+B.2 | Pending list: `~/.local/share/repoctx-server/current/bin/repoctx-server inbox list` (`--source private`·`--json` available). The item files are in the inbox directory.
+B.3 | `private` items: extract only the publishable facts and turn them into generic expressions. Content that can be confirmed only from private code·conversations is not a shared-wiki target.
+B.4 | **Show the diff to the user before committing and get confirmation.**
+B.5 | Applying is the same as a normal shared-wiki entry (pages·`index.md`·`log.md`, direct commit to main, push only on request).
+B.6 | Closing: `repoctx-server inbox archive --status applied|deferred|rejected --note "<one line>" <id>…`. Closed items stay in `inbox/done/<YYYY-MM>/` with their status.
+B.7 | To run the public items through the unattended path now: `launchctl kickstart gui/$(id -u)/local.repoctx.wiki-inbox`.
+B.8 | If the log of the unattended run has `unreadable inbox item`, open that file and fix or delete it (it is only skipped, never processed).
+B.9 | If `run … holds …` repeats daily, check whether that pid is really alive.
