@@ -147,12 +147,13 @@ class Base(unittest.TestCase):
 class ApplyFailureKeepsStateTest(Base):
     """실패하면 심볼릭 HEAD·브랜치·index·작업트리가 호출 전과 같아야 한다."""
 
-    def assert_refused(self, plan: dict) -> None:
+    def assert_refused(self, plan: dict) -> cu.CommitCheckError:
         before = self.r.state()
-        with self.assertRaises(cu.CommitCheckError):
+        with self.assertRaises(cu.CommitCheckError) as ctx:
             self.apply(plan)
         self.assertEqual(before, self.r.state())
         self.assertEqual("", self.r.git("for-each-ref", "refs/commit-check/"))
+        return ctx.exception
 
     def test_missing_commit_rejected(self) -> None:
         a, b, c = self.feature_history()
@@ -214,15 +215,9 @@ class ApplyFailureKeepsStateTest(Base):
     def test_conflicting_reorder_rejected(self) -> None:
         a = self.r.commit("add line", {"f": "a\nb\n"})
         b = self.r.commit("edit line", {"f": "a\nB\n"})
-        self.assert_refused(self.plan([{"from": [b]}, {"from": [a]}]))
-
-    def test_conflict_error_names_merge_tree(self) -> None:
+        err = self.assert_refused(self.plan([{"from": [b]}, {"from": [a]}]))
         # SKILL.md's /e merge section recognizes a fold conflict by this text.
-        a = self.r.commit("add line", {"f": "a\nb\n"})
-        b = self.r.commit("edit line", {"f": "a\nB\n"})
-        with self.assertRaises(cu.CommitCheckError) as ctx:
-            self.apply(self.plan([{"from": [b]}, {"from": [a]}]))
-        self.assertIn("merge-tree --write-tree 실패", str(ctx.exception))
+        self.assertIn("merge-tree --write-tree 실패", str(err))
 
     def test_plan_producing_empty_commit_rejected(self) -> None:
         a = self.r.commit("add k", {"k": "1\n"})
