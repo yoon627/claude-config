@@ -216,6 +216,14 @@ class ApplyFailureKeepsStateTest(Base):
         b = self.r.commit("edit line", {"f": "a\nB\n"})
         self.assert_refused(self.plan([{"from": [b]}, {"from": [a]}]))
 
+    def test_conflict_error_names_merge_tree(self) -> None:
+        # SKILL.md's /e merge section recognizes a fold conflict by this text.
+        a = self.r.commit("add line", {"f": "a\nb\n"})
+        b = self.r.commit("edit line", {"f": "a\nB\n"})
+        with self.assertRaises(cu.CommitCheckError) as ctx:
+            self.apply(self.plan([{"from": [b]}, {"from": [a]}]))
+        self.assertIn("merge-tree --write-tree 실패", str(ctx.exception))
+
     def test_plan_producing_empty_commit_rejected(self) -> None:
         a = self.r.commit("add k", {"k": "1\n"})
         b = self.r.commit("drop k", remove=["k"])
