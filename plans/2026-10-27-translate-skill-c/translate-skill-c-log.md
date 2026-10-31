@@ -28,4 +28,4 @@
 - `skills/c/SKILL.md` PR intake 의 bot 판정 — `[bot]` 접미사는 `gh pr view` 의 reviews·comments(GraphQL)에 없고 Copilot 인라인에는 어느 API 에도 없다(`github-actions`·`copilot-pull-request-reviewer`·`Copilot`). 그래서 bot 코멘트가 사람 코멘트로 Task 가 되어 자동 실행된다 — Claude 코멘트 자동 실행과 같은 종류의 해. 세 출처를 REST(`--paginate`)로 바꾸고 `user.type == "Bot"` 으로 거르는 안. 심각도 중간(c-intake-fixes code-reviewer)
 - (2026-10-31 처리) 위 bot 판정 — `fix(c)` 커밋(c-bot-detection): 세 출처를 REST `--paginate` 로, bot 은 `user.type == "Bot"`, 시각·커밋 필드 유지, 빈 리뷰는 state 만, bot 코멘트에 단 사람 답은 bot 을 맥락으로, 현재 login 을 못 얻으면 전부 self
 - `skills/c/SKILL.md` intake — REST 에는 인라인 스레드의 resolved 상태가 없다(GraphQL `isResolved` 만) — 3단계 "코멘트 상태로 미해결 판단" 은 인라인에서 그 신호 없이 시각·뒤 커밋으로만 한다. 심각도 낮음(c-bot-detection code-reviewer)
-
+- (2026-10-31 처리) 위 1단계 "후보 2+" 정지가 닫힌 목록에 없던 것 — `fix(c)` 커밋(translate-deferred-fixes), README 343행도 맞춤

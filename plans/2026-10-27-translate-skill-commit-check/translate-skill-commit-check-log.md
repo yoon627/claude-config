@@ -28,3 +28,4 @@
 
 # Workflow Findings
 - 2026-10-27 앞 단위(translate-skill-e)의 용어 결정이 이 단위로 넘어오지 않아 같은 리뷰 지적("hold" vs `held`)이 다시 나왔다 — 방법(manifest·대조·변형)은 넘기면서 용어 결정은 각 단위 log 에만 남겼다. 대책 후보는 Deferred 의 묶음 용어표.
+- (2026-10-31 처리) `merge-tree --write-tree 실패` 글자 고정 테스트 — `test(commit-check)` 커밋(translate-deferred-fixes)

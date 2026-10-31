@@ -16,3 +16,4 @@
 
 # Deferred
 - §6 절차 2 가 아직 docs changelog 페이지를 1차 출처로 적는다 — 공용 wiki `native-overlap-ledger` 에 "WebFetch 가 잘리니 GitHub `CHANGELOG.md` 원문을 읽어야 한다"고 기록돼 있다. 규칙 변경이라 이 번역 단위 밖(심각도 낮음, `skills/improve/SKILL.md` §6) — code-reviewer
+- (2026-10-31 처리) §6 2단계 changelog 출처 — `fix(improve)` 커밋(translate-deferred-fixes): raw CHANGELOG.md 를 통째로 받아 로컬에서 읽기, docs 페이지는 대조용. 공용 wiki `native-overlap-ledger` 39행의 "아직 docs 페이지를 1차 출처로" 문장은 main 세션에서 지운다

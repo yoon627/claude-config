@@ -34,3 +34,4 @@
 
 # Workflow Findings
 - 2026-10-27 공통 검사를 만든 첫 단위에서도 리뷰어가 검사 자체의 빈틈(원본 미확인·0개 PASS·종료 코드)을 찾았다 — 검사의 "스스로 실패를 알리는" 성질을 처음부터 요구 사항으로 두지 않았다. 대책: 공통 검사 머리 주석에 계약(원본 PASS 먼저·SETUP 실패·exit 1)을 적었고 음성 시험을 돌렸다.
+- (2026-10-31 처리) Codex 프롬프트 응답 제목 형식과 14항 `no delta` — `fix(plan-reviewer)` 커밋 2개(translate-deferred-fixes)
