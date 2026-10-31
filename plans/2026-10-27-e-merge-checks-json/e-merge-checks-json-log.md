@@ -12,3 +12,6 @@
 # Deferred
 - `/e merge` M5 주 경로: `--watch` exit 0 뒤 재조회에 `pending` bucket 이 남는 경우(그 사이 새 check 가 등록됨)가 닫힌 목록에 없다 — "REJECTED (timeout)" 로 보내는 안(심각도 낮음, `skills/e/SKILL.md` M5) — code-reviewer
 - rtk 가 있는 머신에서 `gh pr view <N> --json statusCheckRollup --jq …` 출력을 rtk 가 바꾸는지 미확인(이 머신에 rtk 없음) — rtk 머신에서 한 번 관찰(심각도 낮음 — 실패하면 REJECTED 로 안전하게 멈춘다)
+- (2026-10-31 처리) 위 `pending` 빈틈 — `fix(e)` 커밋(e-merge-pending): 재조회에 `pending` 이 남으면(대체 경로 jq `PENDING` 도) `--watch` 를 한 번 더 돌리고 그래도 남을 때만 REJECTED (timeout). M4 의 timeout 은 Blocker 대신 Task 로 문구를 분명히 했다
+- 재실행으로 QUEUED 인 check 의 `startedAt` 이 0·null 이면 check 별 최신 고르기에서 이전 통과 run 이 이겨 PASS 로 볼 수 있다(gh 와 jq 모두 같은 방식). GitHub 가 queued 재실행에 `startedAt` 을 채우는지 미확인 — required check 는 M6 의 BLOCKED 재확인이 잡는다(심각도 낮음, e-merge-pending code-reviewer)
+- M5 주 경로의 `--json` 재조회가 `unknown flag: --json` 이 아닌 다른 이유(네트워크·인증)로 실패하면 규칙이 없다 — 대체 경로처럼 REJECTED 로 보내는 안(심각도 낮음, e-merge-pending code-reviewer)
