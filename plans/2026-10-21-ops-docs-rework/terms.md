@@ -21,6 +21,9 @@ translate-repo 단위는 착수 때 이 표를 읽고 따른다. 새로 정한 �
 | `mode: planning` · `mode: post-implementation` | architecture-reviewer 가 스스로 정한 입력 토큰(호출 측이 프롬프트 첫 줄에 이 글자로 쓴다 — dlc 본문에는 아직 이 글자가 없다, 그 plan log Deferred) | translate-agent-arch-reviewer |
 | `신호 집계 실행 실패` · `last-improve 마커 갱신:` · `/improve 권장 — failure 신호 N세션 누적 (마커 이후)` | `skills/improve/improve.sh`·`scripts/dlc-signal.js mark`·`scripts/session-brief.js` 가 찍는 글자 — improve 7단계가 이 글자로 마커 갱신 여부·성공을 판단한다. 이 출력을 바꾸는 작업(예: translate-hooks 의 `session-brief.js`)은 같은 머지에서 `skills/improve/SKILL.md` 7단계 인용도 고친다 | translate-skill-improve |
 | `[공용]` · `L20 §결정 (L18-35): …` · `관련: → 나가는 · ← 들어오는` · `찾을 wiki 가 없다` · `UTF-8 아님` · `check_links: 읽기 실패` · "covers 읽기 실패" · "검사 대상 아님" · "미확인" · "작업 트리 기준 — … 미커밋 변경 N개" · "인자 오류" | `skills/wiki` 의 `wiki_search.py`·`check_links.py`·`wiki_check.py` 가 찍는 글자 — 첫 번째로 나올 때 괄호에 영어 뜻을 붙인다. 이 출력을 바꾸는 작업은 같은 머지에서 `skills/wiki/SKILL.md` 인용도 고친다. `훅` 은 "한 음절 한글은 못 찾는다" 의 예시라 그대로 | translate-skill-wiki |
+| `[plan 대비]` | code-reviewer 11번 관점 finding 태그 — dlc 처분 줄·16 Report "읽을 곳" 출처 (3)·README·공용 wiki 가 이 글자로 가리킨다 | translate-agent-code-reviewer |
+| `⚠️ (구현)` | plan `# Decisions` 의 dlc self-flag 표지 — code-reviewer 12번 관점·Codex 독립 입력·출력 절이 가리킨다 | translate-agent-code-reviewer |
+| `"읽을 곳"` | dlc 16 Report 블록 이름 — code-reviewer 는 인용하고 "(read points)" 를 붙인다. dlc 단위가 이름을 바꾸면 같은 머지에서 맞춘다 | translate-agent-code-reviewer |
 
 ## 용어 (한국어 → 영어)
 | 한국어 | 영어 | 메모 |
@@ -54,6 +57,7 @@ translate-repo 단위는 착수 때 이 표를 읽고 따른다. 새로 정한 �
 | 리뷰 출력 절 호출 적정성 / 수집 한계 / 다른 agent 위임 · 출력 값 "없음" | Call appropriateness / Collection limits / Delegated to other agents · "none" | translate-agent-arch-reviewer — agent 출력 값 "없음" 은 plan 표지 `없음` 과 달라 영어로 |
 | wiki 절 제목 신선도 / 대표 질문 / 대상 계층 / 알림 해소 / hook 등록 | Freshness / representative questions / target layer / Clearing the notice / Registering the hook | translate-skill-wiki — `wiki_check.py`·README 의 "SKILL.md 신선도 절" 은 같은 머지에서 "SKILL.md Freshness 절" 로 |
 | 외부공개(CLAUDE.md §1 승인 대상) | publicly visible | CLAUDE.md §1·`skills/c` 와 같음 — translate-skill-wiki 에서 "publishing externally" 로 옮겼다가 리뷰가 잡음 |
+| refuted 후보(감사 로그) · 구현 ⚠️ 응답 · 검증 실행 결과 · 제안 · 타당 \| 반박 · 검토 항목 통과 · 검증 명령 미식별 · 검증 칸 | refuted candidates (audit log) · Implementation ⚠️ responses · Verification run results · Suggestion · valid \| rebutted · review items passed · verification command not identified · verification field | translate-agent-code-reviewer — dlc 도 "검증 명령 미식별"·"검증 칸" 을 같은 말로 |
 
 ## 기계 대조 (공통 대조 검사가 읽는다)
 원문(한국어, 원문 유지 문자열 밖)에 왼쪽 낱말이 나온 횟수만큼 번역에 오른쪽 낱말이 있어야 한다(대소문자 무시). 다른 뜻으로 쓰인 원문이면 단위 설정의 `termsSkip` 에 `{ "<왼쪽 낱말>": "<이유>" }` 로 적는다. **한 뜻으로만 쓰이는 절 제목·필드·라벨만 넣는다** — 여러 뜻의 일상어(보류·합치기·나누기·제안)는 넣지 않는다(사람용 표에만). 형식이 틀린 줄이나 빈 블록은 검사가 FAIL 한다. 줄을 더하기만 한다(위 규칙과 같다).
@@ -105,6 +109,10 @@ rollback 평가 => Rollback evaluation
 신선도 => Freshness
 대표 질문 => representative question
 대상 계층 => target layer
+refuted 후보 => refuted candidates
+구현 ⚠️ 응답 => Implementation ⚠️ responses
+검증 실행 결과 => Verification run results
+검토 항목 통과 => review items passed
 ```
 
 ## 출처 (단위별 전체 대응표·결정)

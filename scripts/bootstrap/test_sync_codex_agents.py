@@ -28,7 +28,7 @@ sys.path.insert(0, str(HERE))
 import sync_codex_agents as sync  # noqa: E402
 
 # 빼는 절(병행 검토 호출 절차·출력 형식의 Codex 소절) 안에만 있는 문자열
-REMOVED = ("Codex 병행", "preflight", "codex --version", "도메인 특화 프롬프트")
+REMOVED = ("Codex 병행", "preflight", "codex --version", "Domain-specific prompt")
 NEEDS_TOML = unittest.skipIf(tomllib is None, "TOML 파서 없음 — python 3.11+ 또는 tomli 필요")
 
 
@@ -86,10 +86,10 @@ class RealAgentsTest(unittest.TestCase):
 
     def test_renamed_codex_heading_is_refused(self) -> None:
         raw = (REPO / "agents" / "code-reviewer.md").read_text(encoding="utf-8")
-        self.assertIn("## Codex 병행 검토", raw)
+        self.assertIn("## Codex 병행 review", raw)
         with TemporaryDirectory() as src, TemporaryDirectory() as out:
             (Path(src) / "code-reviewer.md").write_text(
-                raw.replace("## Codex 병행 검토", "## Codex 교차 검토"), encoding="utf-8"
+                raw.replace("## Codex 병행 review", "## Codex parallel review"), encoding="utf-8"
             )
             self.assertEqual(_run("--source", src, "--out", out), 2)
             self.assertEqual(list(Path(out).iterdir()), [])
