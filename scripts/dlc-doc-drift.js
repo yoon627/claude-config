@@ -169,10 +169,10 @@ function settle(data, mtimeOf) {
 
 const MESSAGE = {
   readme:
-    'README.md 가 문서화 표면(scripts/·agents/·skills/**/SKILL.md·CLAUDE.md) 변경과 ' +
-    '함께 갱신되지 않았습니다 — README 동기화를 검토하세요. (불필요하면 그대로 재종료 시 통과)',
+    'README.md was not updated together with changes to the documented surface ' +
+    '(scripts/, agents/, skills/**/SKILL.md, CLAUDE.md) — review the README sync. (If not needed, stopping again as is passes)',
   index:
-    'wiki/index.md 가 wiki/pages 변경과 함께 갱신되지 않았습니다 — index 동기화를 검토하세요. (불필요하면 재종료 시 통과)',
+    'wiki/index.md was not updated together with wiki/pages changes — review the index sync. (If not needed, stopping again passes)',
 };
 
 // 현재 상태 → 경고 목록 `[{ axis, message }]`(빈 배열이면 drift 없음). capped/출력은 early-stop 이 관리.

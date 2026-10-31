@@ -59,9 +59,9 @@ function ownShellWait(tasks, ids) {
 }
 
 const VERIFY_MISSING =
-  '파일을 변경했는데 검증(test/lint/typecheck/build 또는 실행·관찰) 기록이 없습니다. ' +
-  '변경이 의도대로 동작하는지 검증을 실행하고 결과를 확인하세요. ' +
-  'trivial(오타·로그 1줄)이라 검증이 불필요하면 그대로 다시 종료하면 통과합니다.';
+  'Files were changed, but there is no record of verification (test/lint/typecheck/build, or running and observing). ' +
+  'Run verification for the change and confirm the result shows it works as intended. ' +
+  'If the change is trivial (a typo, one log line) and needs no verification, stopping again as is passes.';
 
 let raw = '';
 const wd = setTimeout(() => process.exit(0), 1000); // stdin 미수신 안전망
@@ -171,10 +171,10 @@ process.stdin.on('end', () => {
     if (planPath) {
       data.planBlocks = (data.planBlocks || 0) + 1;
       reasons.push(
-        `소스를 변경했는데 이 브랜치의 plan(${path.basename(planPath)})을 한 번도 갱신하지 않았습니다. ` +
-          'CLAUDE.md §10 은 결정·방향·스코프 변경을 그때그때 반영하라고 요구합니다 — ' +
-          '끝낸 Task 체크·다음 할 일(`# Tasks`, 옛 형식 plan 이면 `# Progress`/`# Next`)만이라도 실제 상태로 맞추세요. ' +
-          '갱신할 것이 정말 없으면 그대로 다시 종료하면 통과합니다.'
+        `Source files were changed, but this branch's plan (${path.basename(planPath)}) was never updated. ` +
+          'CLAUDE.md §10 requires reflecting decision, direction and scope changes as they happen — ' +
+          'at least check off the finished Tasks and bring the next action (`# Tasks`, or `# Progress`/`# Next` in an old-format plan) in line with the actual state. ' +
+          'If there is really nothing to update, stopping again as is passes.'
       );
       if (sig) sig.emit('early-stop-plan-drift', { ...sigCtx, detail: data.changedTrigger });
     }
@@ -187,7 +187,7 @@ process.stdin.on('end', () => {
   if (reasons.length) {
     ledger.write(input.session_id, data); // 카운터 증가는 출력과 함께만 — 미출력 소모 없음
     process.stdout.write(
-      JSON.stringify({ decision: 'block', reason: reasons.join('\n\n') + '\n\n(dlc evidence gate 보조)' })
+      JSON.stringify({ decision: 'block', reason: reasons.join('\n\n') + '\n\n(dlc evidence gate backstop)' })
     );
   }
   process.exit(0); // 통과

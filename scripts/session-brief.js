@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 // SessionStart 브리프 — 세션 시작 시 1줄 리마인더 네 종(해당 시에만, 없으면 무음):
-//   K 머지 대기: ~/.claude 의 origin/main 대비 ahead>0 로컬 브랜치(완성-미머지가 조용히 방치되는 것 가시화).
-//   L /improve 권장: dlc-signal failure 축 신호가 마커(마지막 /improve) 이후 임계 세션 이상 누적.
-//   M 닫히지 않은 plan: in_progress 인데 작업이 끝난 것으로 보이는 plan(§10 "머지 시점에 즉시 done" 누락).
+//   K Merge pending: ~/.claude 의 origin/main 대비 ahead>0 로컬 브랜치(완성-미머지가 조용히 방치되는 것 가시화).
+//   L /improve recommended: dlc-signal failure 축 신호가 마커(마지막 /improve) 이후 임계 세션 이상 누적.
+//   M Unclosed plans: in_progress 인데 작업이 끝난 것으로 보이는 plan(§10 "머지 시점에 즉시 done" 누락).
 //     K 의 정반대 축 — K 는 "코드는 됐는데 안 머지됨", M 은 "머지는 됐는데 plan 이 안 닫힘".
 //   N 자동 pull 밀림: ~/.claude 가 origin/main 보다 뒤처졌을 때 **왜 자동 pull 이 못 따라잡았는지**,
 //     그리고 뒤처짐이 0 으로 보여도 자동 pull 의 fetch 가 임계일째 성공하지 못했으면 그 사실.
 //     pull 훅은 async 라 stdout 이 첫 턴 뒤에 도달 → 시작 시점에 알려면 동기인 이 브리프가 말해야 한다.
 //   O 세션 repo 밀림: **지금 작업 중인 repo**(hook stdin 의 cwd)가 upstream 보다 뒤처졌거나 미커밋이
 //     오래 방치됐을 때. N 과 나누는 이유는 처방이 다르기 때문 — ~/.claude 는 자동 pull 훅이 있어
-//     "훅이 왜 못 따라잡았나"가 답이고, 다른 repo 는 훅이 없으니 "직접 pull 해야 한다"가 답이다.
+//     "훅이 왜 못 따라잡았나"가 답이고, 다른 repo 는 훅이 없으니 "it must be pulled manually" 가 답이다.
 // 계약: 판정 아님·표시만(telemetry emit 안 함) · 전부 fail-open(무음 exit 0) ·
 //   동기 hook(async 면 stdout 이 첫 턴 후 도달) · git stderr 억제 · child git timeout ·
 //   신호끼리 예외 격리(한 신호가 죽어도 나머지 라인은 살린다 — stdout write 가 마지막에 1회라서).
@@ -35,6 +35,7 @@ try {
 
 const MERGE_CAP = 5;
 const LIST_CAP = 5; // N 신호의 충돌 파일 나열 상한
+const plural = (n, unit) => `${n} ${unit}${n === 1 ? '' : 's'}`;
 const MAX_BRANCHES = 100; // 스캔 상한(동기 hook 지연 방지 — 브랜치당 git 2 spawn)
 const MAINLINE = new Set(['main', 'master']);
 const STALE_CAP = 5;
@@ -112,7 +113,7 @@ function mergePendingLine(repoDir) {
   ahead.sort((a, z) => a.ct - z.ct); // 오래된 커밋(가장 방치된 것) 먼저
   const shown = ahead.slice(0, MERGE_CAP).map((x) => `${x.b}(+${x.count})`);
   const more = ahead.length > MERGE_CAP ? ` +${ahead.length - MERGE_CAP}` : '';
-  return `머지 대기(미머지 로컬): ${shown.join(', ')}${more}`;
+  return `Merge pending (unmerged local branches): ${shown.join(', ')}${more}`;
 }
 
 // L: 마커 이후 failure 축 unique 세션 수가 임계 이상이면 nudge 라인(아니면 null).
@@ -153,7 +154,7 @@ function improveNudgeLine(env) {
     }
   }
   if (sessions.size < min) return null;
-  return `/improve 권장 — failure 신호 ${sessions.size}세션 누적 (마커 이후)`;
+  return `/improve recommended — failure signals accumulated in ${plural(sessions.size, 'session')} (since the marker)`;
 }
 
 // frontmatter 는 파일 맨 앞이라 head 만 읽는다. `* text=auto`(.gitattributes) 때문에 플랫폼별로
@@ -280,7 +281,7 @@ function stalePlanLine(repoDir, env, now) {
   stale.sort((a, z) => z.days - a.days); // 오래 방치된 것 먼저
   const shown = stale.slice(0, STALE_CAP).map((x) => `${x.slug}(${x.days}d)`);
   const more = stale.length > STALE_CAP ? ` +${stale.length - STALE_CAP}` : '';
-  return `닫히지 않은 plan: ${shown.join(', ')}${more}`;
+  return `Unclosed plans: ${shown.join(', ')}${more}`;
 }
 
 // N: ~/.claude 가 origin/main 보다 뒤처졌을 때 **왜 자동 pull 이 못 따라잡았는지** 한 줄.
@@ -313,14 +314,14 @@ function gitOk(repoDir, args) {
 function verifiedTarget(repoDir, label) {
   // 처방의 경로 — ~/.claude 는 그 이름으로, CLAUDE_BRIEF_REPO 로 겨눈 다른 repo 는 실제 경로로.
   const where = label === '~/.claude' ? label : repoDir;
-  const check = '확인: gh run list -w Lint -b main -L 3';
-  const once = `급하면 1회 \`git -C ${where} pull --ff-only\``;
+  const check = 'check: gh run list -w Lint -b main -L 3';
+  const once = `If urgent, pull once with \`git -C ${where} pull --ff-only\``;
   if (!gitOk(repoDir, ['rev-parse', '--verify', '--quiet', RECORD_REF])) {
     if (gitOk(repoDir, ['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/ci'])) {
-      return { hold: `로컬 추적 ref refs/remotes/origin/ci 가 ci/verified 와 경로가 겹쳐 fetch 가 CI 검증 기록을 못 받는다(\`git -C ${where} update-ref -d refs/remotes/origin/ci\` 로 풀린다)` };
+      return { hold: `the local tracking ref refs/remotes/origin/ci overlaps the path of ci/verified, so fetch cannot receive the CI verification record (\`git -C ${where} update-ref -d refs/remotes/origin/ci\` clears it)` };
     }
     return {
-      hold: `마지막 fetch 기준 CI 검증 기록(origin/ci/verified)이 없어 자동 pull 이 보류된다 — main push 의 CI 가 통과하면 생긴다(${check}). 원격에서 지웠다면 의도된 정지다. fork·CI 없는 clone 은 CLAUDE_AUTOPULL_VERIFY=0 으로 검증을 끈다`,
+      hold: `as of the last fetch there is no CI verification record (origin/ci/verified), so auto pull is paused — it appears once CI passes for a main push (${check}). If it was deleted on the remote, this is an intended stop. A fork or a clone without CI turns verification off with CLAUDE_AUTOPULL_VERIFY=0`,
     };
   }
   let sha = '';
@@ -333,14 +334,14 @@ function verifiedTarget(repoDir, label) {
     // 아래 형식 판정으로 떨어진다.
   }
   if (!/^[0-9a-f]+$/.test(sha) || sha.length !== headLen) {
-    return { hold: '마지막 fetch 기준 CI 검증 기록의 내용이 커밋 이름 형식이 아니어서 자동 pull 이 보류된다(origin/ci/verified 를 확인)' };
+    return { hold: 'as of the last fetch the CI verification record\'s content is not in commit-name format, so auto pull is paused (check origin/ci/verified)' };
   }
   if (!gitOk(repoDir, ['merge-base', '--is-ancestor', sha, 'refs/remotes/origin/main'])) {
-    return { hold: `마지막 fetch 기준 CI 검증 기록이 origin/main 밖을 가리켜(이력 재작성 직후) 자동 pull 이 보류된다 — 다음 main push 의 CI 가 새로 기록한다. ${once}` };
+    return { hold: `as of the last fetch the CI verification record points outside origin/main (right after a history rewrite), so auto pull is paused — CI on the next main push records a new one. ${once}` };
   }
   if (gitOk(repoDir, ['merge-base', '--is-ancestor', sha, 'HEAD'])) {
     return {
-      hold: `마지막 fetch 기준 CI 검증 기록이 HEAD 까지라 그 뒤 커밋은 보류 중이다 — CI 진행 중·실패·[skip ci] 중 하나(${check}), 이번 세션 pull 이 따라잡을 수도 있다. ${once}`,
+      hold: `as of the last fetch the CI verification record only reaches HEAD, so the commits after it are waiting — CI is running, failed, or was skipped with [skip ci] (${check}); this session's pull may catch up. ${once}`,
     };
   }
   return { sha };
@@ -389,27 +390,27 @@ function autopullStalledLine(repoDir, env, now) {
   const label = samePath(repoDir, path.join(os.homedir(), '.claude')) ? '~/.claude' : path.basename(repoDir) || repoDir;
   const where = label === '~/.claude' ? label : repoDir;
   const fetchFailure = (f) =>
-    `자동 pull 의 fetch 가 ${f.days}일째 성공하지 못했다(${f.lastOk ? `마지막 성공 ${f.lastOk}` : '성공 기록 없음'}) — ` +
-    `뒤처짐 판정이 그 시점에 멈춰 있다. 재현: GIT_TERMINAL_PROMPT=0 git -C ${where} -c credential.helper= fetch origin main ` +
-    '(오프라인이었다면 무시). 새 fetch 만 깨졌으면 CLAUDE_AUTOPULL_VERIFY=0';
-  const head = `${label} ${behind}커밋 뒤처짐`;
+    `auto pull fetch has not succeeded for ${plural(f.days, 'day')} (${f.lastOk ? `last success ${f.lastOk}` : 'no success on record'}) — ` +
+    `the behind count is frozen at that point. Reproduce: GIT_TERMINAL_PROMPT=0 git -C ${where} -c credential.helper= fetch origin main ` +
+    '(ignore if you were offline). If only the new fetch is broken, CLAUDE_AUTOPULL_VERIFY=0';
+  const head = `${label} ${plural(behind, 'commit')} behind`;
   // 아래 분기 순서 = 훅이 pull 을 포기하는 순서. 스스로 낫지 않는 원인을 "재시도하면 되겠지"로
   // 뭉뚱그리면, 이 신호가 없애려던 "조용히 밀리는데 괜찮은 줄 안다"를 문장만 바꿔 재생산한다.
   // behind 0 에서는 게이트 사유를 말하지 않는다 — 뒤처지지 않았고, 훅이 fetch 를 시도하지 않는
   // 상태에서 "fetch 가 실패 중"이라고 하면 거짓이다.
   const gate = (reason) => (behind ? `${head} — ${reason}` : null);
-  if (env.CLAUDE_AUTOPULL_OFF === '1') return gate('CLAUDE_AUTOPULL_OFF=1 로 자동 pull 을 꺼 둔 상태');
-  if (fs.existsSync(path.join(repoDir, '.autopull-off'))) return gate('.autopull-off 파일로 자동 pull 을 꺼 둔 상태');
+  if (env.CLAUDE_AUTOPULL_OFF === '1') return gate('auto pull is turned off with CLAUDE_AUTOPULL_OFF=1');
+  if (fs.existsSync(path.join(repoDir, '.autopull-off'))) return gate('auto pull is turned off by the .autopull-off file');
 
   const branch = git(repoDir, ['rev-parse', '--abbrev-ref', 'HEAD']).trim();
-  if (branch === 'HEAD') return gate('detached HEAD 라 자동 pull 이 돌지 않는다');
+  if (branch === 'HEAD') return gate('auto pull does not run on a detached HEAD');
   // 훅 스크립트는 브랜치가 `main` 과 정확히 일치할 때만 돈다 — master 도 skip 대상이다.
-  if (branch !== 'main') return gate(`브랜치가 ${branch} 라 자동 pull 이 돌지 않는다(훅은 main 에서만)`);
+  if (branch !== 'main') return gate(`auto pull does not run because the branch is ${branch} (the hook runs only on main)`);
 
   const busy = ['rebase-merge', 'rebase-apply', 'MERGE_HEAD', 'BISECT_LOG'].find((n) =>
     fs.existsSync(`${gitDir}/${n}`),
   );
-  if (busy) return gate(`${busy} 진행 중이라 자동 pull 이 skip 된다(끝내면 풀린다)`);
+  if (busy) return gate(`auto pull is skipped while ${busy} is in progress (finishing it clears this)`);
 
   // 훅은 fetch 가 실패하면 merge 전에 끝낸다 — 아래 사유들은 마지막 fetch 결과 기준이라 그 뒤에 온다.
   if (failure) return behind ? `${head} — ${fetchFailure(failure)}` : `${label} ${fetchFailure(failure)}`;
@@ -417,7 +418,7 @@ function autopullStalledLine(repoDir, env, now) {
   // ahead>0 이면 갈라진 것이라 --ff-only 는 영원히 실패한다 — 재시도로는 안 풀린다.
   const ahead = Number(git(repoDir, ['rev-list', '--count', 'refs/remotes/origin/main..HEAD']).trim());
   if (ahead) {
-    return `${head}·로컬 ${ahead}커밋 앞섬 — 갈라져서 ff-only pull 이 불가능하다(rebase 나 push 필요)`;
+    return `${head}, local is ${plural(ahead, 'commit')} ahead — diverged, so an ff-only pull is impossible (rebase or push needed)`;
   }
 
   // 자동 pull 이 실제로 ff 하는 대상. 검증이 켜져 있으면(session-start-pull.sh 와 같은 술어) CI 검증 기록.
@@ -440,10 +441,10 @@ function autopullStalledLine(repoDir, env, now) {
   if (blocking.length) {
     const shown = blocking.slice(0, LIST_CAP).join(', ');
     const more = blocking.length > LIST_CAP ? ` +${blocking.length - LIST_CAP}` : '';
-    return `${head} — 로컬 변경과 충돌해 pull 거부됨: ${shown}${more} (커밋하거나 되돌리면 풀린다)`;
+    return `${head} — pull refused due to conflicts with local changes: ${shown}${more} (commit, restore or move them to clear this)`;
   }
   // 여기까지 왔으면 로컬에 막는 요인이 없다 — 원인을 단정하지 않는다.
-  return `${head} — 원인 미확인(마지막 pull 이 실패했거나 아직 안 돌았다)`;
+  return `${head} — cause unknown (the last pull failed or has not run yet)`;
 }
 
 // 경로 동일성. Windows 는 대소문자를 구분하지 않으므로 비교 전에 접는다.
@@ -543,11 +544,11 @@ function currentRepoLine(cwd, repoDir, env, now) {
         .map((x) => parseInt(x, 10));
       if (Number.isFinite(behind) && behind > 0) {
         // 기준 ref 를 문장에 넣는다 — "무엇 대비"가 빠지면 사용자가 확인할 수 없다.
-        const fact = `${ref} 대비 ${behind}커밋 뒤처짐`;
+        const fact = `${plural(behind, 'commit')} behind ${ref}`;
         parts.push(
           ahead > 0
-            ? `${fact}·로컬 ${ahead}커밋 앞섬 — 갈라져서 ff-only pull 이 불가능하다(rebase 나 push 필요)`
-            : `${fact} — 이 repo 에는 자동 pull 이 없다(직접 pull 해야 한다)`,
+            ? `${fact}, local is ${plural(ahead, 'commit')} ahead — diverged, so an ff-only pull is impossible (rebase or push needed)`
+            : `${fact} — this repo has no auto pull (it must be pulled manually)`,
         );
       }
     } catch {
@@ -592,7 +593,7 @@ function currentRepoLine(cwd, repoDir, env, now) {
       if (oldest !== null && names.length) {
         const shown = names.slice(0, LIST_CAP).join(', ');
         const more = names.length > LIST_CAP ? ` +${names.length - LIST_CAP}` : '';
-        parts.push(`미커밋 ${oldest}일: ${shown}${more}`);
+        parts.push(`uncommitted for ${plural(oldest, 'day')}: ${shown}${more}`);
       }
     } catch {
       /* status 실패 → 미커밋 파트만 포기 */
@@ -609,7 +610,7 @@ function currentRepoLine(cwd, repoDir, env, now) {
     const at = lastRefreshMs(commonDir, fullRef);
     const stale = at === null ? null : daysSinceLocal(localDateString(at), now);
     if (stale !== null && stale >= fetchDays) {
-      parts.push(`${stale}일째 fetch 하지 않았다 — ${ref} 대비 밀렸는지 알 수 없다`);
+      parts.push(`not fetched for ${plural(stale, 'day')} — cannot tell whether it is behind ${ref}`);
     }
   }
 

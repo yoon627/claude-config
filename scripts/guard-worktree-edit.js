@@ -142,10 +142,10 @@ process.stdin.on('end', () => {
         hookEventName: 'PreToolUse',
         permissionDecision: 'deny',
         permissionDecisionReason: tracked
-          ? `worktree 세션(${wtRoot})인데 worktree 밖 main checkout 의 추적 파일(${fp})을 ` +
-            `수정하려 합니다. 같은 파일의 worktree 경로(${wtFp})를 Edit/Write 하세요.`
-          : `worktree 세션(${wtRoot})인데 worktree 밖 main checkout 에 새 파일(${fp})을 ` +
-            `만들려 합니다. 브랜치에 담기도록 worktree 경로(${wtFp})에 만드세요.`,
+          ? `This is a worktree session (${wtRoot}), but you are about to modify a tracked file in the main checkout ` +
+            `outside the worktree (${fp}). Edit/Write the same file at its worktree path (${wtFp}).`
+          : `This is a worktree session (${wtRoot}), but you are about to create a new file (${fp}) in the main checkout ` +
+            `outside the worktree. Create it at the worktree path (${wtFp}) so it lands on the branch.`,
       },
     })
   );

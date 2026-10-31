@@ -95,6 +95,22 @@ for (const [name, cwd, ti, want, tool, env] of cases) {
   console.log(`${ok ? 'PASS' : 'FAIL'} ${name}: want=${want} got=${got}`);
 }
 
+// deny reason 은 모델에게 가는 문구 — 대응하는 worktree 경로를 알려 준다.
+function denyReason(cwd, toolInput) {
+  const inp = JSON.stringify({ cwd, tool_name: 'Edit', tool_input: toolInput });
+  const env = { ...process.env, CLAUDE_DLC_SIGNAL_OFF: '1' };
+  try { return JSON.parse(execFileSync('node', [GUARD], { input: inp, env }).toString()).hookSpecificOutput.permissionDecisionReason; }
+  catch { return ''; }
+}
+for (const [name, rel, want] of [
+  ['deny reason (추적)', 'scripts/foo.js', `This is a worktree session (${WT}), but you are about to modify a tracked file in the main checkout outside the worktree (${HOME}/scripts/foo.js). Edit/Write the same file at its worktree path (${WT}/scripts/foo.js).`],
+  ['deny reason (새 파일)', 'scripts/new.js', `This is a worktree session (${WT}), but you are about to create a new file (${HOME}/scripts/new.js) in the main checkout outside the worktree. Create it at the worktree path (${WT}/scripts/new.js) so it lands on the branch.`],
+]) {
+  const got = denyReason(WT, { file_path: `${HOME}/${rel}` });
+  const okr = got === want; if (!okr) fail++;
+  console.log(`${okr ? 'PASS' : 'FAIL'} ${name}: got=${got}`);
+}
+
 // ---- ③ main-edit 가드: 비-worktree 세션에서 main/master 추적 파일 직접 편집 → ask ----
 // 실 git repo fixture 필요(branch --show-current·ls-files spawn). cwd 는 worktree 밖(repo 루트/하위).
 function git(dir, ...args) { execFileSync('git', ['-C', dir, ...args], { stdio: 'ignore' }); }

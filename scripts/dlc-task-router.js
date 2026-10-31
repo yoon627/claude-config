@@ -48,13 +48,13 @@ process.stdin.on('end', () => {
   if (DBG.test(prompt)) {
     if (sig) sig.emit('router-investigation', ctx);
     out.push(
-      "[dlc:investigation] 디버깅/장애로 보입니다. 고치기 전에 실패를 재현하고 증상→직접원인→근본원인을 증거로 확정하세요. 원인이 불확실하면 다른 원인 후보를 반증한 근거도 남기세요. 재현이 사라진 것을 확인한 뒤에만 '고쳤다'고 보고하세요. (skills/dlc/SKILL.md 조사 프로토콜)"
+      "[dlc:investigation] This looks like debugging or an incident. Before fixing, reproduce the failure and confirm symptom → direct cause → root cause with evidence. If the cause is uncertain, also record the evidence that rules out the other candidate causes. Report 'fixed' only after confirming the reproduction is gone. (skills/dlc/SKILL.md Investigation protocol)"
     );
   }
   if (RENDER.test(prompt)) {
     if (sig) sig.emit('router-grounding', ctx);
     out.push(
-      "[dlc:grounding] 실행되는 산출물(render/executable)로 보입니다. 정적 점검(파싱 OK)으로 끝내지 말고 실제 실행해 출력을 관찰한 증거를 acceptance 에 남기세요. 'well-formed ≠ correct'. 취향·시각 판단이 큰 산출물이면 구현 전 저비용 변형 2~4종을 먼저 제시해 반응을 받는 것을 고려하세요(취향 발견이 구현 후로 밀리면 비쌈). (skills/dlc/SKILL.md verification grounding + 요구사항 명확화 '프로토타입-우선')"
+      "[dlc:grounding] This looks like a running artifact (render/executable). Do not stop at static inspection (parse OK); actually run it, observe the output, and put that evidence in acceptance. 'well-formed ≠ correct'. If the artifact depends heavily on taste or visual judgment, consider showing 2-4 low-cost variants before implementing and getting a reaction (finding out the taste only after implementation is expensive). (skills/dlc/SKILL.md verification grounding + Requirement clarification 'prototype-first')"
     );
   }
   if (out.length === 0) process.exit(0);

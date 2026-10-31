@@ -92,7 +92,7 @@ ok('trigger 가 README 보다 최신 → 경고 (미탐 아님)', () => {
   writeLedger(F.tmp, { readmeDirty: true, readmePending: ['scripts/x.js'], readmeTrigger: 'scripts/x.js', driftRoot: F.root.replace(/\\/g, '/') });
   const { out, signals } = run(F, F.root);
   assert.ok(blocked(out));
-  assert.ok(out.includes('README.md 가 문서화 표면'));
+  assert.ok(out.includes('README.md was not updated together with changes to the documented surface'));
   assert.deepStrictEqual(signals, ['doc-drift-readme']);
 });
 
@@ -127,8 +127,8 @@ ok('한 축만 억제되면 남은 축만 경고하고 신호도 그 축만 남�
     driftRoot: F.root.replace(/\\/g, '/'),
   });
   const { out, signals } = run(F, F.root);
-  assert.ok(out.includes('wiki/index.md 가'));
-  assert.ok(!out.includes('README.md 가 문서화 표면'), 'README 축은 억제됐어야 한다');
+  assert.ok(out.includes('wiki/index.md was not updated together with wiki/pages changes'));
+  assert.ok(!out.includes('README.md was not updated together with changes to the documented surface'), 'README 축은 억제됐어야 한다');
   assert.deepStrictEqual(signals, ['doc-drift-index'], '억제된 축의 failure 신호가 남으면 안 된다');
 });
 
@@ -204,7 +204,9 @@ ok('plan drift: 소스 변경 + 매칭 plan 있는데 미편집 → 경고 + 신
   writeLedger(F.tmp, { changed: true, verified: true, planTouched: false, changedTrigger: 'scripts/x.js' });
   const { out, signals } = run(F, F.root);
   assert.ok(blocked(out), 'plan 미갱신이면 경고해야 한다');
-  assert.ok(out.includes('my-task-plan.md'), '어느 plan 인지 알려줘야 한다');
+  assert.ok(out.includes("this branch's plan (my-task-plan.md) was never updated"), '어느 plan 인지 알려줘야 한다');
+  assert.ok(out.includes('at least check off the finished Tasks'), out);
+  assert.ok(out.includes('If there is really nothing to update, stopping again as is passes.'), out);
   assert.ok(signals.includes('early-stop-plan-drift'), `신호 누락: ${signals}`);
 });
 
@@ -272,6 +274,8 @@ ok('결론 축 없음: 편집한 턴이 `## 결론` 없이 끝나도 막지 않�
   writeLedger(F.tmp, { changed: true, verified: false, blocks: 0, edited: true, conclusionBlocks: 0 });
   const v = run(F, F.root, { input: { last_assistant_message: PLAIN_REPLY } });
   assert.ok(blocked(v.out) && !v.out.includes('## 결론'));
+  assert.ok(v.out.includes('If the change is trivial (a typo, one log line) and needs no verification, stopping again as is passes.'), v.out);
+  assert.ok(v.out.endsWith('(dlc evidence gate backstop)"}'), v.out);
   assert.deepStrictEqual(v.signals, ['early-stop-verify']);
 });
 

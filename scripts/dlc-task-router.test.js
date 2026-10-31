@@ -42,8 +42,12 @@ const HANDBACK = 'Another Claude session sent a message:\n' + HANDBACK_BLOCK;
 try {
   ok('user debugging prompt → investigation', () =>
     assert.ok(run('로그인이 안 돼요, 재현해보니 500 에러가 나요').includes('[dlc:investigation]')));
+  ok('investigation text points to the dlc Investigation protocol', () =>
+    assert.ok(run('재현해보니 에러가 나요').includes("Report 'fixed' only after confirming the reproduction is gone. (skills/dlc/SKILL.md Investigation protocol)")));
   ok('user render prompt → grounding', () =>
     assert.ok(run('차트를 그려서 시각화 해줘').includes('[dlc:grounding]')));
+  ok('grounding text points to verification grounding and prototype-first', () =>
+    assert.ok(run('차트를 그려서 시각화 해줘').includes("(skills/dlc/SKILL.md verification grounding + Requirement clarification 'prototype-first')")));
   ok('plain prompt → silent', () => assert.strictEqual(run('README 오타 고쳐줘'), ''));
   ok('task-notification only → silent', () => assert.strictEqual(run(TASK_NOTIFICATION), ''));
   ok('reminder-wrapped notification only → silent', () => assert.strictEqual(run(REMINDER), ''));

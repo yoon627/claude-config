@@ -97,7 +97,7 @@ ok('① 원격이 앞서면 ref 를 갱신하고 밀림 한 줄을 낸다', () =
   commit(remote, 'r2');
   const out = run(work);
   assert.notStrictEqual(upstreamSha(work), before, 'remote-tracking ref 가 갱신돼야 한다');
-  assert.match(out, /2커밋 뒤처짐/);
+  assert.match(out, /2 commits behind/);
   assert.match(out, /origin\/main/);
   assert.ok(fs.existsSync(stampPath(work)), 'rate-limit 스탬프를 남긴다');
 });
@@ -114,7 +114,7 @@ ok('①b 다른 remote 를 fetch 해도 origin 은 건너뛰지 않는다', () =
   commit(remote, 'r1');
   const out = run(work, { CLAUDE_SESSION_FETCH_MIN_MINUTES: '9999' });
   assert.notStrictEqual(upstreamSha(work), before, 'origin 스탬프는 없으므로 fetch 해야 한다');
-  assert.match(out, /1커밋 뒤처짐/);
+  assert.match(out, /1 commit behind/);
 });
 
 ok('② merge 는 하지 않는다 — HEAD 와 작업트리가 그대로다', () => {
@@ -208,7 +208,7 @@ ok('⑪ 한 브랜치의 fetch 가 다른 브랜치를 굶기지 않는다', () 
   // 게이트를 최대로 열어 둬도(9999분) feat 는 자기 스탬프가 없으므로 fetch 해야 한다.
   const out = run(work, { CLAUDE_SESSION_FETCH_MIN_MINUTES: '9999' });
   assert.notStrictEqual(git(work, ['rev-parse', 'origin/feat']).trim(), before, 'feat 는 자기 스탬프로 판정한다');
-  assert.match(out, /뒤처짐/);
+  assert.match(out, /commits? behind/);
   assert.ok(
     fs.existsSync(stampPath(work, 'claude-fetch-refs_remotes_origin_feat')),
     'feat 스탬프가 따로 생긴다',

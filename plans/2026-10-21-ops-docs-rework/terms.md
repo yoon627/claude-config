@@ -24,6 +24,9 @@ translate-repo 단위는 착수 때 이 표를 읽고 따른다. 새로 정한 �
 | `[plan 대비]` | code-reviewer 11번 관점 finding 태그 — dlc 처분 줄·16 Report "읽을 곳" 출처 (3)·README·공용 wiki 가 이 글자로 가리킨다 | translate-agent-code-reviewer |
 | `⚠️ (구현)` | plan `# Decisions` 의 dlc self-flag 표지 — code-reviewer 12번 관점·Codex 독립 입력·출력 절이 가리킨다 | translate-agent-code-reviewer |
 | `"읽을 곳"` | dlc 16 Report 블록 이름 — code-reviewer 는 인용하고 "(read points)" 를 붙인다. dlc 단위가 이름을 바꾸면 같은 머지에서 맞춘다 | translate-agent-code-reviewer |
+| `/improve recommended — failure signals accumulated in N sessions (since the marker)` | **위 `/improve 권장 — failure 신호 N세션 누적 (마커 이후)` 를 대체** — `scripts/session-brief.js` L 줄을 영어로 옮겼다(N=1 이면 `1 session`). `skills/improve/SKILL.md` 7단계가 이 글자를 그대로 인용한다. 이 줄을 바꾸는 작업은 같은 머지에서 그 인용도 고친다 | translate-hooks |
+| `guard-worktree-edit.js`·`guard-push-delete.js` 의 `ask` reason · `notify-hook.js`/`.ps1` 알림 문구(`입력 대기`·`응답 완료`) | 대화형 세션의 사용자 확인 창·데스크톱 알림에 보이는 글(headless `-p` 에서는 `ask` 가 거부되어 모델도 읽는다) — §0 에 따라 한국어로 둔다. hook 이 모델에게 보내는 글(SessionStart stdout·additionalContext·Stop block reason·`deny` reason)만 영어 | translate-hooks |
+| `[dlc:investigation]` · `[dlc:grounding]` | `dlc-task-router.js` 가 붙이는 태그 — `dlc-task-router.test.js` 가 이 글자로 라우팅을 확인한다 | translate-hooks |
 
 ## 용어 (한국어 → 영어)
 | 한국어 | 영어 | 메모 |
