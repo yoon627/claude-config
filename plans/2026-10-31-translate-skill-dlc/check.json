@@ -1,0 +1,250 @@
+{
+  "file": "skills/dlc/SKILL.md",
+  "base": "b5a3471",
+  "manifest": "plans/2026-10-31-translate-skill-dlc/manifest.md",
+  "locations": "plans/2026-10-31-translate-skill-dlc/locations-en.txt",
+  "keep": [
+    "⚠️ (구현)",
+    "[리뷰 미경유]",
+    "[plan 대비]",
+    "커밋 단위: 1개",
+    "커밋 단위:",
+    "`없음 — <one-phrase reason>`",
+    "`없음`",
+    "`코드`",
+    "`둘 다`",
+    "생략:",
+    "`Codex 미가용: … out of credits`"
+  ],
+  "frontmatter": [
+    "---",
+    "name: dlc",
+    null,
+    "---"
+  ],
+  "headings": [
+    "# dlc — automatic development cycle",
+    "## When to use",
+    "## Entry matrix (dlc vs wt vs direct)",
+    "## dlc → wt (mandatory at every size)",
+    "## 0. Size gate",
+    "## Requirement clarification (right after the size gate, non-trivial)",
+    "## ⚠️ self-flag — the side that plans and implements reports its concerns and arbitrary decisions (step 3·during implementation, conditional)",
+    "## Acceptance — itemization + evidence gate (non-trivial)",
+    "## Verdict + notification (non-trivial)",
+    "## Commit units (medium or larger · 2+ purposes)",
+    "## Investigation protocol (debugging·incidents)",
+    "## structural full pipeline (state transitions)",
+    "## wiki integration (CLAUDE.md §11)",
+    "## Isolation boundary (hub-and-spoke)",
+    "## codex phase owner",
+    "## fix loop / disposition",
+    "## Self-diagnosis",
+    "## Workflow Findings (evidence-based self-improvement)",
+    "## Required outputs / core rules"
+  ],
+  "numbered": [],
+  "extra": "check-dlc.js",
+  "mutations": [
+    [
+      "wt gate exception",
+      "before any other action (Explore and implementation included), without exception",
+      "before implementation, unless the change is trivial"
+    ],
+    [
+      "main allowed",
+      "No direct work on main and no detours",
+      "Direct work on main is fine for trivial changes"
+    ],
+    [
+      "final verify every edit",
+      "**only once, after the changes are settled**",
+      "**after every edit**"
+    ],
+    [
+      "unsure assume",
+      "if unsure, ask (fail-safe)",
+      "if unsure, assume and proceed"
+    ],
+    [
+      "medium only on gaps",
+      "**For medium or larger, always record them, whether or not there are gaps**",
+      "**For medium or larger, record them only when there are gaps**"
+    ],
+    [
+      "bare none ok",
+      "(a bare `none` is forbidden.",
+      "(a bare `none` is fine."
+    ],
+    [
+      "split exempts size",
+      "a split does not exempt size judgment",
+      "a split exempts size judgment"
+    ],
+    [
+      "exception despite mixing",
+      "Do not use this exception if units mix within the same file",
+      "Use this exception even if units mix within the same file"
+    ],
+    [
+      "clarification 3 rounds",
+      "Clarification takes ≤2 rounds",
+      "Clarification takes ≤3 rounds"
+    ],
+    [
+      "self-flag no concerns",
+      "otherwise **stay silent**",
+      "otherwise write \"no concerns\""
+    ],
+    [
+      "trigger 4 any option",
+      "**only when there were two or more plausible options and the chosen one changes an observable result**",
+      "**whenever there were plausible options**"
+    ],
+    [
+      "acceptance change recorded only",
+      "must be asked (AskUserQuestion), separately from recording it",
+      "may simply be recorded without asking"
+    ],
+    [
+      "self-flag false-positive",
+      "and are only `resolved`",
+      "and include `false-positive`, `resolved`"
+    ],
+    [
+      "impl lines to Codex",
+      "(not to arch·Codex — Codex gets independent input)",
+      "(also to arch·Codex)"
+    ],
+    [
+      "status done here",
+      "**Do not set the plan `status` to done here**",
+      "**Set the plan `status` to done here**"
+    ],
+    [
+      "needs-human blocked",
+      "Keep `status: in_progress` +",
+      "Set `status: blocked` +"
+    ],
+    [
+      "no-progress fifth",
+      "stop at the second",
+      "stop at the fifth"
+    ],
+    [
+      "transient counted",
+      "transient failures such as network·infrastructure are not.",
+      "transient failures such as network·infrastructure are counted too."
+    ],
+    [
+      "no approval to change criteria",
+      "**user approval + recording old value → new value in `# Decisions`**",
+      "**recording old value → new value in `# Decisions`**"
+    ],
+    [
+      "notify twice",
+      "**at most once** per transition",
+      "**at most twice** per transition"
+    ],
+    [
+      "plan in unit commit",
+      "**Do not include the plan·log files**",
+      "**Include the plan·log files**"
+    ],
+    [
+      "runner paraphrase",
+      "**as exact strings + the worktree's absolute cwd**",
+      "**as paraphrased commands**"
+    ],
+    [
+      "trust main verdict",
+      "**stop and record the reason**",
+      "**trust the main agent's verdict**"
+    ],
+    [
+      "verification fp",
+      "they are objective, so they are not disposition targets (false-positive/wontfix)",
+      "they may be disposed as false-positive/wontfix"
+    ],
+    [
+      "re-review optional",
+      "targeted test + step 14 targeted re-review are mandatory",
+      "targeted test + step 14 targeted re-review are optional"
+    ],
+    [
+      "many codex owners",
+      "designate only one codex owner",
+      "every reviewer may run codex"
+    ],
+    [
+      "bundle codex on",
+      "is **codex off** — one phase has one owner",
+      "is **codex on** — one phase has one owner"
+    ],
+    [
+      "fix loop 3",
+      "At most 2 rounds.",
+      "At most 3 rounds."
+    ],
+    [
+      "ambiguous minor",
+      "**If ambiguous, serious** (fail-safe).",
+      "**If ambiguous, minor**."
+    ],
+    [
+      "edit before approval",
+      "(no edits before approval — CLAUDE.md §1)",
+      "(edits may continue before approval)"
+    ],
+    [
+      "rediagnose twice",
+      "re-diagnosis after trigger→response ≤1 time",
+      "re-diagnosis after trigger→response ≤2 times"
+    ],
+    [
+      "propose after 5",
+      "**accumulates 2+ times**",
+      "**accumulates 5+ times**"
+    ],
+    [
+      "self-modify",
+      "do not modify operating assets (dlc/CLAUDE.md, etc.) on your own without approval",
+      "modify operating assets (dlc/CLAUDE.md, etc.) on your own"
+    ],
+    [
+      "diff after commit",
+      "show the user the changed wording (diff) before committing and get confirmation",
+      "commit, then show the user the changed wording (diff)"
+    ],
+    [
+      "sha in plan",
+      "**Write commit shas in the Report, not the plan**",
+      "**Write commit shas in the plan**"
+    ],
+    [
+      "remote auto delete",
+      "**Remote branch deletion is always AskUserQuestion**",
+      "**Remote branch deletion is part of the automatic cleanup**"
+    ],
+    [
+      "guessed run",
+      "record \"not identified\" + no guessed runs.",
+      "record \"not identified\" and run a guessed command."
+    ],
+    [
+      "lookup optional",
+      "**But the decision lookup before planning is mandatory**",
+      "**The decision lookup before planning is optional**"
+    ],
+    [
+      "kept marker translated",
+      "`⚠️ (구현) [리뷰 미경유]`",
+      "`⚠️ (impl) [not reviewed]`"
+    ],
+    [
+      "old name back",
+      "each agent's \"Summary for the plan\"",
+      "each agent's \"plan 반영용 요약\""
+    ]
+  ]
+}

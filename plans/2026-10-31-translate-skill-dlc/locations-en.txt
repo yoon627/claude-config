@@ -1,0 +1,359 @@
+# manifest clause → location in skills/dlc/SKILL.md. Format: <id> | <quote>; several quotes joined by " ‖ "; "⏎" is a line break
+F.1 | A development-cycle orchestration applied when starting a non-trivial code change (bug fix, feature addition, refactoring).
+F.2 | It judges the size — trivial (a typo, one log line) passes the procedure at once (the worktree is used regardless of size),
+F.3 | and structural (multi-layer, public API, DB, new service) runs the full pipeline explore→plan→review→TDD→implementation→review→simplify→verification.
+F.4 | Applied on an explicit `/dlc` call or automatically for a non-trivial code change.
+F.5 | Not for simple questions, exploration or read-only work.
+P.1 | The main agent is the hub; only reviews and checks run as isolated subagents.
+P.2 | The plan file (work records in `<slug>-log.md` in the same folder) is the only shared channel (only the main agent writes it)
+P.3 | — its path is `<ROOT>/plans/<YYYY-MM-DD>-<slug>/<slug>-plan.md` (CLAUDE.md §10 convention).
+P.4 | This makes the CLAUDE.md §3 workflow concrete — on conflict, CLAUDE.md wins.
+A.1 | An explicit `/dlc` call or a non-trivial code change.
+A.2 | For trivial, the size gate passes the *procedure* at once, but **the worktree is used all the same**.
+A.3 | Not for simple questions, exploration, read-only work or one-turn commands.
+M.1 | Judge the request type to choose the path.
+M.2 | The single criterion is **"does it change code/files"** — size only decides *which steps run*, not whether a worktree is used.
+M.3 | | Input type | Path |
+M.4 | | Questions·exploration·read-only (including one-turn commands **that change no files**) | no dlc — work directly where you are |
+M.5 | | trivial change (a typo, one log line) | **dlc trivial in a worktree, via wt** (only the procedure passes at once) |
+M.6 | | non-trivial change (small or larger) | **full dlc in a worktree, via wt** (below) |
+W.1 | When code/files change and **the session is not in a working worktree** (on main or outside), dlc creates a worktree with `wt` **before any other action (Explore and implementation included), without exception**, and proceeds inside it.
+W.2 | No direct work on main and no detours — a **mandatory gate**.
+W.3 | **Judgment**: in Setup (step 0), check the worktree location *first of all* (before reading or editing code).
+W.4 | Compare the cwd with the first worktree (= main) of `git worktree list --porcelain`; if it is main, wt.
+W.5 | **Creation without confirmation**: creating a worktree/branch is local and reversible, so it is not subject to approval (risk-based approval — CLAUDE.md §1).
+W.6 | The single source of the procedure and the report format is `skills/wt/SKILL.md` request §3~§4 — dlc does not restate it.
+W.7 | **Loop prevention**: when wt invoked dlc, the session is already inside the worktree, so skip (wt→dlc is normal; the dlc→wt backstop is told apart by location).
+W.8 | If already inside a worktree, only run the self-check and proceed (CLAUDE.md §3-1).
+S.1 | | Size | Trigger | Steps run |
+S.2 | | **trivial** | typo·comment·formatting·import·one log line |
+S.3 | implementation → verification → commit → Report (review/plan/TDD skipped — CLAUDE.md §7 exception) |
+S.4 | | **small** | single function/file, <50 lines, single module |
+S.5 | Explore → (for a bug, reproduction TDD Red) → implementation → Green → code-reviewer → simplify check → verification → commit → Report |
+S.6 | | **medium** | multiple functions/1 module, 50~150 lines |
+S.7 | small + draft plan → plan-reviewer → simplify check (+re-verification) |
+S.8 | | **structural** | multi-layer·public API·DB·migration·new service·150+ lines |
+S.9 | full pipeline (below) |
+S.10 | Size is a **provisional value** — **re-judge** it after Explore and after the implementation diff.
+S.11 | If work that started as small grows into public API·DB·2 layers·150+ lines, promote it and bring back the skipped plan-review/arch.
+S.12 | **Final verification delegation**: the table's 'verification' (every size·structural step 15·where a promotion joins) is **run by the isolated runner and judged by the main agent** (Isolation boundary below).
+S.13 | **trivial verification·step 10 Green·step 14 targeted re-verification are done by the main agent directly**.
+S.14 | Isolated = the final verification before completion; main agent = minimal·targeted during implementation.
+S.15 | Run the final verification **only once, after the changes are settled**
+S.16 | (if user requests may keep changing things, wait until they are settled — starting before that means running it again).
+S.17 | If the repo provides a command that picks axes from the changed files, use it (`bash scripts/verify.sh changed` for `~/.claude`)
+S.18 | — verification of every axis is left to CI and the user's periodic runs.
+Q.1 | After the size judgment and before Explore, check the requirement for **gaps** — the judgment procedure of §3 "if ambiguous, ask first".
+Q.2 | Do not fill them with arbitrary inference.
+Q.3 | **Checklist** — 1) the problem and why now (Problem) 2) constraints·boundary conditions (Constraints) 3) completion criteria 4) target files/feature scope 5) the form of user-visible outputs·wording 6) explicit prohibitions/exclusions.
+Q.4 | If a blank has **even the slightest chance of affecting the completion judgment (acceptance), ask** (`AskUserQuestion`); if unsure, ask (fail-safe).
+Q.5 | **Only when it is clearly irrelevant to the outcome**, assume, state it in one line and proceed.
+Q.6 | **Record the result in the labeled bullets of the plan's `# Goal`** (right then if a plan exists, otherwise at the step 3 draft plan)
+Q.7 | — if it ends only in conversation it evaporates, the next session asks the same thing again and **an already rejected option comes back**.
+Q.8 | CLAUDE.md §10 is the single source of the section definitions (for an old-format plan, the §10 mapping table) — this covers only the conditions and procedure for filling them.
+Q.9 | **For medium or larger, always record them, whether or not there are gaps** (introduced 2026-09-09)
+Q.10 | — options come back not because a gap went unseen but because the constraint was written nowhere, so a rule that records only when a gap is found cannot prevent it.
+Q.11 | For small, only when there is a plan and a gap was found; trivial is not subject to `# Goal` labeled-bullet records.
+Q.12 | Not retroactive for plans made before this rule (2026-09-09), whether you are starting or taking them over.
+Q.13 | **What to write** — `Why:` with content.
+Q.14 | Constraints·Out of scope with content or `없음 — <one-phrase reason>` (a bare `없음` is forbidden
+Q.15 | — so that "considered, there is none" is told apart from "forgot", and a reviewer can rebut it.
+Q.16 | Why this differs from the self-flag's "0 lines if nothing applies": labeled bullets are fixed items, so `없음` records a state rather than inventing one).
+Q.17 | Open questions only when there are questions you could not narrow down (the next session takes them over).
+Q.18 | Separate what the user confirmed from what the model inferred — mark inferences with ⚠️ or put them in Open questions
+Q.19 | (once an inference is fixed as settled, the next session rejects options on a wrong basis).
+Q.20 | **Bundle intent (§10 `intent.md`)** — before the checklist, scan the `plans/*/intent.md` of **every worktree** in `git worktree list --porcelain` for `status: open`
+Q.21 | (the bundle of an unmerged preceding branch exists only in that worktree — missing it here creates a duplicate of the same bundle).
+Q.22 | If this requirement is a follow-up of that bundle, link to it instead of creating a new one, and if the file is not in this worktree, bring it in per the §10 limits.
+Q.23 | If there is none and §10 creation trigger 1 or 3 applies, create intent.md first (trigger 2 goes to the split judgment below for medium or larger, and follows §10 for small).
+Q.24 | If the linked requirement is a `(not started)` line in that bundle's `# Plans`, replace that line with this plan's real path
+Q.25 | — a unit that belongs to a bundle gets a plan file regardless of size (trivial included) (there must be a path to put in).
+Q.26 | The `# Goal` labeled bullets of a linked plan are one link line + the delta only (§10 is the single source of triggers·format·lifetime·ownership — not restated here).
+Q.27 | **Split judgment (medium or larger, introduced 2026-09-16)** — after the checklist, actively check whether this requirement splits into several plans **each of which, merged alone into default in order, leaves the build and conventions valid without contradiction** (the procedure of §10 trigger 2).
+Q.28 | The criterion is not size but merge consistency (each plan carries the fixed cost of a worktree, a review and a merge)
+Q.29 | — a case like doc conventions, where "the build does not break, but merging only part makes the conventions contradict each other", does not split.
+Q.30 | Sequential dependency does not prevent a split (dependencies go in the `# Plans` notes).
+Q.31 | **If it splits**, create intent.md (if it is a follow-up of an already open bundle, add lines to its `# Plans`) and write one line per unit (only the first plan starts; the rest as `<slug candidate> (not started)`),
+Q.32 | then pass that draft once, with the other candidate split lines and the reasons for rejecting them, to plan-reviewer in **bundle mode** (`agents/plan-reviewer.md` item 15, codex off;
+Q.33 | this review covers only new boundaries, not the retroactive trigger 3.
+Q.34 | Results and dispositions go into the `# Review Disposition` of the first plan's log (step 3) with the prefix `[bundle]`.
+Q.35 | Review again if the boundaries, dependencies or common constraints change).
+Q.36 | One line `Split: bundle → <intent.md path>` in the first plan's `# Goal`.
+Q.37 | The split units each have their own plan (the bundle bullet above), and each unit's size is judged independently by its own gate
+Q.38 | — a split does not exempt size judgment, and a unit with structural triggers (multi-layer·public API·DB·new service) runs its plan as structural.
+Q.39 | **If it does not split**, one line `Split: none — <what it tried to split and which coupling prevented it>` in the plan's `# Goal` (a bare `none` is forbidden.
+Q.40 | If there is only one candidate unit, say so — what is valid only in one merge.
+Q.41 | Under the exception below, its format).
+Q.42 | **Exception — follow-ups from the same source may stay bundled in one plan**:
+Q.43 | units from the same source (one plan's `# Deferred`·Out of scope, or the same open intent) may stay in one plan to save the fixed cost each plan carries, even if they could split for lack of coupling, when each unit can be reverted on its own as a purpose commit of the "Commit units" section below
+Q.44 | (a judgment that the gain of splitting is worth less than a plan's fixed cost — the same criterion as the bundle mode review).
+Q.45 | Do not use this exception if units mix within the same file and merge into one commit unit, or if any unit has a structural trigger.
+Q.46 | In that case the `Split:` line is `none — purpose-commit bundle: <shared source> · <units> · <reason for keeping one plan>`.
+Q.47 | This judgment is a **provisional value** — settle it after Explore and update it if it flips:
+Q.48 | none→split, then create intent.md·the bundle review at that point and fix the `Split:` line;
+Q.49 | split→merged into one, then the remaining plan keeps `intent:` and the `(not started)` lines are deleted (nothing has started, so there is no plan to drop — bundle lifetime per §10).
+Q.50 | If the premise of a chosen exception (no mixing within the same file·no structural unit) breaks, redo the split judgment.
+Q.51 | Applies to plans newly made on or after 2026-09-16.
+Q.52 | **silent** — if there are no gaps, proceed **without questions** (zero friction for a clear requirement).
+Q.53 | This applies only to the question axis — `# Goal` labeled-bullet records follow the rules above.
+Q.54 | **Question design·priority in depth** — the boundary between asking and recommending (ask if something is missing, recommend if only the method differs)
+Q.55 | · questions whose answer changes the design·acceptance first (if it looks burdensome, one at a time, interview-style)
+Q.56 | · in an unfamiliar area, a **blind-spot briefing** on pitfalls·criteria·past decisions, then rework the questions
+Q.57 | · for taste/visual outputs, **prototype-first** (2~4 mockups first).
+Q.58 | Details in `~/.claude/wiki/docs/dlc-details.md` §A.
+Q.59 | (For render requests, `dlc-task-router` injects the prototype axis early, at turn start.)
+Q.60 | **trivial is no exception either** — it skips the procedure; it does not allow an unclear requirement.
+Q.61 | If outputs·wording are ambiguous, ask first.
+Q.62 | Clarification takes ≤2 rounds (the same shape as the fix loop).
+Q.63 | If re-judging size after Explore widens the scope, re-evaluate the gate.
+K.1 | This repo's concern mechanisms are all **on the reviewer side** (plan-reviewer's strong/weak concerns, code-reviewer, architecture-reviewer).
+K.2 | Reviewers are isolated spokes, so **they have no way of knowing where the main agent had low confidence**, and if a review does not happen to catch that spot, it passes as is.
+K.3 | The spots where the main agent filled in behavior the plan did not decide during implementation are also recorded nowhere — exactly the spots where a person needs to read the code.
+K.4 | So the main agent that plans and implements reports them itself.
+K.5 | **Four closed triggers** — write only in these cases; otherwise **stay silent**
+K.6 | (the same shape as the question axis of the requirement-clarification silent rule. Do not write "no concerns"):
+K.7 | Two constraints could not both be satisfied, so one side was chosen
+K.8 | Conventions conflicted and their priority was judged (between equals with no stated precedence)
+K.9 | The design was decided relying on ⚠️inferred (evidence that is only circumstantial)
+K.10 | (during implementation — steps 8~15, small or larger with a plan file) **observable behavior** that the plan·`# Goal`·`# Acceptance` did not decide was decided (including what a test assert decides)
+K.11 | — behavior on failure·exception, defaults·thresholds·timeouts, handling of boundary input (empty values·duplicates·concurrent requests), the order·conditions of external side effects (writes·sends·deletes).
+K.12 | Write it **only when there were two or more plausible options and the chosen one changes an observable result**.
+K.13 | Stay silent on what existing code·call-site contracts·same-layer conventions already decided, on what had only one option, and on internal details whose behavior does not change (names·data structures).
+K.14 | **Other reports during implementation get the same marker** — in small or larger with a plan file, if during steps 8~15 something matches triggers 1~3, or a §10 sync rewrites a decision in `# Decisions` (a decision *different* from the plan), that line too starts with `⚠️ (구현)` and takes the same disposition·Report path as trigger 4.
+K.15 | The marker leaves the self-diagnosis judgment below unchanged ("changed to ~" is a design change)
+K.16 | — in particular, a choice that changes an Acceptance pass criterion or a user-visible output must be asked (AskUserQuestion), separately from recording it.
+K.17 | **Record it in `# Decisions`** — do not create a new section.
+K.18 | One line: `⚠️ <concern> — <what it conflicts with> — <chosen side and reason>`.
+K.19 | Lines from implementation share only the prefix `⚠️ (구현)`, and the body follows each format
+K.20 | — trigger 4 is `⚠️ (구현) <behavior decided> — <other options> — <chosen side and reason> — <file·symbol>` (a symbol instead of a line number — lines shift with later edits).
+K.21 | This carries the wiki's `> [!conflict]` practice (WIKI.md) over to the plan.
+K.22 | **No limit on count or format** — fixing a number of items turns it into the "empty checklist ritual" that [[self-diagnosis-and-improvement-status]] rejected.
+K.23 | If nothing applies, 0 lines is the right answer.
+K.24 | **Disposition takes the same path as review findings** — for triggers 1~3, when calling plan-reviewer at step 6, pass the `⚠️` lines explicitly as "review first",
+K.25 | and at step 7 dispose of them **first, together with** the review findings, recording it in the plan log's `# Review Disposition`.
+K.26 | Disposition values are kept apart from review findings and are only `resolved` / `accepted-risk` (risk accepted, reason required) / `deferred`
+K.27 | — `false-positive` has no meaning for a self-report.
+K.28 | **Disposition of `⚠️ (구현)`** — these arise after step 6, so pass them into the step 11 code-reviewer input as "review first"
+K.29 | (not to arch·Codex — Codex gets independent input),
+K.30 | and pass the lines that arise after that along to the step 12 fix loop·step 14 re-review.
+K.31 | Disposition values are as above — a choice the reviewer found valid is `accepted-risk` (the chosen side stays — it remains a spot for a person to check); if the reviewer's finding made you switch to the other side, `resolved`.
+K.32 | Lines that did not go through a re-review (step 15 verification repairs, re-review skipped) are written as `⚠️ (구현) [리뷰 미경유]`, disposed of by the main agent, and must go into the 16 Report "Where to read".
+K.33 | If a reviewer finds an unreported decision and the main agent accepts it, add a `⚠️ (구현)` line;
+K.34 | if the reviewer rebuts it and it becomes a finding, write the ⚠️ disposition and the finding disposition together on one line.
+V.1 | Break the requirement down into **testable acceptance items**, and "done" only **when each item is satisfied by evidence (run·observation·pass)**.
+V.2 | No "done" without evidence.
+V.3 | **Itemization** (at the draft plan): in the plan's `# Acceptance`, `what is satisfied` + `how it is checked` (command/observation) + `pass criterion`.
+V.4 | Make it observable (no abstract "works well").
+V.5 | **Test identifiers**: when writing a test (before the evidence gate at the latest), fill its identifier (`path::test_name`; for an observation, the command) into the verification field of the items that test is evidence for.
+V.6 | Filling an empty field or appending an identifier to a written command makes the means of verification concrete, so it is not subject to the approval of no-progress below
+V.7 | — changing or removing an identifier·command already written while repairing a verification failure (while the no-progress counter runs) is subject to approval.
+V.8 | It becomes a source of the 16 Report "Where to read".
+V.9 | **Evidence gate** (before the Report): check every item against evidence.
+V.10 | If anything is unmet or unverified, no completion → fix it, or `status: blocked`/"unverified" (CLAUDE.md §1).
+V.11 | **verification grounding**: for running artifacts (HTML·SVG·games·charts·CLI·servers), put in evidence from **actually running them and observing the output**, not from static inspection ("well-formed ≠ correct").
+V.12 | trivial is exempt from itemization (the verification itself is the acceptance) — but it is still verified.
+V.13 | **Doc sync is acceptance too** (CLAUDE.md §3): if you touch a README-documented component·`wiki/pages/`, update the README/`wiki/index.md` sync on the same branch as an acceptance item
+V.14 | (if you forget, it is not done — the shared wiki is not committed on the branch but to its own repo, together, from a main session, §11).
+V.15 | **Triple backstop**: the Stop hook (`dlc-early-stop`) gives capped warnings (fail-open) —
+V.16 | 1) no verification record for a non-trivial change
+V.17 | 2) a documented surface changed without a README/index sync (`dlc-doc-drift`)
+V.18 | 3) source changed but the plan matching this branch was not touched (`plan-match` — fires only when a plan actually exists; silent otherwise).
+V.19 | The hook is a backstop — this convention is the single source.
+J.1 | **When ending the work**, state the evidence gate result explicitly as one of three values — do not end with "mostly done".
+J.2 | If it can still be fixed and you are fixing it, it is not yet a verdict target (keep going).
+J.3 | **DONE** — every `# Acceptance` item is satisfied by evidence.
+J.4 | **Do not set the plan `status` to done here** — per §10, done is the time of merge·deploy·approval
+J.5 | (acceptance passing ≠ integration complete. Writing done early makes `/c` treat work waiting for integration as finished and skip it).
+J.6 | **The formal completion commit (the last commit of step 16) comes only from this verdict** — purpose commits are made midway per the "Commit units" section below.
+J.7 | **BLOCKED** — what is needed next is **provision of a resource or fact** (permissions·credentials·an undeployed API·someone else's work).
+J.8 | `status: blocked` + *what is needed to unblock it* in `# Blockers`.
+J.9 | **NEEDS-HUMAN** — what is needed next is **a choice or approval** (choosing an alternative·accepting a risk·reopening a rejected option).
+J.10 | Keep `status: in_progress` + `- [ ] NEEDS-HUMAN: <question> — <options>` at the top of the unchecked `# Tasks`.
+J.11 | Why it is not folded into `blocked`: a blocked transition is counted as `plan-blocked` **failure** telemetry (`dlc-signal.js`), so a normal wait for a decision would remain as a workflow failure.
+J.12 | The status itself becomes the key that tells the two apart.
+J.13 | If it looks like both (no credentials, and whether to go with a mock must also be decided), decide by **the next single step** — if you must receive something, BLOCKED; if you must choose, NEEDS-HUMAN.
+J.14 | **BLOCKED·NEEDS-HUMAN make no formal completion commit** (CLAUDE.md §8 — no commit on verification failure).
+J.15 | Unit commits already made each passed targeted verification, so they are not reverted.
+J.16 | If unfinished changes need keeping, use the `wip:` checkpoint of `/e`.
+J.17 | **no-progress stop** — repairing verification failures is not endless: **after the first failure the hypothesis·strategy must change, and if there is still no observable improvement after changing it, stop at the second** and go to the verdict above.
+J.18 | Only *code fix failures* are counted — transient failures such as network·infrastructure are not.
+J.19 | Record which acceptance item·which failure·what was tried and what did not change in `# Blockers` (for NEEDS-HUMAN, in its `NEEDS-HUMAN:` Task).
+J.20 | **No counter reset**: do not turn the count back by reclassifying a failure under another name, weakening a test, or changing the acceptance wording·pass criterion·verification command.
+J.21 | If those three really must change, **user approval + recording old value → new value in `# Decisions`** comes first (an extension of CLAUDE.md §7's ban on weakening tests).
+J.22 | Identify acceptance items by the plan's item numbers so that the count carries over across sessions.
+J.23 | Hooks do not count on your behalf — the current ledger (`dlc-evidence-ledger`) does not consume tool responses and has no stable failure signature·acceptance mapping.
+J.24 | Mechanizing it would be a separate task, starting from that.
+J.25 | **Notification** — a terminal transition is **a necessary condition for `PushNotification`, not a sufficient one**.
+J.26 | Only when the user's attention is actually needed, **at most once** per transition.
+J.27 | For BLOCKED/NEEDS-HUMAN, state in one line what must be asked.
+J.28 | For DONE, **only when it took long enough that the user has likely stepped away** — for short work the Report is already in front of them, so it would be a duplicate.
+J.29 | If the tool skips because it reports being attached, that is normal; do not retry.
+J.30 | trivial work·immediate answers are exempt.
+U.1 | Medium or larger work with two or more purposes **makes intermediate commits per purpose**; follow-up fixes to a committed unit are stacked as `fixup!` and `commit-check` folds them at the end
+U.2 | — committing a purpose before it mixes with another within one file removes the need for after-the-fact hunk splitting (commit-check does not support it).
+U.3 | small·trivial keep the single commit of step 16.
+U.4 | **Declaration** (step 3 draft plan): in `# Decisions`, `커밋 단위: 1) <unique commit title> — <paths/scope> 2) …`.
+U.5 | With one purpose, `커밋 단위: 1개 — <reason>`.
+U.6 | Titles must not overlap between units, and none may be a prefix of another — `fixup! <title>` matching and rediscovering shas after compaction (`git log --format='%h %s' $(git merge-base HEAD <default branch>)..HEAD`) rely on the titles.
+U.7 | If purposes increase during implementation: if the mixed changes separate by path, first commit the earlier purpose as a unit;
+U.8 | if they mixed within the same file, keep them as one unit and write the reason in `# Decisions`.
+U.9 | **Unit commit** (after step 10): when one unit's implementation and that unit's targeted verification (Green) pass, stage only that unit's paths and commit with the declared title.
+U.10 | **Do not include the plan·log files** (they are updated at every step, so putting them in an earlier unit causes a 3-way conflict with later units — only in the last commit of step 16).
+U.11 | A file that two units both change goes into the earlier unit **up to the changes the earlier unit needs to work** (leave them out and checking out only that commit breaks).
+U.12 | If two purposes are already mixed within one file and cannot be separated by path, merge the two units into one.
+U.13 | **Follow-up fixes** (steps 11~15 review fixes·simplify·verification repairs): when fixing a committed unit, commit only that unit's paths with `git commit --fixup=<unit sha>` — again, only after targeted verification passes.
+U.14 | If it spans two units, split it into per-unit fixups.
+U.15 | But if a fix aimed at an earlier unit touches **a file the later unit also changed**, folding it into the earlier unit causes a 3-way conflict, so send that fix as a fixup of the later unit and note it in the Report as an attribution exception.
+U.16 | A new purpose is added to the declaration and becomes a new unit.
+U.17 | **Review·simplify range**: with unit commits the default `git diff` is empty, so pass `git diff <work base>...HEAD` + the working-tree changes explicitly as the range to code-reviewer·architecture-reviewer·the simplify check.
+U.18 | **Wrap-up** (step 16): commit the remaining **code** changes as fixups of their attributed units per the follow-up rule above, and commit the **record files** such as the plan — and only those — as a fixup of the last unit;
+U.19 | then `commit-check` proposes folding them via `fixup_of` (applied after approval).
+U.20 | If `fixup!` commits remain because of a conflict or because the commit-check proposal was left unapplied, DONE is not reverted, but write "leftover fixup! commits — rerun commit-check or clean them up before push·`/e merge`" under the Report risks
+U.21 | (once pushed, they fall outside commit-check's range and can no longer be cleaned up).
+I.1 | For bugs·incidents, before any guessed fix (making CLAUDE.md §1 root cause·3 Whys concrete):
+I.2 | **reproduce** (no "fixed" without a reproduction) →
+I.3 | **causal chain** (establish symptom→direct cause→root cause with evidence — if the cause is uncertain, include the evidence that refuted the other candidate causes; no fix that only suppresses the symptom).
+I.4 | If possible, a reproduction test first (TDD Red) — green is the acceptance evidence.
+I.5 | Elaboration of each step in `~/.claude/wiki/docs/dlc-details.md` §B.
+L.0 | 0  Setup            git status · size judgment · plan file
+L.1 | 1  Explore
+L.2 | 2  researcher       [conditional · isolated]
+L.3 | 3  draft plan       look up related decisions (first — wiki integration below) · test strategy · rollback · impact scope · structural intent · # Acceptance itemization · ⚠️ self-flag (when applicable) · `intent:` link (if in a bundle) · commit unit declaration ·
+L.3b | every step of the size table in Tasks from the start (a Task added later states its reason; a conditional step that does not apply or a step the user decided to skip is closed as `- [x] <step> (YYYY-MM-DD) — 생략: <reason>`)
+L.4 | 4  arch planning    [isolated · structural only · codex off · first prompt line `mode: planning`]
+L.5 | 5  plan revision
+L.6 | 6  plan-reviewer    [isolated · codex owner]
+L.7 | 7  apply findings   dispose of the ⚠️ self-flags first, together with the review findings · if the structure changes, rerun 4~6
+L.8 | 8  TDD Red          confirm the new tests fail for the intended reason · put the identifiers of the tests written into the # Acceptance verification fields
+L.9 | 9  implementation   report `⚠️ (구현)` (steps 8~15, when applicable — self-flag section)
+L.10 | 10 Green            minimal test/build/typecheck → a finished unit gets a unit commit (with 2+ purposes)
+L.11 | 11 arch (detailed) + code-reviewer   [isolated · parallel · 1 codex owner · first arch prompt line `mode: post-implementation` · input includes the **paths** of the plan·(if any) plan log · with unit commits, range `<base>...HEAD`+working tree · pass `⚠️ (구현)` to code-reviewer as review first]
+L.12 | 12 fix loop         relevant reviewers only · ≤2 rounds · disposition · fixes to committed units as fixups · dispose of `⚠️ (구현)` (new lines go to the re-review)
+L.13 | 13 simplify check   [main agent directly · only when there is no blocker]
+L.14 | 14 re-review        targeted, on a substantive edit from the simplify check · pass on new `⚠️ (구현)`
+L.15 | 15 final verification   lint / typecheck / test / build   [isolated runner · run only]
+L.16 | 16 wrap-up          evidence gate (check every # Acceptance item · completion only after it passes) → verdict (DONE/BLOCKED/NEEDS-HUMAN) → plan update → formal completion commit (DONE only) → commit-check → notification (at most once, when needed) → Report
+Y.1 | Ingest proposals are conditional·opt-in and do not lengthen the 16-step table.
+Y.2 | **But the decision lookup before planning is mandatory** — before the draft plan (step 3; for small without a plan, before starting the implementation), look up both wikis with this work's **target asset name and work type** (slim·compress·migrate·restructure·remove·config change, etc.) and read the decisions·lessons that come up
+Y.3 | — `uv run --no-project python "$HOME/.claude/skills/wiki/wiki_search.py" <asset name> <work type>` (the shared wiki regardless of the cwd, the repo wiki searched upward from the cwd; the first line gives the wikis found and their page counts.
+Y.4 | Usage such as handling exit 2 is in `skills/wiki/SKILL.md` query step 1).
+Y.5 | Do it even if the plan continues from analysis·investigation in the same session and skipped the step 1 lookup.
+Y.6 | If a decision comes up, write in the first line of the plan's `# Decisions` whether you follow or overturn it, and if you overturn it, attach the evidence and the user's approval ([[lesson-verify-scaffold-purpose-before-removal]] case 4).
+Y.7 | The wiki has two layers (the current repo's `wiki/`, the shared `~/.claude/wiki/` — placement rules in §11), so look up the shared one even if the current repo has no wiki.
+Y.8 | When reading an index directly too, read the shared one by the absolute path `~/.claude/wiki/index.md` — a `~/.claude` worktree has no `wiki/`, so a search by relative path silently passes as "none".
+Y.9 | **Do not omit the two judgments of the 16 Report**:
+Y.10 | 1) if it is reusable knowledge (a non-obvious decision·lesson·confirmed external fact), judge **down to the target layer** and propose `/wiki ingest` (not automatic; excluding trivial·one-off work)
+Y.11 | — if it is a shared-wiki target in another repo, leave the proposal `in a ~/.claude main session: /wiki ingest <summary · public evidence · source (public/private)>` in the Report and the plan log's `# Deferred` (§11 Public check).
+Y.12 | In a `~/.claude` worktree session too, do not write to the shared wiki; leave the same proposal in the plan log's `# Deferred` and record it from a main session
+Y.13 | 2) if there were **user corrections·review findings** during the work, judge whether to save §12 feedback memory (if it is a target, **both** the memory file + the `MEMORY.md` index; if not, one line of reason).
+Y.14 | The mechanics of the Explore wiki read·one-way promotion plan→wiki are in `~/.claude/wiki/docs/dlc-details.md` §C.
+H.1 | **Main agent (hub)**: Setup, Explore (thin — delegate only broad searches to the Explore agent), draft plan, TDD Red, implementation, Green (a minimal smoke right after implementation), integration, identifying verification commands·judging results·fixing failures, Report, final judgment.
+H.2 | **Isolated subagents (spoke, read-only)**: researcher, architecture-reviewer (planning/detailed), plan-reviewer, code-reviewer.
+H.3 | **Final verification runner (isolated·no Edit·creates verification artifacts)**: the built-in general-purpose — the source stays unchanged; build/test artifacts·caches are created.
+H.4 | It receives the verification commands the main agent identified **as exact strings + the worktree's absolute cwd** and runs only the given commands, with no interpretation·edits·re-exploration·repairs
+H.5 | (identifying the commands is the main agent's responsibility — 'Verification command not identified' below).
+H.6 | ⚠️ **Risk of a silent false-pass if the cwd is missing**.
+H.7 | Details of the return contract (structured format·rerun when insufficient) in `~/.claude/wiki/docs/dlc-details.md` §E.
+H.8 | **Pass the `# Acceptance` text to the runner too** (when there is one)
+H.9 | — the runner returns it **mapped** only as `item → observed / not observed / mismatched`.
+H.10 | Commands·cwd stay the exact strings received, and the ban on re-exploration·self-repair stays (giving it room to interpret breaks the 'run only' contract).
+H.11 | If the main agent's evidence gate verdict disagrees with the runner's report, **stop and record the reason**
+H.12 | — today the evidence gate is only self-grading by the context that wrote the code, so this is the only independent check.
+H.13 | **Verification failures are separate from the step 12 fix loop** — they are objective, so they are not disposition targets (false-positive/wontfix); the main agent fixes and re-verifies until they pass.
+H.14 | **Verification by the main agent directly (not isolated)**: step 10 Green·step 14 targeted re-verification·trivial verification — short, immediate loops, so isolation overhead is a loss.
+H.15 | **simplify check (step 13)**: not isolated but **the main agent directly** (every spoke is read-only).
+H.16 | Within the diff range, check duplication·excess abstraction·unneeded options/dead branches·dead code·excess defensiveness·replacement by standard utilities·deep nesting (item list in `~/.claude/wiki/docs/dlc-details.md` §E).
+H.17 | Preserve behavior · stay in scope · hold back when unsure (proposal only, in the Report).
+H.18 | On a substantive edit, targeted test + step 14 targeted re-review are mandatory.
+H.19 | Subagents do not share context with each other.
+H.20 | The main agent passes the inputs as a bundle, and the results come back as each agent's "Summary for the plan".
+O.1 | Convention: `~/.claude/wiki/docs/codex-review.md`.
+O.2 | With several reviewers in one phase, designate only one codex owner; the others get the §7 text in their prompt ("Codex review is already running externally. Do not invoke Codex.").
+O.3 | Planning stage: `plan-reviewer` (codex off for arch planning).
+O.4 | The bundle split review of requirement clarification (plan-reviewer bundle mode) is **codex off** — one phase has one owner, at step 6, and the codex prompt is made for implementation plans, so it does not fit a boundary review.
+O.5 | After implementation: `code-reviewer` if it is mostly bugs/security, `architecture-reviewer` if it is mostly structure.
+O.6 | **Limit cache**: before launching reviewers, if `<scratch>/codex-unavailable` (convention §1) exists, put the §7 text "Codex is unavailable in this session" into the owner's prompt too, so it skips even trying.
+O.7 | If a reviewer's report shows `Codex 미가용: … out of credits` but there is no marker, the main agent creates it (the subagent may not have been able to write it).
+X.1 | At most 2 rounds.
+X.2 | Record each finding in the plan log's `# Review Disposition` as `fix / defer / false-positive / wontfix` (only the main agent writes).
+X.3 | For a code-reviewer `[plan 대비]` finding, the disposition line carries that tag and the side that changed (`코드`/`plan`/`둘 다`/`없음`)
+X.4 | — whether a `fix` aligned the code to the plan or the plan to the code cannot be told from the disposition value alone, and this is what source (3) of the 16 Report "Where to read" judges by.
+X.5 | `⚠️ (구현)` lines disposed of at step 12 go into the same table, separately from the findings, with the self-flag disposition values (`resolved`/`accepted-risk`/`deferred`).
+X.6 | Newly arisen lines go to the next re-review; if the work ends without a re-review, the main agent disposes of them as `[리뷰 미경유]` (path in the self-flag section).
+X.7 | If the same class remains after 2 rounds, `status: blocked` or an explicit risk accept.
+X.8 | (These 2 rounds cap the **disposition of review findings** — the cap on repairing verification failures is a separate axis, the no-progress stop of the verdict section.)
+D.1 | When writing the plan (at the single-writer re-read), check whether the current action matches the first unchecked Task·the size table, and whether it hits a serious signal below.
+D.2 | On a serious signal, stop and get a decision with `AskUserQuestion` (no edits before approval — CLAUDE.md §1).
+D.3 | **trivial is exempt**.
+D.4 | **Serious (closed list)**: a change of direction/requirement/design · skipping plan/review/verification · editing files outside the scope · violating the single writer·isolation boundary · the same failure reproduced twice with the same strategy · risk of a false "verification complete".
+D.5 | **If ambiguous, serious** (fail-safe).
+D.6 | Minor omissions (order·outputs·verification results unchanged, recoverable — e.g. forgetting to check a finished Task) are fixed right away and reported in one line.
+D.7 | **Link to what exists**: direction errors are CLAUDE.md §2, repeated failures the fix loop (≤2 rounds→blocked), missing steps the size table·promotion — do not build new logic; refer to these.
+D.8 | **Cap**: re-diagnosis after trigger→response ≤1 time.
+D.9 | If it persists, `status: blocked` + notification.
+G.1 | Record only **confirmed workflow failures** during the work (cases where the work went wrong because of a problem in dlc/the conventions themselves) — not a retrospective of every task (prevents an empty ritual).
+G.2 | No automatic fixes.
+G.3 | **Recording triggers** (confirmed ones only): 1) a serious self-diagnosis fired (leaving scope·a missing step·an isolation violation, etc.)
+G.4 | 2) the same type of failure reproduced twice
+G.5 | 3) **workflow friction·false positives the user explicitly pointed out** (e.g. a hook false positive).
+G.6 | Unlike §12 feedback (an immediate correction of how you work), 3) is repeated friction that calls for fixing *operating assets (dlc/hooks/conventions)*.
+G.7 | **Record (2 places)**: one line in the plan log's `# Workflow Findings` + accumulate in the **shared** wiki's `decision/workflow-failures.md` (for the same failure, only raise the count
+G.8 | — dlc is a global asset, so the shared layer.
+G.9 | Write it from a main session — in a `~/.claude` worktree session, leave it in the log and do it after returning; in another repo's session, the shared record becomes a §11 proposal).
+G.10 | The record format and how it complements the automatic hook signals (`scripts/dlc-signal.js`→`/improve`) are in `~/.claude/wiki/docs/dlc-details.md` §D.
+G.11 | **Proposal on repetition**: when the same finding **accumulates 2+ times** in the wiki, propose with `AskUserQuestion` "repeated N times — fix it with `wt` in `~/.claude`?".
+G.12 | On approval, **wt → dlc in `~/.claude`** (the operating assets live in `~/.claude`, and the change is a file change, so wt is mandatory); on refusal, only keep the record.
+G.13 | **Self-modification boundary (§1)**: do not modify operating assets (dlc/CLAUDE.md, etc.) on your own without approval.
+G.14 | The harness goes as far as finding·recording·proposing; fixes come after user approval.
+G.15 | No fully unattended automation (shared wiki [[self-diagnosis-and-improvement-status]]).
+B.1 | plan (CLAUDE.md §10): check (with date)·add `# Tasks` every turn.
+B.2 | **Subagents do not write the plan** — the main agent is the single writer; re-read right before writing and merge external changes.
+B.3 | **Commit (step 16 · CLAUDE.md §8 is the single source of the conditions and prohibitions; this is the procedure)**:
+B.4 | the formal completion commit of step 16 (with purpose commits, the last commit holding the remaining changes — "Commit units" section above) is made **after** the evidence gate passes + the plan update
+B.5 | — reversing the order leaves the plan update uncommitted, which blocks the §8 automatic cleanup and creates a duplicate `/e` WIP commit.
+B.6 | **If the change includes something that changes model behavior, such as rule·skill·agent wording, show the user the changed wording (diff) before committing and get confirmation**
+B.7 | (the means of verification of CLAUDE.md §8 — if it has already been observed working as worded in a real session, that replaces it.
+B.8 | The same goes for unit commits·fixups.
+B.9 | A direction approval is not a wording confirmation
+B.10 | — but if the CLAUDE.md §8 handover exception applies, follow its conditions and list the commits in the final report instead of the confirmation).
+B.11 | **Path confirmation**: compare `git status --porcelain` with the paths in the plan's `# Tasks` to list the paths this work touched
+B.12 | (the fallback when compaction has blurred the edit history — no regressing to `add -A` by guessing).
+B.13 | **Message**: that repo's `git log` convention (if none, Conventional Commits `<type>(<scope>): <summary>`) + the `Co-Authored-By` trailer, with the *why* in the body (CLAUDE.md §6 — history goes in the commit, not in comments).
+B.14 | **Write commit shas in the Report, not the plan** (writing them in the plan makes the tree dirty again and voids the ordering rule).
+B.15 | Even if the fix loop runs 16 again, do not make duplicate commits.
+B.16 | If the worktree isolation guard refuses the commit command, retry as a single command without chaining·`git -C`, via another tool path (details in wiki `worktree-isolation-bash-guard`).
+B.17 | Distinct from the `/e` `wip:` checkpoint — the commit here is a **verified formal commit**, while the `/e` WIP keeps unfinished·unverified work.
+B.18 | **After committing, check the branch's commit units with the `commit-check` skill** (regardless of size — that skill is the single source of the skip judgment·proposal·approval·restructuring procedure).
+B.19 | If it restructured, the shas in the Report are the values after restructuring, and the backup ref·revert command also go in the Report (not in the plan).
+B.20 | A refusal or failed apply does not revert DONE; it stays as a Report risk.
+B.21 | **16 Report — close with options (CLAUDE.md §3-6)**: after evidence gate passed → plan update → commit (above), the report gives the details (change summary·files changed·verification·impact·risks)
+B.22 | and then **the options with AskUserQuestion** (review the work / wrap up·clean up (push·PR·merge·worktree cleanup — when chosen, invoke `/e merge`) / continue with another task (a new `/wt` — §8) / end).
+B.23 | **If merged·done, the "wrap up" option is itself the cleanup-judgment proposal below** (not a separate second question — no duplicate questions, CLAUDE.md §3-6).
+B.24 | If the latest user message has an explicit action to run now, skip the options (no duplicate questions).
+B.25 | **16 Report — Where to read** (medium or larger, or work with `⚠️ (구현)` lines — even if the verdict is BLOCKED·NEEDS-HUMAN):
+B.26 | so that a person reads only the spots where intent is fixed instead of the whole diff, put a `## Where to read` block at the end of the report (before the options).
+B.27 | It makes no new judgments and gathers only from three closed sources —
+B.28 | (1) each `# Acceptance` item → implementation location `file:line (symbol)` → evidence (test identifier·command), one line.
+B.29 | An item with no implementation location (overall verification·doc sync) gets only the evidence; an item with no evidence gets `unmet`/`unverified`
+B.30 | (2) each `⚠️ (구현)` line → `file:line` (keeping `[리뷰 미경유]`)
+B.31 | (3) code-reviewer `[plan 대비]` findings whose disposition is not `false-positive` and whose changed side is not `코드` alone.
+B.32 | `file:line` refers to the working tree at Report time (if committed, the same as HEAD — not written in the plan).
+B.33 | Lines from source (2) that are not `resolved`, and those from source (3), get the prefix `Needs confirmation:`, marking the items the user should see before choosing an option.
+B.34 | With 0 items, omit the block.
+B.35 | It is not an opt-in option — unlike the quiz removal recorded in [[unknowns-discovery]], it is a standing block and only gathers existing records.
+B.36 | **Cleanup judgment (CLAUDE.md §8, with or without a wiki·always)**: if the work is merged into the default branch and done, handle the worktree cleanup in the Report (no leaving it·no mentioning it only as "optional").
+B.37 | **If all §8(a) safety conditions hold, the worktree + local branch are cleaned up automatically without confirmation, whoever merged it** (one line reporting the deleted local tip sha).
+B.38 | **Remote branch deletion is always AskUserQuestion** (§8(b) — not part of the automatic cleanup.
+B.39 | If the remote branch is already gone, do not ask — `/e` step 7).
+B.40 | If a safety condition is unmet/uncertain (dirty·squash-merge·unsaved artifacts), **propose actively (AskUserQuestion)** — §8(b).
+B.41 | The Report is dlc's end point, so hand it off or run it directly here
+B.42 | — **trivial·small: a local `git merge --ff-only <slug>`, then cleanup** (§8, no push·PR — if ff is impossible, rebase the unpublished branch onto default·re-verify, then ff; on conflict or if it is published, `/e merge`);
+B.43 | medium or larger·needing CI verification·external sharing: `/e merge` (through push·PR·merge·cleanup).
+B.44 | If unmerged·unfinished, no proposal (the exact conditions are the 6 conditions of §8·`/e` step 7).
+B.45 | Verification command not identified: if checking README/package/pyproject/Makefile/CI still finds none, record "not identified" + no guessed runs.
+B.46 | In this state, no "verification complete".
+B.47 | If the other means of verification of CLAUDE.md §8 (actual run·observation / §7 manual verification procedure / user confirmation) could not be used either, do not commit; ask how to verify.
+B.48 | Pass the identified commands to the runner **as exact strings·with the worktree cwd** (the runner does not re-explore or repair).
+B.49 | researcher re-entry: at any step, call it when an external fact (version/API/CVE) is in doubt.
+B.50 | TDD Red: confirm the new test fails for the intended reason (kept apart from existing baseline failures).
+B.51 | feedback memory reference (§12): at Explore, check the related feedback (behavior instructions) of the `MEMORY.md` index and apply it.
