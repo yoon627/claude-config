@@ -47,7 +47,7 @@ Global CLAUDE.md §9 — plan-reviewer is a mandatory Claude subagent + Codex in
 Critically review the following implementation plan.
 <plan text or plan file path>
 Review checklist: missing cases / wrong assumptions / impact scope / rollback / test strategy / security and data integrity / backward compat / root cause.
-Reply: English. No preamble. Only strong concerns / weak concerns / suggestions. Do not list what is good.
+Reply: English. No preamble. Use exactly the headings `## Strong concerns`, `## Weak concerns`, `## Suggestions`. Do not list what is good.
 ```
 
 **Conclusion extraction pattern**: `grep -iE '^##? (strong concerns|weak concerns|suggestions|integration)' -A 20`. **Conflicts when integrating**: state both sides' evidence, then leave the judgment to the main agent.
