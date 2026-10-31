@@ -15,3 +15,6 @@
 - (2026-10-31 처리) 위 `pending` 빈틈 — `fix(e)` 커밋(e-merge-pending): 재조회에 `pending` 이 남으면(대체 경로 jq `PENDING` 도) `--watch` 를 한 번 더 돌리고 그래도 남을 때만 REJECTED (timeout). M4 의 timeout 은 Blocker 대신 Task 로 문구를 분명히 했다
 - 재실행으로 QUEUED 인 check 의 `startedAt` 이 0·null 이면 check 별 최신 고르기에서 이전 통과 run 이 이겨 PASS 로 볼 수 있다(gh 와 jq 모두 같은 방식). GitHub 가 queued 재실행에 `startedAt` 을 채우는지 미확인 — required check 는 M6 의 BLOCKED 재확인이 잡는다(심각도 낮음, e-merge-pending code-reviewer)
 - M5 주 경로의 `--json` 재조회가 `unknown flag: --json` 이 아닌 다른 이유(네트워크·인증)로 실패하면 규칙이 없다 — 대체 경로처럼 REJECTED 로 보내는 안(심각도 낮음, e-merge-pending code-reviewer)
+- (2026-10-31 처리) 위 `startedAt` 0·null 과 재조회 실패 두 항목 — `fix(e)` 커밋(deferred-small-fixes): 대체 경로 jq 가 null 과 gh 의 0 시각(`0001-01-01T00:00:00Z`)을 가장 새 것으로 보고, `--json` 재조회의 다른 실패는 REJECTED. 첫 수정안(`// "9999"`)은 null 만 잡아 code-reviewer 가 gh 2.45 소스(`StartedAt time.Time`)로 반박해 고쳤다
+- 주 경로(gh 2.50 이상)도 같은 사각지대일 수 있다 — gh 의 `eliminateDuplicates` 가 `StartedAt` 으로 골라 0 시각 재실행이 뒤로 밀린다. `statusCheckRollup` 이 재실행 옆에 이전 run 을 함께 돌려주는지 미확인(심각도 낮음 — required check 는 M6 BLOCKED 가 잡는다, deferred-small-fixes code-reviewer)
+- 공용 wiki `docs/worktree-lifecycle.md` §E M5 의 jq·재조회 실패 문장을 이 변경에 맞춘다 — main 세션에서(translate-wiki-docs 와 함께)

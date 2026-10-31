@@ -29,3 +29,4 @@
 - (2026-10-31 처리) 위 bot 판정 — `fix(c)` 커밋(c-bot-detection): 세 출처를 REST `--paginate` 로, bot 은 `user.type == "Bot"`, 시각·커밋 필드 유지, 빈 리뷰는 state 만, bot 코멘트에 단 사람 답은 bot 을 맥락으로, 현재 login 을 못 얻으면 전부 self
 - `skills/c/SKILL.md` intake — REST 에는 인라인 스레드의 resolved 상태가 없다(GraphQL `isResolved` 만) — 3단계 "코멘트 상태로 미해결 판단" 은 인라인에서 그 신호 없이 시각·뒤 커밋으로만 한다. 심각도 낮음(c-bot-detection code-reviewer)
 - (2026-10-31 처리) 위 1단계 "후보 2+" 정지가 닫힌 목록에 없던 것 — `fix(c)` 커밋(translate-deferred-fixes), README 343행도 맞춤
+- (2026-10-31 처리) 인라인 스레드 resolved 상태 — `feat(c)` 커밋(deferred-small-fixes): GraphQL `reviewThreads` 의 `isResolved` 로 resolve 된 스레드는 할 일로 넣지 않고 보고서에 따로 보인다(조용히 버리면 검토 신호가 줄어든다 — code-reviewer). `fullDatabaseId` 와 REST `id`·`in_reply_to_id` 일치는 리뷰어가 공개 repo 24개 코멘트로 확인
