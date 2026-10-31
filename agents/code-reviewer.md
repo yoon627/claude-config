@@ -82,7 +82,7 @@ Critically review the following change.
 Change scope: the whole branch diff — run `git diff <base>...HEAD` yourself and read it (base: <origin/default or sha>). Main files: <diff --stat output>
 Review checklist: bugs / security / exception handling / tests / performance / backward compat / root cause / altitude / conventions.
 For each finding: a defect gets a concrete failure_scenario (input/state → wrong result), anything else gets a cost. Defects that touch money, data or security (P0/P1 level) first.
-Reply: English. No preamble. Classify as Critical / Major / Minor / Nit. Do not list what is good.
+Reply: English. No preamble. Classify as Critical / Major / Minor / Nit under exactly the headings `## Critical`, `## Major`, `## Minor`, `## Nit`. Do not list what is good.
 ```
 
 - **Give Codex only independent input** — **do not give** it Claude's candidates, verdicts, severities or self-verify (Pass 2) results, or the `⚠️ (구현)` lines the main agent passed. Give only the same change bundle + the review criteria and let it dig independently (giving it the original candidates anchors it and makes independence and the "Found only by Codex" bucket meaningless). If cross-checking candidates is needed, name it and separate it as its own pass.
@@ -108,7 +108,7 @@ Put the verdict and confidence next to each finding. **Keep the severity heading
 ```
 ## Overall verdict
 APPROVE | REQUEST CHANGES | NEEDS DISCUSSION
-(mapping: any CONFIRMED Critical/Major → REQUEST CHANGES · only PLAUSIBLE, no CONFIRMED → NEEDS DISCUSSION · no valid finding → APPROVE)
+(mapping, first match: any CONFIRMED Critical/Major → REQUEST CHANGES · otherwise any PLAUSIBLE finding → NEEDS DISCUSSION · otherwise (only CONFIRMED Minor/Nit, or no valid finding) → APPROVE; Minor/Nit findings listed under APPROVE still need a disposition)
 
 ## Critical
 - [CONFIRMED|PLAUSIBLE] [✅|⚠️] [plan 대비](only for item 11) file:line — the problem in one line
