@@ -30,3 +30,5 @@
 
 # Workflow Findings
 - 2026-10-27 번역 대조의 부분 인용 문제가 translate-skill-c(계획 리뷰 S1) 다음 단위에서 다시 나왔다 — c 에서는 개별 조항을 넓히기만 하고 기계 검사를 두지 않았고, 변형도 이미 인용한 문자열에서만 골랐다. 대책: 덮이지 않은 구간 검사(check-wt 5절)와 문장 삭제 sweep 을 다음 translate-repo 단위의 기본 방법으로 쓴다(intent `# Plans` 의 이 plan 줄에 적었다). 공용 wiki `workflow-failures` 적립은 main 세션에서 판정(동일 유형 2회).
+- (2026-10-31 처리) D1·D2·D3 — `fix(wt)` 커밋 3개(wt-small-fixes). D2 는 near-miss 되돌리기 안내가 만든 slug(충돌 접미사 포함)를 가리키게도 고쳤다
+- 공용 wiki `docs/worktree-lifecycle.md` §C 의 파일 점유 목록 — 삭제 실패의 "Permission denied" 는 Linux·macOS 에서 실제 권한 문제(root 소유 파일)일 수 있는데 점유로만 분류한다(근거는 Windows 실측). 문서·`skills/wt` 에 "또는 실제 권한 문제(소유자 확인)" 를 더하는 안 — main 세션에서. 심각도 낮음(wt-small-fixes code-reviewer)
