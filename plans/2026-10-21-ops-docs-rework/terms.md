@@ -27,6 +27,12 @@ translate-repo 단위는 착수 때 이 표를 읽고 따른다. 새로 정한 �
 | `/improve recommended — failure signals accumulated in N sessions (since the marker)` | **위 `/improve 권장 — failure 신호 N세션 누적 (마커 이후)` 를 대체** — `scripts/session-brief.js` L 줄을 영어로 옮겼다(N=1 이면 `1 session`). `skills/improve/SKILL.md` 7단계가 이 글자를 그대로 인용한다. 이 줄을 바꾸는 작업은 같은 머지에서 그 인용도 고친다 | translate-hooks |
 | `guard-worktree-edit.js`·`guard-push-delete.js` 의 `ask` reason · `notify-hook.js`/`.ps1` 알림 문구(`입력 대기`·`응답 완료`) | 대화형 세션의 사용자 확인 창·데스크톱 알림에 보이는 글(headless `-p` 에서는 `ask` 가 거부되어 모델도 읽는다) — §0 에 따라 한국어로 둔다. hook 이 모델에게 보내는 글(SessionStart stdout·additionalContext·Stop block reason·`deny` reason)만 영어 | translate-hooks |
 | `[dlc:investigation]` · `[dlc:grounding]` | `dlc-task-router.js` 가 붙이는 태그 — `dlc-task-router.test.js` 가 이 글자로 라우팅을 확인한다 | translate-hooks |
+| `[리뷰 미경유]` | `⚠️ (구현)` 줄에 붙는 "아직 리뷰를 거치지 않았다" 표식 — plan·log(한국어)에 남는 글자라 dlc 영어 본문에서도 원문(translate-skill-dlc plan Constraints) | translate-skill-dlc |
+| `커밋 단위:` | plan `# Decisions` 의 커밋 단위 선언 라벨(`커밋 단위: 1) <제목> — <경로> 2) …` · `커밋 단위: 1개 — <이유>`) — plan 은 한국어, dlc 가 이 선언의 제목으로 `fixup!` 대조와 compaction 뒤 sha 재발견을 한다 | translate-skill-dlc |
+| `생략:` | 적용되지 않거나 사용자가 건너뛴 단계를 닫는 Task 형식 `- [x] <step> (YYYY-MM-DD) — 생략: <reason>` — plan 파일 표지 | translate-skill-dlc |
+| `코드`/`둘 다` | `[plan 대비]` finding 처분 줄의 "바뀐 쪽" 값(`코드`/`plan`/`둘 다`/`없음`) — plan log(한국어)에 남는 글자 | translate-skill-dlc |
+| `Codex 미가용` | reviewer 가 Codex 병행을 건너뛸 때 출력에 적는 한 줄 `Codex 미가용: <reason>` — `~/.claude/wiki/docs/codex-review.md` 가 정한 출력 글자이고 dlc 가 reviewer 보고에서 이 줄을 찾는다. `<reason>`·`(session cache)` 만 영어 | translate-wiki-docs(codex-review) |
+| codex grep 의 `결론` | `~/.claude/wiki/docs/codex-review.md` §5 결론부 추출 명령 `grep -E '^##? (Critical\|Major\|Minor\|결론)' -A 30` — 명령이라 글자 그대로 | translate-wiki-docs(codex-review) |
 
 ## 용어 (한국어 → 영어)
 | 한국어 | 영어 | 메모 |
