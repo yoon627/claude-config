@@ -451,7 +451,7 @@ if [ ${#violations[@]} -gt 0 ]; then
   fi
   if [ "$pt_term_hits" -gt 0 ]; then
     printf '\033[36mPrivate terms come from %s (untracked) — do not open or quote it with tools.\033[0m\n' "$PT_LIST" >&2
-    printf '\033[36mReplace each hit with a generic label (e.g. "회사 repo") and keep terms out of commit messages.\033[0m\n' >&2
+    printf '\033[36mReplace each hit with a generic label (e.g. "company repo") and keep terms out of commit messages.\033[0m\n' >&2
     printf '\033[36mA message or identity hit means rewriting that commit before pushing (git commit --amend [--reset-author], or the commit-check skill for older unpushed commits).\033[0m\n' >&2
     printf '\033[36mA hit in commits that are already on the remote main means origin/main is stale — run git fetch origin.\033[0m\n' >&2
   fi

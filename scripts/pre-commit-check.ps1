@@ -555,7 +555,7 @@ if ($violations.Count -gt 0) {
     }
     if ($ptTermHits -gt 0) {
         Write-Host "Private terms come from $ptList (untracked) — do not open or quote it with tools." -ForegroundColor Cyan
-        Write-Host "Replace each hit with a generic label (e.g. `"회사 repo`") and keep terms out of commit messages." -ForegroundColor Cyan
+        Write-Host "Replace each hit with a generic label (e.g. `"company repo`") and keep terms out of commit messages." -ForegroundColor Cyan
         Write-Host "A message or identity hit means rewriting that commit before pushing (git commit --amend [--reset-author], or the commit-check skill for older unpushed commits)." -ForegroundColor Cyan
         Write-Host "A hit in commits that are already on the remote main means origin/main is stale — run git fetch origin." -ForegroundColor Cyan
     }
