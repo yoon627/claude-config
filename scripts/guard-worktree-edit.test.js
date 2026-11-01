@@ -95,6 +95,17 @@ for (const [name, cwd, ti, want, tool, env] of cases) {
   console.log(`${ok ? 'PASS' : 'FAIL'} ${name}: want=${want} got=${got}`);
 }
 
+// stdin 이 객체가 아닌 JSON(`null`)이어도 죽지 않는다 — 비0 종료는 hook 오류 노이즈를 내고 판정 없이 흘러간다.
+{
+  let got = 'allow';
+  try {
+    const out = execFileSync('node', [GUARD], { input: 'null', env: { ...process.env, CLAUDE_DLC_SIGNAL_OFF: '1' } });
+    if (String(out).trim()) got = 'output';
+  } catch { got = 'crash'; }
+  const okn = got === 'allow'; if (!okn) fail++;
+  console.log(`${okn ? 'PASS' : 'FAIL'} stdin null → allow (exit 0): got=${got}`);
+}
+
 // deny reason 은 모델에게 가는 문구 — 대응하는 worktree 경로를 알려 준다.
 function denyReason(cwd, toolInput) {
   const inp = JSON.stringify({ cwd, tool_name: 'Edit', tool_input: toolInput });

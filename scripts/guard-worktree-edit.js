@@ -85,6 +85,7 @@ process.stdin.on('end', () => {
   } catch {
     process.exit(0); // 파싱 실패 시 정상 흐름 방해하지 않음
   }
+  if (input === null || typeof input !== 'object') process.exit(0); // `null` 같은 비객체 JSON — 크래시(exit 1)는 판정 없이 흘러가며 hook 오류 노이즈만 남긴다
   const norm = (p) => (p || '').replace(/\\/g, '/');
   const ti = input.tool_input || {};
   const rawFp = norm(ti.file_path || ti.notebook_path); // NotebookEdit 는 notebook_path

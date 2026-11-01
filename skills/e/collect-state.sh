@@ -78,7 +78,7 @@ if [ -z "$localDefault" ] || ! git show-ref --verify --quiet "refs/heads/$localD
 fi
 if [ -n "$localDefault" ] && [ "$detached" = false ] && [ "$branch" != "$localDefault" ]; then
   if git branch --merged "$localDefault" --format='%(refname:short)' 2>/dev/null \
-       | grep -qx -- "$branch"; then
+       | grep -qxF -- "$branch"; then
     mergedToLocalBase=true
   else
     mergedToLocalBase=false
