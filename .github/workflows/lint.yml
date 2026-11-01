@@ -66,8 +66,11 @@ jobs:
       # JSON 유효성은 Claude Code 자신이 로드 시점에 알려주고, SessionStart 훅 배선은
       # session-start-pull.test.js 가 그 파일이 있는 머신에서 잠근다.
 
-      - name: Shell script lint (shellcheck)
-        run: bash scripts/verify.sh shell
+      - name: Shell script lint (shellcheck, zsh -n)
+        # ubuntu-latest ships shellcheck but not zsh; verify.sh under CI fails on a missing tool.
+        run: |
+          command -v zsh >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends zsh >/dev/null; }
+          bash scripts/verify.sh shell
 
       # 운영 자산 *간* 참조 정합(CLAUDE.md→agents 실존 · skill·agent frontmatter · wiki
       # index↔pages · plan-lint). 산문 겹을 읽는 유일한 기계 검사인데 지금까지는

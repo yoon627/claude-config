@@ -21,6 +21,7 @@ check 'syntax node' scripts/a.js
 check 'syntax' README.md
 check 'node bash shell' scripts/a.sh
 check 'node bash shell' scripts/a.ps1
+check 'shell' scripts/a.zsh
 check 'python' skills/x/test_a.py
 check 'python' skills/wiki/templates/wiki-check.toml
 check 'syntax python' agents/x.md
@@ -49,6 +50,8 @@ slow 5 skills/wiki/test_wiki_check.py skills/wiki/templates/wiki-check.toml
 slow 5 skills/commit-check/test_commit_units.py skills/commit-check/commit_units.py
 slow 5 scripts/pre-commit-check.test.sh scripts/pre-commit-check.ps1
 slow 5 scripts/session-brief.test.js scripts/session-brief.js
+slow 5 scripts/session-brief.test.js scripts/dlc-signal.js
+slow 5 scripts/session-brief.test.js scripts/plan-match.js
 slow 4 scripts/session-start-pull.test.js scripts/session-start-pull.sh scripts/hook-cwd.js
 slow 5 scripts/install-hooks.test.js scripts/install-hooks.test.js
 got=$(VERIFY_SLOW=1 VERIFY_PRINT_SLOW=1 VERIFY_CHANGED_FILES=README.md sh scripts/verify.sh changed)
@@ -65,8 +68,27 @@ if [ $? -ne 1 ]; then
 fi
 
 # 실제 git: 기준 브랜치 뒤의 커밋·rename(옛 경로)·untracked 를 모으고, 기준이 없으면 전 축.
-tmp=$(mktemp -d)
+tmp=$(mktemp -d) || exit 1
 trap 'rm -rf "$tmp"' EXIT
+
+# CI 에서는 축 단위 도구 부재가 FAIL 이다 — shellcheck·zsh 가 없는 PATH 로 shell 축을 돌린다(로컬은 [skip] 으로 통과).
+# 링크가 아니라 절대경로를 exec 하는 래퍼다: Git Bash 의 ln -s 는 복사본을 만들고, 복사된 exe 는 자기 DLL 을 못 찾는다(test_launcher.sh 와 같은 방식).
+mkdir "$tmp/bin"
+sh_bin=$(command -v sh)
+for t in sh bash git grep sed awk tail head cut tr date basename dirname sort uniq wc cat ls rm mkdir; do
+  p=$(command -v "$t" 2>/dev/null)
+  case $p in /*) printf '#!/bin/sh\nexec "%s" "$@"\n' "$p" > "$tmp/bin/$t"; chmod +x "$tmp/bin/$t" ;; esac
+done
+out=$(CI=1 PATH="$tmp/bin" "$sh_bin" scripts/verify.sh shell 2>&1); rc=$?
+if [ "$rc" -eq 0 ] || ! printf '%s\n' "$out" | grep -q '^FAIL shellcheck'; then
+  echo "FAIL [CI missing tool] rc=$rc (want 1 + FAIL shellcheck): $(printf '%s' "$out" | tail -3)"
+  fail=1
+fi
+out=$(CI= PATH="$tmp/bin" "$sh_bin" scripts/verify.sh shell 2>&1); rc=$?
+if [ "$rc" -ne 0 ] || ! printf '%s\n' "$out" | grep -q '^\[skip\] shellcheck'; then
+  echo "FAIL [local missing tool] rc=$rc (want 0 + [skip] shellcheck): $(printf '%s' "$out" | tail -3)"
+  fail=1
+fi
 g() { git -C "$tmp/work" -c user.name=t -c user.email=t@t "$@" >/dev/null 2>&1; }
 git init -q --bare -b main "$tmp/origin.git"
 git init -q -b main "$tmp/work"

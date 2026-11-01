@@ -10,13 +10,15 @@
 # 사용: bash scripts/verify.sh [축]
 #   축: syntax | node | bash | python | shell | changed   (생략 시 전부)
 #   syntax 는 JS 문법(node --check)과 skill·agent frontmatter 형식(scripts/frontmatter-lint.js)을 본다.
+#   shell 은 .sh 의 shellcheck 와 .zsh 의 zsh -n 이다.
 #   changed 는 기준 브랜치(origin/HEAD)에서 갈라진 뒤 바뀐 파일(커밋·작업트리·untracked)로 축을 고른다 —
 #   작업의 로컬 최종 검증용. 전 축은 CI(.github/workflows/lint.yml)와 사용자의 주기 실행이 맡는다
 #   (Windows 에서 전 축은 약 50분). 테스트 줄 끝의 (Ns) 는 그 테스트의 소요 시간이다.
 # 종료코드: 실패 1건이라도 있으면 1. 테스트가 77 로 끝나면 필요한 도구가 없다는 뜻이라 skip 으로 센다.
 #
 # 미설치 도구는 **조용히 건너뛰지 않는다** — `[skip]` 을 찍고 마지막 줄 요약에
-# 남긴다. 스킵을 통과로 오인하면 로컬 초록이 CI 실패를 못 잡는다.
+# 남긴다. 스킵을 통과로 오인하면 로컬 초록이 CI 실패를 못 잡는다. CI(CI 환경변수 — GitHub Actions 가
+# 늘 설정)에서는 축 단위 도구(PowerShell·python3·shellcheck·zsh) 부재를 FAIL 로 센다 — 축이 조용히 빠지지 않게.
 set -u
 
 cd "$(dirname "$0")/.." || exit 1
@@ -55,6 +57,7 @@ axes_for_changed() {
       BASE_UNKNOWN | scripts/verify.sh | .github/* | .gitattributes | .gitignore | .editorconfig) pick=" $ALL_AXES " ;;
       *.js) pick="$pick syntax node " ;;
       *.sh | *.ps1) pick="$pick bash shell node " ;;
+      *.zsh) pick="$pick shell " ;;
       *.py | *.toml) pick="$pick python " ;;
       agents/*.md) pick="$pick syntax python " ;;
       skills/*/SKILL.md) pick="$pick syntax bash " ;;
@@ -97,7 +100,7 @@ want() { case " $axes " in *" $1 "*) return 0 ;; esac; return 1; }
 SLOW_TESTS='
 scripts/pre-commit-check.test.sh|scripts/pre-commit-check.*
 scripts/session-start-pull.test.js|scripts/session-start-pull.sh
-scripts/session-brief.test.js|scripts/session-brief.js scripts/session-start-pull.sh scripts/hook-cwd.js
+scripts/session-brief.test.js|scripts/session-brief.js scripts/session-start-pull.sh scripts/hook-cwd.js scripts/dlc-signal.js scripts/plan-match.js
 scripts/install-hooks.test.js|scripts/install-hooks.*
 skills/commit-check/test_commit_units.py|skills/commit-check/commit_units.py
 skills/wiki/test_wiki_check.py|skills/wiki/wiki_check.py skills/wiki/templates/*
@@ -145,6 +148,9 @@ run() { # run <label> <command...> — 종료 코드 77 은 "필요한 도구 �
     printf 'ok   %s (%ss)\n' "$label" "$dt"
     # 무엇을 돌렸는지 알리는 `NOTE ` 줄(예: ps1 엔진 실행 수)은 보이기만 하고 skip 으로 세지 않는다.
     printf '%s\n' "$out" | grep '^NOTE ' | sed 's/^/       /'
+    # unittest 는 케이스 skip 을 `OK (skipped=N)` 한 줄로만 알린다 — SKIP 줄로 올려 같은 요약에 넣는다.
+    n_skip=$(printf '%s\n' "$out" | tr -d '\r' | sed -n 's/^OK (.*skipped=\([0-9][0-9]*\).*)$/\1/p' | tail -1)
+    [ -n "$n_skip" ] && out=$(printf '%s\nSKIP %s — %s unittest cases skipped' "$out" "$label" "$n_skip")
     # 통과한 테스트 안의 케이스 단위 skip(`SKIP ` 줄)도 요약에 남긴다.
     if printf '%s\n' "$out" | grep -q '^SKIP '; then
       printf '%s\n' "$out" | grep '^SKIP ' | sed 's/^/       /'
@@ -157,6 +163,15 @@ run() { # run <label> <command...> — 종료 코드 77 은 "필요한 도구 �
     fail=$((fail + 1))
     printf 'FAIL %s (%ss)\n' "$label" "$dt"
     printf '%s\n' "$out" | tail -20 | sed 's/^/       /'
+  fi
+}
+missing_tool() { # missing_tool <요약 라벨> <설명> — 축 단위 도구 부재: 로컬은 [skip], CI 는 FAIL(축이 조용히 빠지지 않게)
+  if [ -n "${CI:-}" ]; then
+    fail=$((fail + 1))
+    echo "FAIL $2 — CI 에서는 도구 부재가 실패다"
+  else
+    echo "[skip] $2"
+    skipped="$skipped $1"
   fi
 }
 
@@ -209,10 +224,7 @@ if want bash; then
   engines=''
   for e in pwsh powershell.exe; do command -v "$e" >/dev/null 2>&1 && engines="$engines $e"; done
   for f in $(repo_files ':(glob)**/*.test.ps1'); do
-    if [ -z "$engines" ]; then
-      echo "[skip] $f — PowerShell 미설치"
-      skipped="$skipped $(basename "$f")"
-    fi
+    [ -n "$engines" ] || missing_tool "$(basename "$f")" "$f — PowerShell 미설치"
     for e in $engines; do
       run "$f ($e)" "$e" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$f"
     done
@@ -227,8 +239,7 @@ if want python; then
       run "$f" "$py" "$f"
     done
   else
-    echo '[skip] python3 미설치'
-    skipped="$skipped python"
+    missing_tool python 'python3 미설치'
   fi
 fi
 
@@ -241,8 +252,16 @@ if want shell; then
     # shellcheck disable=SC2086
     run 'shellcheck' shellcheck $sh_files
   else
-    echo '[skip] shellcheck 미설치'
-    skipped="$skipped shellcheck"
+    missing_tool shellcheck 'shellcheck 미설치'
+  fi
+  zsh_files=$(repo_files ':(glob)**/*.zsh')
+  if [ -n "$zsh_files" ]; then
+    echo '== zsh -n =='
+    if command -v zsh >/dev/null 2>&1; then
+      for f in $zsh_files; do run "$f" zsh -n "$f"; done
+    else
+      missing_tool zsh 'zsh 미설치'
+    fi
   fi
 fi
 
