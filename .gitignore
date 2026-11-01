@@ -50,6 +50,8 @@ tmp_*
 /skills/orca-cli
 # Claude Code 가 claude.ai 에서 켠 skill 을 내려받는 예약 경로(v2.1.273+, 라이선스 파일 포함) — 머신 로컬, PUBLIC repo 에 올리지 않는다
 /skills/synced/
+# Claude Code 가 2.1.314 부터 추적 폴더 skills/ 안에 만드는 휴지통 — 머신 로컬, 추적하지 않는다
+/skills/.trash/
 
 # Python bytecode cache inside whitelisted dirs (e.g. scripts/)
 __pycache__/
