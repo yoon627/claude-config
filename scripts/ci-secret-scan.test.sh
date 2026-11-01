@@ -4,7 +4,7 @@
 set -u
 DIR="$(cd "$(dirname "$0")" && pwd)"
 SCAN="$DIR/ci-secret-scan.sh"
-T="$(mktemp -d)"
+T="$(mktemp -d)" || exit 1
 trap 'rm -rf "$T"' EXIT
 TOKEN='sk-ant-0123456789abcdefghij0123'
 PAT='github_pat_ABCDEFGHIJKLMNOPQRSTUV0123'   # pattern name has parentheses: GitHub PAT (fine)

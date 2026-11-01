@@ -7,7 +7,7 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 WORKFLOW="$DIR/../.github/workflows/lint.yml"
 # Locally a missing jq is a visible skip (77); in CI it must fail so the gate cannot go green silently.
 command -v jq >/dev/null || { echo 'record-verified.test.sh: jq is required (the job builds its API bodies with it)'; [ -n "${CI:-}" ] && exit 1; exit 77; }
-T="$(mktemp -d)"
+T="$(mktemp -d)" || exit 1
 trap 'rm -rf "$T"' EXIT
 pass=0; fail=0
 

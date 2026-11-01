@@ -21,7 +21,7 @@ TOKEN='sk-ant-0123456789abcdefghij0123'
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE FAKE_HOME GUARD_ENV
 
-T="$(mktemp -d)"
+T="$(mktemp -d)" || exit 1
 trap 'rm -rf "$T"' EXIT
 
 pass=0; fail=0; ran_ps1=0; ran_ps51=0
