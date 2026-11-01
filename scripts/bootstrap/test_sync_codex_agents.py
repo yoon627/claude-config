@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import io
+import re
 import sys
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -133,6 +134,9 @@ class RenderTest(unittest.TestCase):
     def test_crlf_and_bom_frontmatter(self) -> None:
         meta, body = sync.parse_frontmatter("\ufeff---\r\nname: x\r\ndescription: d\r\n---\r\n## a\r\n")
         self.assertEqual((meta["name"], meta["description"], body), ("x", "d", "## a\n"))
+
+    def test_preamble_has_no_hangul(self) -> None:
+        self.assertIsNone(re.search(r"[\uac00-\ud7a3]", sync.preamble()))
 
 
 class TargetsTest(unittest.TestCase):

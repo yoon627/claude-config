@@ -40,8 +40,8 @@ class SourceError(ValueError):
 
 def preamble() -> str:
     return (
-        "> Codex 안에서 도는 사본이므로 Codex CLI 를 다시 실행해 병행 검토하지 않는다(자기 자신을 부르게 "
-        "된다). 도구 이름(Read·Grep·Bash 등)은 Claude Code 기준이니 Codex 의 대응 도구로 읽는다.\n\n"
+        "> This copy runs inside Codex, so do not run the Codex CLI again for a parallel review (it would call "
+        "itself). Tool names (Read, Grep, Bash, etc.) are Claude Code's — read them as the corresponding Codex tools.\n\n"
     )
 
 
