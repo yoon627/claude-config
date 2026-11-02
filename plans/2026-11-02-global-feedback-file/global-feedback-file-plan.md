@@ -1,6 +1,6 @@
 ---
 title: global-feedback-file — 사용자 지적(개발·응답 방식)을 모든 repo 세션에 자동 적용하는 전역 피드백 파일
-status: in_progress
+status: done
 started: 2026-11-02
 updated: 2026-11-02
 ---
@@ -33,6 +33,7 @@ updated: 2026-11-02
 - [x] simplify check (2026-11-02) — 줄일 곳 없음
 - [x] 최종 검증 — `bash scripts/verify.sh changed` (2026-11-02) — ALL PASS(skip: PowerShell·zsh 미설치, wiki·wt 테스트 일부 케이스 — 변경 파일과 무관)
 - [x] 문구 diff 사용자 확인 후 커밋 (2026-11-02) — "커밋"
+- [x] `/e merge` (2026-11-02) — PR #256
 - [ ] [post-merge] main 세션에서 `projects/-root--claude/memory/` 의 이전한 4개 파일을 `projects/-root--claude/memory-archive/2026-11-02/` 로 옮기고 `MEMORY.md` 4줄 삭제(merge~이 단계 사이에는 `~/.claude` 세션에 같은 규칙이 두 번 주입되지만 무해)
 - [ ] [post-merge] 다른 repo 의 새 세션에서 `FEEDBACK.md` 규칙이 context 에 들어왔는지 관찰
 - [ ] [post-merge] main 세션에서 `~/.claude/wiki/docs/dlc-details.md` 의 feedback memory 판정 문장 맞춤(worktree 에 사본 없음)
