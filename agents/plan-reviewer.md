@@ -50,7 +50,7 @@ Review checklist: missing cases / wrong assumptions / impact scope / rollback / 
 Reply: English. No preamble. Use exactly the headings `## Strong concerns`, `## Weak concerns`, `## Suggestions`. Do not list what is good.
 ```
 
-**Conclusion extraction pattern**: `grep -iE '^##? (strong concerns|weak concerns|suggestions|integration)' -A 20`. **Conflicts when integrating**: state both sides' evidence, then leave the judgment to the main agent.
+**Conclusion extraction pattern**: `grep -iE '^##? (strong concerns|weak concerns|suggestions)' -A 20`. **Conflicts when integrating**: state both sides' evidence, then leave the judgment to the main agent.
 
 ## Rules
 - No guessing. If you do not know, say "I don't know". Confidence prefix: put ✅certain / ⚠️inferred / ❌unknown before each concern.
@@ -76,7 +76,7 @@ GO | NO-GO | CONDITIONAL (state the conditions)
 - ...
 
 ## Codex 병행
-- Run: yes | skipped (reason: ...)
+- Run: yes | skipped — `Codex unavailable: <reason>` (keep this exact prefix; the main agent matches it for the limit cache, and it is distinct from the §7 sentence "Codex is unavailable in this session")
 - Agreed items: ...
 - Found only by Codex: ...
 - Found only by this review: ...

@@ -134,7 +134,7 @@ APPROVE | REQUEST CHANGES | NEEDS DISCUSSION
 - Command: ... / Result: ... / Reason not run: ...
 
 ## Codex 병행
-- Run: yes | skipped (reason: ...)
+- Run: yes | skipped — `Codex unavailable: <reason>` (keep this exact prefix; the main agent matches it for the limit cache, and it is distinct from the §7 sentence "Codex is unavailable in this session")
 - Agreed items: ...   (agreement is only a signal — the verdict is assigned by refutation)
 - Found only by Codex: ...   (kept after the same Verify)
 - Found only by this review: ...
