@@ -236,7 +236,7 @@ Windows PowerShell 에서는 아래 명령의 `~` 를 `$env:USERPROFILE` 로 바
    - 1 에서 복사해 둔 편집이 있으면 clone 에 다시 적용해 커밋한다.
 4. **확인** — `git -C ~/.claude status --porcelain` 이 비어 있고(`wiki/` 는 무시된다), `git -C ~/.claude/wiki status` 가 clean 이다.
 
-공용 wiki 에는 main 세션에서 쓰고 그 repo 의 main 에 직접 커밋한다. 단 그 repo 의 `WIKI.md` 가 worktree+PR 로 정한 코드 계층과 `plans/` 는 그 repo 의 worktree 에서 고치고 PR 로 머지한다. push 는 필요할 때 한다(CLAUDE.md §11·§8). 다른 머신의 wiki 는 자동으로 갱신되지 않는다 — `git -C ~/.claude/wiki pull`.
+공용 wiki 에는 main 세션에서 쓰고 그 repo 의 main 에 직접 커밋한다. 단 그 repo 의 `WIKI.md` 가 worktree+PR 로 정한 코드 계층은 그 repo 의 worktree 에서 고치고 PR 로 머지한다(그 repo 의 `plans/` 는 git 이 추적하지 않는다 — WIKI.md). push 는 필요할 때 한다(CLAUDE.md §11·§8). 다른 머신의 wiki 는 자동으로 갱신되지 않는다 — `git -C ~/.claude/wiki pull`.
 
 ---
 
@@ -343,7 +343,7 @@ background task 표시(`✻ N bg`)는 2026-09-25 제거했다 — tasks 디렉�
 `/c` 로 현재 worktree/repo 의 진행 중인 plan(§10)을 찾아 **남은 작업 + plan↔실제(git/코드) sync 상태**를 진단하고, 어긋나면 plan 을 보정한 뒤 첫 미완료 Task 가 명확하면 이어서 실행(멈춤 예외 5종).
 - branch→plan dir 매칭(§10), 실패 시 `in_progress`/`blocked` plan 목록 제시 후 사용자 선택 (추측 자동선택 안 함).
 - `plans/` 가 worktree(브랜치)별 독립이라 현재 repo + main worktree 양쪽 `plans/` 를 탐색(tracked 지만 브랜치마다 내용이 다르다).
-- 확인·sync 진단·plan 보정 후 **첫 미완료 Task 가 명확하면 이어서 실행**(멈추는 예외 5종: `blocked`/`NEEDS-HUMAN`·plan 선택 필요(후보 다수·fallback)·다음 Task 재구성·파괴적/외부공개 액션·`done`). 그 브랜치 PR 의 **사람** 리뷰 코멘트를 intake 해 코드 지적은 `# Tasks`(미완료 맨 위), 작업방식 지적은 feedback memory 판정으로 넘긴다. 본인 계정 코멘트는 Claude 가 같은 계정으로 남긴 것과 구분되지 않아 할 일로 넣지 않고 보고서에 확인 대상으로만 보인다. resolve 된 인라인 스레드(GraphQL `isResolved`)도 할 일로 넣지 않고 보고서에 따로 보인다. plan 이 없으면 새로 만들지 않음 — 신규 plan 생성은 dlc 몫.
+- 확인·sync 진단·plan 보정 후 **첫 미완료 Task 가 명확하면 이어서 실행**(멈추는 예외 5종: `blocked`/`NEEDS-HUMAN`·plan 선택 필요(후보 다수·fallback)·다음 Task 재구성·파괴적/외부공개 액션(예외: plan `# Goal` 의 `Size:` 라벨이 trivial/small 이고 CLAUDE.md §8 의 로컬 경로 조건 — 미게시·CI 검증·외부 공유 불필요 — 이 맞는 작업의 로컬 `git merge --ff-only` + §8(a) 정리는 멈추지 않고 이어간다 — 라벨이 없거나 불분명하면 정지)·`done`). 그 브랜치 PR 의 **사람** 리뷰 코멘트를 intake 해 코드 지적은 `# Tasks`(미완료 맨 위), 작업방식 지적은 feedback memory 판정으로 넘긴다. 본인 계정 코멘트는 Claude 가 같은 계정으로 남긴 것과 구분되지 않아 할 일로 넣지 않고 보고서에 확인 대상으로만 보인다. resolve 된 인라인 스레드(GraphQL `isResolved`)도 할 일로 넣지 않고 보고서에 따로 보인다. plan 이 없으면 새로 만들지 않음 — 신규 plan 생성은 dlc 몫.
 
 ### skills/e/ — plan 마무리
 

@@ -71,11 +71,11 @@ Read the plan (together with the plan log in the same folder if there is one —
   1. `status: blocked` or `NEEDS-HUMAN:` in an unchecked Task — unblocking is the user's part.
   2. Step 1 needs the user's **choice of plan** — 2+ candidates matched, or matching failed and a fallback choice is needed (even with only 1 fallback candidate).
   3. The unchecked Tasks were missing or no longer valid and were **rebuilt** — confirm the direction once.
-  4. The next action is **destructive, irreversible or publicly visible** (push, merge, delete, deploy, DB migration/write, etc. — the §8 gates and their equivalents; if the classification is unclear, stop) — explicit confirmation.
+  4. The next action is **destructive, irreversible or publicly visible** (push, merge, delete, deploy, DB migration/write, etc. — the §8 gates and their equivalents; if the classification is unclear, stop) — explicit confirmation. **Exception**: the local `git merge --ff-only <slug>` of trivial/small work and the §8(a) cleanup after it (CLAUDE.md §1·§8) are continued without stopping — **only when the plan's `# Goal` `Size:` label (§10) is `trivial` or `small` and the CLAUDE.md §8 local-path conditions hold (the branch is unpublished and the work needs no CI verification or external sharing)**; with no `Size:` label, or if unclear, stop as now (the `/e merge` path).
   5. A `done` plan — confirm whether to continue. But if that branch's PR is `OPEN` (QUEUED/UNKNOWN of `/e` merge mode), it is not finished but **waiting to merge** — if it is in the merge queue, wait until it finishes, then suggest rerunning `/e merge` (an external write, so confirm per exception 4).
 
 ## Boundaries (what this skill does not do)
-- **Destructive or publicly visible actions are not continued** (push, merge, delete, deploy — §8 gates) — other clear first unchecked Tasks are continued (the 5 exceptions of step 3).
+- **Destructive or publicly visible actions are not continued** (push, merge, delete, deploy — §8 gates), except the trivial/small local ff-merge and §8(a) cleanup of exception 4 — other clear first unchecked Tasks are continued (the 5 exceptions of step 3).
 - **PR review intake is read-only** — it only collects and classifies comments; **no automatic replies, comments or resolves**.
 - If there is no plan, **do not create one** — only report "no plan to continue".
 - On a matching failure, no automatic choice by guessing — always present the list.
