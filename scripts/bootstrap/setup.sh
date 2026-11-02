@@ -131,6 +131,25 @@ else
   skip "claude 없음 — 플러그인 설정 건너뜀"
 fi
 
+# --- 4. permissions: 승인 규칙 정본(scripts/permission-rules.json)을 ~/.claude/settings.json 에 병합 ---
+# ask 규칙과 rtk 쌍을 더하고 retireAsk 를 빼며 다른 키·로컬 규칙은 보존한다(멱등, 바꾸면 .bak-<시각> 백업).
+# --keep-allow: 도구 이름만 쓴 allow(forbidAllow)의 제거는 머신별 사용자 결정이라 여기서는 건드리지 않는다 —
+# 적용은 'node scripts/sync-permissions.js' 를 플래그 없이 직접 돌린다.
+# settings.json 자체는 untracked 라 복사해 와야 하지만, 없으면 ask 만 든 파일을 만든다. node 가 없으면 경고만 하고 계속한다.
+SYNC_PERMS="$REPO_ROOT/scripts/sync-permissions.js"
+if have node; then
+  if [ "$DRY_RUN" = 1 ]; then
+    run "node scripts/sync-permissions.js --keep-allow --dry-run"
+    node "$SYNC_PERMS" --keep-allow --dry-run --settings "$CLAUDE_DIR/settings.json" || warn "permissions 점검 실패 — settings.json 의 JSON 오류면 고친 뒤 재실행"
+  else
+    run "node scripts/sync-permissions.js --keep-allow"
+    if node "$SYNC_PERMS" --keep-allow --settings "$CLAUDE_DIR/settings.json"; then ok "permissions ask 규칙 동기화"
+    else warn "permissions 동기화 실패 — settings.json 의 JSON 오류면 고친 뒤 재실행(쓰기 없음)"; fi
+  fi
+else
+  warn "node 없음 — permissions 동기화 건너뜀(node 설치 후 'node scripts/sync-permissions.js' 직접 실행)"
+fi
+
 # --- 5. rtk (standalone 설치본 선택) ---
 if have rtk; then
   if [ "$DRY_RUN" = 1 ]; then skip "rtk hook 검증/서명(dry-run)"

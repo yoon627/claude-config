@@ -87,7 +87,7 @@ agent 정의(`Codex 연결 실패: … agents`)도 같은 규칙이다 — `agen
 | Codex skill·AGENTS.md·agent 정의 | macOS: skill 7종을 `$HOME/.agents/skills/` 에, `${CODEX_HOME:-$HOME/.codex}/AGENTS.md` 를 `$HOME/.claude/CLAUDE.md` 에 symlink, agent 정의를 `agents/*.md` 마다 `${CODEX_HOME:-$HOME/.codex}/agents/` 에 생성(`sync_codex_agents.py`). Windows: 같은 목록 — skill 은 junction, AGENTS.md 는 symlink(개발자 모드·관리자), agent 정의는 `python` 있을 때 |
 | Claude Code 플러그인 | `claude plugin enable cc-plugin-you-should-know@builtin`, `claude plugin install session-report@claude-plugins-official`·`receipts@claude-plugins-official`. 켜짐 여부(`enabledPlugins`)는 untracked `settings.json` 에 저장돼 clone 으로 오지 않아 머신마다 켠다. 이미 켜졌거나 설치돼 있어도 성공으로 끝나 다시 돌려도 된다. 대화형 세션을 연 적 없는 새 머신은 공식 marketplace 가 미등록이라 먼저 `claude plugin marketplace add anthropics/claude-plugins-official`(목록에 없을 때만). 실패하면 경고만 — you-should-know 는 Claude Code 2.1.287 이상, install 실패는 claude 출력(marketplace·네트워크) 참조. |
 | 셸 env | marker 블록(mac `~/.zshrc`) / User 레지스트리(win): `ANTHROPIC_MODEL`, PATH. `CLAUDE_CODE_EFFORT_LEVEL`은 제거/해제해 `/effort`가 동작하게 함. |
-| settings.json | **재현 안 함** — untracked(2026-09-07~)라 `git clone` 으로 오지 않는다. 기존 머신에서 직접 복사한다(루트 README Install A 의 settings.json 배치 단계 — Windows 5번, macOS 2번). 부트스트랩은 rtk hook 등록만. |
+| settings.json | **파일은 재현 안 함** — untracked(2026-09-07~)라 `git clone` 으로 오지 않는다. 기존 머신에서 직접 복사한다(루트 README Install A 의 settings.json 배치 단계 — Windows 5번, macOS 2번). 부트스트랩이 하는 것은 **승인 규칙 정본 병합**(4단계 `node scripts/sync-permissions.js --keep-allow` — `scripts/permission-rules.json` 의 ask 규칙과 `Bash(rtk …)` 쌍을 더하고 은퇴 규칙을 빼며 다른 키·로컬 규칙은 그대로, 바꾸면 `settings.json.bak-<시각>` 백업. `--keep-allow` 라 도구 이름만 쓴 `allow`(`Bash`·`Edit` 등, 정본의 `forbidAllow`)는 건드리지 않는다 — 그 제거는 머신별 사용자 결정이어서 플래그 없이 직접 돌려 적용한다. 파일이 없으면 `permissions.ask` 만 든 파일을 만든다 — 나머지 키는 여전히 복사해 와야 한다. node 가 없으면 경고 후 계속, `-DryRun`/`--dry-run` 은 `--dry-run` 으로 보이기만)과 rtk hook 등록. |
 | private-terms.txt | **재현 안 함** — 비공개 용어 목록이라 추적하지 않는다. 기존 머신에서 직접 복사한다(루트 README Install D 절). 없으면 `pre-commit-check` 가 note 한 줄 후 비공개 용어 검사를 건너뛴다. |
 | 참조 문서(`docs/`) | **재현 안 함** — 비공개 wiki repo 의 `docs/` 에 있어 공용 wiki clone(루트 README Install E 절)으로 온다. 없으면 skill·agent 의 `~/.claude/wiki/docs/` 참조 Read 가 실패한다. |
 | memory | `--memory-from`/`-MemoryFrom` 으로 기존 머신 경로 줄 때만 복원(아래 한계). |
@@ -97,6 +97,7 @@ agent 정의(`Codex 연결 실패: … agents`)도 같은 규칙이다 — `agen
 각 단계가 "이미 됐는지" 선검사 후 `[SKIP]`. 핵심 guard:
 - **절대경로 체크** — `~/.local/bin/<tool>` 직접 확인(새 셸 PATH 미반영 오탐 회피).
 - **rtk 선택 처리** — standalone `rtk`가 PATH에 있을 때만 `rtk verify`/hook 초기화를 수행하며, 없으면 실패하지 않고 건너뜀.
+- **permissions 병합** — `node scripts/sync-permissions.js --keep-allow` 는 정본 `scripts/permission-rules.json` 에 이미 있는 규칙은 더하지 않고, 은퇴 규칙이 없으면 빼지 않으며, `allow` 는 건드리지 않고, 바뀔 때만 `.bak-<시각>` 을 남긴다 — 두 번째 실행은 변경 0(`--check --keep-allow` exit 0). JSON 이 깨진 settings.json 은 쓰지 않고 exit 2(경고만, 뒤 단계 계속). 테스트 `node scripts/sync-permissions.test.js`.
 - **zshrc marker 블록** — `# >>> claude-bootstrap env >>>` … 사이를 멱등 교체(append 누적 방지).
 - **effort env 해제** — marker 블록에 `unset CLAUDE_CODE_EFFORT_LEVEL`을 넣어 부모 셸의 stale 환경변수 상속을 끊음. Windows는 User/Process 환경변수에서 제거.
 - **Codex link** — skill 은 source 에 `SKILL.md` 가 있을 때, `AGENTS.md` 는 source(`CLAUDE.md`)가 파일일 때(`install-codex-skill.sh --file`), target 이 비어 있으면 생성. 같은 source 를 가리키는 link 는 "already points to source", 실제 파일·directory·다른 target·dangling/unknown link 는 기존 경로를 보존하고 실패한다(위 "Codex 연결 충돌").
