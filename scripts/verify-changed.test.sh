@@ -84,7 +84,7 @@ if [ "$rc" -eq 0 ] || ! printf '%s\n' "$out" | grep -q '^FAIL shellcheck'; then
   echo "FAIL [CI missing tool] rc=$rc (want 1 + FAIL shellcheck): $(printf '%s' "$out" | tail -3)"
   fail=1
 fi
-out=$(CI= PATH="$tmp/bin" "$sh_bin" scripts/verify.sh shell 2>&1); rc=$?
+out=$(CI='' PATH="$tmp/bin" "$sh_bin" scripts/verify.sh shell 2>&1); rc=$?
 if [ "$rc" -ne 0 ] || ! printf '%s\n' "$out" | grep -q '^\[skip\] shellcheck'; then
   echo "FAIL [local missing tool] rc=$rc (want 0 + [skip] shellcheck): $(printf '%s' "$out" | tail -3)"
   fail=1
