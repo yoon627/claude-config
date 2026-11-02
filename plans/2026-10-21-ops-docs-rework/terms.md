@@ -31,8 +31,6 @@ translate-repo 단위는 착수 때 이 표를 읽고 따른다. 새로 정한 �
 | `커밋 단위:` | plan `# Decisions` 의 커밋 단위 선언 라벨(`커밋 단위: 1) <제목> — <경로> 2) …` · `커밋 단위: 1개 — <이유>`) — plan 은 한국어, dlc 가 이 선언의 제목으로 `fixup!` 대조와 compaction 뒤 sha 재발견을 한다 | translate-skill-dlc |
 | `생략:` | 적용되지 않거나 사용자가 건너뛴 단계를 닫는 Task 형식 `- [x] <step> (YYYY-MM-DD) — 생략: <reason>` — plan 파일 표지 | translate-skill-dlc |
 | `코드`/`둘 다` | `[plan 대비]` finding 처분 줄의 "바뀐 쪽" 값(`코드`/`plan`/`둘 다`/`없음`) — plan log(한국어)에 남는 글자 | translate-skill-dlc |
-| `Codex 미가용` | reviewer 가 Codex 병행을 건너뛸 때 출력에 적는 한 줄 `Codex 미가용: <reason>` — `~/.claude/wiki/docs/codex-review.md` 가 정한 출력 글자이고 dlc 가 reviewer 보고에서 이 줄을 찾는다. `<reason>`·`(session cache)` 만 영어 | translate-wiki-docs(codex-review) |
-| codex grep 의 `결론` | `~/.claude/wiki/docs/codex-review.md` §5 결론부 추출 명령 `grep -E '^##? (Critical\|Major\|Minor\|결론)' -A 30` — 명령이라 글자 그대로 | translate-wiki-docs(codex-review) |
 
 ## 용어 (한국어 → 영어)
 | 한국어 | 영어 | 메모 |
@@ -62,6 +60,8 @@ translate-repo 단위는 착수 때 이 표를 읽고 따른다. 새로 정한 �
 | 검토 관점 | Review checklist (절 제목과 Codex 프롬프트 모두) | translate-agent-plan-reviewer — code-reviewer·architecture-reviewer 도 같은 낱말을 쓴다 |
 | Codex 출력 템플릿 필드 실행 여부 / 합의 항목 / Codex 만 잡은 것 / 메인만 잡은 것 | Run: yes \| skipped (reason: ...) / Agreed items / Found only by Codex / Found only by this review | translate-agent-plan-reviewer, 고침 translate-agent-arch-reviewer — "메인만" 은 Codex 와 견준 리뷰어 자신의 검토(`~/.claude/wiki/docs/codex-review.md` "자체 검토")라 "the main agent" 가 아니다. `## Codex 병행` 제목은 원문 |
 | 도메인 특화 프롬프트 / 결론부 추출 패턴 | Domain-specific prompt / Conclusion extraction pattern | translate-agent-plan-reviewer — `scripts/bootstrap/test_sync_codex_agents.py` 의 `REMOVED` 가 한국어 "도메인 특화 프롬프트" 를 찾으므로 마지막 reviewer 를 옮기는 단위가 그 테스트를 함께 고친다 |
+| `Codex 미가용: <사유>` | `Codex unavailable: <reason>` | rules-align(2026-11-02) — reviewer 3종의 skipped 분기가 영어 줄을 내고 dlc 한도 캐시는 두 접두를 모두 받는다(`skills/dlc/SKILL.md` codex phase owner). `~/.claude/wiki/docs/codex-review.md` §1·§7 도 같은 날 영어로. 그전까지 원문 유지 행이었다(translate-wiki-docs) |
+| codex grep 의 `결론` | `Critical\|Major\|Minor\|Nit` · `Strong concerns\|Weak concerns\|Suggestions` | rules-align(2026-11-02) — agent 의 Codex 프롬프트가 제목을 고정하므로 결론부 추출 grep 은 그 제목으로(`agents/code-reviewer.md`·`plan-reviewer.md`, `~/.claude/wiki/docs/codex-review.md` §5). 그전까지 원문 유지 행이었다 |
 | architecture-reviewer 절 제목 책임 경계 / 호출 트리거 / 입력 최소 번들 / 검토 시작 절차 / 비-목표 / 금지 사항 / 심각도 | Responsibility boundaries / Call triggers / Minimum input bundle / Review start procedure / Non-goals / Prohibitions / Severity | translate-agent-arch-reviewer — code-reviewer 에 같은 절이 있으면 같은 말 |
 | 리뷰 출력 절 호출 적정성 / 수집 한계 / 다른 agent 위임 · 출력 값 "없음" | Call appropriateness / Collection limits / Delegated to other agents · "none" | translate-agent-arch-reviewer — agent 출력 값 "없음" 은 plan 표지 `없음` 과 달라 영어로 |
 | wiki 절 제목 신선도 / 대표 질문 / 대상 계층 / 알림 해소 / hook 등록 | Freshness / representative questions / target layer / Clearing the notice / Registering the hook | translate-skill-wiki — `wiki_check.py`·README 의 "SKILL.md 신선도 절" 은 같은 머지에서 "SKILL.md Freshness 절" 로 |
