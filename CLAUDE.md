@@ -158,7 +158,7 @@ The user uses both Claude and Codex, and both share the same `plans/` handoff ch
 
 - **Roles**: Claude creates/updates plans, does the main implementation and integrates; Codex reviews, does supporting implementation and verifies. The final integration responsibility always lies with **the current main agent**.
 - **Invocation**: check the installation with `codex --version`. **Always call codex with the Bash tool** (in PowerShell, stdin never closes and it hangs forever). Invocation conventions, effort and output handling are in `~/.claude/wiki/docs/codex-review.md` (read it before calling codex).
-- **Review matrix**: `plan-reviewer` / `code-reviewer` = **Claude subagent mandatory + Codex in parallel when available**. `researcher` / supporting implementation = optional, when available and worthwhile. The simplify check is done by the main agent directly and is not part of the matrix.
+- **Review matrix**: `plan-reviewer` / `code-reviewer` = **Claude subagent mandatory + Codex in parallel when available** (for plan-reviewer, only for the change types its own definition's call condition names). `researcher` / supporting implementation = optional, when available and worthwhile. The simplify check is done by the main agent directly and is not part of the matrix.
 - **When to review**: dlc's intermediate step (code-reviewer + codex in parallel right after implementation) covers it — there is no separate codex review right before push. If a separate local multi-angle check is needed, use the built-in `/code-review` manually.
 
 ---

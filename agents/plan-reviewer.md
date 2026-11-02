@@ -38,7 +38,7 @@ This agent does not search externally itself. If external facts such as library 
 ## Codex 병행 review (optional)
 > Follow the common invocation convention (preflight / phase owner / sandbox / Windows fallback / output handling / failure fallback / integration / external codex mode — skip the call if the prompt contains the §7 text) in `~/.claude/wiki/docs/codex-review.md` — **Read this absolute path first, before calling codex** (it is not loaded automatically in an isolated context, and a relative path does not resolve from the project cwd). Below are only this agent's own triggers, prompt and extraction pattern.
 
-Global CLAUDE.md §9 — plan-reviewer is a mandatory Claude subagent + Codex in parallel when available.
+Global CLAUDE.md §9 — plan-reviewer is a mandatory Claude subagent + Codex in parallel when available **and the call condition below is met** (the §9 parenthesis points here — Codex is not attached to every plan).
 
 **Call condition**: a large change with public API · DB schema · migration · security · architecture impact + preflight passed. **effort**: usually `medium` (§3 tiering table).
 
