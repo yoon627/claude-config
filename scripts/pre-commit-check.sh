@@ -4,6 +4,8 @@
 # pre-commit scans the staged versions; pre-push scans the lines added by the commits being pushed
 # that the destination refs do not already have, so commits that skipped pre-commit are still checked.
 # plans/ is tracked under approach A (plans-sync), so plan files are scanned for pasted secrets.
+# In ~/.claude (a public repo) every added line of every path is also scanned for the token patterns
+# and for the private terms — see claude_repo below.
 
 set -e
 
@@ -57,7 +59,11 @@ fi
 # directory, which counts as no answer.
 PT_LIST="$HOME/.claude/private-terms.txt"
 claude_repo=no
-if [ -e "$HOME/.claude/.git" ]; then
+if [ "${PRE_COMMIT_CHECK_CLAUDE_REPO:-}" = 1 ]; then
+  # ci-secret-scan.sh names the scope itself: this repo's CI checkout is not under ~/.claude. The
+  # variable only widens the scan.
+  claude_repo=yes
+elif [ -e "$HOME/.claude/.git" ]; then
   if common="$(git rev-parse --git-common-dir 2>/dev/null)" && [ -n "$common" ] &&
     claude_common="$(unset GIT_DIR GIT_COMMON_DIR GIT_WORK_TREE GIT_INDEX_FILE
       cd "$HOME/.claude" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" &&
@@ -94,9 +100,10 @@ patterns=(
 pattern_args=()
 for entry in "${patterns[@]}"; do pattern_args+=(-e "${entry#*|}"); done
 
-# scan_tokens <content> <label> — append token-pattern violations found in content.
+# scan_tokens <content> <label> — append token-pattern violations found in content. The matched
+# text is never printed: hook output ends up in terminals, logs and CI.
 scan_tokens() {
-  local content="$1" label="$2" entry name rx match sample rc=0
+  local content="$1" label="$2" entry name rx rc=0
   [ -z "$content" ] && return 0
   # One grep over every pattern first: a process costs up to a second on Windows. No pattern can
   # match an empty string, so exit 1 here means every per-pattern grep below would print nothing.
@@ -105,11 +112,8 @@ scan_tokens() {
   for entry in "${patterns[@]}"; do
     name="${entry%%|*}"
     rx="${entry#*|}"
-    match="$(printf '%s' "$content" | grep -Eo -e "$rx" | head -n 1 || true)"
-    if [ -n "$match" ]; then
-      sample="$match"
-      [ ${#sample} -gt 30 ] && sample="${sample:0:30}..."
-      violations+=("${label}: token pattern (${name}): ${sample}")
+    if printf '%s' "$content" | grep -Eq -e "$rx"; then
+      violations+=("${label}: token pattern (${name})")
     fi
   done
 }
@@ -278,6 +282,46 @@ pt_patch_records() {
 # path become "?").
 pt_new_paths() { tr '\n\0' '?\n' | awk -v k="$1" 'length { print k "\t\t" $0 }'; }
 
+# tok_patch_records — "path:line<TAB>added line" for each added line of a patch, the line being its
+# number in the new file (from the "@@ -a,b +c,d @@" header, counting only added lines: -U0
+# patches have no context lines). The path is read as in pt_patch_records; git quotes a tab in a
+# path, so the first tab ends the place.
+tok_patch_records() {
+  awk '
+    /^diff --git /{h=1; next}
+    h && /^\+\+\+ /{p = substr($0, 5); sub(/\t$/, "", p); sub(/^"?b\//, "", p); sub(/"$/, "", p); next}
+    /^@@/{h=0; n = $0; sub(/^@@ -[^ ]* \+/, "", n); sub(/[ ,].*$/, "", n); ln = n + 0; next}
+    !h && /^\+/{print p ":" ln "\t" substr($0, 2); ln++}'
+}
+
+# tok_message_records — "sha<TAB>message line" for each message line of pt_scan_pushed's msgs (the
+# "\x01<sha>" marker, two identity lines, then the message).
+tok_message_records() {
+  awk '
+    substr($0, 1, 1) == "\001" { sha = substr($0, 2); id = 2; next }
+    id > 0 { id--; next }
+    { print sha "\t" $0 }'
+}
+
+# tok_scan_records <kind> — the token patterns over "place<TAB>text" records on stdin: one violation
+# per pattern and place, naming the place and never the matched text. Each pattern is anchored
+# after the first tab so the place is not matched; the text may itself hold tabs.
+tok_scan_records() {
+  local kind="$1" recs tab=$'\t' col entry name rx place rc=0
+  recs="$(cat)"
+  [ -z "$recs" ] && return 0
+  printf '%s\n' "$recs" | grep -Eq "${pattern_args[@]}" || rc=$?
+  [ "$rc" -eq 1 ] && return 0
+  col="^[^${tab}]*${tab}.*"
+  for entry in "${patterns[@]}"; do
+    name="${entry%%|*}"
+    rx="${entry#*|}"
+    while IFS= read -r place; do
+      [ -n "$place" ] && violations+=("token pattern (${name}): ${kind} ${place}")
+    done < <(printf '%s\n' "$recs" | grep -E -e "${col}(${rx})" | cut -f1 | awk '!seen[$0]++')
+  done
+}
+
 # pt_record <hits> — turn pt_match output into violations.
 pt_record() {
   local n label
@@ -294,15 +338,17 @@ pt_list_named() { # <path records> <where> — the list itself must never be com
 }
 
 # pre-commit is an early warning: merge, cherry-pick, rebase and commit-check's plumbing never
-# run it. pre-push is the gate.
+# run it. pre-push is the gate. Both ~/.claude scans — the token patterns over every added line
+# and the private terms — read the one staged patch built here.
 pt_scan_staged() {
   local paths patch hits
   set -- -c core.quotePath=false -c diff.renames=true diff --cached -M --no-ext-diff
   if ! paths="$(set -o pipefail; git "$@" --name-only -z --diff-filter=ACR | pt_new_paths P)" ||
     ! patch="$(git "$@" "${git_patch[@]}")"; then
-    pt_violation "pre-commit: git diff failed while checking private terms (fail-closed)"
+    pt_violation "pre-commit: git diff failed while scanning the staged changes (fail-closed)"
     return 0
   fi
+  tok_scan_records staged < <(printf '%s\n' "$patch" | tok_patch_records)
   pt_list_named "$paths" 'staged changes'
   pt_load || return 0
   hits="$( { printf '%s\n' "$paths"; printf '%s\n' "$patch" | pt_patch_records S; } | pt_match)" ||
@@ -313,10 +359,15 @@ pt_scan_staged() {
 # private_rev_input — rev_input minus what origin/main has. The secret scan above trusts only
 # the remote's own shas; this scan also skips the public default branch's history, because
 # anything there is already published and force-push to it is forbidden. A missing or stale
-# origin/main widens the range (a false block — 'git fetch origin' clears it).
+# origin/main widens the range (a false block — 'git fetch origin' clears it). CI is the exception:
+# it checks out the pushed tip under the name origin/main, so excluding it would empty the range
+# of a main push. ci-secret-scan.sh therefore sets PRE_COMMIT_CHECK_KEEP_BASE=1, and then a remote
+# sha, when one resolved, bounds the range alone; without one (a new branch) origin/main is still
+# left out so the whole history is not scanned. A local push never sets the variable.
 private_rev_input() {
   local base
   rev_input
+  if [ "${PRE_COMMIT_CHECK_KEEP_BASE:-}" = 1 ] && [ ${#published[@]} -gt 0 ]; then return 0; fi
   if base="$(git rev-parse --verify --quiet 'refs/remotes/origin/main^{commit}' 2>/dev/null)"; then
     printf '^%s\n' "$base"
   fi
@@ -329,17 +380,20 @@ pt_log() { # <git log args> — over the private push range, revisions on stdin
     "${git_walk[@]}" "$@"
 }
 
-# pt_scan_pushed — ref names (every non-delete line), then the new paths, added lines, messages
-# and author/committer identities of the pushed commits origin/main does not have.
+# pt_scan_pushed — the token patterns over the added lines and commit messages of the pushed
+# commits origin/main does not have, then the private terms over ref names (every non-delete
+# line), new paths, those same added lines, messages and author/committer identities.
 pt_scan_pushed() {
   local paths='' patch='' msgs='' hits
   if [ ${#push_commits[@]} -gt 0 ]; then
     if ! paths="$(set -o pipefail; pt_log -m --name-only -z -M --diff-filter=ACR --no-ext-diff --format= | pt_new_paths p)" ||
       ! patch="$(pt_log -m -p -M "${git_patch[@]}" --format=)" ||
       ! msgs="$(pt_log '--format=%x01%h%n%an%x20<%ae>%n%cn%x20<%ce>%n%B')"; then
-      pt_violation "pre-push: git log failed while checking private terms (fail-closed)"
+      pt_violation "pre-push: git log failed while scanning the pushed commits (fail-closed)"
       return 0
     fi
+    tok_scan_records pushed < <(printf '%s\n' "$patch" | tok_patch_records)
+    tok_scan_records message < <(printf '%s\n' "$msgs" | tok_message_records)
     pt_list_named "$paths" 'pushed commits'
   fi
   pt_load || return 0

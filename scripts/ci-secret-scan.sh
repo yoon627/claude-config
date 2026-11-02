@@ -5,9 +5,16 @@
 # is still caught after the fact. <base> goes to the guard as the destination's remote sha, the
 # only thing it treats as already published; the checkout's tracking refs, which already hold
 # the commits under test, are ignored. An empty or all-zero <base> (a new branch), or one this
-# checkout does not have (a force push replaced it), scans the whole history of <head> — wider,
-# never skipped. A shallow checkout is refused: its cut-off history would scan as if it were the
-# root. Matched values are hidden: CI logs of a public repo are public.
+# checkout does not have (a force push replaced it), scans the whole history of <head> for the
+# plans/settings patterns — wider, never skipped — while the ~/.claude-wide scans below then cover
+# only the commits origin/main does not have (nothing when HEAD is origin/main itself). A shallow
+# checkout is refused: its cut-off history would scan as if it were the root. Matched values are
+# hidden: CI logs of a public repo are public.
+# The guard's ~/.claude-only scans (every added line and commit message for tokens, private terms
+# when a list exists) run here too: this script is that repo's CI backstop and the checkout is not
+# under ~/.claude, so it names the scope itself with PRE_COMMIT_CHECK_CLAUDE_REPO=1. CI checks out
+# the pushed tip under the name origin/main, which those scans leave out, so PRE_COMMIT_CHECK_KEEP_BASE=1
+# makes <base>, when it resolved, bound their range alone. Both variables are for this script only.
 set -euo pipefail
 
 base="${1-}"
@@ -26,15 +33,23 @@ head_sha="$(git rev-parse --verify --quiet "${head_rev}^{commit}")" ||
 base_sha=""
 if [ -n "$base" ] && ! [[ "$base" =~ ^0+$ ]]; then
   base_sha="$(git rev-parse --verify --quiet "${base}^{commit}")" ||
-    echo "ci-secret-scan: base $base is not in this checkout (history rewritten by a force push?) — scanning the whole history" >&2
+    echo "ci-secret-scan: base $base is not in this checkout (history rewritten by a force push?)" >&2
+fi
+if [ -z "$base_sha" ]; then
+  echo "ci-secret-scan: no base in checkout — wide scan covers only commits not on origin/main (plans/settings scan covers the whole history)" >&2
 fi
 
-echo "ci-secret-scan: ${base_sha:-(whole history)}..${head_sha}"
+echo "ci-secret-scan: ${base_sha:-(no base)}..${head_sha}"
 esc=$'\033'
 # refs/heads/ci-scan, not main: the guard also blocks direct pushes to main/master.
 printf 'refs/heads/ci-scan %s refs/heads/ci-scan %s\n' "$head_sha" "${base_sha:-$(printf '%0*d' "$hexsz" 0)}" |
-  bash "$here/pre-commit-check.sh" pre-push 2>&1 |
-  # Pattern names hold no ':' but may hold ')' ("GitHub PAT (fine)"). Hide the rest of the line —
-  # a matched value can contain a tab — and put the colour reset back. The guard's "--no-verify"
-  # hint is about a local hook and means nothing in CI.
-  sed -E -e "s/(token pattern \([^:]*\)): .*/\1: (matched value hidden in CI log)${esc}[0m/" -e '/no-verify/d'
+  PRE_COMMIT_CHECK_CLAUDE_REPO=1 PRE_COMMIT_CHECK_KEEP_BASE=1 bash "$here/pre-commit-check.sh" pre-push 2>&1 |
+  # The guard prints no matched text: "<label>: token pattern (<name>)" for plans/settings, and
+  # "token pattern (<name>): pushed <path>:<line>" or "token pattern (<name>): message <sha>" for
+  # the whole-repo scans. Those two forms pass as they are; anything else after
+  # "token pattern (<name>): " is hidden as a backstop — a matched value can contain a tab, so the
+  # rest of the line goes and the colour reset comes back. Pattern names hold no ':' but may hold
+  # ')' ("GitHub PAT (fine)"). The guard's "--no-verify" hint is about a local hook and means
+  # nothing in CI.
+  sed -E -e "/token pattern \([^:]*\): (pushed [^:]+:[0-9]+|message [0-9a-f]+)${esc}\[0m\$/b" \
+    -e "s/(token pattern \([^:]*\)): .*/\1: (matched value hidden in CI log)${esc}[0m/" -e '/no-verify/d'

@@ -121,7 +121,10 @@ if ($Mode -eq 'pre-push') {
 $claudeDir = Join-Path $HOME '.claude'
 $ptList = Join-Path $claudeDir 'private-terms.txt'
 $claudeRepo = 'no'
-if (Test-Path -LiteralPath (Join-Path $claudeDir '.git')) {
+if ($env:PRE_COMMIT_CHECK_CLAUDE_REPO -eq '1') {
+    # ci-secret-scan.sh names the scope itself (no ~/.claude in this repo's CI checkout); it only widens.
+    $claudeRepo = 'yes'
+} elseif (Test-Path -LiteralPath (Join-Path $claudeDir '.git')) {
     $known = $false
     try {
         $commonArgs = @('rev-parse', '--path-format=absolute', '--git-common-dir')
@@ -175,16 +178,68 @@ $tokenPatterns = @(
     @{ Name = 'Bearer token';      Pattern = '[Bb]earer\s+[A-Za-z0-9._~+/=-]{20,}' },
     @{ Name = 'Quoted secret assignment'; Pattern = '(password|passwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|client[_-]?secret)"?\s*[:=]\s*"[^"]{8,}"' }
 )
+# One regex over every pattern — the equivalent of the sh engine's single prefilter grep.
+$anyToken = [regex]::new((@($tokenPatterns | ForEach-Object { '(?:' + $_.Pattern + ')' }) -join '|'))
+$tokenSeen = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
 
-# Scan-Tokens: append token-pattern violations found in $Content, tagged with $Label.
+# Test-TokenLine: tok_scan_records for one line — one violation per pattern and place ("staged
+# <path>:<line>", "pushed <path>:<line>", "message <sha>"); the matched text is never printed.
+# Matching is case-sensitive like the sh engine's grep.
+function Test-TokenLine([string]$Text, [string]$Place) {
+    if (-not $script:anyToken.IsMatch($Text)) { return }
+    foreach ($p in $script:tokenPatterns) {
+        if ([regex]::IsMatch($Text, $p.Pattern)) {
+            $v = "token pattern ($($p.Name)): $Place"
+            if ($script:tokenSeen.Add($v)) { $script:violations += $v }
+        }
+    }
+}
+
+# Scan-Tokens: append token-pattern violations found in $Content, tagged with $Label. The matched
+# text is never printed: hook output ends up in terminals, logs and CI.
 function Scan-Tokens([string]$Content, [string]$Label) {
     if ([string]::IsNullOrEmpty($Content)) { return }
     foreach ($p in $script:tokenPatterns) {
         if ($Content -match $p.Pattern) {
-            $sample = $Matches[0]
-            if ($sample.Length -gt 30) { $sample = $sample.Substring(0, 30) + '...' }
-            $script:violations += "${Label}: token pattern ($($p.Name)): $sample"
+            $script:violations += "${Label}: token pattern ($($p.Name))"
         }
+    }
+}
+
+# Find-TokenPatterns: tok_patch_records — every added line of $Patch with its number in the new file
+# (from the "@@ -a,b +c,d @@" header; -U0 patches have no context lines) goes to Test-TokenLine.
+function Find-TokenPatterns([string]$Patch, [string]$Kind) {
+    if ([string]::IsNullOrEmpty($Patch)) { return }
+    $header = $false; $path = ''; $ln = 0
+    foreach ($l in $Patch.Split([char]"`n")) {
+        if ($l.StartsWith('diff --git ', [StringComparison]::Ordinal)) { $header = $true; continue }
+        if ($header -and $l.StartsWith('+++ ', [StringComparison]::Ordinal)) {
+            $path = $l.Substring(4)
+            if ($path.EndsWith("`t", [StringComparison]::Ordinal)) { $path = $path.Substring(0, $path.Length - 1) }
+            $path = ($path -creplace '^"?b/', '') -creplace '"$', ''
+            continue
+        }
+        if ($l.StartsWith('@@', [StringComparison]::Ordinal)) {
+            $header = $false
+            $m = [regex]::Match($l, '^@@ -[^ ]* \+(\d+)')
+            $ln = if ($m.Success) { [int]$m.Groups[1].Value } else { 0 }
+            continue
+        }
+        if ($header -or -not $l.StartsWith('+', [StringComparison]::Ordinal)) { continue }
+        Test-TokenLine $l.Substring(1) "$Kind ${path}:$ln"
+        $ln++
+    }
+}
+
+# Find-MessageTokens: tok_message_records — the message lines of pt_scan_pushed's msgs ("\x01<sha>",
+# two identity lines, then the message) go to Test-TokenLine, reported by short sha.
+function Find-MessageTokens([string]$Msgs) {
+    if ([string]::IsNullOrEmpty($Msgs)) { return }
+    $sha = ''; $id = 0
+    foreach ($l in $Msgs.Split([char]"`n")) {
+        if ($l.Length -gt 0 -and [int]$l[0] -eq 1) { $sha = $l.Substring(1); $id = 2; continue }
+        if ($id -gt 0) { $id--; continue }
+        Test-TokenLine $l "message $sha"
     }
 }
 
@@ -401,16 +456,17 @@ function Test-ListNamed([string]$Where) {
     }
 }
 
-# Invoke-PrivateStaged: pt_scan_staged.
+# Invoke-PrivateStaged: pt_scan_staged — the token patterns over every added line, then the private terms.
 function Invoke-PrivateStaged {
     $base = @('-c', 'core.quotePath=false', '-c', 'diff.renames=true', 'diff', '--cached', '-M', '--no-ext-diff')
     $names = Invoke-Git ($base + @('--name-only', '-z', '--diff-filter=ACR'))
     $patch = $null
     if ($names.Code -eq 0) { $patch = Invoke-Git ($base + $script:gitPatch) }
     if ($null -eq $patch -or $patch.Code -ne 0) {
-        Add-PrivateViolation 'pre-commit: git diff failed while checking private terms (fail-closed)'
+        Add-PrivateViolation 'pre-commit: git diff failed while scanning the staged changes (fail-closed)'
         return
     }
+    Find-TokenPatterns $patch.Out 'staged'
     Add-PathRecords $names.Out 'stagedPath'
     Test-ListNamed 'staged changes'
     if (-not (Get-PrivateTerms)) { return }
@@ -418,10 +474,13 @@ function Invoke-PrivateStaged {
     Find-PrivateTerms
 }
 
-# Get-PrivateRevInput: private_rev_input — Get-RevInput minus what origin/main has.
+# Get-PrivateRevInput: private_rev_input — Get-RevInput minus what origin/main has, unless
+# PRE_COMMIT_CHECK_KEEP_BASE=1 (set by ci-secret-scan.sh) and a remote sha bounds the range
+# (pre-commit-check.sh says why).
 function Get-PrivateRevInput {
     $revs = Get-RevInput
     if (-not $revs) { return $null }
+    if ($env:PRE_COMMIT_CHECK_KEEP_BASE -eq '1' -and @($script:published).Count -gt 0) { return $revs }
     $b = Invoke-Git @('rev-parse', '--verify', '--quiet', 'refs/remotes/origin/main^{commit}') -DropStderr
     if ($b.Code -eq 0 -and $b.Out.Trim()) { $revs += "`n^" + $b.Out.Trim() }
     return $revs
@@ -437,7 +496,8 @@ function Invoke-PrivateLog([string[]]$LogArgs) {
     return $r.Out
 }
 
-# Invoke-PrivatePushed: pt_scan_pushed.
+# Invoke-PrivatePushed: pt_scan_pushed — the token patterns over the added lines and commit messages,
+# then the private terms.
 function Invoke-PrivatePushed {
     foreach ($r in $script:ptRefs) { Add-PrivateRecord 'ref' '' $r }
     $patch = ''; $msgs = ''
@@ -447,9 +507,11 @@ function Invoke-PrivatePushed {
         if ($null -ne $names) { $patch = Invoke-PrivateLog (@('-m', '-p', '-M') + $script:gitPatch + @('--format=')) }
         if ($null -ne $patch) { $msgs = Invoke-PrivateLog @('--format=%x01%h%n%an%x20<%ae>%n%cn%x20<%ce>%n%B') }
         if ($null -eq $msgs) {
-            Add-PrivateViolation 'pre-push: git log failed while checking private terms (fail-closed)'
+            Add-PrivateViolation 'pre-push: git log failed while scanning the pushed commits (fail-closed)'
             return
         }
+        Find-TokenPatterns $patch 'pushed'
+        Find-MessageTokens $msgs
         Add-PathRecords $names 'pushedPath'
         Test-ListNamed 'pushed commits'
     }

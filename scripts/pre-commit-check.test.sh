@@ -19,7 +19,7 @@ ZERO=0000000000000000000000000000000000000000
 TOKEN='sk-ant-0123456789abcdefghij0123'
 
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE FAKE_HOME GUARD_ENV
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE FAKE_HOME GUARD_ENV PRE_COMMIT_CHECK_CLAUDE_REPO PRE_COMMIT_CHECK_KEEP_BASE
 
 T="$(mktemp -d)" || exit 1
 trap 'rm -rf "$T"' EXIT
@@ -356,7 +356,7 @@ $(line z "${u1//1/2}")"
 want="  - refs/heads/x: pushed object $u1 is not a resolvable commit
   - pre-push: malformed ref line: refs/heads/y beef refs/heads/y $ZERO
   - refs/heads/z: pushed object ${u1//1/2} is not a resolvable commit
-  - plans/*.md (pushed): token pattern (Anthropic key): ${TOKEN:0:30}..."
+  - plans/*.md (pushed): token pattern (Anthropic key)"
 for e in "${ENGINES[@]}"; do
   out="$(run_guard "$e" pre-push "$mixed")"; rc=$?
   got="$(printf '%s\n' "$out" | sed $'s/\033\\[[0-9;]*m//g' | tr -d '\r' | grep '^  - ')"
@@ -618,6 +618,71 @@ both block '=private term (list line 4) in staged notes/a.md' 'staged binary und
 # longer shows the term it must be hidden for
 newclaude "$LIST"; b=$(commit README.md x); s=$(commit 'notes/얼룩말사.md' 'qqxk')
 both block '=private term (list line 4) in pushed path (hidden)' 'content hit in a path holding a non-ASCII term' pre-push "$(line feat "$s" "$b")"
+
+# --- tokens in every added line, ~/.claude only (the plans/settings scan stays as it was elsewhere) ---
+# The token is assembled at run time so this file never holds a token shape: the same scan runs over
+# this repo's pushes. Reports name the pattern and the place, never the matched text.
+TOK2='sk-ant-''9876543210zyxwvutsrqponmlkji'
+FORBID="$FORBID 9876543210zyxw"
+newrepo; stage README.md "key $TOK2"
+both allow - 'other repo: a token outside plans/settings is out of scope' pre-commit
+newrepo; b=$(commit README.md x); s=$(commit notes/a.md "key $TOK2")
+both allow - 'other repo: a pushed token outside plans/settings is out of scope' pre-push "$(line feat "$s" "$b")"
+newclaude "$LIST"; stage README.md "$(printf 'intro\nkey %s\n' "$TOK2")"
+both block '=token pattern (Anthropic key): staged README.md:2' 'token added to README in ~/.claude' pre-commit
+newclaude "$LIST"; stage skills/x/SKILL.md "$TOK2"
+both block '=token pattern (Anthropic key): staged skills/x/SKILL.md:1' 'token added to a skill file' pre-commit
+newclaude "$LIST"; stage 'docs/노트 a.md' "$TOK2"
+both block '=token pattern (Anthropic key): staged docs/노트 a.md:1' 'token in a file whose path has non-ASCII bytes and a space' pre-commit
+newclaude "$LIST"; stage notes/a.md "$(printf 'one\ntwo\n')"; g commit -q -m a; stage notes/a.md "$(printf 'one\ntwo\nthree\nfour\nk %s\n' "$TOK2")"
+both block '=token pattern (Anthropic key): staged notes/a.md:5' 'line number comes from the hunk header, not the patch' pre-commit
+newclaude "$LIST"; commit notes/a.md "$(printf 'fixture %s\nold\n' "$TOK2")" >/dev/null; stage notes/a.md "$(printf 'fixture %s\nnew\n' "$TOK2")"
+both clean - 'editing another line of a file whose existing line holds a token' pre-commit
+newclaude "$LIST"; mkdir -p "$REPO/bin"; printf 'x\000\n%s\n' "$TOK2" > "$REPO/bin/blob"; g add -f bin/blob
+both block '=token pattern (Anthropic key): staged bin/blob:2' 'token in a staged binary file' pre-commit
+newclaude "$LIST"; stage notes/a.md 'DB: postgres:''//admin:s3cretpw@db.host:5432/app'
+both block '=token pattern (DB URL with credentials): staged notes/a.md:1' 'another pattern outside plans' pre-commit
+newclaude "$LIST"; b=$(commit README.md x); s=$(commit scripts/x.sh "$(printf '#!/bin/sh\nK=%s\n' "$TOK2")")
+both block '=token pattern (Anthropic key): pushed scripts/x.sh:2' 'pushed commit adds a token outside plans' pre-push "$(line feat "$s" "$b")"
+# new-branch push: only commits origin/main does not have are scanned (the private-term range)
+newclaude "$LIST"; old=$(commit notes/a.md "$TOK2"); g update-ref refs/remotes/origin/main "$old"; s=$(commit notes/b.md clean)
+both clean - 'new branch over history origin/main already has (token)' pre-push "$(line feat "$s")"
+g update-ref -d refs/remotes/origin/main
+both block '=token pattern (Anthropic key): pushed notes/a.md:1' 'new branch without origin/main: the token commit is in range' pre-push "$(line feat "$s")"
+# origin/main that is itself the pushed tip: a local push keeps the exclusion, so the range is empty
+# either way. CI checks out the pushed tip under that name, so ci-secret-scan.sh sets
+# PRE_COMMIT_CHECK_KEEP_BASE=1 and a remote sha, when there is one, bounds the range alone.
+newclaude "$LIST"; b=$(commit README.md x); s=$(commit notes/a.md "$TOK2"); g update-ref refs/remotes/origin/main "$s"
+both clean - 'origin/main equals the pushed tip, remote sha given (local push)' pre-push "$(line main "$s" "$b")"
+both clean - 'origin/main equals the pushed tip, new branch' pre-push "$(line feat "$s")"
+GUARD_ENV=PRE_COMMIT_CHECK_KEEP_BASE=1
+both block '=token pattern (Anthropic key): pushed notes/a.md:1' 'PRE_COMMIT_CHECK_KEEP_BASE=1: the remote sha bounds the range although origin/main is the tip (CI)' pre-push "$(line main "$s" "$b")"
+both clean - 'PRE_COMMIT_CHECK_KEEP_BASE=1 without a remote sha still leaves out what origin/main has' pre-push "$(line feat "$s")"
+unset GUARD_ENV
+# the local multi-ref shape `git push origin fresh other`: a new branch at origin/main next to an
+# updated branch — the other line's remote sha must not pull origin/main's history into the scan
+newclaude "$LIST"; old=$(commit notes/a.md "$TOK2"); g update-ref refs/remotes/origin/main "$old"
+g checkout -q -b other; b=$(commit notes/b.md base); s=$(commit notes/c.md clean)
+both clean - 'new branch at origin/main pushed together with an updated branch' pre-push "$(line fresh "$old")
+$(line other "$s" "$b")"
+# commit messages are scanned too (the private-term records already collected); a message with
+# several token lines is reported once per pattern, by short sha only
+newclaude "$LIST"; b=$(commit README.md x); stage notes/a.md clean; g commit -q -m "debug: $TOK2"; s=$(git -C "$REPO" rev-parse HEAD)
+both block "=token pattern (Anthropic key): message $(git -C "$REPO" rev-parse --short HEAD)" 'token in a commit message' pre-push "$(line feat "$s" "$b")"
+newclaude "$LIST"; b=$(commit README.md x); stage notes/a.md clean; g commit -q -m "$(printf 'k1 %s\n\nk2 %s\n' "$TOK2" "$TOK2")"; s=$(git -C "$REPO" rev-parse HEAD)
+for e in "${ENGINES[@]}"; do
+  out="$(run_guard "$e" pre-push "$(line feat "$s" "$b")")"; rc=$?
+  n="$(printf '%s\n' "$out" | grep -c 'token pattern (Anthropic key): message ')"
+  if [ "$n" -eq 1 ]; then verdict "$e" block 'message' 'a message with two token lines is reported once' "$out" "$rc"; else
+    fail=$((fail+1)); printf '✗ [%s] a message with two token lines is reported once (got %s lines, exit=%d)\n' "$e" "$n" "$rc"
+  fi
+done
+# the ~/.claude scope can be named from outside (this repo's CI has no ~/.claude to compare against)
+FAKE_HOME="$(cd "$(mktemp -d "$T/h.XXXXXX")" && pwd -P)"; newrepo; stage README.md "key $TOK2"
+GUARD_ENV=PRE_COMMIT_CHECK_CLAUDE_REPO=1
+both block '=token pattern (Anthropic key): staged README.md:1' 'PRE_COMMIT_CHECK_CLAUDE_REPO=1 widens the scan outside ~/.claude' pre-commit
+unset GUARD_ENV
+FORBID="${FORBID% 9876543210zyxw}"
 unset FAKE_HOME FORBID
 
 # verify.sh shows NOTE lines under the test's ok line and counts SKIP lines as case skips.

@@ -46,6 +46,22 @@ g "$T/src" push -q origin clean
 g "$T/src" switch -q main   # main moves on after the PR branched off, and gains a token of its own
 main_tip="$(commit "$T/src" plans/2026-09-26-z/z-plan.md "main side $TOKEN")"
 g "$T/src" push -q origin main
+# a token outside plans/: this repo's scope scans every added line — the token is assembled at run
+# time so this file never holds a second token shape
+WIDE_TOKEN='sk-ant-''zyxwvutsrqponmlkjihgfedcba9876'
+g "$T/src" switch -q -c wide main
+commit "$T/src" docs/notes.md "see $WIDE_TOKEN" >/dev/null
+g "$T/src" push -q origin wide
+g "$T/src" switch -q main
+# two more direct pushes to main, as CI then sees them: the checkout is at the pushed tip under the
+# name origin/main and the base is the previous tip — one adds a token outside plans/, the next only
+# in its commit message (tokens assembled at run time)
+MAIN_TOKEN='sk-ant-''0123456789zyxwvutsrqponmlkjih'
+main_tip2="$(commit "$T/src" src/config.sh "KEY=$MAIN_TOKEN")"
+g "$T/src" push -q origin main
+mkdir -p "$T/src/src"; printf 'clean\n' > "$T/src/src/notes.md"; g "$T/src" add src/notes.md
+g "$T/src" commit -q -m "debug: $MAIN_TOKEN"; main_tip3="$(g "$T/src" rev-parse HEAD)"
+g "$T/src" push -q origin main
 git clone -q "$T/origin.git" "$T/ci" 2>/dev/null
 g "$T/ci" fetch -q origin '+refs/heads/*:refs/remotes/origin/*'
 
@@ -53,14 +69,26 @@ g "$T/ci" switch -q --detach origin/leak
 check 'token added in base..HEAD is blocked even though origin/leak already has it' 1 'token pattern' scan_in "$T/ci" "$base"
 log_clean() { ! scan_in "$1" "$2" 2>&1 | grep -qE 'sk-ant-|github_pat_|zyxwvutsrq|no-verify'; }
 check 'matched values (a pattern name with parentheses, a tab inside the value) and the --no-verify hint stay out of the CI log' 0 - log_clean "$T/ci" "$base"
+g "$T/ci" switch -q --detach origin/wide
+check 'a token outside plans/ is reported by pattern, path and line (this repo scans every added line)' 1 \
+  'token pattern (Anthropic key): pushed docs/notes.md:1' scan_in "$T/ci" "$main_tip"
+check 'the path:line report passes the CI log mask unmasked and the value stays out' 0 - log_clean "$T/ci" "$main_tip"
+log_clean2() { ! scan_in "$1" "$2" "$3" 2>&1 | grep -qE 'sk-ant-|0123456789zyxw|no-verify'; }
+g "$T/ci" switch -q --detach origin/main
+check 'CI main push: HEAD is origin/main, base is the previous tip — a token outside plans/ is still blocked' 1 \
+  'token pattern (Anthropic key): pushed src/config.sh:1' scan_in "$T/ci" "$main_tip" "$main_tip2"
+check 'CI main push: a token only in the commit message is blocked, reported by short sha' 1 \
+  "token pattern (Anthropic key): message $(g "$T/ci" rev-parse --short "$main_tip3")" scan_in "$T/ci" "$main_tip2" "$main_tip3"
+check 'CI main push: neither report shows the value' 0 - log_clean2 "$T/ci" "$main_tip" "$main_tip3"
+g "$T/ci" switch -q --detach origin/leak
 git clone -q --depth 1 --branch leak "file://$T/origin.git" "$T/shallow" 2>/dev/null
 check 'a shallow checkout is refused rather than scanned from its cut-off' 1 'shallow checkout' scan_in "$T/shallow" "$ZERO"
 
 g "$T/ci" switch -q --detach origin/clean
 check 'clean range passes; a token only before base is not rescanned' 0 - scan_in "$T/ci" "$base"
-check 'all-zero base (new branch) scans the whole history' 1 'whole history&&token pattern' scan_in "$T/ci" "$ZERO"
-check 'empty base scans the whole history' 1 'whole history&&token pattern' scan_in "$T/ci" ''
-check 'a base missing from the checkout (force push) scans the whole history instead of failing' 1 'not in this checkout&&token pattern' \
+check 'all-zero base (new branch) scans the whole history' 1 'no base in checkout&&whole history&&token pattern' scan_in "$T/ci" "$ZERO"
+check 'empty base scans the whole history' 1 'no base in checkout&&whole history&&token pattern' scan_in "$T/ci" ''
+check 'a base missing from the checkout (force push) scans the whole history instead of failing' 1 'not in this checkout&&no base in checkout&&token pattern' \
   scan_in "$T/ci" 1234567890abcdef1234567890abcdef12345678
 
 # a pull_request run checks out a merge of the PR into main; scanning that merge would blame the
