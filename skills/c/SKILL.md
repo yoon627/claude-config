@@ -37,12 +37,12 @@ Read the plan (together with the plan log in the same folder if there is one —
   |---|---|---|
   | Freshness | frontmatter `updated` vs the latest commit date | `updated` is long past |
   | Task paths exist | check that the backtick paths of unchecked Tasks exist | missing/moved files |
-  | Commits reflected | `git log --oneline origin/main..HEAD` | commits not in any checked Task |
+  | Commits reflected | `git log --oneline <default>..HEAD` | commits not in any checked Task |
   | Unreflected changes | `git status --short` | uncommitted changes not in any Task |
-  | Completion | is `git log --oneline origin/main..HEAD` empty / `git branch --merged origin/main` | merged but `status≠done` |
+  | Completion | only when `BR` ≠ `<default>` (on the default branch this check does not apply — nothing is written): is `git log --oneline <default>..HEAD` empty / `git branch --merged <default>` lists `BR` — **and** the own-commits guard (the reflog and PR checks in the bullet below; a fresh worktree with 0 commits is "not started", not merged) | merged but `status≠done` |
   | Plan integrity | `node scripts/plan-lint.js <adopted plan>` (if present) | violations of the §10 format (mandatory frontmatter keys, mandatory sections, Tasks checkboxes and dates) and **broken Acceptance references** |
 
-  - If a check command fails (no origin, etc.), skip only that check and state it in the report. **plan-lint violations are shown and corrected (not a hard stop)** — reflect them in the step 3 correction.
+  - `<default>` = the local default branch (the name from `git symbolic-ref --short refs/remotes/origin/HEAD` with `origin/` removed, else `main`/`master`); if it has no local branch, `origin/<default>` (CLAUDE.md §8(a) — a merge into local main counts too; checking only `origin/<default>` misjudges a non-pushing workflow as unmerged forever). **Own-commits guard** (Completion row): the branch made its own commits — `git reflog show --format=%gs refs/heads/<BR> | grep -qE '^(commit|cherry-pick|revert)'` — or the PR for this head is MERGED, its `headRefOid` is an ancestor of HEAD **and** that `headRefOid` appears in this branch's own reflog (`git reflog show --format=%H refs/heads/<BR> | grep -qx <headRefOid>` — `gh pr view <BR>` returns the newest old MERGED PR when a branch name is reused, so without the reflog check a fresh 0-commit worktree passes). If a check command fails (no origin, etc.), skip only that check and state it in the report. **plan-lint violations are shown and corrected (not a hard stop)** — reflect them in the step 3 correction.
 - **PR review intake** (only when a plan matched, read-only): collect the **human** review points of that branch's PR (summary, conversation, **inline line**) and pass them to the step 3 disposition.
   - Identify the PR: `gh pr list --head <BR> --state all --limit 3 --json number,state,title`.
   - Collect (3 sources, all REST with `--paginate` — the API returns 30 per page, so without `--paginate` the rest are silently dropped; **inline is mandatory, since it is the main form of code comments** — plus one GraphQL call for the resolved state of inline threads):
@@ -58,7 +58,7 @@ Read the plan (together with the plan log in the same folder if there is one —
   - A commit not in any checked Task → check the Task that commit finished (if there is none, add it as a checked Task) + the commit date (do not write the sha). `wip:`·`fixup!` commits are not grounds for checking.
   - Uncommitted changes → reflect the current state.
   - Missing/moved files → update the paths of unchecked Tasks.
-  - A `status` that differs from reality → correct it (merged=done, stuck=blocked + `# Blockers`). (merged=done is **recording an objective fact** — once it is done, it stops at exception 5 below, so it is distinct from the done confirmation of e's step 4 and safe.)
+  - A `status` that differs from reality → correct it (merged=done, stuck=blocked + `# Blockers`). merged=done **only with the own-commits guard of the step 2 Completion check** — the branch made its own commits (a reflog `commit`/`cherry-pick`/`revert` entry) or its PR is MERGED with `headRefOid` an ancestor of HEAD and present in this branch's reflog — and never on the default branch (`BR` = `<default>` → the Completion check does not apply; do not write done — leave `status` as is); a branch without that is "not started", so it stays `in_progress`. (merged=done is **recording an objective fact** — once it is done, it stops at exception 5 below, so it is distinct from the guarded done of e's step 4 and safe.)
   - An unchecked Task that is no longer valid → rewrite it, and put the actual next action at the top of the unchecked items.
   - frontmatter `updated:` to today.
   - A broken `intent:` link → restore it with `git show` from a sibling worktree or the preceding branch per the §10 limits; if that is impossible, remove the link and report.
