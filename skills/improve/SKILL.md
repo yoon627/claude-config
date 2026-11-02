@@ -15,7 +15,7 @@ description: The analysis axis of the dlc self-improvement loop — an orchestra
 - **README ↔ surface drift** → the area of the `dlc-doc-drift` hook (Stop warning during the session). improve **does not re-judge it**; it only **aggregates after the fact** the `doc-drift-*` signals the hook emitted.
 - **Internal integrity of the wiki** (orphans, dead links, contradictions) → the area of `/wiki lint`. improve only checks the index↔pages counts of the shared wiki (`~/.claude/wiki` clone, path override `CLAUDE_IMPROVE_WIKI`) and recommends lint. Check 6 also reports an error if this repo tracks `wiki/` (the shared wiki is a private repo — a CI gate).
 - **Updating the ledger** (recording native-overlap judgments in the wiki) → the area of `/wiki ingest`. improve goes **up to a draft judgment**; the write is done by ingest after approval (§6 boundary).
-- Unique to improve: cross-references between assets (settings↔scripts, MEMORY↔memory, docs↔agents, dead-script candidates) + **combined analysis of signal and failure history and the ranking of improvement candidates** + **re-judging overlap with what was absorbed natively** (§6) — the part no other mechanism does.
+- Unique to improve: cross-references between assets (settings↔scripts, MEMORY↔memory and the global feedback inbox, docs↔agents, dead-script candidates) + **combined analysis of signal and failure history and the ranking of improvement candidates** + **re-judging overlap with what was absorbed natively** (§6) — the part no other mechanism does.
 
 ## Behavior (4 basic steps + 2 `deep` axes + wrap-up)
 
@@ -28,7 +28,7 @@ Run `bash skills/improve/improve.sh` **once** from the repo root (read-only). Ou
 
 ### 2. Comparison with accumulated history
 - Read the tracking table (failure, count, status) of `~/.claude/wiki/pages/decision/workflow-failures.md` — compare it with the signals to find **failures whose count update was missed**.
-- The `MEMORY.md` index (feedback behavior instructions) — whether they were actually applied in recent work, and whether there are dead rules.
+- The global feedback files (`FEEDBACK.md`·`FEEDBACK.local.md`) and the `MEMORY.md` index (feedback behavior instructions) — whether they were actually applied in recent work, whether there are dead rules, and inbox lines waiting for promotion (§12).
 - `# Workflow Findings` and `# Deferred` of the current/recent plan logs (`<slug>-log.md`; the body for an old-format plan) — repeated items that exist only in the plan log (or old plan body) and were not promoted to the wiki.
 
 ### 3. Semantic checks — LLM judgment (what machines cannot catch)
