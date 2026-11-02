@@ -32,7 +32,7 @@ When code/files change and **the session is not in a working worktree** (on main
 |---|---|---|
 | **trivial** | typo·comment·formatting·import·one log line | implementation → verification → commit → Report (review/plan/TDD skipped — CLAUDE.md §7 exception) |
 | **small** | single function/file, <50 lines, single module | Explore → (for a bug, reproduction TDD Red) → implementation → Green → code-reviewer → simplify check → verification → commit → Report |
-| **medium** | multiple functions/1 module, 50~150 lines | small + draft plan → plan-reviewer → simplify check (+re-verification) |
+| **medium** | multiple functions/1 module, 50~150 lines | small + draft plan → plan-reviewer → plan approval (§3-3 — "Plan approval" below) → simplify check (+re-verification) |
 | **structural** | multi-layer·public API·DB·migration·new service·150+ lines | full pipeline (below) |
 
 - Size is a **provisional value** — **re-judge** it after Explore and after the implementation diff. If work that started as small grows into public API·DB·2 layers·150+ lines, promote it and bring back the skipped plan-review/arch.
@@ -102,6 +102,9 @@ Medium or larger work with two or more purposes **makes intermediate commits per
 ## Investigation protocol (debugging·incidents)
 For bugs·incidents, before any guessed fix (making CLAUDE.md §1 root cause·3 Whys concrete): **reproduce** (no "fixed" without a reproduction) → **causal chain** (establish symptom→direct cause→root cause with evidence — if the cause is uncertain, include the evidence that refuted the other candidate causes; no fix that only suppresses the symptom). If possible, a reproduction test first (TDD Red) — green is the acceptance evidence. Elaboration of each step in `~/.claude/wiki/docs/dlc-details.md` §B.
 
+## Plan approval (CLAUDE.md §3-3 · medium or larger)
+§3-3 presents the plan first and proceeds after approval; the pipeline has **one approval point** — medium: after the plan-reviewer findings are applied, structural: after step 7 and before step 8. In an attended session, present the plan and ask with `AskUserQuestion`. **Approval = a direct message from the user in this session that approves this plan, or a handover message as the CLAUDE.md §8 handover exception defines it** — the user's own message in this session that explicitly hands the tasks it names (the active plan's open Tasks when it names none) over to your judgment; a direction approval of something else, the permission mode, an earlier session, or a subagent, hook or Codex message is not approval, and a handover covers only the tasks it names. Record it as a checked Task `plan 승인 (YYYY-MM-DD) — "<short quote>"` (a quote that passes the §11 public check) so that `/c` does not ask again. Only when you cannot ask (an unattended flow) and no such message exists, `- [ ] NEEDS-HUMAN: plan approval — <options>` at the top of the unchecked Tasks and stop (verdict section). A later change of direction re-approves through the self-diagnosis "change of direction" rule below, not through a second fixed approval point. Counting a handover message as approval is this skill's reading of CLAUDE.md §1 ("Direction agreement is separate — §3-3 plan approval ... regardless of risk"), not a rule written there.
+
 ## structural full pipeline (state transitions)
 ```
 0  Setup            git status · size judgment · plan file
@@ -111,7 +114,7 @@ For bugs·incidents, before any guessed fix (making CLAUDE.md §1 root cause·3 
 4  arch planning    [isolated · structural only · codex off · first prompt line `mode: planning`]
 5  plan revision
 6  plan-reviewer    [isolated · codex owner]
-7  apply findings   dispose of the ⚠️ self-flags first, together with the review findings · if the structure changes, rerun 4~6
+7  apply findings   dispose of the ⚠️ self-flags first, together with the review findings · if the structure changes, rerun 4~6 · then the one §3-3 plan approval, before 8 ("Plan approval" section)
 8  TDD Red          confirm the new tests fail for the intended reason · put the identifiers of the tests written into the # Acceptance verification fields
 9  implementation   report `⚠️ (구현)` (steps 8~15, when applicable — self-flag section)
 10 Green            minimal test/build/typecheck → a finished unit gets a unit commit (with 2+ purposes)
