@@ -83,6 +83,12 @@ else
     grep -q "($b.md)" "$MEMDIR/MEMORY.md" || W "memory $b.md 가 MEMORY.md 인덱스에 없음(인덱스 누락)"
   done
 fi
+# 전역 피드백 임시칸(gitignored, 머신별) — 승격(CLAUDE.md §12)을 기다리는 규칙 수.
+inbox="$HOME/.claude/FEEDBACK.local.md"
+if [ -f "$inbox" ]; then
+  n=$(grep -c '^- ' "$inbox")
+  [ "$n" -gt 0 ] && I "FEEDBACK.local.md 승격 대기 규칙 ${n}개 → ~/.claude main 세션에서 /wt 로 FEEDBACK.md 승격(§12)"
+fi
 
 echo "== 3. CLAUDE.md 가 참조한 agent 실존 (단방향 — 추측 참조 방지) =="
 if [ -f CLAUDE.md ]; then
