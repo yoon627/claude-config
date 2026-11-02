@@ -1,17 +1,26 @@
 #!/usr/bin/env node
-// PreToolUse(Bash) guard — 콜론 refspec 원격 삭제(`git push <remote> :<ref>`, rtk 접두 포함)에 ask.
+// PreToolUse(Bash) guard — 원격을 지우거나 덮어쓰는 push 에 ask: 콜론 refspec(`:<ref>`), `--delete`/`-d`,
+// `--force*`(`--force-with-lease`·`--force-if-includes` 포함)/`-f`(`-uf` 처럼 묶인 짧은 플래그 포함),
+// `--mirror`, `--prune`, `+<refspec>`. rtk 접두·`git -C <dir>`·`bash -c "…"`·`env` 등 어느 조각에 있어도 본다.
 //
-// permissions.ask 규칙으로는 표현할 수 없어서 hook 으로 둔다: 규칙 문자열이 `:*` 로 끝나면
-// prefix 규칙이 돼 앞의 `*` 가 풀리지 않고, `:*` 가 중간에 있으면 매 세션 시작마다 안내가 뜬다.
+// permissions.ask 규칙만으로는 부족해서 hook 으로 둔다: `:*` 로 끝나는 규칙은 prefix 규칙이 돼 앞의 `*` 가
+// 풀리지 않고 `:*` 가 중간에 있으면 매 세션 시작마다 안내가 뜨며, 규칙은 `git push …` 로 시작하는 문자열만
+// 보므로 `git -C <dir> push`·`bash -c` 안의 push·`-uf` 같은 묶인 플래그를 못 본다(넓은 glob `git push -*f*`
+// 은 `-u origin feat/x` 까지 묻게 된다). 규칙 정본은 scripts/permission-rules.json(좁은 형태만).
 // 권한 모드와 무관하게 ask — 대체한 ask 규칙이 auto 모드에서도 확인을 띄웠다(CLAUDE.md §8(b)).
 // 셸 문법을 완전히 해석하지 않으므로 애매하면 ask 쪽으로 틀린다(주석·heredoc 본문도 명령으로 본다).
-// stdin JSON 파싱 실패는 fail-open.
+// 명령 문자열을 분석하다 예외가 나면 통과가 아니라 ask. stdin JSON 파싱 실패·command 가 문자열이 아니면 fail-open.
 'use strict';
 
 // git 전역 옵션 중 값을 다음 토큰으로 받는 것 — 그 값을 부속명령으로 오인하지 않게 건너뛴다.
 const OPT_WITH_VALUE = new Set([
   '-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path', '--config-env', '--attr-source',
 ]);
+// push 옵션 중 값을 다음 토큰으로 받는 것 — 그 값(`-o ci.skip`·`--repo -f`)을 플래그나 refspec 으로 보지 않는다.
+const PUSH_OPT_WITH_VALUE = new Set(['-o', '--push-option', '--repo', '--receive-pack', '--exec']);
+// 원격을 지우거나 덮어쓰는 긴 옵션. git 은 모호하지 않은 축약(`--dele`·`--m`·`--pru`)도 받으므로 세 글자
+// 이상의 앞부분이면 같은 것으로 본다 — git 에는 모호한 `--d`·`--fo` 도 ask 쪽으로 틀린다.
+const RISKY_LONG = ['--delete', '--mirror', '--prune', '--force'];
 
 // 셸 단어로 나누고 명령 경계(; & | 개행 괄호 단독 중괄호 $( 백틱)는 null 로 표시한다.
 // 큰따옴표 안의 $( 와 백틱도 실행되므로 경계로 보고, 치환이 끝나면 그 전의 따옴표 상태로
@@ -74,27 +83,82 @@ function tokenize(cmd) {
 
 const isGit = (w) => /^git(\.exe)?$/i.test(w.split(/[\\/]/).pop());
 
+// pushRisk(args) — `push` 뒤 인자에서 원격을 지우거나 덮어쓰는 형태를 찾아 그 이름을 돌려준다(없으면 null).
+// `--` 뒤는 모두 refspec. 긴 옵션은 `=값` 을 떼고 본다. 짧은 플래그는 묶음(`-uf`)을 글자별로 보되
+// `o` 부터는 값이다(`-oci.skip` 은 남은 글자가, `-uo ci.skip` 은 다음 단어가 값).
+function pushRisk(args) {
+  let refsOnly = false;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (!refsOnly && a === '--') { refsOnly = true; continue; }
+    if (!refsOnly && a.startsWith('--')) {
+      const name = a.split('=')[0];
+      if (PUSH_OPT_WITH_VALUE.has(name)) { if (!a.includes('=')) i++; continue; }
+      if (name.startsWith('--force')) return name; // --force, --force-with-lease, --force-if-includes
+      if (name.length >= 3) {
+        const full = RISKY_LONG.find((o) => o.startsWith(name));
+        if (full) return full;
+      }
+      continue;
+    }
+    if (!refsOnly && a.length > 1 && a[0] === '-') {
+      const flags = a.slice(1);
+      for (let k = 0; k < flags.length; k++) {
+        const ch = flags[k];
+        if (ch === 'o') { if (k === flags.length - 1) i++; break; }
+        if (ch === 'd' || ch === 'f') return `-${ch}`;
+      }
+      continue;
+    }
+    if (/^\+?:./.test(a)) return ':ref';
+    if (a.startsWith('+')) return '+refspec';
+  }
+  return null;
+}
+
 // 조각의 어느 위치든 git 이 나오면 검사한다 — do·then·xargs·env·sudo·rtk proxy 같은 앞말을
 // 목록으로 관리하지 않기 위해서다. `-c`(`-lc` 등 결합 포함)·`eval` 뒤의 문자열은 그 자체를 명령으로 다시 본다.
-function segmentDeletes(words) {
+function segmentRisk(words) {
   for (let j = 0; j < words.length; j++) {
-    if ((/^-[A-Za-z]*c$/.test(words[j - 1] || '') || words[j - 1] === 'eval') && isRemoteDelete(words[j])) return true;
+    if (/^-[A-Za-z]*c$/.test(words[j - 1] || '') || words[j - 1] === 'eval') {
+      const r = commandRisk(words[j]);
+      if (r) return r;
+    }
     if (!isGit(words[j])) continue;
     let i = j + 1;
     while (i < words.length && words[i].startsWith('-')) i += OPT_WITH_VALUE.has(words[i]) ? 2 : 1;
-    if (words[i] === 'push' && words.slice(i + 1).some((w) => /^\+?:./.test(w))) return true;
+    if (words[i] === 'push') {
+      const r = pushRisk(words.slice(i + 1));
+      if (r) return r;
+    }
   }
-  return false;
+  return null;
 }
 
-function isRemoteDelete(cmd) {
+function commandRisk(cmd) {
   let seg = [];
   for (const t of [...tokenize(cmd), null]) {
     if (t !== null) { seg.push(t); continue; }
-    if (segmentDeletes(seg)) return true;
+    const r = segmentRisk(seg);
+    if (r) return r;
     seg = [];
   }
-  return false;
+  return null;
+}
+
+function reason(form) {
+  const what = {
+    ':ref': '콜론 refspec(`:<ref>`)으로 원격 브랜치를 삭제하는 push 입니다.',
+    '--delete': '`--delete` 로 원격 브랜치를 삭제하는 push 입니다.',
+    '-d': '`-d`(묶인 플래그 포함)로 원격 브랜치를 삭제하는 push 입니다.',
+    '-f': '`-f`(묶인 플래그 포함)로 원격을 덮어쓰는 force push 입니다.',
+    '--mirror': '`--mirror` 로 원격의 ref 전체를 로컬과 같게 덮어쓰고 지우는 push 입니다.',
+    '--prune': '`--prune` 으로 로컬에 없는 원격 브랜치를 지우는 push 입니다.',
+    '+refspec': '`+<refspec>` 으로 원격을 덮어쓰는 force push 입니다.',
+    unparsed: '명령을 분석하다 오류가 나 push 형태를 판정하지 못했습니다 — 확신이 없으면 ask 로 기웁니다.',
+  };
+  const text = what[form] || `\`${form}\` 로 원격을 덮어쓰는 force push 입니다.`; // --force, --force-with-lease, --force-if-includes
+  return `${text} 원격 브랜치 삭제와 force push 는 항상 확인을 받습니다(CLAUDE.md §8).`;
 }
 
 let raw = '';
@@ -106,15 +170,20 @@ process.stdin.on('end', () => {
   } catch {
     process.exit(0);
   }
-  if (typeof cmd !== 'string' || !isRemoteDelete(cmd)) process.exit(0);
+  if (typeof cmd !== 'string') process.exit(0);
+  let form;
+  try {
+    form = commandRisk(cmd);
+  } catch {
+    form = 'unparsed';
+  }
+  if (!form) process.exit(0);
   process.stdout.write(
     JSON.stringify({
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
         permissionDecision: 'ask',
-        permissionDecisionReason:
-          '콜론 refspec(`:<ref>`)으로 원격 브랜치를 삭제하는 push 입니다. ' +
-          '원격 브랜치 삭제는 항상 확인을 받습니다(CLAUDE.md §8(b)).',
+        permissionDecisionReason: reason(form),
       },
     })
   );

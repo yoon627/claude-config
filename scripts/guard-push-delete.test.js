@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// guard-push-delete.js 회귀 테스트 — 콜론 refspec 원격 삭제만 ask, 나머지는 판정 없이 통과.
+// guard-push-delete.js 회귀 테스트 — 원격을 지우거나 덮어쓰는 push(콜론 refspec·--delete/-d·--force*/-f·
+// 묶인 짧은 플래그·--mirror·--prune·+refspec)는 어느 조각에 있어도 ask, 나머지는 판정 없이 통과.
 'use strict';
 const { execFileSync } = require('child_process');
 const path = require('path');
@@ -63,6 +64,62 @@ const cases = [
   ["git push origin $':f'", 'ask'],
   // 권한 모드와 무관하게 ask — 원래 ask 규칙은 auto 에서도 확인을 띄웠다.
   [['git push origin :feat', 'default'], 'ask'],
+  // 삭제·force·mirror·prune — ask 규칙이 못 보는 조각(`bash -c`·`git -C`·`env`)과 형태(묶인 짧은 플래그)
+  ['bash -c "git push origin --delete feat"', 'ask'],
+  ['git -C /r push -uf origin x', 'ask'],
+  ['env git push -f origin main', 'ask'],
+  ['git push --mirror origin', 'ask'],
+  ['git push --force-with-lease origin feat', 'ask'],
+  ['git push --force-with-lease=feat:abc origin feat', 'ask'],
+  ['git push --force-if-includes origin feat', 'ask'],
+  ['git push --force origin feat', 'ask'],
+  ['git push origin feat --force', 'ask'],
+  ['git push -d origin feat', 'ask'],
+  ['git push origin -d feat', 'ask'],
+  ['git push --delete origin feat', 'ask'],
+  ['git push -fu origin x', 'ask'],
+  ['git push -df origin x', 'ask'],
+  ['git push -nf origin x', 'ask'],
+  ['git push origin --prune', 'ask'],
+  ['git push --prune origin', 'ask'],
+  ['git push origin +feat', 'ask'],
+  ['git push origin -- +feat', 'ask'],
+  ['git push origin -- :feat', 'ask'],
+  ['rtk git push -f origin x', 'ask'],
+  ['eval "git push -f origin x"', 'ask'],
+  ['cd /r && git push origin --delete feat', 'ask'],
+  ['echo "$(git push --prune origin)"', 'ask'],
+  // git 은 모호하지 않은 축약 옵션을 받는다 — 세 글자 이상의 앞부분도 본다(모호한 것은 ask 쪽으로)
+  ['git push --dele origin feat', 'ask'],
+  ['git push --m origin', 'ask'],
+  ['git push --pru origin', 'ask'],
+  ['git push --forc origin feat', 'ask'],
+  ['git push --d origin feat', 'ask'],
+  // 값과 `--` 뒤의 refspec 은 플래그가 아니다 — 이 형태들은 통과
+  ['git push --no-delete origin x', 'allow'],
+  ['git push --porcelain origin x', 'allow'],
+  ['git push --progress origin x', 'allow'],
+  ['git push -o ci.skip origin x', 'allow'],
+  ['git push -oci.skip origin x', 'allow'],
+  ['git push -uo ci.skip origin x', 'allow'],
+  ['git push -o -f origin x', 'allow'],
+  ['git push --push-option=ci.skip origin x', 'allow'],
+  ['git push --push-option ci.skip origin x', 'allow'],
+  ['git push --repo -f origin x', 'allow'],
+  ['git push --receive-pack -d origin x', 'allow'],
+  ['git push --exec=-f origin x', 'allow'],
+  ['git push origin -- -f', 'allow'],
+  ['git push origin -- x:y', 'allow'],
+  ['git push --no-force-with-lease origin x', 'allow'],
+  ['git push -uq origin x', 'allow'],
+  ['git push -4 origin x', 'allow'],
+  ['git push --tags origin', 'allow'],
+  ['git push --all origin', 'allow'],
+  ['git push --dry-run origin x', 'allow'],
+  ['git fetch --prune origin', 'allow'],
+  ['git branch -d feat', 'allow'],
+  ['git branch -f feat main', 'allow'],
+  ['echo "git push -f origin x"', 'allow'],
   ['git push origin feat', 'allow'],
   ['git push origin :', 'allow'], // matching push — 삭제 아님
   ['git push origin HEAD:feat', 'allow'],
