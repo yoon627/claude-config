@@ -132,5 +132,20 @@ case "$out" in
   *) echo "FAIL [slow 실행] 대상이 바뀐 느린 테스트가 그 경로로 돌지 않았다: $out"; fail=1 ;;
 esac
 
+# unittest 의 케이스 skip 은 `OK (skipped=N)` 한 줄뿐이라, verify.sh 가 SKIP 줄로 올려야 마지막 줄이 skip 을 숨기지 않는다.
+if command -v python3 >/dev/null || command -v python >/dev/null; then
+  mkdir -p "$tmp/py/scripts" "$tmp/py/skills/x"
+  cp "$REPO/scripts/verify.sh" "$tmp/py/scripts/verify.sh"
+  printf 'import unittest\n\nclass T(unittest.TestCase):\n    def test_run(self):\n        pass\n\n    @unittest.skip("fixture")\n    def test_skip(self):\n        pass\n\nunittest.main()\n' >"$tmp/py/skills/x/test_skip.py"
+  git init -q "$tmp/py" && git -C "$tmp/py" add -A
+  out=$(cd "$tmp/py" && sh scripts/verify.sh python 2>&1)
+  case "$out" in
+    *'SKIP skills/x/test_skip.py — 1 unittest cases skipped'*'ALL PASS (skip: test_skip.py(case))') ;;
+    *) echo "FAIL [unittest skip] SKIP 줄과 skip 요약이 없다: $(printf '%s' "$out" | tail -4)"; fail=1 ;;
+  esac
+else
+  echo 'SKIP [unittest skip] python3 미설치'
+fi
+
 [ "$fail" -eq 0 ] && echo 'verify-changed: ok'
 exit "$fail"
