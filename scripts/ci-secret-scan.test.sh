@@ -6,8 +6,8 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 SCAN="$DIR/ci-secret-scan.sh"
 T="$(mktemp -d)" || exit 1
 trap 'rm -rf "$T"' EXIT
-TOKEN='sk-ant-0123456789abcdefghij0123'
-PAT='github_pat_ABCDEFGHIJKLMNOPQRSTUV0123'   # pattern name has parentheses: GitHub PAT (fine)
+TOKEN='sk-ant-''0123456789abcdefghij0123'
+PAT='github_pat_''ABCDEFGHIJKLMNOPQRSTUV0123'   # pattern name has parentheses: GitHub PAT (fine)
 BEARER=$'Bearer\tzyxwvutsrqponmlkjihgfedcba98'  # the guard keeps the tab inside the matched value
 ZERO=0000000000000000000000000000000000000000
 pass=0; fail=0

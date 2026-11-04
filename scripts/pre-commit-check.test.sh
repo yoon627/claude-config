@@ -16,7 +16,7 @@ if [ -z "$PWSH" ] && [ -n "${CI:-}" ]; then
   exit 1
 fi
 ZERO=0000000000000000000000000000000000000000
-TOKEN='sk-ant-0123456789abcdefghij0123'
+TOKEN='sk-ant-''0123456789abcdefghij0123'
 
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE FAKE_HOME GUARD_ENV PRE_COMMIT_CHECK_CLAUDE_REPO PRE_COMMIT_CHECK_KEEP_BASE
@@ -142,15 +142,15 @@ both allow - 'clean plan' pre-commit
 newrepo; stage plans/2026-07-05-x/x-plan.md "debug 로그: $TOKEN 붙여넣음"
 both block 'Anthropic key' 'plan with anthropic key' pre-commit
 both block 'git commit --no-verify' 'pre-commit bypass hint names git commit' pre-commit
-newrepo; stage plans/2026-07-05-x/x-plan.md 'DB: postgres://admin:s3cretpw@db.host:5432/app'
+newrepo; stage plans/2026-07-05-x/x-plan.md 'DB: postgres:''//admin:s3cretpw@db.host:5432/app'
 both block 'DB URL with credentials' 'plan with DB URL creds' pre-commit
-newrepo; stage plans/2026-07-05-x/x-plan.md 'curl -H "Authorization: Bearer abcdefghij0123456789xyz"'
+newrepo; stage plans/2026-07-05-x/x-plan.md 'curl -H "Authorization: Bearer ''abcdefghij0123456789xyz"'
 both block 'Bearer token' 'plan with bearer token' pre-commit
-newrepo; stage plans/2026-07-05-x/x-plan.md 'config: "password": "hunter2xyz"'
+newrepo; stage plans/2026-07-05-x/x-plan.md 'config: "pass''word": "hunter2xyz"'
 both block 'Quoted secret assignment' 'plan with quoted secret' pre-commit
 newrepo; stage plans/2026-07-05-x/x-plan.md 'password 규칙과 token 순환에 대한 설명 (프로즈, 값 없음)'
 both allow - 'plan prose mentioning password/token (no value)' pre-commit
-newrepo; stage plans/2026-07-05-x/x-plan.md 'AKIAIOSFODNN7EXAMPLE'; stage README.md 'x'
+newrepo; stage plans/2026-07-05-x/x-plan.md 'AKIA''IOSFODNN7EXAMPLE'; stage README.md 'x'
 both block 'AWS key' 'plan AWS key without settings.json staged' pre-commit
 # an invalid UTF-8 byte on the line must not make the scanner skip it
 newrepo; mkdir -p "$REPO/plans/x"; printf 'leak \377 %s\n' "$TOKEN" > "$REPO/plans/x/x-plan.md"; g add -f plans/x/x-plan.md
