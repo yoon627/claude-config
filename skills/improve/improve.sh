@@ -226,13 +226,41 @@ if [ "$DEEP" = 1 ]; then
   fi
 fi
 
+# 10~12 는 deep 전용이라 13 은 그 뒤에 둔다 — 머리말 번호는 파일 순서로 1..N 이어야 한다(native-overlap-lint.test.js).
+echo "== 13. 승인 규칙 정본 drift (scripts/permission-rules.json ↔ settings.json — 개수만) =="
+if [ ! -f scripts/sync-permissions.js ]; then
+  I "scripts/sync-permissions.js 없음 → skip"
+elif [ ! -f settings.json ]; then
+  I "settings.json 없음 → 승인 규칙 drift 점검 skip"
+else
+  sp_out=$(node scripts/sync-permissions.js --check --settings settings.json 2>&1)
+  sp_rc=$?
+  sp_n() { printf '%s\n' "$sp_out" | sed -n "s/^  $1 (\([0-9][0-9]*\)):\$/\1/p"; }
+  sp_add=$(sp_n '+ ask rules to add'); sp_retire=$(sp_n '- ask rules to retire'); sp_allow=$(sp_n '- allow rules to remove')
+  case "$sp_rc" in
+    0) OK "승인 규칙: ask 가 정본과 같다" ;;
+    1)
+      if [ -n "$sp_add$sp_retire" ]; then
+        W "승인 규칙 drift: ask 추가 ${sp_add:-0}개 · 은퇴 ${sp_retire:-0}개 — node scripts/sync-permissions.js --keep-allow"
+      elif [ -n "$sp_allow" ]; then
+        OK "승인 규칙: ask 가 정본과 같다"
+      else
+        W "sync-permissions --check 가 drift(exit 1)를 알렸지만 개수를 읽지 못함 — 출력 형식을 확인"
+      fi ;;
+    2) W "sync-permissions 실패(exit 2): $(printf '%s\n' "$sp_out" | tail -1)" ;;
+    *) I "sync-permissions 실행 실패(exit $sp_rc, node?) → skip" ;;
+  esac
+  # 도구 이름만 쓴 allow 의 제거는 머신별 결정이라(공용 wiki claude-code-permission-prompt-sources) warn 으로 세지 않는다.
+  [ "$sp_rc" = 1 ] && [ -n "$sp_allow" ] && I "도구 이름만 쓴 allow ${sp_allow}개(정본 forbidAllow) — 제거는 머신별 결정(--keep-allow 없이 적용)"
+fi
+
 echo "== 요약: error=$err warn=$warn (info 는 수동 확인 권고; deep=$DEEP) =="
 
 if [ "$CI" = 1 ]; then
   # CI 러너에는 머신 로컬 자산이 없어 일부 점검이 조용히 skip 된다. 그걸 안 적으면
   # "CI green = 전 점검 통과" 로 오독된다 — 무엇이 안 돌았는지 명시한다.
   ci_skips=""
-  [ -f settings.json ] || ci_skips="$ci_skips 1(settings.json untracked)"
+  [ -f settings.json ] || ci_skips="$ci_skips 1·13(settings.json untracked)"
   [ -n "${MEMDIR:-}" ] || ci_skips="$ci_skips 2(MEMORY 디렉토리 없음)"
   [ -f "${SIGDIR:-}/dlc-signals.jsonl" ] || ci_skips="$ci_skips 7(telemetry 없음)"
   [ -d "$WIKI/pages" ] || ci_skips="$ci_skips 6·9(공용 wiki clone 없음 — 비추적 게이트는 돌았다)"
