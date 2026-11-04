@@ -634,6 +634,14 @@ newclaude "$LIST"; stage skills/x/SKILL.md "$TOK2"
 both block '=token pattern (Anthropic key): staged skills/x/SKILL.md:1' 'token added to a skill file' pre-commit
 newclaude "$LIST"; stage 'docs/노트 a.md' "$TOK2"
 both block '=token pattern (Anthropic key): staged docs/노트 a.md:1' 'token in a file whose path has non-ASCII bytes and a space' pre-commit
+newclaude "$LIST"; stage notes/zebracorp-notes.md "$(printf 'intro\nkey %s\n' "$TOK2")"
+both block '=token pattern (Anthropic key): staged path (hidden):2' 'token in a file whose path holds a private term: the path is hidden' pre-commit
+newclaude "$LIST"; b=$(commit README.md x); s=$(commit notes/qqxk-a.md "$TOK2")
+both block '=token pattern (Anthropic key): pushed path (hidden):1' 'pushed token in a file whose path holds a private term: the path is hidden' pre-push "$(line feat "$s" "$b")"
+newclaude; stage notes/zebracorp-notes.md "$TOK2"
+FORBID_SAVED="$FORBID"; FORBID=''
+both block '=token pattern (Anthropic key): staged notes/zebracorp-notes.md:1' 'no list: nothing to hide, the path is shown' pre-commit
+FORBID="$FORBID_SAVED"
 newclaude "$LIST"; stage notes/a.md "$(printf 'one\ntwo\n')"; g commit -q -m a; stage notes/a.md "$(printf 'one\ntwo\nthree\nfour\nk %s\n' "$TOK2")"
 both block '=token pattern (Anthropic key): staged notes/a.md:5' 'line number comes from the hunk header, not the patch' pre-commit
 newclaude "$LIST"; commit notes/a.md "$(printf 'fixture %s\nold\n' "$TOK2")" >/dev/null; stage notes/a.md "$(printf 'fixture %s\nnew\n' "$TOK2")"
