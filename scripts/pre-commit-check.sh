@@ -303,22 +303,39 @@ tok_message_records() {
     { print sha "\t" $0 }'
 }
 
+# tok_hide_paths — "path:line" places on stdin, the path shown as "path (hidden)" when it holds a
+# list entry anywhere (the rule pt_match applies to paths), so once the list loads a token report
+# never prints a private term. Without a loaded list (none, or an invalid one, which blocks on its
+# own) the places pass through.
+tok_hide_paths() {
+  if [ -z "$pt_terms" ]; then cat; return; fi
+  PT_TERMS="$pt_terms" awk '
+    BEGIN { n = split(ENVIRON["PT_TERMS"], rows, "\n"); for (i = 1; i <= n; i++) { split(rows[i], f, "\t"); term[i] = f[3] } }
+    {
+      p = $0; sub(/:[0-9]+$/, "", p); s = tolower(p)
+      for (i = 1; i <= n; i++) if (index(s, term[i])) { print "path (hidden)" substr($0, length(p) + 1); next }
+      print
+    }'
+}
+
 # tok_scan_records <kind> — the token patterns over "place<TAB>text" records on stdin: one violation
 # per pattern and place, naming the place and never the matched text. Each pattern is anchored
-# after the first tab so the place is not matched; the text may itself hold tabs.
+# after the first tab so the place is not matched; the text may itself hold tabs. A "path:line"
+# place (kinds staged and pushed) goes through tok_hide_paths.
 tok_scan_records() {
-  local kind="$1" recs tab=$'\t' col entry name rx place rc=0
+  local kind="$1" recs tab=$'\t' col entry name rx place rc=0 hide=0
   recs="$(cat)"
   [ -z "$recs" ] && return 0
   printf '%s\n' "$recs" | grep -Eq "${pattern_args[@]}" || rc=$?
   [ "$rc" -eq 1 ] && return 0
   col="^[^${tab}]*${tab}.*"
+  [ "$kind" = message ] || hide=1
   for entry in "${patterns[@]}"; do
     name="${entry%%|*}"
     rx="${entry#*|}"
     while IFS= read -r place; do
       [ -n "$place" ] && violations+=("token pattern (${name}): ${kind} ${place}")
-    done < <(printf '%s\n' "$recs" | grep -E -e "${col}(${rx})" | cut -f1 | awk '!seen[$0]++')
+    done < <(printf '%s\n' "$recs" | grep -E -e "${col}(${rx})" | cut -f1 | { if [ "$hide" = 1 ]; then tok_hide_paths; else cat; fi; } | awk '!seen[$0]++')
   done
 }
 
@@ -341,16 +358,17 @@ pt_list_named() { # <path records> <where> — the list itself must never be com
 # run it. pre-push is the gate. Both ~/.claude scans — the token patterns over every added line
 # and the private terms — read the one staged patch built here.
 pt_scan_staged() {
-  local paths patch hits
+  local paths patch hits listed=0
   set -- -c core.quotePath=false -c diff.renames=true diff --cached -M --no-ext-diff
   if ! paths="$(set -o pipefail; git "$@" --name-only -z --diff-filter=ACR | pt_new_paths P)" ||
     ! patch="$(git "$@" "${git_patch[@]}")"; then
     pt_violation "pre-commit: git diff failed while scanning the staged changes (fail-closed)"
     return 0
   fi
+  pt_load && listed=1
   tok_scan_records staged < <(printf '%s\n' "$patch" | tok_patch_records)
   pt_list_named "$paths" 'staged changes'
-  pt_load || return 0
+  [ "$listed" = 1 ] || return 0
   hits="$( { printf '%s\n' "$paths"; printf '%s\n' "$patch" | pt_patch_records S; } | pt_match)" ||
     { pt_violation "pre-commit: private-term match failed (fail-closed)"; return 0; }
   pt_record "$hits"
@@ -384,7 +402,8 @@ pt_log() { # <git log args> — over the private push range, revisions on stdin
 # commits origin/main does not have, then the private terms over ref names (every non-delete
 # line), new paths, those same added lines, messages and author/committer identities.
 pt_scan_pushed() {
-  local paths='' patch='' msgs='' hits
+  local paths='' patch='' msgs='' hits listed=0
+  pt_load && listed=1
   if [ ${#push_commits[@]} -gt 0 ]; then
     if ! paths="$(set -o pipefail; pt_log -m --name-only -z -M --diff-filter=ACR --no-ext-diff --format= | pt_new_paths p)" ||
       ! patch="$(pt_log -m -p -M "${git_patch[@]}" --format=)" ||
@@ -396,7 +415,7 @@ pt_scan_pushed() {
     tok_scan_records message < <(printf '%s\n' "$msgs" | tok_message_records)
     pt_list_named "$paths" 'pushed commits'
   fi
-  pt_load || return 0
+  [ "$listed" = 1 ] || return 0
   hits="$( {
     [ ${#pt_refs[@]} -gt 0 ] && printf 'R\t\t%s\n' "${pt_refs[@]}"
     printf '%s\n' "$paths"

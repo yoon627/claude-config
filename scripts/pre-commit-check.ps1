@@ -185,6 +185,15 @@ $tokenSeen = New-Object 'System.Collections.Generic.HashSet[string]' ([StringCom
 # Test-TokenLine: tok_scan_records for one line — one violation per pattern and place ("staged
 # <path>:<line>", "pushed <path>:<line>", "message <sha>"); the matched text is never printed.
 # Matching is case-sensitive like the sh engine's grep.
+# Get-TokenPath: tok_hide_paths — "path (hidden)" when $Path holds a loaded list entry anywhere (the
+# rule Find-PrivateTerms applies to paths), so once the list loads a token report never prints a
+# private term (an invalid list blocks on its own and leaves $ptTerms empty).
+function Get-TokenPath([string]$Path) {
+    $lp = $Path.ToLowerInvariant()
+    foreach ($e in $script:ptTerms) { if ($lp.IndexOf($e.Term, [StringComparison]::Ordinal) -ge 0) { return 'path (hidden)' } }
+    return $Path
+}
+
 function Test-TokenLine([string]$Text, [string]$Place) {
     if (-not $script:anyToken.IsMatch($Text)) { return }
     foreach ($p in $script:tokenPatterns) {
@@ -210,13 +219,14 @@ function Scan-Tokens([string]$Content, [string]$Label) {
 # (from the "@@ -a,b +c,d @@" header; -U0 patches have no context lines) goes to Test-TokenLine.
 function Find-TokenPatterns([string]$Patch, [string]$Kind) {
     if ([string]::IsNullOrEmpty($Patch)) { return }
-    $header = $false; $path = ''; $ln = 0
+    $header = $false; $path = ''; $shown = ''; $ln = 0
     foreach ($l in $Patch.Split([char]"`n")) {
         if ($l.StartsWith('diff --git ', [StringComparison]::Ordinal)) { $header = $true; continue }
         if ($header -and $l.StartsWith('+++ ', [StringComparison]::Ordinal)) {
             $path = $l.Substring(4)
             if ($path.EndsWith("`t", [StringComparison]::Ordinal)) { $path = $path.Substring(0, $path.Length - 1) }
             $path = ($path -creplace '^"?b/', '') -creplace '"$', ''
+            $shown = Get-TokenPath $path
             continue
         }
         if ($l.StartsWith('@@', [StringComparison]::Ordinal)) {
@@ -226,7 +236,7 @@ function Find-TokenPatterns([string]$Patch, [string]$Kind) {
             continue
         }
         if ($header -or -not $l.StartsWith('+', [StringComparison]::Ordinal)) { continue }
-        Test-TokenLine $l.Substring(1) "$Kind ${path}:$ln"
+        Test-TokenLine $l.Substring(1) "$Kind ${shown}:$ln"
         $ln++
     }
 }
@@ -313,6 +323,7 @@ function Add-PrivateViolation([string]$Message) { $script:violations += $Message
 $ptKind = New-Object System.Collections.Generic.List[string]
 $ptWhere = New-Object System.Collections.Generic.List[string]
 $ptText = New-Object System.Collections.Generic.List[string]
+$ptTerms = @()
 function Add-PrivateRecord([string]$Kind, [string]$Where, [string]$Text) {
     $script:ptKind.Add($Kind); $script:ptWhere.Add($Where); $script:ptText.Add($Text)
 }
@@ -321,6 +332,7 @@ function Add-PrivateRecord([string]$Kind, [string]$Where, [string]$Text) {
 # is nothing to match. Same rules and blocking states as pt_load. Terms are lowered with
 # ToLowerInvariant, so unlike the sh engine non-ASCII letters also match case-insensitively.
 function Get-PrivateTerms {
+    $script:ptTerms = @()
     $path = $script:ptList
     $isLink = $false
     try {
@@ -466,10 +478,11 @@ function Invoke-PrivateStaged {
         Add-PrivateViolation 'pre-commit: git diff failed while scanning the staged changes (fail-closed)'
         return
     }
+    $listed = Get-PrivateTerms
     Find-TokenPatterns $patch.Out 'staged'
     Add-PathRecords $names.Out 'stagedPath'
     Test-ListNamed 'staged changes'
-    if (-not (Get-PrivateTerms)) { return }
+    if (-not $listed) { return }
     Add-PatchRecords $patch.Out 'staged'
     Find-PrivateTerms
 }
@@ -500,6 +513,7 @@ function Invoke-PrivateLog([string[]]$LogArgs) {
 # then the private terms.
 function Invoke-PrivatePushed {
     foreach ($r in $script:ptRefs) { Add-PrivateRecord 'ref' '' $r }
+    $listed = Get-PrivateTerms
     $patch = ''; $msgs = ''
     if ($script:pushCommits.Count -gt 0) {
         $names = Invoke-PrivateLog @('-m', '--name-only', '-z', '-M', '--diff-filter=ACR', '--no-ext-diff', '--format=')
@@ -515,7 +529,7 @@ function Invoke-PrivatePushed {
         Add-PathRecords $names 'pushedPath'
         Test-ListNamed 'pushed commits'
     }
-    if (-not (Get-PrivateTerms)) { return }
+    if (-not $listed) { return }
     Add-PatchRecords $patch 'pushed'
     Add-MessageRecords $msgs
     Find-PrivateTerms
