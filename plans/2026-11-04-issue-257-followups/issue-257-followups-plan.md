@@ -1,6 +1,6 @@
 ---
 title: issue-257-followups — #257 의 스크립트 항목 4개(drift 점검·fixture 토큰·경로 숨김·skip 노출 테스트)
-status: in_progress
+status: done
 started: 2026-11-04
 updated: 2026-11-05
 ---
@@ -21,7 +21,7 @@ updated: 2026-11-05
 - [x] 5) skip 노출 테스트 — `scripts/verify-changed.test.sh` 에 skip 하는 python fixture 케이스 (2026-11-04) — 변환 줄 삭제 시 Red, 복원 시 Green
 - [x] 1) drift 점검 — `skills/improve/improve.sh` 새 점검 13(`sync-permissions.js --check --keep-allow` → ask drift 는 warn, bare allow 제거 대기는 info, 개수만) · `skills/improve/improve.test.sh` · `skills/improve/SKILL.md` · `README.md` (2026-11-04) — Red 4건 → Green
 - [x] code-reviewer → simplify 점검 → `bash scripts/verify.sh changed` (2026-11-05) — 1차 REQUEST CHANGES(점검 번호 계약 등 4건) → fix → 재리뷰 APPROVE · `ALL PASS (skip: pre-commit-check.test.sh(case) install-codex-skill.test.ps1 zsh)` — ps1 케이스는 CI
-- [ ] PR → CI(ps1 축 포함) 녹색 → 머지(`/e merge`)
+- [x] PR → CI(ps1 축 포함) 녹색 → 머지(`/e merge`) (2026-11-05) — PR #258
 
 # Acceptance
 1. fixture 에 토큰 모양 리터럴이 없다 — 스캐너 패턴 14개로 tracked 파일 전수 훑기(`skills/jira-task/` 제외) — 0줄, 그리고 `pre-commit-check.test.sh`·`ci-secret-scan.test.sh` 가 통과
