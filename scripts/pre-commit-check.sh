@@ -182,8 +182,9 @@ pt_violation() { violations+=("$1"); pt_hit=$((pt_hit + 1)); }
 # pt_load — parse the list into "line<TAB>=|*<TAB>lowercased term" rows in pt_terms; returns 1
 # when there is nothing to match. One entry per line (BOM, CR and surrounding blanks stripped,
 # blank and "#" lines skipped); a leading "*" makes it a substring entry. A list that exists but
-# cannot be read, or has an entry under 3 bytes or with a control character, blocks: skipping
-# it would let every term through.
+# cannot be read, or has an entry under 3 bytes, with a control character or that is not valid
+# UTF-8, blocks: skipping it would let every term through. NUL becomes \001 before awk, which some
+# awks would end the line at, so it is caught as a control character as ps1 does.
 pt_load() {
   local rows bad n
   pt_terms=''
@@ -191,7 +192,28 @@ pt_load() {
     printf '\033[90mnote: private-terms list not found (%s); private-term check skipped\033[0m\n' "$PT_LIST" >&2
     return 1
   fi
-  if ! [ -f "$PT_LIST" ] || ! [ -r "$PT_LIST" ] || ! rows="$(awk '
+  if ! [ -f "$PT_LIST" ] || ! [ -r "$PT_LIST" ] || ! rows="$(set -o pipefail; tr '\000' '\001' <"$PT_LIST" | awk '
+    # bad8 — 1 when s is not valid UTF-8 (overlong forms, surrogates and code points past U+10FFFF
+    # included), the rule the strict .NET decoder of the ps1 engine applies.
+    function bad8(s,   i, j, n, c, k, lo, hi) {
+      n = length(s)
+      for (i = 1; i <= n; i++) {
+        c = ord[substr(s, i, 1)]
+        if (c < 128) continue
+        if (c >= 194 && c <= 223) k = 1
+        else if (c >= 224 && c <= 239) k = 2
+        else if (c >= 240 && c <= 244) k = 3
+        else return 1
+        lo = 128; hi = 191
+        if (c == 224) lo = 160; else if (c == 237) hi = 159; else if (c == 240) lo = 144; else if (c == 244) hi = 143
+        if (i + k > n) return 1
+        c = ord[substr(s, i + 1, 1)]; if (c < lo || c > hi) return 1
+        for (j = 2; j <= k; j++) { c = ord[substr(s, i + j, 1)]; if (c < 128 || c > 191) return 1 }
+        i += k
+      }
+      return 0
+    }
+    BEGIN { for (c = 1; c < 256; c++) ord[sprintf("%c", c)] = c }
     NR == 1 && substr($0, 1, 3) == "\357\273\277" { $0 = substr($0, 4) }
     {
       gsub(/^[ \t\r]+|[ \t\r]+$/, "")
@@ -199,16 +221,16 @@ pt_load() {
       any = substr($0, 1, 1) == "*"
       t = $0
       if (any) { t = substr(t, 2); gsub(/^[ \t]+/, "", t) }
-      if (length(t) < 3 || t ~ /[[:cntrl:]]/) print "E\t" NR
+      if (length(t) < 3 || t ~ /[[:cntrl:]]/ || bad8(t)) print "E\t" NR
       else print NR "\t" (any ? "*" : "=") "\t" tolower(t)
-    }' "$PT_LIST")"; then
+    }')"; then
     pt_violation "private-terms list unreadable: $PT_LIST"
     return 1
   fi
   bad="$(printf '%s\n' "$rows" | awk -F '\t' '$1 == "E" { print $2 }')"
   if [ -n "$bad" ]; then
     for n in $bad; do
-      pt_violation "private-terms.txt line $n: invalid entry (under 3 bytes or has a control character)"
+      pt_violation "private-terms.txt line $n: invalid entry (under 3 bytes, a control character or invalid UTF-8)"
     done
     return 1
   fi

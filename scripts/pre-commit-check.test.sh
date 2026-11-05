@@ -514,13 +514,31 @@ both block 'private-terms list unreadable' 'list is a directory' pre-commit
 newclaude; ln -s "$T/nowhere" "$REPO/private-terms.txt" 2>/dev/null; stage notes/a.md clean
 [ -L "$REPO/private-terms.txt" ] && both block 'private-terms list unreadable' 'list is a dangling link' pre-commit
 newclaude 'ok-term\nab\n*xy\n'; stage notes/a.md clean
-both block '=private-terms.txt line 2: invalid entry (under 3 bytes or has a control character)' 'two-byte entry' pre-commit
+both block '=private-terms.txt line 2: invalid entry (under 3 bytes, a control character or invalid UTF-8)' 'two-byte entry' pre-commit
 FORBID="$FORBID generic"
 both block 'needs fixing by hand (do not open or rewrite the list with tools)' 'a list error points at the list, not at rephrasing' pre-commit
 FORBID="${FORBID% generic}"
-both block '=private-terms.txt line 3: invalid entry (under 3 bytes or has a control character)' 'substring entry of two bytes after the star' pre-commit
+both block '=private-terms.txt line 3: invalid entry (under 3 bytes, a control character or invalid UTF-8)' 'substring entry of two bytes after the star' pre-commit
 newclaude 'tab\there\n'; stage notes/a.md clean
-both block '=private-terms.txt line 1: invalid entry (under 3 bytes or has a control character)' 'entry with a tab' pre-commit
+both block '=private-terms.txt line 1: invalid entry (under 3 bytes, a control character or invalid UTF-8)' 'entry with a tab' pre-commit
+# invalid UTF-8 and NUL: both engines block the entry instead of reading it differently (sh bytes,
+# ps1 U+FFFD); a comment line is skipped before the check
+newclaude 'zebracorp\n\0377\0376abc\n'; stage notes/a.md clean
+both block '=private-terms.txt line 2: invalid entry (under 3 bytes, a control character or invalid UTF-8)' 'entry with invalid UTF-8 bytes' pre-commit
+newclaude 'abc\0000def\n'; stage notes/a.md clean
+both block '=private-terms.txt line 1: invalid entry (under 3 bytes, a control character or invalid UTF-8)' 'entry with a NUL byte' pre-commit
+newclaude '\0355\0240\0200abc\n'; stage notes/a.md clean
+both block '=private-terms.txt line 1: invalid entry (under 3 bytes, a control character or invalid UTF-8)' 'entry with an encoded surrogate (not UTF-8)' pre-commit
+newclaude '# note \0377\nzebracorp\n'; stage notes/a.md 'zebracorp'
+both block '=private term (list line 2) in staged notes/a.md' 'comment line with invalid bytes is skipped' pre-commit
+newclaude 'zebracorp\nabc\0343'; stage notes/a.md clean
+both block '=private-terms.txt line 2: invalid entry (under 3 bytes, a control character or invalid UTF-8)' 'truncated sequence on a last line without a newline' pre-commit
+newclaude '\0300\0257abc\n'; stage notes/a.md clean
+both block '=private-terms.txt line 1: invalid entry (under 3 bytes, a control character or invalid UTF-8)' 'overlong form' pre-commit
+newclaude 'zebracorp\n\0364\0220\0200\0200abc\n'; stage notes/a.md clean
+both block '=private-terms.txt line 2: invalid entry (under 3 bytes, a control character or invalid UTF-8)' 'code point past U+10FFFF' pre-commit
+newclaude 'zebracorp\n\0360\0237\0230\0200abc\n'; stage notes/a.md "$(printf 'see \360\237\230\200abc now')"
+both block '=private term (list line 2) in staged notes/a.md' 'valid four-byte entry still matches' pre-commit
 newclaude; stage docs/private-terms.txt 'anything'
 both block '=a file named private-terms.txt is in the staged changes - the list must stay untracked' 'staging a file named like the list, no list present' pre-commit
 FORBID="$FORBID reported"
