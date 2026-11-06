@@ -1,8 +1,8 @@
 ---
 title: ps1-utf8-terms — 비공개 용어 목록의 잘못된 UTF-8·NUL 을 두 엔진에서 같이 막기 (#214 7)
-status: in_progress
+status: done
 started: 2026-11-05
-updated: 2026-11-05
+updated: 2026-11-06
 ---
 
 # Goal
@@ -21,7 +21,7 @@ updated: 2026-11-05
 - [x] ps1 — `scripts/pre-commit-check.ps1` `Get-PrivateTerms`: 줄마다 엄격한 UTF8Encoding 으로 다시 디코드 (2026-11-05) — 미실행(CI)
 - [x] README — 항목 규칙과 한계 문구 (2026-11-05)
 - [x] code-reviewer → `bash scripts/verify.sh changed` (2026-11-05) — APPROVE(Minor·Nit 각 1 → fix, 경계 테스트 4건 추가) · `ALL PASS (skip: pre-commit-check.test.sh(case) install-codex-skill.test.ps1 zsh)` — ps1 케이스는 CI
-- [ ] PR → CI(ps1) 녹색 → 머지
+- [x] PR → CI(ps1) 녹색 → 머지 (2026-11-06) — PR #259
 
 # Acceptance
 1. 잘못된 UTF-8·NUL·surrogate 항목은 두 엔진 모두 `invalid entry (…invalid UTF-8)` 로 막는다 — `pre-commit-check.test.sh` 새 케이스 — sh 통과, CI 에서 ps1 통과(`NOTE [ps1] ran`)
