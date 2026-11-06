@@ -348,6 +348,15 @@ function Get-PrivateTerms {
     if ($null -eq $bytes) { Add-PrivateViolation "private-terms list unreadable: $path"; return $false }
     $text = (New-Object System.Text.UTF8Encoding($false)).GetString($bytes)
     if ($text.Length -gt 0 -and [int]$text[0] -eq 0xFEFF) { $text = $text.Substring(1) }
+    # Byte ranges of the physical lines: "\n" never occurs inside a UTF-8 sequence and the lenient
+    # decoder above never produces one from invalid bytes, so line i of $text is range i here.
+    # Each physical line of an entry is re-decoded strictly so invalid UTF-8 blocks as it does in the
+    # sh engine, which checks the stripped entry: what is stripped (blanks, CR, "*", the BOM) is ASCII
+    # or the BOM, so it never changes whether the line is valid.
+    $strict = New-Object System.Text.UTF8Encoding($false, $true)
+    $starts = New-Object System.Collections.Generic.List[int]
+    $starts.Add(0)
+    for ($k = 0; $k -lt $bytes.Length; $k++) { if ($bytes[$k] -eq 10) { $starts.Add($k + 1) } }
     $terms = New-Object System.Collections.Generic.List[object]
     $bad = @()
     $lines = $text.Split([char]"`n")
@@ -356,11 +365,14 @@ function Get-PrivateTerms {
         if ($t -eq '' -or $t.StartsWith('#', [StringComparison]::Ordinal)) { continue }
         $any = $t.StartsWith('*', [StringComparison]::Ordinal)
         if ($any) { $t = $t.Substring(1).TrimStart([char[]]@(' ', "`t")) }
-        if ([Text.Encoding]::UTF8.GetByteCount($t) -lt 3 -or $t -match '[\x00-\x1F\x7F]') { $bad += $i + 1 }
+        $end = if ($i + 1 -lt $starts.Count) { $starts[$i + 1] - 1 } else { $bytes.Length }
+        $valid = $true
+        try { [void]$strict.GetString($bytes, $starts[$i], $end - $starts[$i]) } catch { $valid = $false }
+        if (-not $valid -or [Text.Encoding]::UTF8.GetByteCount($t) -lt 3 -or $t -match '[\x00-\x1F\x7F]') { $bad += $i + 1 }
         else { $terms.Add(@{ Line = $i + 1; Any = $any; Term = $t.ToLowerInvariant() }) }
     }
     if ($bad.Count -gt 0) {
-        foreach ($n in $bad) { Add-PrivateViolation "private-terms.txt line ${n}: invalid entry (under 3 bytes or has a control character)" }
+        foreach ($n in $bad) { Add-PrivateViolation "private-terms.txt line ${n}: invalid entry (under 3 bytes, a control character or invalid UTF-8)" }
         return $false
     }
     $script:ptTerms = $terms
