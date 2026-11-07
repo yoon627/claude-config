@@ -1,5 +1,5 @@
 {
-  "$comment": "Canonical permission rules for the untracked per-machine ~/.claude/settings.json (README 'settings.json' > permissions.ask). node scripts/sync-permissions.js merges them: every `ask` rule and its Bash(rtk ...) twin is added (the rtk hook rewrites git/gh commands and rules are matched against the rewritten command), `retireAsk` rules and their twins are removed, `forbidAllow` rules are removed from `allow`; other keys and local rules stay. Write rules in their base form only (no rtk prefix) and keep them narrow: combined short flags such as -uf, `git -C <dir> push` and `bash -c` strings are checked by scripts/guard-push-delete.js. Never write `:*` here — it is prefix-rule syntax (README guard-push-delete.js).",
+  "$comment": "Canonical permission rules for the untracked per-machine ~/.claude/settings.json (README 'settings.json' > permissions.ask). node scripts/sync-permissions.js merges them: every `ask` rule and its Bash(rtk ...) twin is added (the rtk hook rewrites git/gh commands and rules are matched against the rewritten command), `retireAsk` rules and their twins are removed, `forbidAllow` rules are removed from `allow`; other keys and local rules stay. Write rules in their base form only (no rtk prefix) and keep them narrow: combined short flags such as -uf, `git -C <dir> push` and `bash -c` strings are checked by scripts/guard-push-delete.js. Never write `:*` here — it is prefix-rule syntax (README guard-push-delete.js). `hookOptions` sets onFailure/timeout on the named PreToolUse guard hooks (handler matched by the script's file name in `command` or exec-form `args`); onFailure needs Claude Code 2.1.295+, so sync skips these when the installed version is older or unknown. Registering a missing hook stays the README install step; retire an option by setting it to \"continue\", not by deleting the entry.",
   "ask": [
     "Bash(git push)",
     "Bash(git push * main)",
@@ -87,5 +87,19 @@
     "Edit",
     "Write",
     "NotebookEdit"
+  ],
+  "hookOptions": [
+    {
+      "event": "PreToolUse",
+      "script": "guard-push-delete.js",
+      "onFailure": "block",
+      "timeout": 10
+    },
+    {
+      "event": "PreToolUse",
+      "script": "guard-worktree-edit.js",
+      "onFailure": "block",
+      "timeout": 10
+    }
   ]
 }
