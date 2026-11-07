@@ -57,17 +57,31 @@ has '임시칸 규칙 수를 보고' "[info] FEEDBACK.local.md 승격 대기 규
 if [ "$fail" -ne 0 ]; then printf -- '--- 점검 2 출력 ---\n%s\n' "$out"; exit 1; fi
 # 점검 13 — 승인 규칙 정본(scripts/permission-rules.json)과 머신 settings.json 의 drift. 개수만, 규칙 원문은 찍지 않는다.
 cp "$here/../../scripts/sync-permissions.js" "$root/scripts/sync-permissions.js"
-printf '{"ask":["Bash(git push --force*)"],"retireAsk":["Bash(git push * :*)"],"forbidAllow":["Bash"]}\n' >"$root/scripts/permission-rules.json"
+printf '{"ask":["Bash(git push --force*)"],"retireAsk":["Bash(git push * :*)"],"forbidAllow":["Bash"],"hookOptions":[{"event":"PreToolUse","script":"guard-push-delete.js","onFailure":"block","timeout":10}]}\n' >"$root/scripts/permission-rules.json"
+export SYNC_PERMISSIONS_CLAUDE_VERSION=2.1.318
+GUARD='{"type":"command","command":"node ~/.claude/scripts/guard-push-delete.js"'
 sec13() { bash "$root/skills/improve/improve.sh" 2>&1 | sed -n '/^== 13\./,/^== /p'; }
 printf '{"hooks":{}}\n' >"$root/settings.json"
 out=$(sec13)
-has 'drift 면 ask 추가 수를 warn' "[warn] 승인 규칙 drift: ask 추가 2개 · 은퇴 0개 — node scripts/sync-permissions.js --keep-allow"
+has 'drift 면 ask 추가 수를 warn' "[warn] 승인 규칙 drift: ask 추가 2개 · 은퇴 0개 · hook 옵션 0개 — node scripts/sync-permissions.js --keep-allow"
 lacks '규칙 원문은 찍지 않는다' "git push --force"
-printf '{"hooks":{},"permissions":{"ask":["Bash(git push --force*)","Bash(rtk git push --force*)"],"allow":["Bash"]}}\n' >"$root/settings.json"
+has '가드 hook 미등록은 warn' "[warn] 가드 hook 미등록: guard-push-delete.js — settings.json hooks 에 등록"
+printf '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[%s,"onFailure":"block","timeout":10}]}]},"permissions":{"ask":["Bash(git push --force*)","Bash(rtk git push --force*)"],"allow":["Bash"]}}\n' "$GUARD" >"$root/settings.json"
 out=$(sec13)
 has 'ask 가 같으면 ok' "[ok] 승인 규칙: ask 가 정본과 같다"
 has '도구 이름만 쓴 allow 는 info' "[info] 도구 이름만 쓴 allow 1개(정본 forbidAllow) — 제거는 머신별 결정"
 lacks 'bare allow 만으로는 warn 아님' "[warn] 승인 규칙"
+lacks '등록된 가드는 미등록 warn 없음' "가드 hook 미등록"
+printf '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[%s}]}]},"permissions":{"ask":["Bash(git push --force*)","Bash(rtk git push --force*)"],"allow":["Bash"]}}\n' "$GUARD" >"$root/settings.json"
+out=$(sec13)
+has 'hook 옵션 drift 는 bare allow 와 함께여도 warn' "[warn] 승인 규칙 drift: ask 추가 0개 · 은퇴 0개 · hook 옵션 2개"
+lacks 'hook drift 를 ok 로 숨기지 않는다' "[ok] 승인 규칙"
+printf '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"[ -r x ] && node ~/.claude/scripts/guard-push-delete.js; true"}]}]},"permissions":{"ask":["Bash(git push --force*)","Bash(rtk git push --force*)"]}}\n' >"$root/settings.json"
+out=$(sec13)
+has 'wrapper 명령은 warn' "[warn] 가드 hook 이 셸로 이어진 명령이라 onFailure 를 넣지 않음(손으로 설정): PreToolUse guard-push-delete.js"
+out=$(SYNC_PERMISSIONS_CLAUDE_VERSION=2.1.200 sec13)
+has '옛 버전이면 hook 옵션 건너뜀 info' "[info] hook 옵션 건너뜀: Claude Code 2.1.200 is older than 2.1.295"
+has '옛 버전이면 ask 는 그대로 판정' "[ok] 승인 규칙: ask 가 정본과 같다"
 rm "$root/settings.json"
 out=$(sec13)
 has 'settings.json 이 없으면 skip' "[info] settings.json 없음 → 승인 규칙 drift 점검 skip"

@@ -14,6 +14,8 @@ const RULES = path.join(__dirname, 'permission-rules.json');
 const { rtkTwin } = require(SYNC);
 const canonical = JSON.parse(fs.readFileSync(RULES, 'utf8'));
 
+// Hook options are gated on the installed Claude Code version; the children read this instead of `claude --version`.
+process.env.SYNC_PERMISSIONS_CLAUDE_VERSION = '2.1.318';
 const T = fs.mkdtempSync(path.join(os.tmpdir(), 'sync-perm-'));
 process.on('exit', () => fs.rmSync(T, { recursive: true, force: true }));
 
@@ -40,10 +42,15 @@ const backups = (f) => fs.readdirSync(path.dirname(f)).filter((x) => x.startsWit
 const sync = (fx, ...extra) => run(['--settings', fx.settings, '--rules', fx.rules, ...extra]);
 
 // A small rules file keeps the behaviour cases independent of the canonical content.
+const GUARDS = [
+  { event: 'PreToolUse', script: 'guard-push-delete.js', onFailure: 'block', timeout: 10 },
+  { event: 'PreToolUse', script: 'guard-worktree-edit.js', onFailure: 'block', timeout: 10 },
+];
 const SMALL = {
   ask: ['Bash(git push --force*)', 'Bash(gh repo delete*)'],
   retireAsk: ['Bash(git push * :*)'],
   forbidAllow: ['Bash', 'Edit'],
+  hookOptions: GUARDS,
 };
 const SMALL_ASK = ['Bash(git push --force*)', 'Bash(rtk git push --force*)', 'Bash(gh repo delete*)', 'Bash(rtk gh repo delete*)'];
 
@@ -77,6 +84,9 @@ check('canonical: the audit forms are present, the old colon rule is retired, ba
   assert.ok(canonical.retireAsk.includes('Bash(git push * :*)'));
   for (const r of ['Bash', 'Bash(*)', 'Edit', 'Write', 'NotebookEdit']) assert.ok(canonical.forbidAllow.includes(r), r);
   for (const r of ['WebFetch', 'WebSearch']) assert.ok(!canonical.forbidAllow.includes(r), r);
+});
+check('canonical: hookOptions holds exactly the two PreToolUse guards with onFailure block and timeout 10', () => {
+  assert.deepStrictEqual(canonical.hookOptions, GUARDS);
 });
 check('rtkTwin: Bash(inner) -> Bash(rtk inner); rtk-prefixed and non-Bash rules have no twin', () => {
   assert.strictEqual(rtkTwin('Bash(git push -f*)'), 'Bash(rtk git push -f*)');
@@ -218,6 +228,147 @@ check('--keep-allow: allow-only drift is in sync (no write, no backup); plain --
   assert.deepStrictEqual(backups(fx.settings), []);
   assert.strictEqual(sync(fx).code, 0);
   assert.deepStrictEqual(read(fx.settings).permissions.allow, ['WebFetch']);
+});
+
+// --- hook options: the two guards' onFailure/timeout from the canonical file ---
+const H = (command, extra = {}) => ({ type: 'command', command, ...extra });
+const PD = 'node ~/.claude/scripts/guard-push-delete.js';
+const WE = 'node ~/.claude/scripts/guard-worktree-edit.js';
+const SET = { onFailure: 'block', timeout: 10 };
+const hooksFx = (hooks, perms = { ask: SMALL_ASK }) => fixture({ permissions: perms, hooks });
+check('hook options: unset fields are set on the matched handlers only; other handlers, other events and order are kept', () => {
+  const fx = hooksFx({
+    PreToolUse: [{ matcher: 'Bash', hooks: [H(PD), H('node ~/.claude/scripts/other.js')] }, { matcher: 'Edit|Write|NotebookEdit', hooks: [H(WE)] }],
+    Stop: [{ hooks: [H(PD)] }],
+  });
+  const r = sync(fx);
+  assert.strictEqual(r.code, 0, r.err);
+  const h = read(fx.settings).hooks;
+  assert.deepStrictEqual(h.PreToolUse[0].hooks, [H(PD, SET), H('node ~/.claude/scripts/other.js')]);
+  assert.deepStrictEqual(h.PreToolUse[1].hooks, [H(WE, SET)]);
+  assert.deepStrictEqual(h.Stop, [{ hooks: [H(PD)] }]);
+  assert.ok(r.out.includes('~ hook options to set (4):'), r.out);
+  assert.ok(r.out.includes('PreToolUse guard-push-delete.js onFailure: (unset) -> "block"'), r.out);
+  assert.ok(r.out.includes('PreToolUse guard-worktree-edit.js timeout: (unset) -> 10'), r.out);
+  assert.ok(!r.out.includes('~/.claude/scripts') && !r.out.includes('hook not registered'), r.out);
+  assert.strictEqual(sync(fx, '--check').code, 0);
+});
+check('hook options: a partial handler gets only the missing field; a string "10" timeout is replaced; same values are in sync', () => {
+  const fx = hooksFx({ PreToolUse: [{ matcher: 'Bash', hooks: [H(PD, { onFailure: 'block', timeout: '10' })] }, { matcher: 'Edit', hooks: [H(WE, SET)] }] });
+  const r = sync(fx, '--check');
+  assert.strictEqual(r.code, 1, r.out);
+  assert.ok(r.out.includes('~ hook options to set (1):') && r.out.includes('timeout: "10" -> 10'), r.out);
+  assert.strictEqual(sync(fx).code, 0);
+  assert.deepStrictEqual(read(fx.settings).hooks.PreToolUse[0].hooks, [H(PD, SET)]);
+  const once = fs.readFileSync(fx.settings, 'utf8');
+  assert.strictEqual(sync(fx).code, 0);
+  assert.strictEqual(fs.readFileSync(fx.settings, 'utf8'), once);
+  assert.strictEqual(backups(fx.settings).length, 1);
+});
+check('hook options: a redirect is not a chain; an empty SYNC_PERMISSIONS_CLAUDE_VERSION falls back to `claude --version`', () => {
+  const fx = hooksFx({ PreToolUse: [{ matcher: 'Bash', hooks: [H('node ~/.claude/scripts/guard-push-delete.js 2>&1')] }, { matcher: 'Edit', hooks: [H(WE, SET)] }] });
+  const r = spawnSync('node', [SYNC, '--settings', fx.settings, '--rules', fx.rules, '--check'], { encoding: 'utf8', env: { ...process.env, SYNC_PERMISSIONS_CLAUDE_VERSION: '' } });
+  assert.ok(!r.stdout.includes('wrapped command'), r.stdout);
+  // with `claude` on PATH (2.1.318 here) the handler drifts; without it the options are skipped — both prove the fallback ran
+  assert.ok(r.stdout.includes('~ hook options to set (2):') || r.stdout.includes('hook options skipped: Claude Code version unknown'), r.stdout);
+});
+check('hook options: --keep-allow does not change them', () => {
+  const fx = hooksFx({ PreToolUse: [{ matcher: 'Bash', hooks: [H(PD)] }, { matcher: 'Edit', hooks: [H(WE)] }] }, { allow: ['Bash'], ask: SMALL_ASK });
+  assert.strictEqual(sync(fx, '--check', '--keep-allow').code, 1);
+  assert.strictEqual(sync(fx, '--keep-allow').code, 0);
+  const s = read(fx.settings);
+  assert.deepStrictEqual(s.permissions.allow, ['Bash']);
+  assert.deepStrictEqual(s.hooks.PreToolUse.map((g) => g.hooks[0].onFailure), ['block', 'block']);
+});
+check('hook options: matching is by exact basename token — exec form args (any element), quoted and backslash paths, twice registered', () => {
+  const fx = hooksFx({ PreToolUse: [{ matcher: 'Bash', hooks: [
+    { type: 'command', command: 'node', args: ['C:/Users/u/.claude/scripts/guard-push-delete.js', '--x'] },
+    H('node "C:/Users/u/.claude/scripts/guard-push-delete.js"'),
+    H('node C:\\Users\\u\\.claude\\scripts\\guard-worktree-edit.js 2>/dev/null'),
+    H('node ~/.claude/scripts/guard-worktree-edit.js'),
+  ] }] });
+  const r = sync(fx);
+  assert.strictEqual(r.code, 0, r.err);
+  const hs = read(fx.settings).hooks.PreToolUse[0].hooks;
+  assert.ok(hs.every((h) => h.onFailure === 'block' && h.timeout === 10), JSON.stringify(hs));
+  assert.ok(r.out.includes('~ hook options to set (8):'), r.out);
+});
+check('hook options: a prefix-colliding name, an http handler, another event and a wrapped command are not changed', () => {
+  const wrapped = '[ -r x ] && node ~/.claude/scripts/guard-push-delete.js; true';
+  const hooks = { PreToolUse: [{ matcher: 'Bash', hooks: [
+    H('node ~/.claude/scripts/old-guard-push-delete.js'),
+    { type: 'http', url: 'http://localhost/guard-push-delete.js' },
+    H(wrapped),
+    H('node ~/.claude/scripts/guard-push-delete.js &'),
+    H('node ~/.claude/scripts/guard-push-delete.js\ntrue'),
+    H('echo $(node ~/.claude/scripts/guard-push-delete.js)'),
+  ] }, { matcher: 'Edit', hooks: [H(WE, SET)] }], Stop: [{ hooks: [H(PD)] }] };
+  const fx = hooksFx(hooks);
+  const r = sync(fx, '--check');
+  assert.strictEqual(r.code, 0, r.out);
+  assert.deepStrictEqual(read(fx.settings).hooks, hooks);
+  assert.ok(r.out.includes('wrapped command') && r.out.includes('guard-push-delete.js'), r.out);
+  assert.ok(!r.out.includes('hook options to set'), r.out);
+});
+check('hook options: a guard that is not registered is reported even when in sync, is not drift, and no hooks key is created', () => {
+  const fx = fixture({ permissions: { ask: SMALL_ASK } });
+  const r = sync(fx, '--check');
+  assert.strictEqual(r.code, 0, r.out);
+  assert.ok(r.out.includes('hook not registered: guard-push-delete.js, guard-worktree-edit.js'), r.out);
+  assert.ok(r.out.includes('settings.local.json'), r.out);
+  const fx2 = fixture(undefined);
+  assert.strictEqual(sync(fx2).code, 0);
+  assert.deepStrictEqual(Object.keys(read(fx2.settings)), ['permissions']);
+  const fx3 = hooksFx({ PreToolUse: [{ matcher: 'Bash', hooks: [H(PD)] }] });
+  const r3 = sync(fx3, '--check');
+  assert.strictEqual(r3.code, 1);
+  assert.ok(r3.out.includes('hook not registered: guard-worktree-edit.js') && !r3.out.includes('registered: guard-push-delete.js'), r3.out);
+});
+check('hook options: a malformed hooks.PreToolUse is refused (exit 2, no write); other events are not inspected', () => {
+  for (const hooks of [[], { PreToolUse: {} }, { PreToolUse: ['x'] }, { PreToolUse: [{ hooks: {} }] }, { PreToolUse: [{ hooks: [1] }] }]) {
+    const fx = hooksFx(hooks);
+    const original = fs.readFileSync(fx.settings, 'utf8');
+    const r = sync(fx);
+    assert.strictEqual(r.code, 2, JSON.stringify(hooks) + r.out + r.err);
+    assert.ok(r.err.includes('hooks'), r.err);
+    assert.strictEqual(fs.readFileSync(fx.settings, 'utf8'), original);
+    // the shape is checked before the version gate, so an older Claude Code refuses the same file
+    const old = spawnSync('node', [SYNC, '--settings', fx.settings, '--rules', fx.rules], { encoding: 'utf8', env: { ...process.env, SYNC_PERMISSIONS_CLAUDE_VERSION: '2.1.200' } });
+    assert.strictEqual(old.status, 2, old.stdout + old.stderr);
+    assert.strictEqual(fs.readFileSync(fx.settings, 'utf8'), original);
+  }
+  const ok = hooksFx({ Stop: 'not an array', PreToolUse: [{ matcher: 'Bash', hooks: [H(PD, SET)] }, { matcher: 'Edit', hooks: [H(WE, SET)] }] });
+  assert.strictEqual(sync(ok, '--check').code, 0);
+});
+check('hook options: a rules file without hookOptions still works; invalid or duplicate entries are refused (exit 2)', () => {
+  const { hookOptions, ...noHooks } = SMALL;
+  assert.strictEqual(sync(fixture({ permissions: { ask: SMALL_ASK } }, noHooks), '--check').code, 0);
+  const bad = [
+    [GUARDS[0], GUARDS[0]],
+    [{ ...GUARDS[0], onFailure: 'maybe' }],
+    [{ ...GUARDS[0], timeout: 0 }], [{ ...GUARDS[0], timeout: -1 }], [{ ...GUARDS[0], timeout: 1.5 }], [{ ...GUARDS[0], timeout: '10' }],
+    [{ ...GUARDS[0], script: '' }], [{ ...GUARDS[0], script: 'scripts/guard-push-delete.js' }],
+    [{ ...GUARDS[0], event: 7 }], 'x',
+  ];
+  for (const hookOptions of bad) {
+    const fx = fixture({ permissions: { ask: [] } }, { ...SMALL, hookOptions });
+    const r = sync(fx);
+    assert.strictEqual(r.code, 2, JSON.stringify(hookOptions) + r.err);
+    assert.ok(r.err.includes('hookOptions'), r.err);
+    assert.deepStrictEqual(read(fx.settings), { permissions: { ask: [] } });
+  }
+});
+
+check('hook options: an older or unknown Claude Code version skips them with a note and no change', () => {
+  for (const [ver, note] of [['2.1.294 (Claude Code)', 'older than 2.1.295'], ['garbage', 'version unknown']]) {
+    const fx = hooksFx({ PreToolUse: [{ matcher: 'Bash', hooks: [H(PD)] }, { matcher: 'Edit', hooks: [H(WE)] }] });
+    const original = fs.readFileSync(fx.settings, 'utf8');
+    const r = spawnSync('node', [SYNC, '--settings', fx.settings, '--rules', fx.rules, '--check'], { encoding: 'utf8', env: { ...process.env, SYNC_PERMISSIONS_CLAUDE_VERSION: ver } });
+    assert.strictEqual(r.status, 0, r.stdout + r.stderr);
+    assert.ok(r.stdout.includes('hook options skipped') && r.stdout.includes(note), r.stdout);
+    assert.ok(!r.stdout.includes('hook not registered'), r.stdout);
+    assert.strictEqual(fs.readFileSync(fx.settings, 'utf8'), original);
+  }
 });
 
 // --- errors: never write ---

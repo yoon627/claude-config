@@ -236,12 +236,12 @@ else
   sp_out=$(node scripts/sync-permissions.js --check --settings settings.json 2>&1)
   sp_rc=$?
   sp_n() { printf '%s\n' "$sp_out" | sed -n "s/^  $1 (\([0-9][0-9]*\)):\$/\1/p"; }
-  sp_add=$(sp_n '+ ask rules to add'); sp_retire=$(sp_n '- ask rules to retire'); sp_allow=$(sp_n '- allow rules to remove')
+  sp_add=$(sp_n '+ ask rules to add'); sp_retire=$(sp_n '- ask rules to retire'); sp_allow=$(sp_n '- allow rules to remove'); sp_hook=$(sp_n '~ hook options to set')
   case "$sp_rc" in
     0) OK "승인 규칙: ask 가 정본과 같다" ;;
     1)
-      if [ -n "$sp_add$sp_retire" ]; then
-        W "승인 규칙 drift: ask 추가 ${sp_add:-0}개 · 은퇴 ${sp_retire:-0}개 — node scripts/sync-permissions.js --keep-allow"
+      if [ -n "$sp_add$sp_retire$sp_hook" ]; then
+        W "승인 규칙 drift: ask 추가 ${sp_add:-0}개 · 은퇴 ${sp_retire:-0}개 · hook 옵션 ${sp_hook:-0}개 — node scripts/sync-permissions.js --keep-allow"
       elif [ -n "$sp_allow" ]; then
         OK "승인 규칙: ask 가 정본과 같다"
       else
@@ -252,6 +252,13 @@ else
   esac
   # 도구 이름만 쓴 allow 의 제거는 머신별 결정이라(공용 wiki claude-code-permission-prompt-sources) warn 으로 세지 않는다.
   [ "$sp_rc" = 1 ] && [ -n "$sp_allow" ] && I "도구 이름만 쓴 allow ${sp_allow}개(정본 forbidAllow) — 제거는 머신별 결정(--keep-allow 없이 적용)"
+  # 가드 hook 이 등록돼 있지 않으면 sync 는 고치지 못한다(README 설치 절차) — drift 는 아니지만 두 가드는 유일한 가드라 warn.
+  sp_missing=$(printf '%s\n' "$sp_out" | sed -n 's/^ *hook not registered: \(.*\) — .*$/\1/p')
+  [ -n "$sp_missing" ] && W "가드 hook 미등록: $sp_missing — settings.json hooks 에 등록(README guard-push-delete.js 설치 절차)"
+  sp_wrapped=$(printf '%s\n' "$sp_out" | sed -n 's/^ *wrapped command — set by hand: //p' | tr '\n' ' ')
+  [ -n "$sp_wrapped" ] && W "가드 hook 이 셸로 이어진 명령이라 onFailure 를 넣지 않음(손으로 설정): $sp_wrapped"
+  sp_skipped=$(printf '%s\n' "$sp_out" | sed -n 's/^ *hook options skipped: //p')
+  [ -n "$sp_skipped" ] && I "hook 옵션 건너뜀: $sp_skipped"
 fi
 
 echo "== 요약: error=$err warn=$warn (info 는 수동 확인 권고; deep=$DEEP) =="

@@ -1,0 +1,20 @@
+# Review Disposition
+- plan-reviewer(CONDITIONAL, 2026-11-07)
+  - S1 `hookMissing` 정보 줄이 in sync 조기 반환 뒤라 절대 안 찍힘 — fix: in sync 줄에 붙이고 점검 13 이 warn.
+  - S2 점검 13 의 warn 조건이 `$sp_add$sp_retire` 만 — hook drift 가 bare allow 와 함께면 ok 로, 단독이면 "못 읽음" 으로 — fix: `$sp_add$sp_retire$sp_hook`, hook+allow 케이스.
+  - S3 매칭 규칙 미정(접두 충돌·따옴표·뒤 인자·역슬래시·wrapper·args) — fix: 토큰 basename 정확 일치, args 는 어느 원소든, command 타입만, wrapper 는 정보 줄.
+  - S4 잘못된 hooks 모양의 정책 없음 — fix: `hooks.PreToolUse` 경로만 fail-closed exit 2, `hooks` 없으면 키 안 만듦.
+  - S5 정본 중복 entry 로 멱등 깨짐 — fix: `loadRules` 거부.
+  - W 버전(옛 버전이 모르는 키) — researcher 로. W 복구·되돌리기 손잡이 — fix: README. W timeout 덮어쓰기 — 결정 기록(정본이 이김). W settings.local/project — fix: 정보 줄에 명시. W N 의 단위 — handler×필드. W 문서 목록 — fix: 확장. W 기존 improve fixture — fix: 기대 갱신. 누락 시나리오 — fix: 테스트 목록에 추가. 실데이터 dry-run — fix: Acceptance 5.
+- code-reviewer 1차(NEEDS DISCUSSION — Critical/Major 없음, 2026-11-07)
+  - Minor [plan 대비] 버전 소스 우선순위가 문서("claude --version, 없으면 env")와 코드(env 우선) 가 반대 — fix: 문서·plan 을 코드에 맞춤(env 는 override), 빈 env 는 없음으로. 바뀐 쪽: 문서.
+  - Minor `/improve` 가 `wrapped command — set by hand` 줄을 보지 않음 — fix: warn 으로 추출, 테스트. 그 테스트가 `…guard-push-delete.js; true` 처럼 경로 뒤에 붙은 `;` 로 토큰이 안 맞는 결함을 드러내 토큰 분리 문자에 `;`·`&`·`|` 추가(sync 테스트의 wrapper 케이스도 그 형태로).
+  - Minor `isChained` 가 `&`·개행·`$(`·백틱을 못 봄 — fix: 문자 클래스 확장.
+  - PLAUSIBLE Windows npm 설치의 `claude.cmd` 를 `spawnSync` 가 못 찾아 "unknown" → 건너뜀 — fix: win32 는 `shell: true`. 미실행(이 세션은 Linux).
+  - Minor SKILL.md 괄호가 건너뜀 문장에 붙어 뜻이 바뀜 — fix: 자리 복원.
+  - Nit 버전 게이트가 모양 검사보다 먼저라 옛 버전에서 잘못된 hooks 가 exit 0 — fix: 모양 검사를 먼저. Nit README "끝나는 것" → "마지막 경로 조각이 정확히 같은 것" — fix. Nit hookOptions 가 비어도 `claude --version` 실행 — fix: 필요할 때만. Nit exec form `bash -c "…"` 는 미등록 warn(거짓 경고 쪽) — accepted-risk. Nit event 를 제한하지 않음 — wontfix(정본은 PreToolUse 만, 문서가 효과 없는 event 를 적어 둠).
+  - ⚠️ (구현) 버전 게이트 — accepted-risk(우선순위 서술만 정정). ⚠️ (구현) wrapper 판정 — resolved(문자 확장). ⚠️ (구현) 토큰 따옴표 — resolved(근거 문장을 리뷰어 재현대로 정정).
+  - 열린 질문: PATH 의 `claude` 와 다른 소비자(IDE 번들 CLI 등)가 같은 settings.json 을 옛 버전으로 읽는 경우는 게이트가 보호하지 못한다 — README 의 2.1.295 안내로만.
+- code-reviewer 재확인(APPROVE, 2026-11-07)
+  - Minor Windows 에서 args + `shell: true` 는 DEP0190 경고 — fix: 상수 명령 문자열 하나로. Minor 게이트 순서·빈 env·새 체인 문자에 테스트 없음 — fix: 3건 추가(42/42).
+  - Nit `2>&1` 이 체인으로 잡힘 — fix: 리다이렉트 제거 뒤 판정. Nit 게이트 주석 방향 — fix.

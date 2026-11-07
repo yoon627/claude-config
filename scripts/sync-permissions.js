@@ -16,6 +16,15 @@
 // something changes. Formatting-only differences are not drift: the file is rewritten only when a
 // rule changes.
 //
+// `hookOptions` entries ({event, script, onFailure, timeout}) set those two fields on every
+// hooks.<event> handler of type "command" whose command string or exec-form args names that script
+// (exact basename token). onFailure needs Claude Code 2.1.295+, and an older CLI may drop the unknown
+// key or reject the file, so the hook options are applied only when `claude --version` (or
+// SYNC_PERMISSIONS_CLAUDE_VERSION) is at least that; otherwise they are skipped with a note. A guard
+// script that is not registered at all is reported but is not drift (registering is the README install
+// step), and a handler whose command chains with ; && || | is left alone (a `; true` tail swallows the
+// failure the option is meant to catch).
+//
 // Exit codes: 0 in sync or written · 1 drift (--check only) · 2 error (unreadable JSON or rules,
 // bad arguments, write failure, anything unexpected).
 'use strict';
@@ -27,6 +36,8 @@ const path = require('path');
 const RULES_DEFAULT = path.join(__dirname, 'permission-rules.json');
 const SETTINGS_DEFAULT = path.join(os.homedir(), '.claude', 'settings.json');
 const USAGE = 'usage: node scripts/sync-permissions.js [--settings <path>] [--rules <path>] [--check | --dry-run] [--keep-allow]';
+const HOOK_MIN_VERSION = [2, 1, 295];
+const HOOK_FIELDS = ['onFailure', 'timeout'];
 
 class Failure extends Error {}
 
@@ -72,7 +83,89 @@ function loadRules(file) {
   for (const r of withTwins(rules.retireAsk)) {
     if (asked.has(r)) throw new Failure(`rules file: "${r}" is in both ask and retireAsk (twins included)`);
   }
+  if (rules.hookOptions === undefined) rules.hookOptions = [];
+  if (!Array.isArray(rules.hookOptions)) throw new Failure(`rules file: "hookOptions" must be an array: ${file}`);
+  const seen = new Set();
+  for (const h of rules.hookOptions) {
+    const bad = (why) => new Failure(`rules file: hookOptions entry ${JSON.stringify(h)} ${why}`);
+    if (!isObject(h)) throw bad('is not an object');
+    if (typeof h.event !== 'string' || !h.event) throw bad('needs a string "event"');
+    if (typeof h.script !== 'string' || !/^[^\\/\s]+$/.test(h.script)) throw bad('needs a bare script file name in "script"');
+    if (h.onFailure !== 'continue' && h.onFailure !== 'block') throw bad('needs "onFailure" of "continue" or "block"');
+    if (!Number.isInteger(h.timeout) || h.timeout <= 0) throw bad('needs a positive integer "timeout" (seconds)');
+    // Two entries for one handler would make every run rewrite the file.
+    const key = `${h.event}\t${h.script}`;
+    if (seen.has(key)) throw bad('names the same event and script twice');
+    seen.add(key);
+  }
   return rules;
+}
+
+// claudeVersion -> [major, minor, patch] from SYNC_PERMISSIONS_CLAUDE_VERSION (an override — it wins
+// when set and non-empty) or `claude --version`, or null when neither gives a version. On Windows an
+// npm install is only a claude.cmd shim, which spawnSync finds only through the shell.
+function claudeVersion() {
+  let text = process.env.SYNC_PERMISSIONS_CLAUDE_VERSION;
+  if (!text) {
+    // One constant command string under the shell: args plus shell:true is deprecated (DEP0190).
+    const r = process.platform === 'win32'
+      ? require('child_process').spawnSync('claude --version', { encoding: 'utf8', timeout: 5000, windowsHide: true, shell: true })
+      : require('child_process').spawnSync('claude', ['--version'], { encoding: 'utf8', timeout: 5000, windowsHide: true });
+    text = r.status === 0 ? r.stdout : '';
+  }
+  const m = /(\d+)\.(\d+)\.(\d+)/.exec(text || '');
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+const versionAtLeast = (v, min) => v !== null && (v[0] - min[0] || v[1] - min[1] || v[2] - min[2]) >= 0;
+
+// handlerNames(handler, script): true when a command-type handler runs that script — the last
+// path segment of a token of `command` (split on whitespace and the shell operators ; & |, quotes
+// stripped), or of any `args` element, equals the script name. Only type "command" is looked at.
+function handlerNames(h, script) {
+  if (h.type !== 'command') return false;
+  const tokens = [];
+  if (typeof h.command === 'string') tokens.push(...h.command.split(/[\s;&|]+/));
+  if (Array.isArray(h.args)) tokens.push(...h.args.filter((a) => typeof a === 'string'));
+  return tokens.some((tok) => tok.replace(/^["']|["']$/g, '').split(/[\\/]/).pop() === script);
+}
+// A redirect such as 2>&1 is not a chain, so its & is removed before the test.
+const isChained = (h) => typeof h.command === 'string' && /[;&|\n`]|\$\(/.test(h.command.replace(/\d*>&\d/g, ''));
+
+// hookPlan(settings, rules, version) -> { hooks (next value or undefined), set, wrapped, missing, skipped }
+function hookPlan(settings, rules, version) {
+  const out = { hooks: undefined, set: [], wrapped: [], missing: [], skipped: null };
+  if (rules.hookOptions.length === 0) return out;
+  // The version gate only marks the result skipped; the walk below still validates the shape, so a
+  // malformed file is refused the same way on every machine.
+  if (!versionAtLeast(version, HOOK_MIN_VERSION)) {
+    out.skipped = version ? `Claude Code ${version.join('.')} is older than ${HOOK_MIN_VERSION.join('.')}` : 'Claude Code version unknown (claude --version failed; set SYNC_PERMISSIONS_CLAUDE_VERSION)';
+  }
+  const hooks = settings.hooks;
+  if (hooks !== undefined && !isObject(hooks)) throw new Failure('"hooks" is not a JSON object — nothing written');
+  const next = hooks === undefined ? undefined : JSON.parse(JSON.stringify(hooks));
+  for (const want of rules.hookOptions) {
+    const groups = next === undefined ? undefined : next[want.event];
+    if (groups !== undefined && !Array.isArray(groups)) throw new Failure(`"hooks.${want.event}" is not an array — nothing written`);
+    let found = 0;
+    for (const g of groups || []) {
+      if (!isObject(g) || (g.hooks !== undefined && !Array.isArray(g.hooks))) throw new Failure(`"hooks.${want.event}" has a malformed group — nothing written`);
+      for (const h of g.hooks || []) {
+        if (!isObject(h)) throw new Failure(`"hooks.${want.event}" has a malformed handler — nothing written`);
+        if (!handlerNames(h, want.script)) continue;
+        found++;
+        if (isChained(h)) { out.wrapped.push(`${want.event} ${want.script}`); continue; }
+        for (const f of HOOK_FIELDS) {
+          if (h[f] === want[f]) continue;
+          out.set.push(`${want.event} ${want.script} ${f}: ${h[f] === undefined ? '(unset)' : JSON.stringify(h[f])} -> ${JSON.stringify(want[f])}`);
+          h[f] = want[f];
+        }
+      }
+    }
+    if (found === 0) out.missing.push(want.script);
+  }
+  if (out.skipped) return { ...out, hooks: undefined, set: [], wrapped: [], missing: [] };
+  out.hooks = next;
+  return out;
 }
 
 // readSettings -> { exists, settings }; a missing file is an empty object, anything else must be a
@@ -95,7 +188,7 @@ function readSettings(file) {
   return { exists: true, settings };
 }
 
-// plan(settings, rules, { keepAllow }) -> { next, addAsk, retireAsk, removeAllow, localOnly, drift }
+// plan(settings, rules, { keepAllow, claudeVersion }) -> { next, addAsk, retireAsk, removeAllow, localOnly, hook, drift }
 function plan(settings, rules, opts = {}) {
   const perms = settings.permissions === undefined ? {} : settings.permissions;
   if (!isObject(perms)) throw new Failure('"permissions" is not a JSON object — nothing written');
@@ -121,8 +214,19 @@ function plan(settings, rules, opts = {}) {
     removeAllow = perms.allow.filter((r) => forbid.has(r));
     next.permissions.allow = perms.allow.filter((r) => !forbid.has(r));
   }
-  const drift = addAsk.length + retireAsk.length + removeAllow.length > 0;
-  return { next, addAsk, retireAsk, removeAllow, localOnly, drift };
+  const hook = hookPlan(settings, rules, opts.claudeVersion === undefined ? null : opts.claudeVersion);
+  if (hook.hooks !== undefined) next.hooks = hook.hooks;
+  const drift = addAsk.length + retireAsk.length + removeAllow.length + hook.set.length > 0;
+  return { next, addAsk, retireAsk, removeAllow, localOnly, hook, drift };
+}
+
+// hookNotes(p) -> lines about hook options that are not drift (printed in sync or not)
+function hookNotes(p) {
+  const lines = [];
+  if (p.hook.skipped) lines.push(`hook options skipped: ${p.hook.skipped}`);
+  for (const w of p.hook.wrapped) lines.push(`wrapped command — set by hand: ${w}`);
+  if (p.hook.missing.length) lines.push(`hook not registered: ${p.hook.missing.join(', ')} — register them in settings.json hooks (README guard-push-delete.js); settings.local.json and project settings are not read`);
+  return lines;
 }
 
 function report(file, p, exists) {
@@ -135,7 +239,9 @@ function report(file, p, exists) {
   list('+ ask rules to add', p.addAsk);
   list('- ask rules to retire', p.retireAsk);
   list('- allow rules to remove', p.removeAllow);
+  list('~ hook options to set', p.hook.set);
   list('local-only ask rules (not in the canonical file, kept)', p.localOnly);
+  for (const l of hookNotes(p)) console.log(`  ${l}`);
 }
 
 function stamp() {
@@ -195,8 +301,12 @@ function main(argv) {
   const opts = parseArgs(argv);
   const rules = loadRules(opts.rules);
   const { exists, settings } = readSettings(opts.settings);
-  const p = plan(settings, rules, { keepAllow: opts.keepAllow });
-  if (!p.drift) { console.log(`sync-permissions: ${opts.settings} in sync`); return 0; }
+  const p = plan(settings, rules, { keepAllow: opts.keepAllow, claudeVersion: rules.hookOptions.length ? claudeVersion() : null });
+  if (!p.drift) {
+    console.log(`sync-permissions: ${opts.settings} in sync`);
+    for (const l of hookNotes(p)) console.log(`  ${l}`);
+    return 0;
+  }
   report(opts.settings, p, exists);
   if (opts.check) { console.log(`drift: run node scripts/sync-permissions.js${opts.keepAllow ? ' --keep-allow' : ''} to apply`); return 1; }
   if (opts.dryRun) { console.log('dry-run: nothing written'); return 0; }
