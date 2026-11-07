@@ -1,6 +1,6 @@
 ---
 title: hook-onfailure — 두 PreToolUse 가드의 onFailure·timeout 을 정본에 두고 sync 가 병합 (#257 6)
-status: in_progress
+status: done
 started: 2026-11-07
 updated: 2026-11-07
 ---
@@ -22,7 +22,7 @@ updated: 2026-11-07
 - [x] 2) improve (2026-11-07) — `skills/improve/improve.sh` 점검 13: warn 조건을 `$sp_add$sp_retire$sp_hook` 로, 문구 `ask 추가 N개 · 은퇴 N개 · hook 옵션 N개`; `hook not registered:` 줄은 README 설치 절차를 가리키는 warn · `skills/improve/improve.test.sh`: hook 옵션만 drift, hook+bare allow 만 drift(ok 로 숨지 않음), not registered warn; 기존 fixture `{"hooks":{}}` 는 not registered 상태라 기대 문구 갱신 · `skills/improve/SKILL.md` 한 줄
 - [x] 문서 (2026-11-07) — `README.md`: `permissions.ask` 정본 단락(`hookOptions`), `guard-push-delete.js` 설치 단락과 '한계' 단락(hook 프로세스 실패가 2.1.295+ 에서는 block — 복구는 Claude 밖에서 손으로 settings.json 을 고치거나 `.bak-*` 복원; 되돌리는 손잡이는 entry 삭제가 아니라 정본 값을 `continue` 로), improve 점검 13 요약, 트리 설명 2줄 · `scripts/bootstrap/README.md` settings.json 행과 멱등 bullet · `sync-permissions.js` 머리 주석 · `permission-rules.json` `$comment`
 - [x] code-reviewer → simplify 점검 → `bash scripts/verify.sh changed` (2026-11-07) — NEEDS DISCUSSION(Minor 5·Nit 5) → fix(fixup 2개) → 표적 재확인 요청 · simplify: 쓰지 않는 `handlerNames` export 제거 · `ALL PASS (skip: install-codex-skill.test.ps1 zsh)`
-- [ ] PR → CI 녹색 → 머지(`/e merge`)
+- [x] PR → CI 녹색 → 머지(`/e merge`) (2026-11-07) — PR #260
 
 # Acceptance
 1. 정본에 두 가드의 hookOptions 가 있고 `loadRules` 가 잘못된 항목(모르는 onFailure 값·음수 timeout·빈 script)을 exit 2 로 거부한다 — `sync-permissions.test.js` — 통과
