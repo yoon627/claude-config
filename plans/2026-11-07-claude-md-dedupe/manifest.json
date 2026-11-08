@@ -1,0 +1,182 @@
+[
+ {
+  "id": "i1",
+  "section": "8",
+  "oldLine": 133,
+  "deleted": "gitignored global state and non-git directories are excluded",
+  "kind": "intra",
+  "dest": {
+   "file": "CLAUDE.md",
+   "quote": "**Exception — global state with no worktree copy** (`projects/…/memory/`, `MEMORY.md`, `FEEDBACK.local.md`, `settings.local.json`, the shared wiki `wiki/`, the harness reference docs `wiki/docs/` — §11) **and non-git directories get no worktree**"
+  },
+  "pointer": "(exceptions — §3-1)"
+ },
+ {
+  "id": "i2",
+  "section": "11",
+  "oldLine": 230,
+  "deleted": "`rg`/Grep run from the `~/.claude` root skip this folder, so name the path",
+  "kind": "intra",
+  "dest": {
+   "file": "CLAUDE.md",
+   "quote": "`wiki/` in `~/.claude` (including the harness reference docs `wiki/docs/`) is ignored as well, so a search from the root skips it — when investigating impact, search that path explicitly"
+  },
+  "pointer": "Read it by the absolute path `~/.claude/wiki` (§2)."
+ },
+ {
+  "id": "i3",
+  "section": "13",
+  "oldLine": 265,
+  "deleted": "The wiki is not injected automatically; the injected paths are the global feedback files (every repo's session) and a repo's `MEMORY.md` index (that repo only).",
+  "kind": "intra",
+  "dest": {
+   "file": "CLAUDE.md",
+   "quote": "Feedback lines and `MEMORY.md` index lines are injected every session (memory bodies are recalled only when relevant)."
+  },
+  "pointer": "in the layer §12 judges"
+ },
+ {
+  "id": "i4",
+  "section": "10",
+  "oldLine": 203,
+  "deleted": "satisfied … (run, observation, pass)",
+  "kind": "intra",
+  "dest": {
+   "file": "CLAUDE.md",
+   "quote": "**Non-trivial work is done only after the plan's `# Acceptance` items (§10) are checked against evidence (run, observation, pass)**"
+  },
+  "pointer": "Done only when every item is met by evidence (§3-5, the dlc evidence gate)."
+ },
+ {
+  "id": "i5",
+  "section": "10",
+  "oldLine": 184,
+  "deleted": "pre-commit-check scans staged `plans/*.md` for tokens (+ the §8 rule against printing raw secrets)",
+  "kind": "intra",
+  "dest": {
+   "file": "CLAUDE.md",
+   "quote": "the `pre-commit-check` secret scan only looks at `settings.json` and `plans/*.md`"
+  },
+  "pointer": "(§8 — the pre-commit-check secret scan reads staged plans)"
+ },
+ {
+  "id": "d1",
+  "section": "1",
+  "oldLine": 22,
+  "deleted": "it picks axes from the changed files and skips unrelated slow tests, shown as `[slow]`; the full run is for CI and the user's periodic runs",
+  "kind": "detail",
+  "dest": {
+   "file": "skills/dlc/SKILL.md",
+   "quote": "If the repo provides a command that picks axes from the changed files, use it (`bash scripts/verify.sh changed` for `~/.claude`) — verification of every axis is left to CI and the user's periodic runs."
+  },
+  "pointer": "**`bash scripts/verify.sh changed`**"
+ },
+ {
+  "id": "d2",
+  "section": "2",
+  "oldLine": 38,
+  "deleted": "on … detaches from the harness process tree and",
+  "kind": "reason",
+  "dest": {
+   "file": "/root/.claude/wiki/pages/entity/windows-bash-tool-orphan-processes.md",
+   "quote": "Windows 에서 Claude Code Bash 도구의 작업을 시간 제한이나 TaskStop 으로 멈춰도, Git Bash(MSYS) 자식 프로세스는 끝나지 않는다."
+  },
+  "pointer": "(Windows: a `bash <script>.sh` loop survives expiry and TaskStop — [[windows-bash-tool-orphan-processes]])"
+ },
+ {
+  "id": "d3",
+  "section": "3",
+  "oldLine": 50,
+  "deleted": "written in a main session; from a worktree session, after returning; from another repo's session, as a … proposal",
+  "kind": "intra",
+  "dest": {
+   "file": "CLAUDE.md",
+   "quote": "Writes happen in a main session and are committed directly to that repo's main (§8 exception, push on request). Shared-wiki entries that come up during worktree work go into the plan log `# Deferred` and are handled in a main session."
+  },
+  "pointer": "(when it accumulates, to the shared wiki `workflow-failures.md` — §11)"
+ },
+ {
+  "id": "d4",
+  "section": "8",
+  "oldLine": 135,
+  "deleted": "since its purpose is to keep everything",
+  "kind": "detail",
+  "dest": {
+   "file": "skills/e/SKILL.md",
+   "quote": "- **Commit**: if safe, `git add -A`, then `git commit`. Message `wip: <one-line summary of the work> (e checkpoint)`"
+  },
+  "pointer": "The `/e` WIP checkpoint is the exception."
+ },
+ {
+  "id": "d6",
+  "section": "8",
+  "oldLine": 141,
+  "deleted": "work time is split by per-line `cwd`, so passing the name as an argument after returning to main also works",
+  "kind": "detail",
+  "dest": {
+   "file": "skills/e/SKILL.md",
+   "quote": "Attribution is by per-line cwd, so **even run after returning to main, the time of that worktree is captured exactly** (give the name as an argument)."
+  },
+  "pointer": "So run `/e` step 6 before the step 7 deletion."
+ },
+ {
+  "id": "d7",
+  "section": "8",
+  "oldLine": 145,
+  "deleted": "In a workflow that does not push, checking only against `origin/<default>` misjudges it as unmerged forever.",
+  "kind": "detail",
+  "dest": {
+   "file": "skills/e/SKILL.md",
+   "quote": "in a workflow that does not push, `inBase`, based on `origin/<default>`, stays false/unknown forever, so looking only at it disables the automatic cleanup"
+  },
+  "pointer": "**a merge into local main counts too**"
+ },
+ {
+  "id": "d8",
+  "section": "8",
+  "oldLine": 147,
+  "deleted": "it bundles local and remote deletion and so bypasses the separate approval of (b), and where a worktree holds main the local deletion silently drops out — case in the shared wiki `workflow-failures`",
+  "kind": "reason",
+  "dest": {
+   "file": "skills/e/SKILL.md",
+   "quote": "**No `--delete-branch`** (CLAUDE.md §8 — it bypasses the separate approval of remote deletion + local deletion fails in a worktree)."
+  },
+  "pointer": "**Do not use** `gh pr merge --delete-branch` **as a command**."
+ },
+ {
+  "id": "d9",
+  "section": "9",
+  "oldLine": 160,
+  "deleted": "in PowerShell, stdin never closes and it hangs forever",
+  "kind": "reason",
+  "dest": {
+   "file": "/root/.claude/wiki/docs/codex-review.md",
+   "quote": "when it is called with the PowerShell tool, stdin never closes and it hangs forever"
+  },
+  "pointer": "**Always call codex with the Bash tool**."
+ },
+ {
+  "id": "d11",
+  "section": "13",
+  "oldLine": 263,
+  "deleted": "\"a voluntary recording trigger without approval was not adopted\" in [[self-diagnosis-and-improvement-status]] and … \"(not automatic)\"",
+  "kind": "reason",
+  "dest": {
+   "file": "CLAUDE.md",
+   "quote": "If it is a target, propose `/wiki ingest` (not automatic)."
+  },
+  "pointer": "(the same gate as the wiki ingest proposal of §11)"
+ },
+ {
+  "id": "d12",
+  "section": "13",
+  "oldLine": 264,
+  "deleted": "Comes with an `index.md` and `log.md` sync.",
+  "kind": "detail",
+  "dest": {
+   "file": "skills/wiki/SKILL.md",
+   "quote": "9. Register in `index.md` + append to `log.md` (`## [YYYY-MM-DD] ingest | <title>`)."
+  },
+  "pointer": "**Details = a lesson page in the target layer's wiki (§11)**"
+ }
+]
